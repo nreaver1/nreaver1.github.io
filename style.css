@@ -1,0 +1,153 @@
+ul.navigation {
+    background-color: :#white;
+    display: block;
+    list-style: none;
+    margin-top: 0;
+    margin-bottom: 50px;
+    width: 100%;
+    height: 15px;
+}
+
+ul.navigation li {
+    display: inline-block;
+    float: left;
+}
+
+ul.navigation a {
+    color: black;
+    display: block;
+    padding: 10px;
+    text-decoration: none;
+}
+
+ul.navigation a:hover {
+    background-color: black;
+    color: white;
+}
+
+/* unvisited link */
+a:link {
+    color: rgb(255, 0, 0);
+}
+
+/* visited link */
+a:visited {
+    color: rgb(0, 255, 0);
+}
+
+/* mouse over link */
+a:hover {
+    color: rgb(255, 0, 255);
+}
+
+/* selected link */
+a:active {
+    color: rgb(0, 0, 255);
+}
+
+.row {
+    width: 100%;
+}
+
+.column {
+    float: left;
+}
+
+.column-75 {
+    width: 75%;
+    background-color: rgb(0, 0, 255);
+}
+
+.column-25 {
+    width: 25%;
+    background-color: rgb(0, 255, 0);
+}
+
+p {
+    color: #ff0000;
+    font-family: inherit;
+    font-size: 28px;
+}
+
+#red-herring {
+    color: rgb(255, 0, 0);
+    font-size: 20px
+}
+
+#orange-sherbert {
+    color: orange;
+    font-size: 40px
+}
+
+.navigation {
+    list-style: none;
+}
+
+.navigation-link {
+    font-size: large;
+}
+
+.text-paragraph {
+    font-size: 29px
+}
+
+.link-paragraph {
+    font-size: 80px
+}
+
+img {
+    display: block;
+    height: auto;
+    width: 200px;
+    margin: auto;
+    border: 10px solid rgb(10, 90, 30)
+}
+
+h1 {
+    color: rgb(230, 12, 222);
+    font-size: 40px
+}
+
+h5 em {
+    color: rgb(255, 0, 255)
+}
+
+p strong {
+    color: rgb(255, 255, 0)
+}
+
+li {
+    color: rgb(5, 5, 5);
+    font-family: sans-serif;
+    font-size: 29px
+}
+
+/* The last number  in rgb is transparency
+           /* the value must be between 1 and 0 */
+table {
+    background-color: rgb(89, 89, 150, .6);
+    padding-top: 25px;
+    padding-bottom: 25px;
+    padding-left: 500px;
+    padding-right: 500px;
+    border: 20px solid rgb(200, 200, 50);
+    margin: 45px;
+}
+
+#splash1 {
+    /* fixed tells the image to stay in position */
+    background-attachment: fixed;
+    background-image: url(splash1.jpg);
+    /*backround-position is to set where it will be vertically and horizontally, (i.e. center center)*/
+    background-position: center center;
+    background-repeat: repeat;
+    background-size: cover;
+    height: 100px;
+    width: 100%;
+    margin: 0;
+}
+
+body {
+    background-color: rgb(1, 200, 90, .5);
+    font-family: serif;
+}
