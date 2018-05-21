@@ -109,7 +109,8 @@ h1 {
 }
 
 h5 em {
-    color: rgb(255, 0, 255)
+    color: rgb(255, 0, 255);
+    font-size: 60px;
 }
 
 p strong {

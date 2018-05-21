@@ -6,9 +6,22 @@
         &copy;Content Title &copy;
     </title>
 
+    <!-- rel is the relationship that the linked resource has to the
+    document from which its referenced
+    in most cases, this will just be "stylesheet"-->
+
+
+    <!-- href is short for a Hypertext reference -->
+
+
     <link rel="stylesheet" type="text/css" href="style.css">
 
 </head>
+
+  <!-- everything within the <body> tag is what the user
+    will see, so the majority of your code should
+    be inside of it -->
+
 
 <body>
 
@@ -25,6 +38,16 @@
     </ul>
   </nav>
 
+    <!-- ul stands for an unordered list;
+    by defualt this will usually be bullet points
+    ul vs. ol = shopping list vs. a recipe
+
+
+    li stands for list item
+
+
+   -->
+
 
     <ul id="colorful-list">
       <li id="red-herring">
@@ -39,6 +62,12 @@
 
     <div id="splash1">
       </div>
+
+
+      <!-- th = table heading
+          tr = table row
+          td = table data
+      -->
 
 
     <table border="1">
@@ -64,6 +93,9 @@
 
         </tr>
     </table>
+
+    <!-- ol is short for ordered list;
+    by defualt this will be numbered -->
 
     <ol>
         <li>
@@ -103,9 +135,43 @@
 
     </ul>
 
+
+    <!-- below is two different ways to show
+        the same picture
+
+        note that the <img> tag doesn'<table>
+        require an end tag ( </tag> )
+
+        src is the URL of an image, so whatever the image
+        src is, the image will be pulled from that location
+
+        the alt attribute specifies an alternate text
+        for an image
+
+        [[helps boost website ranking in search engines]]
+
+    -->
+
+
     <img src="https://marketingland.com/wp-content/ml-loads/2015/11/content-marketing-writing-pencils-ss-1920-800x450.jpg" />
 
     <img src="contentimage1.jpg" alt="Content Picture" />
+
+
+    <!-- p stands for paragraph
+        a new paragraph means the content will
+        start on a new line
+    -->
+
+
+    <!-- a stands for anchor, which will be a hyperlink
+
+      the   target="_blank"   code will force the link
+      to open in a seperate window
+
+    -->
+
+
 
     <p class="link-paragraph">
         <a href="second.html" target="_blank">
@@ -125,9 +191,46 @@
 
  </p>
 
+
+        <!-- six different headings
+
+            h1
+            h2
+            h3
+            h4
+            h5
+            h6
+
+            the numbers actually mean priority, not size
+            however the defualt on most browsers will
+            have the 1 tag be the largest font, while
+            the 6 tag is the smallest
+
+
+        -->
+
+
+
     <h1>
     Behold your content
          </h1>
+
+
+         <!-- the class attribute is for the css;
+
+              if you want different paragraphs to be
+              different styles
+         -->
+
+
+
+         <!-- the em tag stands for emphasis;
+              by default this is usually italicized
+
+              the strong tag by default is bolded
+         -->
+
+
 
     <p class="text-paragraph">
         This is <em>your</em> content.
@@ -141,13 +244,35 @@
         This <strong>is also</strong> your content.
     </p>
 
+
+
+    <!-- css example :
+
+        specific tags -
+
+
+
+    -->
+
     <h5>
      Even <em>more</em> content
           </h5>
 
+
+          <!-- -->
+
+
+
     <p class="text-paragraph">
         This <strong>is still</strong> <em>your</em> content.
     </p>
+
+
+      <!-- this jibberish right here is a way
+      for html do make weird symbols
+      -->
+
+
 
     <p class="text-paragraph">
     &#8752;&#8752;&#8752;
