@@ -20,7 +20,7 @@ console.log("Dog cat or elephant");
 
 document.write("whatever text you want");
 
-document.write("14.03");
+// document.write("14.03");
 
 function listanimals() {
   console.log("Dog and a");
