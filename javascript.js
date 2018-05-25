@@ -6,7 +6,7 @@ console.log("Dog cat or elephant");
 
 /*  'alert' is a pop-up when you load the page */
 
-// alert("THIS IS NOT A DRILL");
+alert("THIS IS NOT A DRILL");
 // alert("DRILL")
 // alert("Okay")
 // alert("Okay")
