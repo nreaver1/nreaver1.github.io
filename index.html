@@ -1,289 +1,527 @@
-<!doctype html>
-<html>
-
+<!DOCTYPE html>
+<html lang="en">
 <head>
-    <title>
-        &copy;Content Title &copy;
-    </title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>NEXUS // Campaign Dashboard</title>
+  <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@400;700;900&family=Rajdhani:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg:        #060809;
+      --bg2:       #0a0d12;
+      --panel:     #0b0f18;
+      --border:    #1a2a3a;
+      --amber:     #d4860a;
+      --gold:      #f0a832;
+      --gold-hot:  #ffe066;
+      --cyan:      #0ef0d0;
+      --cyan-dim:  #0a8a78;
+      --red:       #e03c3c;
+      --green:     #3ce08a;
+      --text:      #c8d8f0;
+      --text-dim:  #3a5070;
+      --glow-g:    rgba(240,168,50,0.2);
+      --glow-c:    rgba(14,240,208,0.15);
+    }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { scroll-behavior: smooth; }
 
-    <!-- rel is the relationship that the linked resource has to the
-    document from which its referenced
-    in most cases, this will just be "stylesheet"-->
+    body {
+      background: var(--bg);
+      background-image:
+        radial-gradient(ellipse at 15% 20%, rgba(14,240,208,0.04) 0%, transparent 50%),
+        radial-gradient(ellipse at 85% 80%, rgba(240,168,50,0.05) 0%, transparent 50%),
+        repeating-linear-gradient(0deg, transparent, transparent 59px, rgba(14,240,208,0.025) 59px, rgba(14,240,208,0.025) 60px),
+        repeating-linear-gradient(90deg, transparent, transparent 59px, rgba(14,240,208,0.015) 59px, rgba(14,240,208,0.015) 60px);
+      font-family: 'Rajdhani', sans-serif;
+      color: var(--text);
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
 
+    /* scanlines */
+    body::before {
+      content: '';
+      position: fixed; inset: 0;
+      background: repeating-linear-gradient(to bottom, transparent 0px, transparent 3px, rgba(0,0,0,0.07) 3px, rgba(0,0,0,0.07) 4px);
+      pointer-events: none;
+      z-index: 9999;
+    }
 
-    <!-- href is short for a Hypertext reference -->
+    /* ── HEADER ── */
+    header {
+      padding: 3rem 2.5rem 0;
+      position: relative;
+      text-align: center;
+    }
+    .campaign-eyebrow {
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 0.6rem;
+      letter-spacing: 0.4em;
+      text-transform: uppercase;
+      color: var(--cyan-dim);
+      margin-bottom: 0.6rem;
+      animation: fadeUp 0.6s ease both;
+    }
+    .campaign-title {
+      font-family: 'Orbitron', sans-serif;
+      font-size: clamp(2.2rem, 7vw, 4.5rem);
+      font-weight: 900;
+      color: var(--gold);
+      text-shadow:
+        0 0 30px rgba(240,168,50,0.5),
+        0 0 80px rgba(240,168,50,0.2),
+        0 2px 4px rgba(0,0,0,0.8);
+      letter-spacing: 0.1em;
+      line-height: 1;
+      animation: fadeUp 0.6s 0.1s ease both;
+    }
+    .campaign-subtitle {
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 0.7rem;
+      letter-spacing: 0.3em;
+      color: var(--cyan);
+      opacity: 0.65;
+      margin-top: 0.7rem;
+      animation: fadeUp 0.6s 0.2s ease both;
+    }
 
+    /* glowing line under title */
+    .title-line {
+      width: 200px;
+      height: 1px;
+      background: linear-gradient(to right, transparent, var(--cyan), var(--gold), var(--cyan), transparent);
+      margin: 1.5rem auto 0;
+      opacity: 0.6;
+      animation: fadeUp 0.6s 0.3s ease both;
+    }
 
-    <link rel="stylesheet" type="text/css" href="style.css">
+    @keyframes fadeUp {
+      from { opacity:0; transform:translateY(14px); }
+      to   { opacity:1; transform:translateY(0); }
+    }
 
+    /* ── PARTY STRIP ── */
+    .party-strip {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 0.8rem;
+      padding: 2rem 2.5rem 0;
+      flex-wrap: wrap;
+      animation: fadeUp 0.6s 0.4s ease both;
+    }
+    .party-avatar {
+      width: 52px; height: 52px;
+      border-radius: 50%;
+      border: 2px solid rgba(14,240,208,0.3);
+      object-fit: cover;
+      background: var(--panel);
+      display: flex; align-items: center; justify-content: center;
+      font-family: 'Orbitron', sans-serif;
+      font-size: 1.1rem;
+      font-weight: 700;
+      color: var(--gold);
+      text-shadow: 0 0 8px var(--amber);
+      transition: border-color 0.2s, box-shadow 0.2s, transform 0.2s;
+      cursor: default;
+      overflow: hidden;
+      flex-shrink: 0;
+    }
+    .party-avatar:hover { border-color: var(--cyan); box-shadow: 0 0 14px var(--glow-c); transform: scale(1.08); }
+    .party-avatar img { width: 100%; height: 100%; object-fit: cover; border-radius: 50%; }
+    .party-avatar-empty {
+      border-style: dashed;
+      border-color: var(--text-dim);
+      color: var(--text-dim);
+      font-size: 1.2rem;
+    }
+    .party-strip-label {
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 0.55rem;
+      color: var(--text-dim);
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      text-align: center;
+      margin-top: 0.5rem;
+    }
+
+    /* ── MAIN GRID ── */
+    main {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 2.5rem 2rem 5rem;
+    }
+
+    .grid-label {
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 0.58rem;
+      letter-spacing: 0.3em;
+      text-transform: uppercase;
+      color: var(--cyan-dim);
+      margin-bottom: 1.2rem;
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+    }
+    .grid-label::before, .grid-label::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: linear-gradient(to right, var(--border), transparent);
+    }
+    .grid-label::before { background: linear-gradient(to left, var(--border), transparent); }
+
+    .module-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 1.2rem;
+      margin-bottom: 2rem;
+    }
+
+    /* ── MODULE CARD ── */
+    .module-card {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 1.6rem 1.5rem 1.4rem;
+      position: relative;
+      overflow: hidden;
+      cursor: pointer;
+      text-decoration: none;
+      color: inherit;
+      display: flex;
+      flex-direction: column;
+      gap: 0.8rem;
+      transition: border-color 0.2s, box-shadow 0.2s, transform 0.2s;
+      animation: fadeUp 0.5s ease both;
+    }
+    .module-card:nth-child(1) { animation-delay: 0.1s; }
+    .module-card:nth-child(2) { animation-delay: 0.2s; }
+    .module-card:nth-child(3) { animation-delay: 0.3s; }
+    .module-card:nth-child(4) { animation-delay: 0.4s; }
+
+    .module-card::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(ellipse at 0% 0%, var(--card-glow, rgba(14,240,208,0.05)), transparent 60%);
+      opacity: 0;
+      transition: opacity 0.25s;
+    }
+    .module-card:hover { border-color: var(--card-accent, var(--cyan-dim)); box-shadow: 0 0 24px var(--card-glow, var(--glow-c)); transform: translateY(-2px); }
+    .module-card:hover::before { opacity: 1; }
+
+    /* accent stripe on left edge */
+    .module-card::after {
+      content: '';
+      position: absolute;
+      left: 0; top: 20%; bottom: 20%;
+      width: 2px;
+      background: var(--card-accent, var(--cyan));
+      box-shadow: 0 0 8px var(--card-accent, var(--cyan));
+      border-radius: 2px;
+      opacity: 0;
+      transition: opacity 0.2s;
+    }
+    .module-card:hover::after { opacity: 1; }
+
+    .module-card.active-module { border-color: rgba(14,240,208,0.2); }
+
+    .card-icon {
+      font-size: 1.8rem;
+      line-height: 1;
+      filter: drop-shadow(0 0 6px var(--card-accent, var(--cyan)));
+    }
+    .card-head {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 0.5rem;
+    }
+    .card-status {
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 0.52rem;
+      letter-spacing: 0.15em;
+      padding: 0.18rem 0.55rem;
+      border-radius: 2px;
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+    .status-live    { color: var(--green); border: 1px solid rgba(60,224,138,0.35); background: rgba(60,224,138,0.07); }
+    .status-soon    { color: var(--amber); border: 1px solid rgba(212,134,10,0.35);  background: rgba(212,134,10,0.06); }
+    .status-planned { color: var(--text-dim); border: 1px solid var(--border); background: transparent; }
+
+    .card-title {
+      font-family: 'Orbitron', sans-serif;
+      font-size: 0.9rem;
+      font-weight: 700;
+      letter-spacing: 0.12em;
+      color: var(--text);
+      line-height: 1.2;
+    }
+    .card-desc {
+      font-size: 0.95rem;
+      color: var(--text-dim);
+      line-height: 1.5;
+      font-weight: 400;
+    }
+    .card-stats {
+      display: flex;
+      gap: 1.2rem;
+      padding-top: 0.5rem;
+      border-top: 1px solid var(--border);
+      flex-wrap: wrap;
+    }
+    .cstat {
+      display: flex;
+      flex-direction: column;
+      gap: 1px;
+    }
+    .cstat-val {
+      font-family: 'Orbitron', sans-serif;
+      font-size: 1rem;
+      font-weight: 700;
+      color: var(--card-accent, var(--cyan));
+    }
+    .cstat-label {
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 0.5rem;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      color: var(--text-dim);
+    }
+
+    .card-arrow {
+      position: absolute;
+      bottom: 1.2rem; right: 1.3rem;
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 0.65rem;
+      color: var(--card-accent, var(--cyan));
+      opacity: 0;
+      transform: translateX(-4px);
+      transition: opacity 0.2s, transform 0.2s;
+      letter-spacing: 0.1em;
+    }
+    .module-card:hover .card-arrow { opacity: 1; transform: translateX(0); }
+
+    /* COMING SOON card dim */
+    .module-card.coming-soon {
+      opacity: 0.55;
+      cursor: not-allowed;
+    }
+    .module-card.coming-soon:hover { transform: none; box-shadow: none; }
+
+    /* ── BOTTOM STATUS BAR ── */
+    .status-bar {
+      border-top: 1px solid var(--border);
+      padding: 1rem 2.5rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 1rem;
+    }
+    .status-items { display: flex; gap: 1.5rem; flex-wrap: wrap; }
+    .status-item { display: flex; align-items: center; gap: 0.4rem; font-family: 'Share Tech Mono', monospace; font-size: 0.55rem; letter-spacing: 0.12em; text-transform: uppercase; color: var(--text-dim); }
+    .status-dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+    .dot-green { background: var(--green); box-shadow: 0 0 5px var(--green); }
+    .dot-amber { background: var(--amber); box-shadow: 0 0 5px var(--amber); }
+    .dot-dim   { background: var(--text-dim); }
+    .status-version { font-family: 'Share Tech Mono', monospace; font-size: 0.52rem; color: var(--text-dim); letter-spacing: 0.1em; }
+
+    ::-webkit-scrollbar { width: 5px; }
+    ::-webkit-scrollbar-track { background: var(--bg); }
+    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+    @media (max-width: 600px) {
+      header { padding: 2rem 1.2rem 0; }
+      main { padding: 2rem 1rem 4rem; }
+      .status-bar { padding: 1rem 1.2rem; }
+    }
+  </style>
 </head>
-
-  <!-- everything within the <body> tag is what the user
-    will see, so the majority of your code should
-    be inside of it -->
-
-
 <body>
 
+<header>
+  <div class="campaign-eyebrow">⚙ campaign management system // initialized</div>
+  <div class="campaign-title">NEXUS</div>
+  <div class="campaign-subtitle">party operations dashboard</div>
+  <div class="title-line"></div>
+</header>
 
-  <nav>
-    <ul class="navigation">
-      <li>
-        <a href="index.html">Main</a>
-      </li>
+<!-- Party avatar strip -->
+<div class="party-strip" id="partyStrip">
+  <!-- populated by JS -->
+</div>
+<div class="party-strip-label" id="partyLabel">loading party roster…</div>
 
-      <li>
-        <a href="second.html"> Second</a>
-      </li>
-    </ul>
-  </nav>
+<main>
+  <div class="grid-label">active modules</div>
 
-    <!-- ul stands for an unordered list;
-    by defualt this will usually be bullet points
-    ul vs. ol = shopping list vs. a recipe
+  <div class="module-grid">
 
-
-    li stands for list item
-
-
-   -->
-
-
-    <ul id="colorful-list">
-      <li id="red-herring">
-        Red herring
-      </li>
-      <li id="orange-sherbert">
-        Orange sherbert
-      </li>
-    </ul>
-
-
-
-    <div id="splash1">
+    <!-- Party Roster -->
+    <a class="module-card active-module" href="party-roster.html"
+       style="--card-accent:#0ef0d0; --card-glow:rgba(14,240,208,0.12)">
+      <div class="card-head">
+        <div class="card-icon">👥</div>
+        <span class="card-status status-live">LIVE</span>
       </div>
-
-
-      <!-- th = table heading
-          tr = table row
-          td = table data
-      -->
-
-
-    <table border="1">
-        <tr>
-            <th>
-                1st head
-            </th>
-
-            <th>
-                2nd head
-            </th>
-
-        </tr>
-
-        <tr>
-            <td>
-                One
-            </td>
-
-            <td>
-                Two
-            </td>
-
-        </tr>
-    </table>
-
-    <!-- ol is short for ordered list;
-    by defualt this will be numbered -->
-
-    <ol>
-        <li>
-            Great content
-        </li>
-
-        <li>
-            Good content
-        </li>
-
-        <li>
-            Okay content
-        </li>
-
-        <li>
-          Bad content
-        </li>
-
-    </ol>
-
-    <ul>
-        <li>
-            Eggs
-        </li>
-
-        <li>
-            Milk
-        </li>
-
-        <li>
-            Heart medication
-        </li>
-
-        <li>
-            Bread
-        </li>
-
-    </ul>
-
-
-    <!-- below is two different ways to show
-        the same picture
-
-        note that the <img> tag doesn'<table>
-        require an end tag ( </tag> )
-
-        src is the URL of an image, so whatever the image
-        src is, the image will be pulled from that location
-
-        the alt attribute specifies an alternate text
-        for an image
-
-        [[helps boost website ranking in search engines]]
-
-    -->
-
-
-    <img src="https://marketingland.com/wp-content/ml-loads/2015/11/content-marketing-writing-pencils-ss-1920-800x450.jpg" />
-
-    <img src="contentimage1.jpg" alt="Content Picture" />
-
-
-    <!-- p stands for paragraph
-        a new paragraph means the content will
-        start on a new line
-    -->
-
-
-    <!-- a stands for anchor, which will be a hyperlink
-
-      the   target="_blank"   code will force the link
-      to open in a seperate window
-
-    -->
-
-
-
-    <p class="link-paragraph">
-        <a href="second.html" target="_blank">
-      Second Page
+      <div>
+        <div class="card-title">PARTY ROSTER</div>
+        <div class="card-desc">Manage crew members, portraits, classes, and character details.</div>
+      </div>
+      <div class="card-stats">
+        <div class="cstat"><span class="cstat-val" id="statMembers">0</span><span class="cstat-label">Members</span></div>
+        <div class="cstat"><span class="cstat-val" id="statClasses">—</span><span class="cstat-label">Classes</span></div>
+      </div>
+      <span class="card-arrow">OPEN →</span>
     </a>
-    </p>
 
-    <a href="http://betamore.com" target="_blank">
-   Betamore Website
-  </a>
+    <!-- Treasury -->
+    <a class="module-card active-module" href="dnd-gold-tracker.html"
+       style="--card-accent:#f0a832; --card-glow:rgba(240,168,50,0.12)">
+      <div class="card-head">
+        <div class="card-icon">💰</div>
+        <span class="card-status status-live">LIVE</span>
+      </div>
+      <div>
+        <div class="card-title">TREASURY</div>
+        <div class="card-desc">Track credits and custom currencies, log transactions, split loot.</div>
+      </div>
+      <div class="card-stats">
+        <div class="cstat"><span class="cstat-val" id="statCredits">—</span><span class="cstat-label">Credits</span></div>
+        <div class="cstat"><span class="cstat-val" id="statTxCount">—</span><span class="cstat-label">Transactions</span></div>
+      </div>
+      <span class="card-arrow">OPEN →</span>
+    </a>
 
-  <p class="link-paragraph">
+    <!-- Loot Tracker -->
+    <a class="module-card active-module" href="dnd-loot-tracker.html"
+       style="--card-accent:#c07de8; --card-glow:rgba(192,125,232,0.1)">
+      <div class="card-head">
+        <div class="card-icon">⚔️</div>
+        <span class="card-status status-live">LIVE</span>
+      </div>
+      <div>
+        <div class="card-title">LOOT TRACKER</div>
+        <div class="card-desc">Catalog magic items, filter by rarity, track attunement and holders.</div>
+      </div>
+      <div class="card-stats">
+        <div class="cstat"><span class="cstat-val" id="statItems">—</span><span class="cstat-label">Items</span></div>
+        <div class="cstat"><span class="cstat-val" id="statAttuned">—</span><span class="cstat-label">Attuned</span></div>
+      </div>
+      <span class="card-arrow">OPEN →</span>
+    </a>
 
-    <a href="mailto:notarealemail1111@gmail.com">
-     Email that doesn't work
-   </a>
+    <!-- Session Log placeholder -->
+    <div class="module-card coming-soon"
+         style="--card-accent:#4a6080; --card-glow:rgba(74,96,128,0.05)">
+      <div class="card-head">
+        <div class="card-icon" style="filter:none;opacity:0.3">📋</div>
+        <span class="card-status status-planned">PLANNED</span>
+      </div>
+      <div>
+        <div class="card-title" style="color:var(--text-dim)">SESSION LOG</div>
+        <div class="card-desc">Record session recaps, XP milestones, and key story moments.</div>
+      </div>
+      <div class="card-stats">
+        <div class="cstat"><span class="cstat-val" style="color:var(--text-dim)">—</span><span class="cstat-label">Sessions</span></div>
+      </div>
+    </div>
 
- </p>
+  </div>
 
+  <div class="grid-label">coming soon</div>
 
-        <!-- six different headings
+  <div class="module-grid">
+    <div class="module-card coming-soon" style="--card-accent:#4a6080">
+      <div class="card-head"><div class="card-icon" style="filter:none;opacity:0.25">🗺️</div><span class="card-status status-planned">PLANNED</span></div>
+      <div><div class="card-title" style="color:var(--text-dim)">WORLD MAP</div><div class="card-desc">Pin locations, track explored regions and points of interest.</div></div>
+    </div>
+    <div class="module-card coming-soon" style="--card-accent:#4a6080">
+      <div class="card-head"><div class="card-icon" style="filter:none;opacity:0.25">📖</div><span class="card-status status-planned">PLANNED</span></div>
+      <div><div class="card-title" style="color:var(--text-dim)">BESTIARY</div><div class="card-desc">Log encountered enemies, notes on weaknesses and lore.</div></div>
+    </div>
+    <div class="module-card coming-soon" style="--card-accent:#4a6080">
+      <div class="card-head"><div class="card-icon" style="filter:none;opacity:0.25">🎲</div><span class="card-status status-planned">PLANNED</span></div>
+      <div><div class="card-title" style="color:var(--text-dim)">DICE ROLLER</div><div class="card-desc">Roll any die combination with modifiers and roll history.</div></div>
+    </div>
+  </div>
+</main>
 
-            h1
-            h2
-            h3
-            h4
-            h5
-            h6
+<div class="status-bar">
+  <div class="status-items">
+    <div class="status-item"><span class="status-dot dot-green"></span>Party Roster</div>
+    <div class="status-item"><span class="status-dot dot-green"></span>Treasury</div>
+    <div class="status-item"><span class="status-dot dot-green"></span>Loot Tracker</div>
+    <div class="status-item"><span class="status-dot dot-amber"></span>Session Log</div>
+    <div class="status-item"><span class="status-dot dot-dim"></span>3 Planned</div>
+  </div>
+  <div class="status-version">nexus // v1.0.0 // no-db edition</div>
+</div>
 
-            the numbers actually mean priority, not size
-            however the defualt on most browsers will
-            have the 1 tag be the largest font, while
-            the 6 tag is the smallest
+<script>
+  // Pull live stats from localStorage to show on dashboard cards
 
+  // Party roster stats
+  function loadPartyStats() {
+    try {
+      const raw = localStorage.getItem('party_roster_v1');
+      const members = raw ? JSON.parse(raw) : [];
+      document.getElementById('statMembers').textContent = members.length;
+      const classes = [...new Set(members.map(m => m.class).filter(Boolean))];
+      document.getElementById('statClasses').textContent = classes.length || '—';
 
-        -->
+      // render party strip
+      const strip = document.getElementById('partyStrip');
+      const label = document.getElementById('partyLabel');
+      if (!members.length) {
+        strip.innerHTML = `<div class="party-avatar party-avatar-empty" title="No members yet">+</div>`;
+        label.textContent = 'no party members yet — add some in Party Roster';
+        return;
+      }
+      strip.innerHTML = members.map(m => {
+        if (m.photo) {
+          return `<div class="party-avatar" title="${esc(m.name)}"><img src="${m.photo}" alt="${esc(m.name)}" /></div>`;
+        }
+        return `<div class="party-avatar" title="${esc(m.name)}" style="color:${m.color||'var(--gold)'};text-shadow:0 0 8px ${m.color||'var(--amber)'}">
+          ${esc(m.name.charAt(0).toUpperCase())}
+        </div>`;
+      }).join('');
+      label.textContent = members.map(m => m.name).join('  ·  ');
+    } catch { document.getElementById('statMembers').textContent = '—'; }
+  }
 
+  // Treasury stats
+  function loadTreasuryStats() {
+    try {
+      const raw = localStorage.getItem('vault_ledger_v3');
+      if (!raw) return;
+      const d = JSON.parse(raw);
+      const cr = d.vault?.cr ?? 0;
+      document.getElementById('statCredits').textContent = cr.toLocaleString();
+      document.getElementById('statTxCount').textContent = (d.ledger||[]).length;
+    } catch {}
+  }
 
+  // Loot tracker stats
+  function loadLootStats() {
+    try {
+      const raw = localStorage.getItem('thehoard_items');
+      if (!raw) return;
+      const items = JSON.parse(raw);
+      document.getElementById('statItems').textContent = items.length;
+      document.getElementById('statAttuned').textContent = items.filter(i => i.attunement === 'attuned').length;
+    } catch {}
+  }
 
-    <h1>
-    Behold your content
-         </h1>
+  function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 
-
-         <!-- the class attribute is for the css;
-
-              if you want different paragraphs to be
-              different styles
-         -->
-
-
-
-         <!-- the em tag stands for emphasis;
-              by default this is usually italicized
-
-              the strong tag by default is bolded
-         -->
-
-
-
-    <p class="text-paragraph">
-        This is <em>your</em> content.
-    </p>
-
-    <h3>
-       More content
-         </h3>
-
-    <p class="text-paragraph">
-        This <strong>is also</strong> your content.
-    </p>
-
-
-
-    <!-- css example :
-
-        specific tags -
-
-
-
-    -->
-
-    <h5>
-     Even <em>more</em> content
-          </h5>
-
-
-          <!-- -->
-
-
-
-    <p class="text-paragraph">
-        This <strong>is still</strong> <em>your</em> content.
-    </p>
-
-
-      <!-- this jibberish right here is a way
-      for html do make weird symbols
-      -->
-
-
-
-    <p class="text-paragraph">
-    &#8752;&#8752;&#8752;
-    </p>
-
-
-    <p class="text-paragraph">
-    &#9924;&#9924;&#9924;
-    </p>
-
-    <script src="javascript.js"></script>
-
+  loadPartyStats();
+  loadTreasuryStats();
+  loadLootStats();
+</script>
 </body>
 </html>
