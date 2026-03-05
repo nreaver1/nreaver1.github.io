@@ -339,9 +339,201 @@
       main { padding: 2rem 1rem 4rem; }
       .status-bar { padding: 1rem 1.2rem; }
     }
+
+    /* ══════════════════════════════
+       SIDE NAV
+    ══════════════════════════════ */
+    .sidenav {
+      position: fixed;
+      top: 0; left: 0; bottom: 0;
+      width: 220px;
+      background: #070a0e;
+      border-right: 1px solid #1a2a3a;
+      display: flex;
+      flex-direction: column;
+      z-index: 800;
+      transition: transform 0.25s cubic-bezier(.4,0,.2,1);
+    }
+    .sidenav-logo {
+      padding: 1.4rem 1.2rem 1rem;
+      border-bottom: 1px solid #1a2a3a;
+      text-decoration: none;
+      display: block;
+    }
+    .sidenav-logo-top {
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 0.5rem;
+      letter-spacing: 0.3em;
+      text-transform: uppercase;
+      color: #0a8a78;
+      margin-bottom: 2px;
+    }
+    .sidenav-logo-name {
+      font-family: 'Orbitron', sans-serif;
+      font-size: 1.3rem;
+      font-weight: 900;
+      color: #0ef0d0;
+      text-shadow: 0 0 16px rgba(14,240,208,0.35);
+      letter-spacing: 0.1em;
+      line-height: 1;
+    }
+    .sidenav-logo-sub {
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 0.48rem;
+      letter-spacing: 0.2em;
+      color: #f0a832;
+      opacity: 0.55;
+      margin-top: 3px;
+    }
+    .sidenav-section {
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 0.46rem;
+      letter-spacing: 0.28em;
+      text-transform: uppercase;
+      color: #3a5070;
+      padding: 1rem 1.2rem 0.35rem;
+    }
+    .sidenav-links {
+      flex: 1;
+      overflow-y: auto;
+      padding: 0.25rem 0.6rem 1rem;
+    }
+    .sidenav-link {
+      display: flex;
+      align-items: center;
+      gap: 0.7rem;
+      padding: 0.6rem 0.7rem;
+      border-radius: 4px;
+      text-decoration: none;
+      color: #4a6080;
+      font-family: 'Orbitron', sans-serif;
+      font-size: 0.58rem;
+      font-weight: 700;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      transition: background 0.15s, color 0.15s;
+      margin-bottom: 2px;
+      border: 1px solid transparent;
+    }
+    .sidenav-link:hover {
+      background: rgba(14,240,208,0.05);
+      color: #c8d8f0;
+      border-color: rgba(14,240,208,0.1);
+    }
+    .sidenav-link.active {
+      background: rgba(14,240,208,0.08);
+      color: #0ef0d0;
+      border-color: rgba(14,240,208,0.2);
+      text-shadow: 0 0 10px rgba(14,240,208,0.3);
+    }
+    .sidenav-link .nav-icon {
+      font-size: 1rem;
+      flex-shrink: 0;
+      width: 20px;
+      text-align: center;
+    }
+    .sidenav-link .nav-label { flex: 1; }
+    .sidenav-link .nav-pip {
+      width: 5px; height: 5px;
+      border-radius: 50%;
+      background: #0ef0d0;
+      box-shadow: 0 0 5px #0ef0d0;
+      flex-shrink: 0;
+      opacity: 0;
+    }
+    .sidenav-link.active .nav-pip { opacity: 1; }
+    .sidenav-bottom {
+      padding: 0.8rem 1.2rem;
+      border-top: 1px solid #1a2a3a;
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 0.46rem;
+      letter-spacing: 0.1em;
+      color: #3a5070;
+    }
+    /* hamburger toggle (mobile) */
+    .nav-toggle {
+      display: none;
+      position: fixed;
+      top: 0.9rem; left: 0.9rem;
+      z-index: 900;
+      background: #070a0e;
+      border: 1px solid #1a2a3a;
+      border-radius: 4px;
+      width: 36px; height: 36px;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      flex-direction: column;
+      gap: 4px;
+      padding: 8px 7px;
+    }
+    .nav-toggle span {
+      display: block;
+      width: 100%;
+      height: 2px;
+      background: #0ef0d0;
+      border-radius: 2px;
+      transition: transform 0.2s, opacity 0.2s;
+    }
+    .nav-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.6);
+      z-index: 790;
+    }
+    /* push content right on desktop */
+    body.has-sidenav {
+      padding-left: 220px;
+    }
+    @media (max-width: 768px) {
+      body.has-sidenav { padding-left: 0; }
+      .sidenav { transform: translateX(-100%); box-shadow: none; }
+      .sidenav.nav-open { transform: translateX(0); box-shadow: 4px 0 30px rgba(0,0,0,0.7); }
+      .nav-toggle { display: flex; }
+      .nav-overlay.nav-open { display: block; }
+    }
+
   </style>
 </head>
-<body>
+<body class="has-sidenav">
+<button class="nav-toggle" id="navToggle" aria-label="Toggle navigation">
+  <span></span><span></span><span></span>
+</button>
+<div class="nav-overlay" id="navOverlay" onclick="closeNav()"></div>
+
+<nav class="sidenav" id="sidenav">
+  <a class="sidenav-logo" href="index.html">
+    <div class="sidenav-logo-top">⚙ nexus</div>
+    <div class="sidenav-logo-name">NEXUS</div>
+    <div class="sidenav-logo-sub">campaign system</div>
+  </a>
+  <div class="sidenav-section">Modules</div>
+  <div class="sidenav-links">
+    <a class="sidenav-link active" href="index.html">
+      <span class="nav-icon">⬡</span>
+      <span class="nav-label">Dashboard</span>
+      <span class="nav-pip"></span>
+    </a>
+    <a class="sidenav-link" href="party-roster.html">
+      <span class="nav-icon">👥</span>
+      <span class="nav-label">Party Roster</span>
+      <span class="nav-pip"></span>
+    </a>
+    <a class="sidenav-link" href="dnd-gold-tracker.html">
+      <span class="nav-icon">💰</span>
+      <span class="nav-label">Treasury</span>
+      <span class="nav-pip"></span>
+    </a>
+    <a class="sidenav-link" href="dnd-loot-tracker.html">
+      <span class="nav-icon">⚔️</span>
+      <span class="nav-label">Loot Tracker</span>
+      <span class="nav-pip"></span>
+    </a>
+  </div>
+  <div class="sidenav-bottom">nexus // v1.0.0</div>
+</nav>
+
 
 <header>
   <div class="campaign-eyebrow">⚙ campaign management system // initialized</div>
@@ -523,5 +715,21 @@
   loadTreasuryStats();
   loadLootStats();
 </script>
+
+<script>
+  function openNav() {
+    document.getElementById('sidenav').classList.add('nav-open');
+    document.getElementById('navOverlay').classList.add('nav-open');
+  }
+  function closeNav() {
+    document.getElementById('sidenav').classList.remove('nav-open');
+    document.getElementById('navOverlay').classList.remove('nav-open');
+  }
+  document.getElementById('navToggle').addEventListener('click', function() {
+    const nav = document.getElementById('sidenav');
+    nav.classList.contains('nav-open') ? closeNav() : openNav();
+  });
+</script>
+
 </body>
 </html>

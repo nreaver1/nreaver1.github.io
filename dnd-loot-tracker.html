@@ -3,425 +3,412 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>The Hoard — DnD Loot Tracker</title>
-  <link href="https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@700&family=Cinzel:wght@400;600&family=Crimson+Text:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet" />
+  <title>LOOT TRACKER // Item Registry</title>
+  <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@400;700;900&family=Rajdhani:wght@400;500;600;700&display=swap" rel="stylesheet" />
   <style>
     :root {
-      --ink: #1a1209;
-      --parchment: #f2e8d5;
-      --parchment-dark: #e0cfb0;
-      --parchment-darker: #c9b48a;
-      --leather: #5c3d1e;
-      --leather-light: #7a5230;
-      --gold: #c9922a;
-      --gold-light: #e8b84b;
-      --blood: #7a1f1f;
-      --shadow: rgba(10,5,0,0.55);
+      --bg:#090b0f;--bg2:#0d1018;--panel:#0a0d14;--border:#1e2d45;
+      --amber:#d4860a;--gold:#f0a832;--gold-hot:#ffe066;
+      --cyan:#0ef0d0;--cyan-dim:#0a8a78;
+      --red:#e03c3c;--green:#3ce08a;
+      --text:#c8d8f0;--text-dim:#4a6080;
+      --glow-c:rgba(14,240,208,0.12);
+      --r-common:#7a7a7a;--r-uncommon:#3ce08a;--r-rare:#6a9fe8;
+      --r-very-rare:#c07de8;--r-legendary:#f0a832;--r-artifact:#e03c3c;
+    }
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+    html{scroll-behavior:smooth;}
+    body{background:var(--bg);background-image:repeating-linear-gradient(0deg,transparent,transparent 39px,rgba(14,240,208,0.03) 39px,rgba(14,240,208,0.03) 40px),repeating-linear-gradient(90deg,transparent,transparent 39px,rgba(14,240,208,0.02) 39px,rgba(14,240,208,0.02) 40px);font-family:'Rajdhani',sans-serif;color:var(--text);min-height:100vh;}
+    body::before{content:'';position:fixed;inset:0;background:repeating-linear-gradient(to bottom,transparent 0px,transparent 3px,rgba(0,0,0,0.08) 3px,rgba(0,0,0,0.08) 4px);pointer-events:none;z-index:9999;}
 
-      --rarity-common: #6b6b6b;
-      --rarity-uncommon: #2d7a2d;
-      --rarity-rare: #1a4a9e;
-      --rarity-very-rare: #6b1a8e;
-      --rarity-legendary: #c9922a;
-      --rarity-artifact: #b8001f;
-    }
+    header{padding:2rem 2rem 0;display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:1rem;}
+    .brand{display:flex;flex-direction:column;gap:0.2rem;}
+    .brand-top{font-family:'Share Tech Mono',monospace;font-size:0.65rem;color:var(--cyan-dim);letter-spacing:0.3em;text-transform:uppercase;}
+    .brand-name{font-family:'Orbitron',sans-serif;font-size:clamp(1.4rem,4vw,2.2rem);font-weight:900;color:var(--cyan);text-shadow:0 0 20px var(--cyan-dim),0 0 50px rgba(14,240,208,0.2);letter-spacing:0.08em;line-height:1;}
+    .brand-sub{font-family:'Share Tech Mono',monospace;font-size:0.6rem;color:var(--gold);letter-spacing:0.25em;opacity:0.6;margin-top:2px;}
+    .header-actions{display:flex;gap:0.6rem;align-items:center;padding-top:0.5rem;flex-wrap:wrap;}
+    .hline{height:1px;background:linear-gradient(to right,transparent,var(--amber),var(--cyan-dim),var(--amber),transparent);margin:1.2rem 2rem;opacity:0.4;}
+    main{max-width:1150px;margin:0 auto;padding:0 1.5rem 5rem;}
 
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    .stats-bar{display:flex;gap:2rem;flex-wrap:wrap;margin-bottom:1.4rem;padding:0.85rem 1.3rem;background:rgba(14,240,208,0.03);border:1px solid rgba(14,240,208,0.12);border-radius:4px;}
+    .stat{display:flex;flex-direction:column;gap:2px;}
+    .stat-val{font-family:'Orbitron',sans-serif;font-size:1.2rem;font-weight:700;color:var(--cyan);}
+    .stat-label{font-family:'Share Tech Mono',monospace;font-size:0.52rem;letter-spacing:0.18em;text-transform:uppercase;color:var(--text-dim);}
 
-    body {
-      background-color: #0e0b06;
-      background-image:
-        radial-gradient(ellipse at 20% 10%, rgba(92,61,30,0.18) 0%, transparent 55%),
-        radial-gradient(ellipse at 80% 90%, rgba(92,61,30,0.14) 0%, transparent 55%),
-        url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='400' height='400'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='4' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='400' height='400' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
-      font-family: 'Crimson Text', Georgia, serif;
-      color: var(--ink);
-      min-height: 100vh;
-    }
+    .toolbar{display:flex;flex-wrap:wrap;gap:0.7rem;align-items:center;margin-bottom:1.2rem;}
+    .toolbar-left{display:flex;gap:0.6rem;flex-wrap:wrap;flex:1;}
+    .toolbar-right{display:flex;gap:0.6rem;}
 
-    /* ── HEADER ── */
-    header {
-      text-align: center;
-      padding: 2.5rem 1rem 1.5rem;
-      position: relative;
-    }
-    header::after {
-      content: '';
-      display: block;
-      width: 60%;
-      max-width: 500px;
-      height: 2px;
-      margin: 1.2rem auto 0;
-      background: linear-gradient(to right, transparent, var(--gold), transparent);
-    }
-    .site-title {
-      font-family: 'Cinzel Decorative', serif;
-      font-size: clamp(1.6rem, 5vw, 2.8rem);
-      color: var(--gold-light);
-      text-shadow: 0 2px 18px rgba(201,146,42,0.45), 0 1px 2px #000;
-      letter-spacing: 0.06em;
-      line-height: 1.1;
-    }
-    .site-subtitle {
-      font-family: 'Cinzel', serif;
-      font-size: 0.85rem;
-      color: var(--parchment-darker);
-      letter-spacing: 0.25em;
-      text-transform: uppercase;
-      margin-top: 0.4rem;
-      opacity: 0.8;
-    }
+    input[type="text"],select{background:rgba(14,240,208,0.04);border:1px solid var(--border);border-radius:3px;color:var(--text);font-family:'Rajdhani',sans-serif;font-size:1rem;padding:0.45rem 0.75rem;outline:none;transition:border-color 0.2s,box-shadow 0.2s;}
+    input[type="text"]:focus,select:focus{border-color:var(--cyan-dim);box-shadow:0 0 8px var(--glow-c);}
+    input[type="text"]::placeholder{color:var(--text-dim);}
+    select option{background:var(--bg2);color:var(--text);}
+    .search-input{min-width:200px;flex:1;}
 
-    /* ── MAIN LAYOUT ── */
-    main {
-      max-width: 1100px;
-      margin: 0 auto;
-      padding: 1.5rem 1.2rem 4rem;
-    }
+    .btn{font-family:'Orbitron',sans-serif;font-size:0.6rem;font-weight:700;letter-spacing:0.15em;text-transform:uppercase;padding:0.5rem 1rem;border-radius:3px;border:none;cursor:pointer;transition:all 0.16s;white-space:nowrap;text-decoration:none;display:inline-flex;align-items:center;gap:0.3rem;}
+    .btn-primary{background:linear-gradient(135deg,var(--cyan-dim),#066050);color:#020f0d;box-shadow:0 0 12px rgba(14,240,208,0.3);}
+    .btn-primary:hover{filter:brightness(1.15);box-shadow:0 0 20px rgba(14,240,208,0.5);}
+    .btn-ghost{background:transparent;border:1px solid var(--border);color:var(--text-dim);}
+    .btn-ghost:hover{border-color:var(--amber);color:var(--amber);}
+    .btn-icon{background:none;border:none;cursor:pointer;font-size:0.9rem;padding:0.25rem 0.45rem;opacity:0.35;transition:opacity 0.15s;color:var(--text);}
+    .btn-icon:hover{opacity:1;}
+    .btn-icon.delete:hover{color:var(--red);}
 
-    /* ── TOOLBAR ── */
-    .toolbar {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 0.75rem;
-      align-items: center;
-      margin-bottom: 1.4rem;
-    }
-    .toolbar-left { display: flex; gap: 0.6rem; flex-wrap: wrap; flex: 1; }
-    .toolbar-right { display: flex; gap: 0.6rem; }
+    .table-wrap{background:var(--panel);border:1px solid var(--border);border-radius:4px;overflow:hidden;box-shadow:0 6px 40px rgba(0,0,0,0.4);}
+    table{width:100%;border-collapse:collapse;}
+    thead th{background:rgba(14,240,208,0.04);font-family:'Share Tech Mono',monospace;font-size:0.58rem;letter-spacing:0.2em;text-transform:uppercase;color:var(--cyan-dim);padding:0.7rem 1rem;text-align:left;border-bottom:1px solid rgba(14,240,208,0.12);cursor:pointer;user-select:none;white-space:nowrap;transition:color 0.15s;}
+    thead th:hover{color:var(--cyan);}
+    thead th.sorted{color:var(--gold);}
+    thead th .sort-arrow{margin-left:3px;font-size:0.55rem;opacity:0.7;}
+    tbody tr{border-bottom:1px solid rgba(30,45,69,0.5);transition:background 0.12s;animation:rowIn 0.22s ease both;}
+    @keyframes rowIn{from{opacity:0;transform:translateX(-5px);}to{opacity:1;transform:translateX(0);}}
+    tbody tr:last-child{border-bottom:none;}
+    tbody tr:hover{background:rgba(14,240,208,0.03);}
+    td{padding:0.7rem 1rem;font-size:1rem;vertical-align:middle;}
+    .item-name{font-weight:600;color:var(--text);font-family:'Rajdhani',sans-serif;font-size:1rem;}
+    .item-desc{font-style:italic;font-size:0.82rem;color:var(--text-dim);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:260px;}
 
-    input[type="text"], select {
-      background: rgba(242,232,213,0.08);
-      border: 1px solid rgba(201,146,42,0.35);
-      border-radius: 3px;
-      color: var(--parchment);
-      font-family: 'Crimson Text', serif;
-      font-size: 1rem;
-      padding: 0.45rem 0.75rem;
-      outline: none;
-      transition: border-color 0.2s, background 0.2s;
-    }
-    input[type="text"]:focus, select:focus {
-      border-color: var(--gold);
-      background: rgba(242,232,213,0.13);
-    }
-    input[type="text"]::placeholder { color: rgba(242,232,213,0.35); }
-    select option { background: #1e1408; color: var(--parchment); }
+    .rarity-badge{display:inline-block;font-family:'Share Tech Mono',monospace;font-size:0.56rem;letter-spacing:0.12em;text-transform:uppercase;padding:0.2rem 0.55rem;border-radius:2px;border:1px solid currentColor;white-space:nowrap;}
+    .rarity-common{color:var(--r-common);background:rgba(122,122,122,0.08);}
+    .rarity-uncommon{color:var(--r-uncommon);background:rgba(60,224,138,0.08);}
+    .rarity-rare{color:var(--r-rare);background:rgba(106,159,232,0.08);}
+    .rarity-very-rare{color:var(--r-very-rare);background:rgba(192,125,232,0.08);}
+    .rarity-legendary{color:var(--r-legendary);background:rgba(240,168,50,0.08);}
+    .rarity-artifact{color:var(--r-artifact);background:rgba(224,60,60,0.08);}
 
-    .search-input { min-width: 200px; flex: 1; }
+    .attunement{font-family:'Share Tech Mono',monospace;font-size:0.58rem;letter-spacing:0.1em;color:var(--gold);}
+    .no-attune{color:var(--text-dim);opacity:0.4;}
+    .td-actions{white-space:nowrap;}
 
-    .btn {
-      font-family: 'Cinzel', serif;
-      font-size: 0.78rem;
-      letter-spacing: 0.1em;
-      text-transform: uppercase;
-      padding: 0.45rem 1.1rem;
-      border-radius: 3px;
-      border: none;
-      cursor: pointer;
-      transition: all 0.18s;
-      white-space: nowrap;
-    }
-    .btn-primary {
-      background: linear-gradient(135deg, var(--gold) 0%, #a87420 100%);
-      color: var(--ink);
-      box-shadow: 0 2px 10px rgba(201,146,42,0.3);
-    }
-    .btn-primary:hover { filter: brightness(1.12); box-shadow: 0 3px 16px rgba(201,146,42,0.5); }
-    .btn-ghost {
-      background: transparent;
-      border: 1px solid rgba(201,146,42,0.4);
-      color: var(--parchment-darker);
-    }
-    .btn-ghost:hover { border-color: var(--gold); color: var(--gold-light); background: rgba(201,146,42,0.07); }
-    .btn-danger {
-      background: transparent;
-      border: 1px solid rgba(122,31,31,0.5);
-      color: #c47070;
-    }
-    .btn-danger:hover { background: rgba(122,31,31,0.2); border-color: var(--blood); color: #e08080; }
+    /* stat effect pills in table */
+    .fx-list{display:flex;flex-wrap:wrap;gap:3px;max-width:220px;}
+    .fx-pill{font-family:'Share Tech Mono',monospace;font-size:0.48rem;letter-spacing:0.08em;padding:0.15rem 0.4rem;border-radius:2px;white-space:nowrap;}
+    .fx-pos{color:var(--green);border:1px solid rgba(60,224,138,0.4);background:rgba(60,224,138,0.07);}
+    .fx-neg{color:var(--red);border:1px solid rgba(224,60,60,0.4);background:rgba(224,60,60,0.07);}
+    .fx-adv{color:var(--cyan);border:1px solid rgba(14,240,208,0.35);background:rgba(14,240,208,0.06);}
+    .fx-dis{color:var(--amber);border:1px solid rgba(212,134,10,0.4);background:rgba(212,134,10,0.07);}
 
-    /* ── STATS BAR ── */
-    .stats-bar {
-      display: flex;
-      gap: 1.5rem;
-      flex-wrap: wrap;
-      margin-bottom: 1.4rem;
-      padding: 0.8rem 1.2rem;
-      background: rgba(242,232,213,0.04);
-      border: 1px solid rgba(201,146,42,0.2);
-      border-radius: 4px;
-    }
-    .stat {
-      display: flex;
-      flex-direction: column;
-      gap: 0.1rem;
-    }
-    .stat-label {
-      font-family: 'Cinzel', serif;
-      font-size: 0.65rem;
-      letter-spacing: 0.18em;
-      text-transform: uppercase;
-      color: var(--parchment-darker);
-      opacity: 0.7;
-    }
-    .stat-value {
-      font-family: 'Cinzel', serif;
-      font-size: 1.1rem;
-      color: var(--gold-light);
-    }
-
-    /* ── TABLE ── */
-    .table-wrap {
-      border: 1px solid rgba(201,146,42,0.25);
-      border-radius: 5px;
-      overflow: hidden;
-      background: rgba(20,12,4,0.7);
-      box-shadow: 0 6px 40px rgba(0,0,0,0.5);
-    }
-    table {
-      width: 100%;
-      border-collapse: collapse;
-    }
-    thead th {
-      background: rgba(92,61,30,0.45);
-      font-family: 'Cinzel', serif;
-      font-size: 0.7rem;
-      letter-spacing: 0.18em;
-      text-transform: uppercase;
-      color: var(--parchment-darker);
-      padding: 0.75rem 1rem;
-      text-align: left;
-      border-bottom: 1px solid rgba(201,146,42,0.3);
-      cursor: pointer;
-      user-select: none;
-      white-space: nowrap;
-    }
-    thead th:hover { color: var(--gold-light); }
-    thead th.sorted { color: var(--gold); }
-    thead th .sort-arrow { margin-left: 4px; opacity: 0.6; font-size: 0.65rem; }
-
-    tbody tr {
-      border-bottom: 1px solid rgba(201,146,42,0.1);
-      transition: background 0.15s;
-    }
-    tbody tr:last-child { border-bottom: none; }
-    tbody tr:hover { background: rgba(201,146,42,0.07); }
-
-    td {
-      padding: 0.7rem 1rem;
-      font-size: 1.05rem;
-      color: var(--parchment);
-      vertical-align: middle;
-    }
-
-    .item-name {
-      font-weight: 600;
-      color: var(--parchment);
-    }
-    .item-desc {
-      font-style: italic;
-      font-size: 0.88rem;
-      color: rgba(242,232,213,0.55);
-      margin-top: 2px;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      max-width: 260px;
-    }
-
-    .rarity-badge {
-      display: inline-block;
-      font-family: 'Cinzel', serif;
-      font-size: 0.62rem;
-      letter-spacing: 0.12em;
-      text-transform: uppercase;
-      padding: 0.2rem 0.55rem;
-      border-radius: 2px;
-      border: 1px solid currentColor;
-      white-space: nowrap;
-    }
-    .rarity-common    { color: var(--rarity-common);    border-color: rgba(107,107,107,0.4);  background: rgba(107,107,107,0.1); }
-    .rarity-uncommon  { color: #5aad5a;                 border-color: rgba(45,122,45,0.4);    background: rgba(45,122,45,0.1); }
-    .rarity-rare      { color: #6a9fe8;                 border-color: rgba(26,74,158,0.4);    background: rgba(26,74,158,0.12); }
-    .rarity-very-rare { color: #c07de8;                 border-color: rgba(107,26,142,0.4);   background: rgba(107,26,142,0.12); }
-    .rarity-legendary { color: var(--gold-light);       border-color: rgba(201,146,42,0.5);   background: rgba(201,146,42,0.1); }
-    .rarity-artifact  { color: #e86060;                 border-color: rgba(184,0,31,0.5);     background: rgba(184,0,31,0.1); }
-
-    .attunement {
-      font-family: 'Cinzel', serif;
-      font-size: 0.65rem;
-      color: var(--gold);
-      letter-spacing: 0.1em;
-    }
-    .no-attune { color: rgba(242,232,213,0.2); }
-
-    .td-actions { white-space: nowrap; }
-    .btn-icon {
-      background: none;
-      border: none;
-      cursor: pointer;
-      font-size: 1rem;
-      padding: 0.2rem 0.4rem;
-      opacity: 0.5;
-      transition: opacity 0.15s;
-      color: var(--parchment);
-    }
-    .btn-icon:hover { opacity: 1; }
-    .btn-icon.delete:hover { color: #e08080; }
-
-    .empty-state {
-      text-align: center;
-      padding: 4rem 2rem;
-      color: rgba(242,232,213,0.3);
-    }
-    .empty-state .empty-icon { font-size: 3rem; display: block; margin-bottom: 1rem; }
-    .empty-state p { font-family: 'Cinzel', serif; font-size: 0.85rem; letter-spacing: 0.15em; }
+    .empty-state{text-align:center;padding:4rem 2rem;color:var(--text-dim);}
+    .empty-icon{font-size:2.5rem;display:block;margin-bottom:1rem;opacity:0.25;}
+    .empty-state p{font-family:'Share Tech Mono',monospace;font-size:0.6rem;letter-spacing:0.2em;text-transform:uppercase;}
 
     /* ── MODAL ── */
-    .modal-backdrop {
-      position: fixed; inset: 0;
-      background: rgba(0,0,0,0.75);
-      display: flex; align-items: center; justify-content: center;
-      z-index: 100;
-      opacity: 0; pointer-events: none;
-      transition: opacity 0.2s;
-      padding: 1rem;
-    }
-    .modal-backdrop.open { opacity: 1; pointer-events: all; }
-    .modal {
-      background: #1a1007;
-      border: 1px solid rgba(201,146,42,0.45);
-      border-radius: 6px;
-      width: 100%;
-      max-width: 520px;
-      box-shadow: 0 20px 60px rgba(0,0,0,0.8);
-      transform: translateY(12px);
-      transition: transform 0.2s;
-    }
-    .modal-backdrop.open .modal { transform: translateY(0); }
-    .modal-header {
-      padding: 1.2rem 1.5rem 0.8rem;
-      border-bottom: 1px solid rgba(201,146,42,0.2);
-      display: flex; align-items: center; justify-content: space-between;
-    }
-    .modal-title {
-      font-family: 'Cinzel', serif;
-      font-size: 1rem;
-      color: var(--gold-light);
-      letter-spacing: 0.1em;
-    }
-    .modal-body { padding: 1.4rem 1.5rem; display: flex; flex-direction: column; gap: 1rem; }
-    .modal-footer { padding: 0.8rem 1.5rem 1.2rem; display: flex; justify-content: flex-end; gap: 0.7rem; }
+    .modal-backdrop{position:fixed;inset:0;background:rgba(0,0,0,0.85);display:flex;align-items:center;justify-content:center;z-index:1000;opacity:0;pointer-events:none;transition:opacity 0.2s;padding:1rem;}
+    .modal-backdrop.open{opacity:1;pointer-events:all;}
+    .modal{background:var(--bg2);border:1px solid var(--cyan-dim);border-radius:5px;width:100%;max-width:580px;box-shadow:0 0 40px var(--glow-c),0 20px 60px rgba(0,0,0,0.8);transform:translateY(10px) scale(0.98);transition:transform 0.2s;max-height:92vh;overflow-y:auto;}
+    .modal-backdrop.open .modal{transform:translateY(0) scale(1);}
+    .modal-header{padding:1.1rem 1.4rem 0.8rem;border-bottom:1px solid rgba(14,240,208,0.15);display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;background:var(--bg2);z-index:2;}
+    .modal-title{font-family:'Orbitron',sans-serif;font-size:0.75rem;font-weight:700;letter-spacing:0.2em;color:var(--cyan);text-shadow:0 0 10px var(--cyan-dim);}
+    .modal-body{padding:1.3rem 1.4rem;display:flex;flex-direction:column;gap:1rem;}
+    .modal-footer{padding:0.8rem 1.4rem 1.2rem;display:flex;justify-content:flex-end;gap:0.6rem;}
 
-    .field { display: flex; flex-direction: column; gap: 0.35rem; }
-    .field-row { display: flex; gap: 0.8rem; }
-    .field-row .field { flex: 1; }
-    label {
-      font-family: 'Cinzel', serif;
-      font-size: 0.67rem;
-      letter-spacing: 0.16em;
+    .field{display:flex;flex-direction:column;gap:0.3rem;}
+    .field-row{display:flex;gap:0.8rem;}
+    .field-row .field{flex:1;}
+    label{font-family:'Share Tech Mono',monospace;font-size:0.58rem;letter-spacing:0.2em;text-transform:uppercase;color:var(--cyan-dim);}
+    .optional{color:var(--text-dim);font-size:0.5rem;margin-left:4px;}
+
+    input[type="text"].mi,input[type="number"].mi,select.mi,textarea.mi{background:rgba(14,240,208,0.04);border:1px solid var(--border);border-radius:3px;color:var(--text);font-family:'Rajdhani',sans-serif;font-size:1rem;padding:0.45rem 0.75rem;outline:none;transition:border-color 0.2s,box-shadow 0.2s;width:100%;}
+    input.mi:focus,select.mi:focus,textarea.mi:focus{border-color:var(--cyan-dim);box-shadow:0 0 8px var(--glow-c);}
+    input.mi::placeholder,textarea.mi::placeholder{color:var(--text-dim);}
+    select.mi option{background:var(--bg2);color:var(--text);}
+    textarea.mi{resize:vertical;min-height:68px;font-family:'Rajdhani',sans-serif;}
+
+    /* ── STAT EFFECTS EDITOR ── */
+    .fx-section-label{font-family:'Share Tech Mono',monospace;font-size:0.58rem;letter-spacing:0.2em;text-transform:uppercase;color:var(--cyan-dim);display:flex;align-items:center;justify-content:space-between;}
+    .fx-rows{display:flex;flex-direction:column;gap:0.5rem;margin-top:0.4rem;}
+    .fx-row{display:flex;gap:0.5rem;align-items:center;background:rgba(14,240,208,0.03);border:1px solid var(--border);border-radius:3px;padding:0.5rem 0.7rem;}
+    .fx-row select,.fx-row input{background:rgba(14,240,208,0.04);border:1px solid var(--border);border-radius:3px;color:var(--text);font-family:'Rajdhani',sans-serif;font-size:0.9rem;padding:0.3rem 0.5rem;outline:none;transition:border-color 0.2s;}
+    .fx-row select:focus,.fx-row input:focus{border-color:var(--cyan-dim);}
+    .fx-row select option{background:var(--bg2);color:var(--text);}
+    .fx-row select optgroup{background:#0d1220;color:var(--cyan-dim);font-family:'Share Tech Mono',monospace;font-size:0.7rem;letter-spacing:0.12em;}
+    select optgroup{background:#0d1220;color:var(--cyan-dim);}
+    select option{background:var(--bg2);color:var(--text);}
+    .fx-stat-sel{flex:2;}
+    .fx-type-sel{flex:2;}
+    .fx-val-inp{width:70px;flex-shrink:0;text-align:center;}
+    .fx-del-btn{background:none;border:none;cursor:pointer;color:var(--red);opacity:0.5;font-size:1rem;padding:0 4px;transition:opacity 0.15s;flex-shrink:0;}
+    .fx-del-btn:hover{opacity:1;}
+    .fx-hint{font-family:'Share Tech Mono',monospace;font-size:0.5rem;color:var(--text-dim);letter-spacing:0.08em;margin-top:2px;}
+
+    .toast{position:fixed;bottom:1.5rem;right:1.5rem;background:var(--bg2);border:1px solid var(--cyan-dim);color:var(--cyan);font-family:'Share Tech Mono',monospace;font-size:0.62rem;letter-spacing:0.15em;padding:0.7rem 1.1rem;border-radius:3px;box-shadow:0 0 16px var(--glow-c);z-index:2000;opacity:0;pointer-events:none;transform:translateY(6px);transition:opacity 0.2s,transform 0.2s;}
+    .toast.show{opacity:1;pointer-events:all;transform:translateY(0);}
+    ::-webkit-scrollbar{width:5px;}::-webkit-scrollbar-track{background:var(--bg);}::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px;}
+    /* ── HOLDER DROPDOWN ── */
+    .holder-select-wrap{position:relative;user-select:none;}
+    .holder-selected{display:flex;align-items:center;gap:0.55rem;background:rgba(14,240,208,0.04);border:1px solid var(--border);border-radius:3px;padding:0.42rem 0.75rem;cursor:pointer;transition:border-color 0.2s,box-shadow 0.2s;min-height:38px;}
+    .holder-selected:hover,.holder-select-wrap.open .holder-selected{border-color:var(--cyan-dim);box-shadow:0 0 8px var(--glow-c);}
+    .holder-sel-avatar{width:22px;height:22px;border-radius:50%;flex-shrink:0;background:var(--bg);border:1px solid var(--border);overflow:hidden;display:flex;align-items:center;justify-content:center;font-family:'Orbitron',sans-serif;font-size:0.55rem;font-weight:700;color:var(--gold);}
+    .holder-sel-avatar img{width:100%;height:100%;object-fit:cover;border-radius:50%;}
+    .holder-sel-avatar.hidden{display:none;}
+    .holder-sel-name{flex:1;font-family:'Rajdhani',sans-serif;font-size:1rem;color:var(--text);}
+    .holder-sel-name.placeholder{color:var(--text-dim);}
+    .holder-sel-arrow{font-size:0.7rem;color:var(--text-dim);transition:transform 0.2s;flex-shrink:0;}
+    .holder-select-wrap.open .holder-sel-arrow{transform:rotate(180deg);}
+
+    .holder-dropdown{display:none;position:absolute;top:calc(100% + 4px);left:0;right:0;background:var(--bg2);border:1px solid var(--cyan-dim);border-radius:3px;box-shadow:0 8px 32px rgba(0,0,0,0.6),0 0 20px var(--glow-c);z-index:500;overflow:hidden;max-height:260px;overflow-y:auto;}
+    .holder-select-wrap.open .holder-dropdown{display:block;}
+    .holder-opt{display:flex;align-items:center;gap:0.6rem;padding:0.5rem 0.85rem;cursor:pointer;transition:background 0.12s;border-bottom:1px solid rgba(30,45,69,0.5);}
+    .holder-opt:last-child{border-bottom:none;}
+    .holder-opt:hover{background:rgba(14,240,208,0.06);}
+    .holder-opt.selected{background:rgba(14,240,208,0.09);}
+    .holder-opt-avatar{width:28px;height:28px;border-radius:50%;flex-shrink:0;background:var(--bg);border:1px solid var(--border);overflow:hidden;display:flex;align-items:center;justify-content:center;font-family:'Orbitron',sans-serif;font-size:0.65rem;font-weight:700;}
+    .holder-opt-avatar img{width:100%;height:100%;object-fit:cover;border-radius:50%;}
+    .holder-opt-info{flex:1;min-width:0;}
+    .holder-opt-name{font-family:'Rajdhani',sans-serif;font-size:0.95rem;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+    .holder-opt-sub{font-family:'Share Tech Mono',monospace;font-size:0.48rem;letter-spacing:0.1em;color:var(--text-dim);text-transform:uppercase;}
+    .holder-opt-divider{padding:0.3rem 0.85rem;font-family:'Share Tech Mono',monospace;font-size:0.5rem;letter-spacing:0.2em;text-transform:uppercase;color:var(--cyan-dim);background:rgba(14,240,208,0.03);border-bottom:1px solid var(--border);}
+
+    @media(max-width:640px){header{padding:1.2rem 1rem 0;}main{padding:0 0.8rem 4rem;}.hline{margin:1rem;}td.hide-mobile,th.hide-mobile{display:none;}.field-row{flex-direction:column;}.fx-row{flex-wrap:wrap;}}
+
+    /* ══════════════════════════════
+       SIDE NAV
+    ══════════════════════════════ */
+    .sidenav {
+      position: fixed;
+      top: 0; left: 0; bottom: 0;
+      width: 220px;
+      background: #070a0e;
+      border-right: 1px solid #1a2a3a;
+      display: flex;
+      flex-direction: column;
+      z-index: 800;
+      transition: transform 0.25s cubic-bezier(.4,0,.2,1);
+    }
+    .sidenav-logo {
+      padding: 1.4rem 1.2rem 1rem;
+      border-bottom: 1px solid #1a2a3a;
+      text-decoration: none;
+      display: block;
+    }
+    .sidenav-logo-top {
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 0.5rem;
+      letter-spacing: 0.3em;
       text-transform: uppercase;
-      color: var(--parchment-darker);
+      color: #0a8a78;
+      margin-bottom: 2px;
     }
-    textarea {
-      background: rgba(242,232,213,0.07);
-      border: 1px solid rgba(201,146,42,0.3);
-      border-radius: 3px;
-      color: var(--parchment);
-      font-family: 'Crimson Text', serif;
-      font-size: 1rem;
-      padding: 0.45rem 0.75rem;
-      outline: none;
-      resize: vertical;
-      min-height: 70px;
-      transition: border-color 0.2s;
-    }
-    textarea:focus { border-color: var(--gold); }
-
-    /* ── TOAST ── */
-    .toast {
-      position: fixed; bottom: 1.5rem; right: 1.5rem;
-      background: #1e1408;
-      border: 1px solid rgba(201,146,42,0.4);
-      color: var(--parchment);
-      font-family: 'Cinzel', serif;
-      font-size: 0.78rem;
+    .sidenav-logo-name {
+      font-family: 'Orbitron', sans-serif;
+      font-size: 1.3rem;
+      font-weight: 900;
+      color: #0ef0d0;
+      text-shadow: 0 0 16px rgba(14,240,208,0.35);
       letter-spacing: 0.1em;
-      padding: 0.75rem 1.2rem;
+      line-height: 1;
+    }
+    .sidenav-logo-sub {
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 0.48rem;
+      letter-spacing: 0.2em;
+      color: #f0a832;
+      opacity: 0.55;
+      margin-top: 3px;
+    }
+    .sidenav-section {
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 0.46rem;
+      letter-spacing: 0.28em;
+      text-transform: uppercase;
+      color: #3a5070;
+      padding: 1rem 1.2rem 0.35rem;
+    }
+    .sidenav-links {
+      flex: 1;
+      overflow-y: auto;
+      padding: 0.25rem 0.6rem 1rem;
+    }
+    .sidenav-link {
+      display: flex;
+      align-items: center;
+      gap: 0.7rem;
+      padding: 0.6rem 0.7rem;
       border-radius: 4px;
-      box-shadow: 0 6px 24px rgba(0,0,0,0.6);
-      z-index: 200;
-      opacity: 0; pointer-events: none;
-      transform: translateY(8px);
-      transition: opacity 0.2s, transform 0.2s;
+      text-decoration: none;
+      color: #4a6080;
+      font-family: 'Orbitron', sans-serif;
+      font-size: 0.58rem;
+      font-weight: 700;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      transition: background 0.15s, color 0.15s;
+      margin-bottom: 2px;
+      border: 1px solid transparent;
     }
-    .toast.show { opacity: 1; pointer-events: all; transform: translateY(0); }
-
-    /* scrollbar */
-    ::-webkit-scrollbar { width: 6px; }
-    ::-webkit-scrollbar-track { background: #0e0b06; }
-    ::-webkit-scrollbar-thumb { background: var(--leather-light); border-radius: 3px; }
-
-    @media (max-width: 640px) {
-      .toolbar { flex-direction: column; align-items: stretch; }
-      .toolbar-right { justify-content: flex-end; }
-      .field-row { flex-direction: column; }
-      td.hide-mobile, th.hide-mobile { display: none; }
+    .sidenav-link:hover {
+      background: rgba(14,240,208,0.05);
+      color: #c8d8f0;
+      border-color: rgba(14,240,208,0.1);
     }
+    .sidenav-link.active {
+      background: rgba(14,240,208,0.08);
+      color: #0ef0d0;
+      border-color: rgba(14,240,208,0.2);
+      text-shadow: 0 0 10px rgba(14,240,208,0.3);
+    }
+    .sidenav-link .nav-icon {
+      font-size: 1rem;
+      flex-shrink: 0;
+      width: 20px;
+      text-align: center;
+    }
+    .sidenav-link .nav-label { flex: 1; }
+    .sidenav-link .nav-pip {
+      width: 5px; height: 5px;
+      border-radius: 50%;
+      background: #0ef0d0;
+      box-shadow: 0 0 5px #0ef0d0;
+      flex-shrink: 0;
+      opacity: 0;
+    }
+    .sidenav-link.active .nav-pip { opacity: 1; }
+    .sidenav-bottom {
+      padding: 0.8rem 1.2rem;
+      border-top: 1px solid #1a2a3a;
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 0.46rem;
+      letter-spacing: 0.1em;
+      color: #3a5070;
+    }
+    /* hamburger toggle (mobile) */
+    .nav-toggle {
+      display: none;
+      position: fixed;
+      top: 0.9rem; left: 0.9rem;
+      z-index: 900;
+      background: #070a0e;
+      border: 1px solid #1a2a3a;
+      border-radius: 4px;
+      width: 36px; height: 36px;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      flex-direction: column;
+      gap: 4px;
+      padding: 8px 7px;
+    }
+    .nav-toggle span {
+      display: block;
+      width: 100%;
+      height: 2px;
+      background: #0ef0d0;
+      border-radius: 2px;
+      transition: transform 0.2s, opacity 0.2s;
+    }
+    .nav-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.6);
+      z-index: 790;
+    }
+    /* push content right on desktop */
+    body.has-sidenav {
+      padding-left: 220px;
+    }
+    @media (max-width: 768px) {
+      body.has-sidenav { padding-left: 0; }
+      .sidenav { transform: translateX(-100%); box-shadow: none; }
+      .sidenav.nav-open { transform: translateX(0); box-shadow: 4px 0 30px rgba(0,0,0,0.7); }
+      .nav-toggle { display: flex; }
+      .nav-overlay.nav-open { display: block; }
+    }
+
   </style>
 </head>
-<body>
+<body class="has-sidenav">
+<button class="nav-toggle" id="navToggle" aria-label="Toggle navigation">
+  <span></span><span></span><span></span>
+</button>
+<div class="nav-overlay" id="navOverlay" onclick="closeNav()"></div>
+
+<nav class="sidenav" id="sidenav">
+  <a class="sidenav-logo" href="index.html">
+    <div class="sidenav-logo-top">⚙ nexus</div>
+    <div class="sidenav-logo-name">NEXUS</div>
+    <div class="sidenav-logo-sub">campaign system</div>
+  </a>
+  <div class="sidenav-section">Modules</div>
+  <div class="sidenav-links">
+    <a class="sidenav-link" href="index.html">
+      <span class="nav-icon">⬡</span>
+      <span class="nav-label">Dashboard</span>
+      <span class="nav-pip"></span>
+    </a>
+    <a class="sidenav-link" href="party-roster.html">
+      <span class="nav-icon">👥</span>
+      <span class="nav-label">Party Roster</span>
+      <span class="nav-pip"></span>
+    </a>
+    <a class="sidenav-link" href="dnd-gold-tracker.html">
+      <span class="nav-icon">💰</span>
+      <span class="nav-label">Treasury</span>
+      <span class="nav-pip"></span>
+    </a>
+    <a class="sidenav-link active" href="dnd-loot-tracker.html">
+      <span class="nav-icon">⚔️</span>
+      <span class="nav-label">Loot Tracker</span>
+      <span class="nav-pip"></span>
+    </a>
+  </div>
+  <div class="sidenav-bottom">nexus // v1.0.0</div>
+</nav>
 
 <header>
-  <div class="site-title">⚔ The Hoard</div>
-  <div class="site-subtitle">Party Loot Tracker</div>
-</header>
-
-<main>
-  <!-- Stats bar -->
-  <div class="stats-bar" id="statsBar">
-    <div class="stat"><span class="stat-label">Total Items</span><span class="stat-value" id="statTotal">0</span></div>
-    <div class="stat"><span class="stat-label">Attuned</span><span class="stat-value" id="statAttuned">0</span></div>
-    <div class="stat"><span class="stat-label">Legendary</span><span class="stat-value" id="statLegendary">0</span></div>
-    <div class="stat"><span class="stat-label">Artifacts</span><span class="stat-value" id="statArtifact">0</span></div>
+  <div class="brand">
+    <div class="brand-top">⚙ nexus // item registry</div>
+    <div class="brand-name">LOOT TRACKER</div>
+    <div class="brand-sub">party item manifest</div>
   </div>
-
-  <!-- Toolbar -->
+  <div class="header-actions">
+    <button class="btn btn-ghost" onclick="importJSON()">⬆ Import</button>
+    <button class="btn btn-ghost" onclick="exportJSON()">⬇ Export</button>
+    <button class="btn btn-primary" onclick="openModal()">+ Add Item</button>
+  </div>
+</header>
+<div class="hline"></div>
+<main>
+  <div class="stats-bar">
+    <div class="stat"><span class="stat-val" id="statTotal">0</span><span class="stat-label">Total Items</span></div>
+    <div class="stat"><span class="stat-val" id="statAttuned">0</span><span class="stat-label">Attuned</span></div>
+    <div class="stat"><span class="stat-val" id="statWithFx">0</span><span class="stat-label">Has Stat Effects</span></div>
+    <div class="stat"><span class="stat-val" id="statLegendary">0</span><span class="stat-label">Legendary+</span></div>
+  </div>
   <div class="toolbar">
     <div class="toolbar-left">
-      <input class="search-input" type="text" id="searchInput" placeholder="Search items…" oninput="renderTable()" />
+      <input class="search-input" type="text" id="searchInput" placeholder="Search items, holders…" oninput="renderTable()" />
       <select id="filterRarity" onchange="renderTable()">
         <option value="">All Rarities</option>
-        <option value="common">Common</option>
-        <option value="uncommon">Uncommon</option>
-        <option value="rare">Rare</option>
-        <option value="very-rare">Very Rare</option>
-        <option value="legendary">Legendary</option>
-        <option value="artifact">Artifact</option>
+        <option value="common">Common</option><option value="uncommon">Uncommon</option>
+        <option value="rare">Rare</option><option value="very-rare">Very Rare</option>
+        <option value="legendary">Legendary</option><option value="artifact">Artifact</option>
       </select>
       <select id="filterType" onchange="renderTable()">
         <option value="">All Types</option>
-        <option value="Weapon">Weapon</option>
-        <option value="Armor">Armor</option>
-        <option value="Wondrous">Wondrous</option>
-        <option value="Ring">Ring</option>
-        <option value="Staff">Staff</option>
-        <option value="Wand">Wand</option>
-        <option value="Rod">Rod</option>
-        <option value="Potion">Potion</option>
-        <option value="Scroll">Scroll</option>
-        <option value="Other">Other</option>
+        <option value="Weapon">Weapon</option><option value="Armor">Armor</option>
+        <option value="Wondrous">Wondrous</option><option value="Ring">Ring</option>
+        <option value="Staff">Staff</option><option value="Wand">Wand</option>
+        <option value="Rod">Rod</option><option value="Potion">Potion</option>
+        <option value="Scroll">Scroll</option><option value="Other">Other</option>
       </select>
     </div>
     <div class="toolbar-right">
-      <button class="btn btn-ghost" onclick="importJSON()">⬆ Import</button>
-      <button class="btn btn-ghost" onclick="exportJSON()">⬇ Export</button>
-      <button class="btn btn-primary" onclick="openModal()">+ Add Item</button>
+      <select id="filterHolder" onchange="renderTable()">
+        <option value="">All Holders</option>
+        <option value="Party Inventory">🎒 Party Inventory</option>
+      </select>
+      <select id="filterAttune" onchange="renderTable()">
+        <option value="">All Attunement</option>
+        <option value="attuned">Attuned</option><option value="required">Required</option><option value="none">None</option>
+      </select>
+      <select id="filterFx" onchange="renderTable()">
+        <option value="">All Items</option>
+        <option value="yes">Has Stat Effects</option>
+        <option value="no">No Stat Effects</option>
+      </select>
     </div>
   </div>
-
-  <!-- Table -->
   <div class="table-wrap">
     <table>
       <thead>
@@ -430,7 +417,8 @@
           <th onclick="sortBy('type')" class="hide-mobile">Type <span class="sort-arrow" id="sort-type"></span></th>
           <th onclick="sortBy('rarity')">Rarity <span class="sort-arrow" id="sort-rarity"></span></th>
           <th onclick="sortBy('holder')" class="hide-mobile">Held By <span class="sort-arrow" id="sort-holder"></span></th>
-          <th onclick="sortBy('attunement')" class="hide-mobile">Attunement <span class="sort-arrow" id="sort-attunement"></span></th>
+          <th class="hide-mobile">Stat Effects</th>
+          <th onclick="sortBy('attunement')" class="hide-mobile">Attune <span class="sort-arrow" id="sort-attunement"></span></th>
           <th></th>
         </tr>
       </thead>
@@ -443,50 +431,51 @@
 <div class="modal-backdrop" id="modalBackdrop" onclick="backdropClose(event)">
   <div class="modal">
     <div class="modal-header">
-      <span class="modal-title" id="modalTitle">Add Loot Item</span>
+      <span class="modal-title" id="modalTitle">⚙ ADD LOOT ITEM</span>
       <button class="btn-icon" onclick="closeModal()">✕</button>
     </div>
     <div class="modal-body">
       <div class="field">
         <label>Item Name *</label>
-        <input type="text" id="fieldName" placeholder="e.g. Bag of Holding" />
+        <input type="text" class="mi" id="fieldName" placeholder="e.g. Plasma Sword, Shadow Cloak…" />
       </div>
       <div class="field-row">
         <div class="field">
           <label>Type</label>
-          <select id="fieldType">
-            <option value="Wondrous">Wondrous</option>
-            <option value="Weapon">Weapon</option>
-            <option value="Armor">Armor</option>
-            <option value="Ring">Ring</option>
-            <option value="Staff">Staff</option>
-            <option value="Wand">Wand</option>
-            <option value="Rod">Rod</option>
-            <option value="Potion">Potion</option>
-            <option value="Scroll">Scroll</option>
-            <option value="Other">Other</option>
+          <select class="mi" id="fieldType">
+            <option value="Wondrous">Wondrous</option><option value="Weapon">Weapon</option>
+            <option value="Armor">Armor</option><option value="Ring">Ring</option>
+            <option value="Staff">Staff</option><option value="Wand">Wand</option>
+            <option value="Rod">Rod</option><option value="Potion">Potion</option>
+            <option value="Scroll">Scroll</option><option value="Other">Other</option>
           </select>
         </div>
         <div class="field">
           <label>Rarity</label>
-          <select id="fieldRarity">
-            <option value="common">Common</option>
-            <option value="uncommon">Uncommon</option>
-            <option value="rare" selected>Rare</option>
-            <option value="very-rare">Very Rare</option>
-            <option value="legendary">Legendary</option>
-            <option value="artifact">Artifact</option>
+          <select class="mi" id="fieldRarity">
+            <option value="common">Common</option><option value="uncommon">Uncommon</option>
+            <option value="rare" selected>Rare</option><option value="very-rare">Very Rare</option>
+            <option value="legendary">Legendary</option><option value="artifact">Artifact</option>
           </select>
         </div>
       </div>
       <div class="field-row">
         <div class="field">
           <label>Held By</label>
-          <input type="text" id="fieldHolder" placeholder="Character name or Party" />
+          <div class="holder-select-wrap" id="holderSelectWrap">
+            <div class="holder-selected" id="holderSelected" onclick="toggleHolderDropdown()">
+              <span class="holder-sel-avatar" id="holderSelAvatar"></span>
+              <span class="holder-sel-name" id="holderSelName">— Unassigned —</span>
+              <span class="holder-sel-arrow">▾</span>
+            </div>
+            <div class="holder-dropdown" id="holderDropdown"></div>
+          </div>
+          <!-- hidden value carrier -->
+          <input type="hidden" id="fieldHolder" />
         </div>
         <div class="field">
           <label>Attunement</label>
-          <select id="fieldAttunement">
+          <select class="mi" id="fieldAttunement">
             <option value="none">Not required</option>
             <option value="required">Required</option>
             <option value="attuned">Attuned</option>
@@ -495,7 +484,17 @@
       </div>
       <div class="field">
         <label>Description / Notes</label>
-        <textarea id="fieldDesc" placeholder="Item description, where it was found, special notes…"></textarea>
+        <textarea class="mi" id="fieldDesc" placeholder="Item description, acquisition notes…"></textarea>
+      </div>
+
+      <!-- STAT EFFECTS SECTION -->
+      <div class="field">
+        <div class="fx-section-label">
+          <span>Stat Effects</span>
+          <button class="btn btn-ghost" style="font-size:0.52rem;padding:0.3rem 0.7rem;" onclick="addFxRow()">+ Add Effect</button>
+        </div>
+        <div class="fx-hint">Add any bonuses, penalties, advantage, or disadvantage this item grants.</div>
+        <div class="fx-rows" id="fxRows"></div>
       </div>
     </div>
     <div class="modal-footer">
@@ -505,229 +504,552 @@
   </div>
 </div>
 
-<!-- Hidden file input for import -->
 <input type="file" id="fileImport" accept=".json" style="display:none" onchange="handleImport(event)" />
-
-<!-- Toast -->
 <div class="toast" id="toast"></div>
 
 <script>
-  // ── STATE ──
-  let items = [];
-  let editingId = null;
-  let sortKey = 'name';
-  let sortDir = 1;
+// ══════════════════════════════════════════
+//  STAT DEFINITIONS (full D&D 5e set)
+// ══════════════════════════════════════════
+const ALL_STATS = [
+  // Core ability scores
+  { key:'str',    label:'STR – Strength' },
+  { key:'dex',    label:'DEX – Dexterity' },
+  { key:'con',    label:'CON – Constitution' },
+  { key:'int',    label:'INT – Intelligence' },
+  { key:'wis',    label:'WIS – Wisdom' },
+  { key:'cha',    label:'CHA – Charisma' },
+  // Combat
+  { key:'ac',         label:'AC – Armor Class' },
+  { key:'hp',         label:'HP – Hit Points (Max)' },
+  { key:'speed',      label:'Speed (ft)' },
+  { key:'initiative', label:'Initiative' },
+  { key:'prof_bonus', label:'Proficiency Bonus' },
+  // Saving throws
+  { key:'save_str',   label:'Save – Strength' },
+  { key:'save_dex',   label:'Save – Dexterity' },
+  { key:'save_con',   label:'Save – Constitution' },
+  { key:'save_int',   label:'Save – Intelligence' },
+  { key:'save_wis',   label:'Save – Wisdom' },
+  { key:'save_cha',   label:'Save – Charisma' },
+  // Skills
+  { key:'acrobatics',      label:'Skill – Acrobatics (DEX)' },
+  { key:'animal_handling', label:'Skill – Animal Handling (WIS)' },
+  { key:'arcana',          label:'Skill – Arcana (INT)' },
+  { key:'athletics',       label:'Skill – Athletics (STR)' },
+  { key:'deception',       label:'Skill – Deception (CHA)' },
+  { key:'history',         label:'Skill – History (INT)' },
+  { key:'insight',         label:'Skill – Insight (WIS)' },
+  { key:'intimidation',    label:'Skill – Intimidation (CHA)' },
+  { key:'investigation',   label:'Skill – Investigation (INT)' },
+  { key:'medicine',        label:'Skill – Medicine (WIS)' },
+  { key:'nature',          label:'Skill – Nature (INT)' },
+  { key:'perception',      label:'Skill – Perception (WIS)' },
+  { key:'performance',     label:'Skill – Performance (CHA)' },
+  { key:'persuasion',      label:'Skill – Persuasion (CHA)' },
+  { key:'religion',        label:'Skill – Religion (INT)' },
+  { key:'sleight_of_hand', label:'Skill – Sleight of Hand (DEX)' },
+  { key:'stealth',         label:'Skill – Stealth (DEX)' },
+  { key:'survival',        label:'Skill – Survival (WIS)' },
+  // Attack / Spell
+  { key:'attack_rolls',    label:'Attack Rolls' },
+  { key:'spell_attack',    label:'Spell Attack Rolls' },
+  { key:'spell_dc',        label:'Spell Save DC' },
+  { key:'damage_rolls',    label:'Damage Rolls' },
+  { key:'spell_damage',    label:'Spell Damage Rolls' },
+];
 
-  const RARITY_ORDER = { common:0, uncommon:1, rare:2, 'very-rare':3, legendary:4, artifact:5 };
+const FX_TYPES = [
+  { key:'bonus',       label:'+Bonus',       cls:'fx-pos' },
+  { key:'penalty',     label:'−Penalty',     cls:'fx-neg' },
+  { key:'advantage',   label:'Advantage',    cls:'fx-adv' },
+  { key:'disadvantage',label:'Disadvantage', cls:'fx-dis' },
+];
 
-  // ── SEED DATA ──
-  const seedItems = [
-    { id: uid(), name: "Bag of Holding", type: "Wondrous", rarity: "uncommon", holder: "Theron", attunement: "none", desc: "A cloth bag that is larger on the inside than the outside." },
-    { id: uid(), name: "+2 Longsword", type: "Weapon", rarity: "rare", holder: "Mira Ashveil", attunement: "attuned", desc: "Found in the tomb of the Fallen Knight. Blade glows faintly silver." },
-    { id: uid(), name: "Cloak of Elvenkind", type: "Wondrous", rarity: "uncommon", holder: "Zyx", attunement: "attuned", desc: "Grants advantage on Stealth checks while hood is up." },
-    { id: uid(), name: "Ring of Spell Storing", type: "Ring", rarity: "rare", holder: "Party", attunement: "required", desc: "Currently holds: Fireball (3rd), Shield (1st)" },
-    { id: uid(), name: "Orb of Dragonkind", type: "Wondrous", rarity: "artifact", holder: "Party Vault", attunement: "required", desc: "We should probably NOT use this. Recovered from Vaultspire." },
+function statLabel(key){ return (ALL_STATS.find(s=>s.key===key)||{label:key}).label.split(' – ')[0].split(' – ')[0]; }
+function fxClass(type){ return (FX_TYPES.find(t=>t.key===type)||{cls:'fx-pos'}).cls; }
+function fxShort(fx){
+  if(fx.type==='bonus')      return `+${fx.value} ${statLabel(fx.stat)}`;
+  if(fx.type==='penalty')    return `−${fx.value} ${statLabel(fx.stat)}`;
+  if(fx.type==='advantage')  return `Adv: ${statLabel(fx.stat)}`;
+  if(fx.type==='disadvantage') return `Dis: ${statLabel(fx.stat)}`;
+  return '';
+}
+
+// ══════════════════════════════════════════
+//  STATE
+// ══════════════════════════════════════════
+let items = [];
+let editingId = null;
+let sortKey = 'name', sortDir = 1;
+let pendingFx = [];   // effects being edited in modal
+
+const RARITY_ORDER = { common:0,uncommon:1,rare:2,'very-rare':3,legendary:4,artifact:5 };
+
+const seedItems = [
+  { id:uid(), name:"Shadow Cloak",      type:"Wondrous", rarity:"rare",     holder:"Zyx",        attunement:"attuned",  desc:"Advantage on Stealth, disadvantage on Perception.", statEffects:[{stat:'stealth',type:'advantage',value:null},{stat:'perception',type:'disadvantage',value:null}] },
+  { id:uid(), name:"Aegis Mk-II Armor", type:"Armor",    rarity:"rare",     holder:"Mira",       attunement:"none",     desc:"+2 AC. Disadvantage on Stealth checks.",              statEffects:[{stat:'ac',type:'bonus',value:2},{stat:'stealth',type:'disadvantage',value:null}] },
+  { id:uid(), name:"Neural Spike +2",   type:"Weapon",   rarity:"uncommon", holder:"Mira",       attunement:"none",     desc:"+2 to attack and damage rolls.",                      statEffects:[{stat:'attack_rolls',type:'bonus',value:2},{stat:'damage_rolls',type:'bonus',value:2}] },
+  { id:uid(), name:"Gauntlet of STR",   type:"Wondrous", rarity:"rare",     holder:"Theron",     attunement:"attuned",  desc:"Sets STR to 19.",                                    statEffects:[{stat:'str',type:'bonus',value:4}] },
+  { id:uid(), name:"Ring of Data",      type:"Ring",     rarity:"rare",     holder:"Party",      attunement:"required", desc:"Stores up to 3 spells.",                             statEffects:[] },
+  { id:uid(), name:"Orb of Old Code",   type:"Wondrous", rarity:"artifact", holder:"Party Vault",attunement:"required", desc:"Do NOT activate.",                                   statEffects:[] },
+];
+
+function uid(){ return '_'+Math.random().toString(36).slice(2,11); }
+
+function loadData(){
+  try{ const r=localStorage.getItem('thehoard_items'); items=r?JSON.parse(r):seedItems; }
+  catch{ items=seedItems; }
+  items.forEach(it=>{ if(!it.statEffects) it.statEffects=[]; });
+}
+function saveData(){ try{ localStorage.setItem('thehoard_items',JSON.stringify(items)); }catch{} }
+
+// ══════════════════════════════════════════
+//  RENDER
+// ══════════════════════════════════════════
+function getFiltered(){
+  const q=document.getElementById('searchInput').value.toLowerCase();
+  const rarity=document.getElementById('filterRarity').value;
+  const type=document.getElementById('filterType').value;
+  const attune=document.getElementById('filterAttune').value;
+  const fx=document.getElementById('filterFx').value;
+  const holder=document.getElementById('filterHolder').value;
+  return items.filter(it=>{
+    if(q&&!it.name.toLowerCase().includes(q)&&!(it.desc||'').toLowerCase().includes(q)&&!(it.holder||'').toLowerCase().includes(q)) return false;
+    if(rarity&&it.rarity!==rarity) return false;
+    if(type&&it.type!==type) return false;
+    if(attune&&it.attunement!==attune) return false;
+    if(fx==='yes'&&!it.statEffects?.length) return false;
+    if(fx==='no'&&it.statEffects?.length) return false;
+    if(holder&&it.holder!==holder) return false;
+    return true;
+  }).sort((a,b)=>{
+    let av=a[sortKey]??'',bv=b[sortKey]??'';
+    if(sortKey==='rarity'){av=RARITY_ORDER[av]??99;bv=RARITY_ORDER[bv]??99;return(av-bv)*sortDir;}
+    return av.toString().localeCompare(bv.toString())*sortDir;
+  });
+}
+
+function renderTable(){
+  const tbody=document.getElementById('itemTableBody');
+  const rows=getFiltered();
+  updateStats();
+  if(!rows.length){
+    tbody.innerHTML=`<tr><td colspan="7"><div class="empty-state"><span class="empty-icon">⚔️</span><p>No items found in registry</p></div></td></tr>`;
+    return;
+  }
+  tbody.innerHTML=rows.map(it=>{
+    const fxHtml=(it.statEffects||[]).map(fx=>`<span class="fx-pill ${fxClass(fx.type)}">${esc(fxShort(fx))}</span>`).join('');
+    return `<tr>
+      <td>
+        <div class="item-name">${esc(it.name)}</div>
+        ${it.desc?`<div class="item-desc">${esc(it.desc)}</div>`:''}
+      </td>
+      <td class="hide-mobile" style="font-family:'Share Tech Mono',monospace;font-size:0.7rem;color:var(--text-dim);letter-spacing:0.08em">${esc(it.type)}</td>
+      <td><span class="rarity-badge rarity-${it.rarity}">${rarityLabel(it.rarity)}</span></td>
+      <td class="hide-mobile">${renderHolderCell(it.holder)}</td>
+      <td class="hide-mobile"><div class="fx-list">${fxHtml||'<span style="font-family:\'Share Tech Mono\',monospace;font-size:0.5rem;color:var(--text-dim);">—</span>'}</div></td>
+      <td class="hide-mobile"><span class="${it.attunement==='none'?'attunement no-attune':'attunement'}">${attuneLabel(it.attunement)}</span></td>
+      <td class="td-actions">
+        <button class="btn-icon" title="Edit" onclick="openModal('${it.id}')">✎</button>
+        <button class="btn-icon delete" title="Delete" onclick="deleteItem('${it.id}')">🗑</button>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+function updateStats(){
+  document.getElementById('statTotal').textContent=items.length;
+  document.getElementById('statAttuned').textContent=items.filter(i=>i.attunement==='attuned').length;
+  document.getElementById('statWithFx').textContent=items.filter(i=>i.statEffects?.length>0).length;
+  document.getElementById('statLegendary').textContent=items.filter(i=>i.rarity==='legendary'||i.rarity==='artifact').length;
+}
+
+function rarityLabel(r){ return{common:'Common',uncommon:'Uncommon',rare:'Rare','very-rare':'Very Rare',legendary:'Legendary',artifact:'Artifact'}[r]||r; }
+function attuneLabel(a){ return{none:'—',required:'Required',attuned:'Attuned'}[a]||a; }
+function esc(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+function renderHolderCell(holder){
+  if(!holder) return '<span style="color:var(--text-dim);font-size:0.85rem">—</span>';
+  const members=loadPartyMembers();
+  const m=members.find(x=>x.name===holder);
+  const avatarStyle='width:20px;height:20px;border-radius:50%;object-fit:cover;vertical-align:middle;margin-right:5px;border:1px solid rgba(14,240,208,0.2);flex-shrink:0;';
+  if(holder==='Party Inventory'){
+    return `<span style="display:inline-flex;align-items:center;gap:5px;font-size:0.9rem"><span style="font-size:0.85rem">🎒</span>${esc(holder)}</span>`;
+  }
+  if(m&&m.photo){
+    return `<span style="display:inline-flex;align-items:center;gap:0;font-size:0.9rem"><img src="${m.photo}" style="${avatarStyle}" alt="${esc(holder)}" />${esc(holder)}</span>`;
+  }
+  if(m){
+    const c=m.color||'var(--gold)';
+    return `<span style="display:inline-flex;align-items:center;gap:5px;font-size:0.9rem"><span style="width:20px;height:20px;border-radius:50%;background:${c}22;border:1px solid ${c}55;display:inline-flex;align-items:center;justify-content:center;font-family:'Orbitron',sans-serif;font-size:0.55rem;font-weight:700;color:${c};flex-shrink:0;">${esc(holder.charAt(0).toUpperCase())}</span>${esc(holder)}</span>`;
+  }
+  return `<span style="font-size:0.9rem">${esc(holder)}</span>`;
+}
+
+function sortBy(key){
+  if(sortKey===key) sortDir*=-1; else{sortKey=key;sortDir=1;}
+  document.querySelectorAll('.sort-arrow').forEach(el=>el.textContent='');
+  const arrow=document.getElementById('sort-'+key);
+  if(arrow) arrow.textContent=sortDir===1?' ▲':' ▼';
+  document.querySelectorAll('thead th').forEach(th=>th.classList.remove('sorted'));
+  document.querySelectorAll('thead th').forEach(th=>{if(th.querySelector('#sort-'+key))th.classList.add('sorted');});
+  renderTable();
+}
+
+// ══════════════════════════════════════════
+//  HOLDER DROPDOWN
+// ══════════════════════════════════════════
+function loadPartyMembers(){
+  try{ const r=localStorage.getItem('party_roster_v1'); return r?JSON.parse(r):[]; }
+  catch{ return []; }
+}
+
+function buildHolderDropdown(currentValue){
+  const members=loadPartyMembers();
+  const wrap=document.getElementById('holderSelectWrap');
+  const dropdown=document.getElementById('holderDropdown');
+
+  // Build option list
+  // Group 1: blank/unassigned
+  // Group 2: Party Inventory
+  // Group 3: party members (from roster)
+  const options=[
+    { value:'', name:'— Unassigned —', photo:null, sub:'', isBlank:true },
+    { value:'Party Inventory', name:'Party Inventory', photo:null, sub:'shared loot', isSpecial:true },
   ];
-
-  function uid() { return '_' + Math.random().toString(36).slice(2,11); }
-
-  function loadData() {
-    try {
-      const raw = localStorage.getItem('thehoard_items');
-      items = raw ? JSON.parse(raw) : seedItems;
-    } catch { items = seedItems; }
-  }
-
-  function saveData() {
-    try { localStorage.setItem('thehoard_items', JSON.stringify(items)); } catch {}
-  }
-
-  // ── RENDER ──
-  function getFiltered() {
-    const q = document.getElementById('searchInput').value.toLowerCase();
-    const rarity = document.getElementById('filterRarity').value;
-    const type = document.getElementById('filterType').value;
-    return items.filter(it => {
-      if (q && !it.name.toLowerCase().includes(q) && !it.desc.toLowerCase().includes(q) && !it.holder.toLowerCase().includes(q)) return false;
-      if (rarity && it.rarity !== rarity) return false;
-      if (type && it.type !== type) return false;
-      return true;
-    }).sort((a,b) => {
-      let av = a[sortKey] ?? '', bv = b[sortKey] ?? '';
-      if (sortKey === 'rarity') { av = RARITY_ORDER[av] ?? 99; bv = RARITY_ORDER[bv] ?? 99; return (av - bv) * sortDir; }
-      return av.toString().localeCompare(bv.toString()) * sortDir;
+  members.forEach(m=>{
+    options.push({
+      value: m.name,
+      name:  m.name,
+      photo: m.photo||null,
+      color: m.color||null,
+      sub:   [m.class, m.race].filter(Boolean).join(' · ')||'',
     });
-  }
-
-  function rarityLabel(r) {
-    return { common:'Common', uncommon:'Uncommon', rare:'Rare', 'very-rare':'Very Rare', legendary:'Legendary', artifact:'Artifact' }[r] || r;
-  }
-  function attuneLabel(a) {
-    return { none:'—', required:'Required', attuned:'Attuned' }[a] || a;
-  }
-
-  function renderTable() {
-    const tbody = document.getElementById('itemTableBody');
-    const rows = getFiltered();
-    updateStats();
-    if (!rows.length) {
-      tbody.innerHTML = `<tr><td colspan="6"><div class="empty-state"><span class="empty-icon">🗡️</span><p>No items found in the hoard</p></div></td></tr>`;
-      return;
-    }
-    tbody.innerHTML = rows.map(it => `
-      <tr>
-        <td>
-          <div class="item-name">${esc(it.name)}</div>
-          ${it.desc ? `<div class="item-desc">${esc(it.desc)}</div>` : ''}
-        </td>
-        <td class="hide-mobile">${esc(it.type)}</td>
-        <td><span class="rarity-badge rarity-${it.rarity}">${rarityLabel(it.rarity)}</span></td>
-        <td class="hide-mobile">${esc(it.holder || '—')}</td>
-        <td class="hide-mobile"><span class="${it.attunement === 'none' ? 'attunement no-attune' : 'attunement'}">${attuneLabel(it.attunement)}</span></td>
-        <td class="td-actions">
-          <button class="btn-icon" title="Edit" onclick="openModal('${it.id}')">✎</button>
-          <button class="btn-icon delete" title="Delete" onclick="deleteItem('${it.id}')">🗑</button>
-        </td>
-      </tr>
-    `).join('');
-  }
-
-  function updateStats() {
-    document.getElementById('statTotal').textContent = items.length;
-    document.getElementById('statAttuned').textContent = items.filter(i => i.attunement === 'attuned').length;
-    document.getElementById('statLegendary').textContent = items.filter(i => i.rarity === 'legendary').length;
-    document.getElementById('statArtifact').textContent = items.filter(i => i.rarity === 'artifact').length;
-  }
-
-  function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
-
-  // ── SORT ──
-  function sortBy(key) {
-    if (sortKey === key) sortDir *= -1; else { sortKey = key; sortDir = 1; }
-    document.querySelectorAll('.sort-arrow').forEach(el => el.textContent = '');
-    const el = document.getElementById('sort-' + key);
-    if (el) el.textContent = sortDir === 1 ? ' ▲' : ' ▼';
-    document.querySelectorAll('thead th').forEach(th => th.classList.remove('sorted'));
-    const ths = document.querySelectorAll('thead th');
-    ths.forEach(th => { if (th.querySelector('#sort-'+key)) th.classList.add('sorted'); });
-    renderTable();
-  }
-
-  // ── MODAL ──
-  function openModal(id) {
-    editingId = id || null;
-    const modal = document.getElementById('modalBackdrop');
-    document.getElementById('modalTitle').textContent = id ? 'Edit Item' : 'Add Loot Item';
-    if (id) {
-      const it = items.find(i => i.id === id);
-      if (!it) return;
-      document.getElementById('fieldName').value = it.name;
-      document.getElementById('fieldType').value = it.type;
-      document.getElementById('fieldRarity').value = it.rarity;
-      document.getElementById('fieldHolder').value = it.holder;
-      document.getElementById('fieldAttunement').value = it.attunement;
-      document.getElementById('fieldDesc').value = it.desc;
-    } else {
-      document.getElementById('fieldName').value = '';
-      document.getElementById('fieldType').value = 'Wondrous';
-      document.getElementById('fieldRarity').value = 'rare';
-      document.getElementById('fieldHolder').value = '';
-      document.getElementById('fieldAttunement').value = 'none';
-      document.getElementById('fieldDesc').value = '';
-    }
-    modal.classList.add('open');
-    setTimeout(() => document.getElementById('fieldName').focus(), 150);
-  }
-
-  function closeModal() { document.getElementById('modalBackdrop').classList.remove('open'); editingId = null; }
-  function backdropClose(e) { if (e.target === document.getElementById('modalBackdrop')) closeModal(); }
-
-  function saveItem() {
-    const name = document.getElementById('fieldName').value.trim();
-    if (!name) { showToast('Item name is required.'); return; }
-    const item = {
-      id: editingId || uid(),
-      name,
-      type: document.getElementById('fieldType').value,
-      rarity: document.getElementById('fieldRarity').value,
-      holder: document.getElementById('fieldHolder').value.trim(),
-      attunement: document.getElementById('fieldAttunement').value,
-      desc: document.getElementById('fieldDesc').value.trim(),
-    };
-    if (editingId) {
-      const idx = items.findIndex(i => i.id === editingId);
-      if (idx >= 0) items[idx] = item;
-      showToast('Item updated.');
-    } else {
-      items.push(item);
-      showToast('Item added to the hoard.');
-    }
-    saveData();
-    renderTable();
-    closeModal();
-  }
-
-  function deleteItem(id) {
-    if (!confirm('Remove this item from the hoard?')) return;
-    items = items.filter(i => i.id !== id);
-    saveData();
-    renderTable();
-    showToast('Item removed.');
-  }
-
-  // ── IMPORT / EXPORT ──
-  function exportJSON() {
-    const blob = new Blob([JSON.stringify({ version:1, items }, null, 2)], { type:'application/json' });
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    a.download = 'the-hoard-loot.json';
-    a.click();
-    showToast('Loot exported.');
-  }
-
-  function importJSON() { document.getElementById('fileImport').click(); }
-
-  function handleImport(e) {
-    const file = e.target.files[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = ev => {
-      try {
-        const data = JSON.parse(ev.target.result);
-        const imported = data.items || data;
-        if (!Array.isArray(imported)) throw new Error();
-        if (confirm(`Import ${imported.length} items? This will REPLACE your current list.`)) {
-          items = imported.map(it => ({ ...it, id: it.id || uid() }));
-          saveData();
-          renderTable();
-          showToast(`Imported ${items.length} items.`);
-        }
-      } catch { showToast('Invalid file. Please use a valid hoard export.'); }
-    };
-    reader.readAsText(file);
-    e.target.value = '';
-  }
-
-  // ── TOAST ──
-  function showToast(msg, dur=2800) {
-    const t = document.getElementById('toast');
-    t.textContent = msg;
-    t.classList.add('show');
-    clearTimeout(t._to);
-    t._to = setTimeout(() => t.classList.remove('show'), dur);
-  }
-
-  // ── KEYBOARD ──
-  document.addEventListener('keydown', e => {
-    if (e.key === 'Escape') closeModal();
-    if (e.key === 'Enter' && document.getElementById('modalBackdrop').classList.contains('open')) {
-      if (document.activeElement.tagName !== 'TEXTAREA') saveItem();
-    }
   });
 
-  // ── INIT ──
-  loadData();
-  renderTable();
+  // Store options on wrap element so selectHolder can access them
+  wrap._holderOptions = options;
+
+  dropdown.innerHTML = options.map((opt,i)=>{
+    const divider=(i===2&&members.length)
+      ? `<div class="holder-opt-divider">Party Members</div>`
+      : '';
+
+    const avatarContent = opt.photo
+      ? `<img src="${opt.photo}" alt="${esc(opt.name)}" />`
+      : opt.isBlank
+        ? `<span style="color:var(--text-dim);font-size:0.7rem">—</span>`
+        : opt.isSpecial
+          ? `<span style="font-size:0.75rem">🎒</span>`
+          : `<span style="color:${opt.color||'var(--gold)'}">${esc(opt.name.charAt(0).toUpperCase())}</span>`;
+
+    const isSelected = opt.value === currentValue;
+
+    return `${divider}<div class="holder-opt ${isSelected?'selected':''}" data-holder-idx="${i}">
+      <div class="holder-opt-avatar" style="${opt.color&&!opt.photo?`border-color:${opt.color}40`:''}">${avatarContent}</div>
+      <div class="holder-opt-info">
+        <div class="holder-opt-name">${esc(opt.name)}</div>
+        ${opt.sub?`<div class="holder-opt-sub">${esc(opt.sub)}</div>`:''}
+      </div>
+    </div>`;
+  }).join('');
+
+  // Attach click handlers via JS (avoids inline onclick with base64/special chars)
+  dropdown.querySelectorAll('.holder-opt').forEach(el=>{
+    el.addEventListener('click', function(e){
+      e.stopPropagation();
+      const idx = parseInt(this.getAttribute('data-holder-idx'));
+      const opt = wrap._holderOptions[idx];
+      if(opt) selectHolder(opt.value, opt.name, opt.photo||'', opt.color||'');
+    });
+  });
+
+  // Set selected display
+  setHolderDisplay(currentValue, options);
+
+}
+
+function setHolderDisplay(value, optionsList){
+  const opt = optionsList
+    ? optionsList.find(o=>o.value===value)
+    : null;
+
+  const selAvatar = document.getElementById('holderSelAvatar');
+  const selName   = document.getElementById('holderSelName');
+
+  if(!value || !opt){
+    selAvatar.className='holder-sel-avatar hidden';
+    selAvatar.innerHTML='';
+    selName.textContent='— Unassigned —';
+    selName.className='holder-sel-name placeholder';
+    document.getElementById('fieldHolder').value='';
+    return;
+  }
+
+  selName.className='holder-sel-name';
+  selName.textContent=opt.name;
+  document.getElementById('fieldHolder').value=value;
+
+  if(opt.photo){
+    selAvatar.className='holder-sel-avatar';
+    selAvatar.innerHTML=`<img src="${opt.photo}" alt="${esc(opt.name)}" />`;
+  } else if(opt.isBlank){
+    selAvatar.className='holder-sel-avatar hidden';
+    selAvatar.innerHTML='';
+  } else if(opt.isSpecial){
+    selAvatar.className='holder-sel-avatar';
+    selAvatar.innerHTML=`<span style="font-size:0.75rem">🎒</span>`;
+  } else {
+    selAvatar.className='holder-sel-avatar';
+    selAvatar.style.borderColor=(opt.color||'var(--border)');
+    selAvatar.innerHTML=`<span style="color:${opt.color||'var(--gold)'}">${esc((opt.name||'?').charAt(0).toUpperCase())}</span>`;
+  }
+}
+
+function selectHolder(value, name, photo, color){
+  document.getElementById('fieldHolder').value=value;
+  const selAvatar=document.getElementById('holderSelAvatar');
+  const selName=document.getElementById('holderSelName');
+  selName.textContent=value?name:'— Unassigned —';
+  selName.className='holder-sel-name'+(value?'':' placeholder');
+
+  if(!value){
+    selAvatar.className='holder-sel-avatar hidden';
+    selAvatar.innerHTML='';
+  } else if(photo){
+    selAvatar.className='holder-sel-avatar';
+    selAvatar.innerHTML=`<img src="${photo}" alt="${esc(name)}" />`;
+  } else if(value==='Party Inventory'){
+    selAvatar.className='holder-sel-avatar';
+    selAvatar.innerHTML=`<span style="font-size:0.75rem">🎒</span>`;
+  } else {
+    selAvatar.className='holder-sel-avatar';
+    selAvatar.style.borderColor=color?`${color}60`:'var(--border)';
+    selAvatar.innerHTML=`<span style="color:${color||'var(--gold)'}">${esc((name||'?').charAt(0).toUpperCase())}</span>`;
+  }
+
+  // mark selected in list
+  document.querySelectorAll('.holder-opt').forEach(el=>el.classList.remove('selected'));
+  document.querySelectorAll('.holder-opt').forEach(el=>{
+    const nameEl=el.querySelector('.holder-opt-name');
+    if(nameEl&&nameEl.textContent===(value||'— Unassigned —')) el.classList.add('selected');
+  });
+
+  closeHolderDropdown();
+}
+
+function toggleHolderDropdown(){
+  const wrap=document.getElementById('holderSelectWrap');
+  if(wrap.classList.contains('open')){ closeHolderDropdown(); return; }
+  const currentVal=document.getElementById('fieldHolder').value;
+  buildHolderDropdown(currentVal);
+  wrap.classList.add('open');
+}
+
+function closeHolderDropdown(){
+  document.getElementById('holderSelectWrap').classList.remove('open');
+}
+
+function closeHolderOnOutside(e){
+  const wrap=document.getElementById('holderSelectWrap');
+  if(wrap&&!wrap.contains(e.target)) closeHolderDropdown();
+}
+
+// attach one persistent document listener for outside-clicks
+document.addEventListener('click', function(e){
+  const wrap=document.getElementById('holderSelectWrap');
+  if(wrap&&wrap.classList.contains('open')&&!wrap.contains(e.target)){
+    closeHolderDropdown();
+  }
+});
+
+// ══════════════════════════════════════════
+//  STAT EFFECTS EDITOR
+// ══════════════════════════════════════════
+function buildStatSelect(){
+  const groups = [
+    { label: 'Main Stats',      keys: ['str','dex','con','int','wis','cha','ac','hp','speed','initiative','prof_bonus'] },
+    { label: 'Saving Throws',   keys: ['save_str','save_dex','save_con','save_int','save_wis','save_cha'] },
+    { label: 'Skills',          keys: ['acrobatics','animal_handling','arcana','athletics','deception','history','insight','intimidation','investigation','medicine','nature','perception','performance','persuasion','religion','sleight_of_hand','stealth','survival'] },
+    { label: 'Rolls',           keys: ['attack_rolls','spell_attack','spell_dc','damage_rolls','spell_damage'] },
+  ];
+  const statMap = {};
+  ALL_STATS.forEach(s => statMap[s.key] = s.label);
+  return `<option value="">\u2014 Stat \u2014</option>` +
+    groups.map(g =>
+      `<optgroup label="${g.label}">` +
+      g.keys.map(k => `<option value="${k}">${esc(statMap[k]||k)}</option>`).join('') +
+      `</optgroup>`
+    ).join('');
+}
+function buildTypeSelect(){
+  return FX_TYPES.map(t=>`<option value="${t.key}">${t.label}</option>`).join('');
+}
+
+function addFxRow(existing){
+  const container=document.getElementById('fxRows');
+  const idx=pendingFx.length;
+  const fx=existing||{stat:'',type:'bonus',value:null};
+  pendingFx.push(fx);
+  const row=document.createElement('div');
+  row.className='fx-row';
+  row.id=`fx-row-${idx}`;
+  const needsVal=(t)=>t==='bonus'||t==='penalty';
+  row.innerHTML=`
+    <select class="fx-stat-sel" onchange="pendingFx[${idx}].stat=this.value">${buildStatSelect()}</select>
+    <select class="fx-type-sel" onchange="pendingFx[${idx}].type=this.value;document.getElementById('fx-val-${idx}').style.display=(this.value==='bonus'||this.value==='penalty')?'block':'none'">${buildTypeSelect()}</select>
+    <input type="number" class="fx-val-inp" id="fx-val-${idx}" placeholder="±#" style="display:${needsVal(fx.type)?'block':'none'}" onchange="pendingFx[${idx}].value=parseFloat(this.value)||null" />
+    <button class="fx-del-btn" onclick="removeFxRow(${idx})">✕</button>`;
+  container.appendChild(row);
+  // set saved values
+  row.querySelector('.fx-stat-sel').value=fx.stat||'';
+  row.querySelector('.fx-type-sel').value=fx.type||'bonus';
+  if(fx.value!=null) document.getElementById(`fx-val-${idx}`).value=fx.value;
+}
+
+function removeFxRow(idx){
+  pendingFx[idx]=null;
+  const row=document.getElementById(`fx-row-${idx}`);
+  if(row) row.remove();
+}
+
+function collectFx(){
+  return pendingFx.filter(f=>f&&f.stat).map(f=>({
+    stat:f.stat,
+    type:f.type||'bonus',
+    value:(f.type==='bonus'||f.type==='penalty')?(f.value||0):null
+  }));
+}
+
+// Sets the holder display to a saved value without opening the dropdown
+function initHolderDisplay(value){
+  const members=loadPartyMembers();
+  const specialOpts=[
+    {value:'',name:'— Unassigned —',photo:null,isBlank:true},
+    {value:'Party Inventory',name:'Party Inventory',photo:null,isSpecial:true},
+  ];
+  const memberOpts=members.map(m=>({value:m.name,name:m.name,photo:m.photo||null,color:m.color||null}));
+  const allOpts=[...specialOpts,...memberOpts];
+  setHolderDisplay(value, allOpts);
+}
+
+// ══════════════════════════════════════════
+//  MODAL
+// ══════════════════════════════════════════
+function openModal(id){
+  editingId=id||null;
+  document.getElementById('modalTitle').textContent=id?'⚙ EDIT ITEM':'⚙ ADD LOOT ITEM';
+  pendingFx=[];
+  document.getElementById('fxRows').innerHTML='';
+  if(id){
+    const it=items.find(i=>i.id===id); if(!it) return;
+    document.getElementById('fieldName').value=it.name;
+    document.getElementById('fieldType').value=it.type;
+    document.getElementById('fieldRarity').value=it.rarity;
+    document.getElementById('fieldAttunement').value=it.attunement;
+    document.getElementById('fieldDesc').value=it.desc||'';
+    (it.statEffects||[]).forEach(fx=>addFxRow({...fx}));
+    // init holder dropdown with saved value
+    initHolderDisplay(it.holder||'');
+  } else {
+    ['fieldName','fieldDesc'].forEach(fid=>document.getElementById(fid).value='');
+    document.getElementById('fieldType').value='Wondrous';
+    document.getElementById('fieldRarity').value='rare';
+    document.getElementById('fieldAttunement').value='none';
+    initHolderDisplay('');
+  }
+  document.getElementById('modalBackdrop').classList.add('open');
+  setTimeout(()=>document.getElementById('fieldName').focus(),150);
+}
+
+function closeModal(){ document.getElementById('modalBackdrop').classList.remove('open'); editingId=null; pendingFx=[]; }
+function backdropClose(e){ if(e.target===document.getElementById('modalBackdrop')) closeModal(); }
+
+function saveItem(){
+  const name=document.getElementById('fieldName').value.trim();
+  if(!name){ showToast('Item name is required.'); return; }
+  const item={
+    id:editingId||uid(), name,
+    type:document.getElementById('fieldType').value,
+    rarity:document.getElementById('fieldRarity').value,
+    holder:document.getElementById('fieldHolder').value.trim(),
+    attunement:document.getElementById('fieldAttunement').value,
+    desc:document.getElementById('fieldDesc').value.trim(),
+    statEffects:collectFx(),
+  };
+  if(editingId){ const idx=items.findIndex(i=>i.id===editingId); if(idx>=0) items[idx]=item; showToast('Item updated.'); }
+  else{ items.push(item); showToast('Item logged to registry.'); }
+  saveData(); renderTable(); closeModal();
+}
+
+function deleteItem(id){
+  if(!confirm('Remove this item from the registry?')) return;
+  items=items.filter(i=>i.id!==id);
+  saveData(); renderTable(); showToast('Item removed.');
+}
+
+// ── EXPORT / IMPORT ──
+function exportJSON(){ const blob=new Blob([JSON.stringify({version:2,items},null,2)],{type:'application/json'}); const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='loot-registry.json';a.click(); showToast('Registry exported.'); }
+function importJSON(){ document.getElementById('fileImport').click(); }
+function handleImport(e){
+  const file=e.target.files[0]; if(!file) return;
+  const reader=new FileReader();
+  reader.onload=ev=>{
+    try{
+      const data=JSON.parse(ev.target.result);
+      const imported=data.items||data;
+      if(!Array.isArray(imported)) throw new Error();
+      if(confirm(`Import ${imported.length} items? This replaces your current registry.`)){
+        items=imported.map(it=>({...it,id:it.id||uid(),statEffects:it.statEffects||[]}));
+        saveData(); renderTable(); showToast(`Imported ${items.length} items.`);
+      }
+    }catch{ showToast('Invalid file.'); }
+  };
+  reader.readAsText(file); e.target.value='';
+}
+
+function showToast(msg,dur=2800){ const t=document.getElementById('toast'); t.textContent=msg; t.classList.add('show'); clearTimeout(t._to); t._to=setTimeout(()=>t.classList.remove('show'),dur); }
+document.addEventListener('keydown',e=>{ if(e.key==='Escape') closeModal(); if(e.key==='Enter'&&document.getElementById('modalBackdrop').classList.contains('open')&&document.activeElement.tagName!=='TEXTAREA'&&document.activeElement.tagName!=='SELECT') saveItem(); });
+
+function populateHolderFilter(){
+  const sel=document.getElementById('filterHolder');
+  const current=sel.value;
+  // Clear existing member options (keep blank + Party Inventory)
+  while(sel.options.length>2) sel.remove(2);
+  const members=loadPartyMembers();
+  if(members.length){
+    const divOpt=document.createElement('option');
+    divOpt.disabled=true; divOpt.textContent='── Party Members ──';
+    sel.appendChild(divOpt);
+    members.forEach(m=>{
+      const o=document.createElement('option');
+      o.value=m.name; o.textContent=m.name+(m.class?` (${m.class})`:'');
+      sel.appendChild(o);
+    });
+  }
+  if(current) sel.value=current;
+}
+
+loadData();
+populateHolderFilter();
+renderTable();
 </script>
+
+<script>
+  function openNav() {
+    document.getElementById('sidenav').classList.add('nav-open');
+    document.getElementById('navOverlay').classList.add('nav-open');
+  }
+  function closeNav() {
+    document.getElementById('sidenav').classList.remove('nav-open');
+    document.getElementById('navOverlay').classList.remove('nav-open');
+  }
+  document.getElementById('navToggle').addEventListener('click', function() {
+    const nav = document.getElementById('sidenav');
+    nav.classList.contains('nav-open') ? closeNav() : openNav();
+  });
+</script>
+
 </body>
 </html>
