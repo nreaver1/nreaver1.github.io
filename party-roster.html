@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>PARTY ROSTER // Crew Registry</title>
   <script src="nexus-config.js"></script>
+  <link rel="icon" type="image/x-icon" href="favicon.ico" />
   <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@400;700;900&family=Rajdhani:wght@400;500;600;700&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="nexus.css" />
 </head>
@@ -152,7 +153,7 @@
     </div>
     <div class="modal-footer">
       <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
-      <button class="btn btn-primary" onclick="saveMember()">Save Member</button>
+      <button class="btn btn-primary" id="btnSaveMember" onclick="saveMember()">Save Member</button>
     </div>
   </div>
 </div>
@@ -219,6 +220,7 @@ function abilityMod(score){return Math.floor(((score||10)-10)/2);}
 function modStr(n){return n>=0?`+${n}`:String(n);}
 // Cache loot items for stat effect display on cards
 let _cachedLootItems = null;
+let _cachedVaultSummary = null; // { display: "1,240 CR", breakdown: "1200 CR · 2 VS" }
 
 function getItemEffects(){
   return _cachedLootItems || [];
@@ -231,10 +233,53 @@ async function prefetchLootItems(){
       id:          r.id,
       name:        r.name,
       rarity:      r.rarity,
+      type:        r.type,
+      attunement:  r.attunement,
       holder:      r.holder,
       statEffects: r.stat_effects || [],
     }));
   }catch(e){ console.error('Could not load loot effects:', e); _cachedLootItems = []; }
+}
+
+async function prefetchTreasury(){
+  try{
+    const [curRows, ledgerRows] = await Promise.all([
+      db.select('treasury_currencies', { order: 'sort_order.asc,created_at.asc' }),
+      db.select('treasury_ledger'),
+    ]);
+    // Build vault totals
+    const vault = {};
+    for(const tx of ledgerRows){
+      const sign = tx.type === 'spend' ? -1 : 1;
+      for(const [cid, amt] of Object.entries(tx.coins || {})){
+        vault[cid] = (vault[cid] || 0) + sign * (amt || 0);
+        if(vault[cid] < 0) vault[cid] = 0;
+      }
+    }
+    // Build summary string: convert everything to base rate
+    const base = curRows.find(c => c.id === 'cr') || curRows[0];
+    let totalInBase = 0;
+    let allHaveRates = true;
+    const parts = [];
+    for(const cur of curRows){
+      const amt = vault[cur.id] || 0;
+      if(!amt) continue;
+      parts.push(`${amt.toLocaleString()} ${cur.abbr}`);
+      if(cur.rate != null) totalInBase += amt * cur.rate;
+      else allHaveRates = false;
+    }
+    const totalStr = allHaveRates && base
+      ? totalInBase.toLocaleString(undefined, {maximumFractionDigits:1}) + ' ' + base.abbr
+      : parts[0] || '0';
+    _cachedVaultSummary = {
+      total: totalStr,
+      breakdown: parts.join(' · ') || 'Empty',
+      hasData: parts.length > 0,
+    };
+  }catch(e){
+    console.error('Could not load treasury:', e);
+    _cachedVaultSummary = { total: '—', breakdown: '—', hasData: false };
+  }
 }
 
 // ── COMPUTE NET EFFECTS for a member (from loot tracker) ──
@@ -460,6 +505,38 @@ function buildCard(m,idx){
       ${netSummary?`<div class="net-effects"><div class="checks-section-label" style="font-family:'Share Tech Mono',monospace;font-size:0.55rem;letter-spacing:0.2em;text-transform:uppercase;color:var(--cyan-dim);margin-bottom:0.4rem;display:flex;align-items:center;gap:0.5rem;">Net Totals<span style="flex:1;height:1px;background:var(--border);display:block;"></span></div>${netSummary}</div>`:''}
     </div>`;
 
+  // ── LOOT TAB ──
+  const memberItems = (getItemEffects()).filter(it => {
+    const h = (it.holder||'').toLowerCase().trim();
+    const n = (m.name||'').toLowerCase().trim();
+    return h === n;
+  });
+  const rarityColor = { common:'var(--text-dim)', uncommon:'var(--green)', rare:'#6a9fe8', 'very-rare':'#c07de8', legendary:'var(--amber)', artifact:'var(--red)' };
+  const attuneBadge = at => at==='attuned'?'<span class="loot-attuned-badge">ATTUNED</span>':at==='required'?'<span class="loot-attuned-badge loot-attuned-req">REQ</span>':'';
+  const lootRows = memberItems.map(it => `
+    <a class="loot-tab-row" href="dnd-loot-tracker.html" title="View in Loot Tracker">
+      <span class="loot-tab-name">${esc(it.name)}</span>
+      <span class="loot-tab-meta">
+        ${it.type?`<span class="loot-tab-type">${esc(it.type)}</span>`:''}
+        ${it.rarity?`<span class="loot-tab-rarity" style="color:${rarityColor[it.rarity]||'var(--text-dim)'}">${esc(it.rarity.replace(/-/g,' '))}</span>`:''}
+        ${attuneBadge(it.attunement||'')}
+      </span>
+      <span class="loot-tab-arrow">→</span>
+    </a>`).join('');
+
+  const vault = _cachedVaultSummary;
+  const vaultBlock = vault ? `
+    <div class="loot-tab-vault">
+      <span class="loot-vault-label">⚙ Party Vault</span>
+      <span class="loot-vault-total" title="${vault.breakdown}">${vault.total}</span>
+    </div>` : '';
+
+  const lootTab = `
+    <div class="tab-panel" id="tab-loot-${m.id}">
+      ${lootRows || `<div class="fx-empty">No items assigned to ${esc(m.name)}.<br><span style="font-size:0.48rem;opacity:0.6">Assign items in the Loot Tracker using "Held By".</span></div>`}
+      ${vaultBlock}
+    </div>`;
+
   const tags=(m.tags||[]).map(t=>`<span class="tag">${esc(t)}</span>`).join('');
 
   return `<div class="member-card" style="--member-color:${color}">
@@ -482,9 +559,10 @@ function buildCard(m,idx){
     <div class="card-tabs">
       <button class="card-tab active" onclick="switchTab('${m.id}','bio',this)">Bio</button>
       <button class="card-tab" onclick="switchTab('${m.id}','stats',this)">Stats</button>
-      <button class="card-tab" onclick="switchTab('${m.id}','effects',this)">Effects ${Object.keys(net).length?`(${Object.keys(net).length})`:''}  </button>
+      <button class="card-tab" onclick="switchTab('${m.id}','effects',this)">Effects ${Object.keys(net).length?`(${Object.keys(net).length})`:''}</button>
+      <button class="card-tab" onclick="switchTab('${m.id}','loot',this)">Loot ${memberItems.length?`(${memberItems.length})`:''}</button>
     </div>
-    ${bioTab}${statsTab}${effectsTab}
+    ${bioTab}${statsTab}${effectsTab}${lootTab}
     <div class="card-footer">
       <div class="member-player">${m.player?`PLAYER: <span>${esc(m.player)}</span>`:''}</div>
       <div class="card-actions">
@@ -496,7 +574,7 @@ function buildCard(m,idx){
 }
 
 function switchTab(memberId,tab,btn){
-  ['bio','stats','effects'].forEach(t=>{
+  ['bio','stats','effects','loot'].forEach(t=>{
     const panel=document.getElementById(`tab-${t}-${memberId}`);
     if(panel){panel.classList.toggle('active',t===tab);}
   });
@@ -671,6 +749,10 @@ function updateModalPreview(){const n=document.getElementById('f-name').value;if
 async function saveMember(){
   const name=document.getElementById('f-name').value.trim();
   if(!name){showToast('Character name required.');return;}
+  const btn=document.getElementById('btnSaveMember');
+  const modal=document.getElementById('memberModal');
+  setLoading(btn,true); setModalLoading(modal,true);
+  btn.dataset.loadingText = editId ? 'Updating…' : 'Saving…';
   const abs={};
   ABILITIES.forEach(a=>{const v=parseInt(document.getElementById(`f-${a}`).value);abs[a]=isNaN(v)?10:v;});
   const cs={};
@@ -700,6 +782,7 @@ async function saveMember(){
     else{members.push(member);showToast(`${name} added to the roster.`);}
     render();closeModal();
   }catch(err){console.error(err);showToast('Save failed — check your Supabase config.');}
+  finally{setLoading(btn,false); setModalLoading(modal,false);}
 }
 
 async function deleteMember(id){
@@ -711,11 +794,16 @@ async function deleteMember(id){
     confirmLabel: 'Remove',
   });
   if(!ok) return;
+  const delBtn=document.querySelector(`.btn-icon.del[onclick*="${id}"]`);
+  if(delBtn){ setLoading(delBtn,true); delBtn.dataset.loadingText=''; }
   try{
     await deleteMemberFromDB(id);
     members=members.filter(x=>x.id!==id);
     render();showToast('Member removed.');
-  }catch(err){console.error(err);showToast('Delete failed — check your Supabase config.');}
+  }catch(err){
+    console.error(err);showToast('Delete failed — check your Supabase config.');
+    if(delBtn) setLoading(delBtn,false);
+  }
 }
 
 // ── COLOR SWATCHES ──
@@ -755,7 +843,8 @@ async function handleImport(e){
 
 function showToast(msg,dur=2800){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');clearTimeout(t._to);t._to=setTimeout(()=>t.classList.remove('show'),dur);}
 document.addEventListener('keydown',e=>{if(e.key==='Escape')closeModal();if(e.key==='Enter'&&document.getElementById('memberModal').classList.contains('open')&&document.activeElement.tagName!=='TEXTAREA'&&document.activeElement.tagName!=='SELECT')saveMember();});
-loadTerms().catch(()=>{}); loadData().then(() => render());
+loadTerms().catch(()=>{});
+loadData().then(() => Promise.all([prefetchLootItems(), prefetchTreasury()]).then(() => render()));
 </script>
 
 <script>

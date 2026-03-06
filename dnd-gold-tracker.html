@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>VAULT-LEDGER // Party Treasury</title>
   <script src="nexus-config.js"></script>
+  <link rel="icon" type="image/x-icon" href="favicon.ico" />
   <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@400;700;900&family=Rajdhani:wght@400;500;600&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="nexus.css" />
 </head>
@@ -71,6 +72,9 @@
 <main>
   <div class="currency-grid" id="currencyGrid"></div>
 
+  <!-- Per-member wealth strip -->
+  <div class="member-wealth-row" id="memberWealthRow"></div>
+
   <div class="total-bar">
     <div>
       <div class="total-label">⚙ Total Party Wealth</div>
@@ -131,10 +135,22 @@
         <label>Notes <span class="optional">(optional)</span></label>
         <textarea id="txNote" placeholder="Session notes, source, vendor…"></textarea>
       </div>
+      <div class="field">
+        <label>Assigned To <span class="optional">(optional)</span></label>
+        <div class="holder-select-wrap" id="txHolderWrap">
+          <div class="holder-selected" id="txHolderSelected" onclick="toggleTxHolderDropdown()">
+            <span class="holder-sel-avatar" id="txHolderAvatar"></span>
+            <span class="holder-sel-name placeholder" id="txHolderName">— Party Shared —</span>
+            <span class="holder-sel-arrow">▾</span>
+          </div>
+          <div class="holder-dropdown" id="txHolderDropdown"></div>
+        </div>
+        <input type="hidden" id="txMember" />
+      </div>
     </div>
     <div class="modal-footer">
       <button class="btn btn-ghost" onclick="closeModal('txModal')">Cancel</button>
-      <button class="btn btn-primary" onclick="saveTx()">Commit Entry</button>
+      <button class="btn btn-primary" id="btnSaveTx" onclick="saveTx()">Commit Entry</button>
     </div>
   </div>
 </div>
@@ -184,7 +200,7 @@
     </div>
     <div class="modal-footer">
       <button class="btn btn-ghost" onclick="closeModal('addCurrencyModal')">Cancel</button>
-      <button class="btn btn-primary" onclick="saveNewCurrency()">Add Currency</button>
+      <button class="btn btn-primary" id="btnSaveCurrency" onclick="saveNewCurrency()">Add Currency</button>
     </div>
   </div>
 </div>
@@ -238,6 +254,7 @@ let editId = null;
 let ledgerSortKey = 'id', ledgerSortDir = -1; // default: newest first
 let currentType = 'gain';
 let selectedColor = '#f0a832';
+let _cachedTxMembers = null; // party members cache for tx holder dropdown
 
 function uid() { return '_' + Math.random().toString(36).slice(2,11); }
 
@@ -269,7 +286,7 @@ async function loadData() {
     if (ledgerRows.length) {
       ledger = ledgerRows.map(r => ({
         id: r.id, type: r.type, desc: r.description,
-        note: r.note, ts: r.ts, coins: r.coins || {},
+        note: r.note, ts: r.ts, coins: r.coins || {}, member: r.member_name || null,
       }));
     } else {
       // Seed demo transactions
@@ -296,6 +313,7 @@ function txToRow(tx) {
     note: tx.note || null,
     ts: tx.ts || Date.now(),
     coins: tx.coins || {},
+    member_name: tx.member || null,
   };
 }
 
@@ -331,6 +349,7 @@ function recalcVault() {
 function render() {
   renderGrid();
   renderTotal();
+  renderMemberWealth();
   renderLedger();
 }
 
@@ -442,6 +461,7 @@ function renderLedger() {
       <td><div class="tx-id">#${String(ledger.indexOf(tx) + 1).padStart(3,'0')}</div></td>
       <td>
         <div class="tx-desc">${esc(tx.desc)}</div>
+        ${tx.member ? `<div class="tx-member-tag">${esc(tx.member)}</div>` : ''}
         ${tx.note ? `<div class="tx-note">${esc(tx.note)}</div>` : ''}
       </td>
       <td class="hide-sm"><span class="tx-type tx-${tx.type}">${tx.type.toUpperCase()}</span></td>
@@ -500,6 +520,9 @@ function openTxModal(id) {
   }
   buildCoinInputs('txCoinInputs', values);
   openModal('txModal');
+  // Build holder dropdown async — pre-select member if editing
+  const preselect = id ? (ledger.find(t=>t.id===id)?.member || '') : '';
+  buildTxHolderDropdown(preselect);
   setTimeout(() => document.getElementById('txDesc').focus(), 150);
 }
 
@@ -513,7 +536,15 @@ async function saveTx() {
   if (!desc) { showToast('Description required.'); return; }
   const coins = readCoinInputs('txCoinInputs');
   if (!Object.keys(coins).length) { showToast('Enter at least one amount.'); return; }
-  const tx = { id: editId || uid(), type: currentType, desc, note: document.getElementById('txNote').value.trim(), ts: Date.now(), coins };
+  const tx = { id: editId || uid(), type: currentType, desc,
+    note: document.getElementById('txNote').value.trim(),
+    member: document.getElementById('txMember').value.trim() || null,
+    ts: Date.now(), coins };
+  if (editId) { const orig = ledger.find(t=>t.id===editId); if(orig) tx.ts = orig.ts; }
+  const btn = document.getElementById('btnSaveTx');
+  const modal = document.getElementById('txModal');
+  btn.dataset.loadingText = editId ? 'Updating…' : 'Committing…';
+  setLoading(btn, true); setModalLoading(modal, true);
   try {
     await saveTxToDB(tx);
     if (editId) {
@@ -525,7 +556,8 @@ async function saveTx() {
       showToast('Transaction committed.');
     }
     recalcVault(); render(); closeModal('txModal');
-  } catch(e) { console.error(e); showToast('Save failed — check Supabase config.'); }
+  } catch(e) { console.error(e); showToast('Save failed — check Supabase config.');
+  } finally { setLoading(btn, false); setModalLoading(modal, false); }
 }
 
 async function deleteTx(id) {
@@ -539,11 +571,16 @@ async function deleteTx(id) {
     confirmLabel: 'Delete',
   });
   if (!ok) return;
+  const delBtn = document.querySelector(`.btn-icon.delete[onclick*="${id}"]`);
+  if (delBtn) { setLoading(delBtn, true); delBtn.dataset.loadingText = ''; }
   try {
     await deleteTxFromDB(id);
     ledger = ledger.filter(t => t.id !== id);
     recalcVault(); render(); showToast('Entry removed.');
-  } catch(e) { console.error(e); showToast('Delete failed.'); }
+  } catch(e) {
+    console.error(e); showToast('Delete failed.');
+    if (delBtn) setLoading(delBtn, false);
+  }
 }
 
 function quickAdd(cid) {
@@ -633,11 +670,16 @@ async function saveNewCurrency() {
   const cur = { id: uid(), name, abbr, symbol, color: selectedColor, rate };
   currencies.push(cur);
   vault[cur.id] = 0;
+  const btn = document.getElementById('btnSaveCurrency');
+  const modal = document.getElementById('addCurrencyModal');
+  btn.dataset.loadingText = 'Adding…';
+  setLoading(btn, true); setModalLoading(modal, true);
   try {
     await saveCurrencyToDB(cur);
     render(); closeModal('addCurrencyModal');
     showToast(`${name} (${abbr}) added to treasury.`);
-  } catch(e) { console.error(e); showToast('Save failed.'); }
+  } catch(e) { console.error(e); showToast('Save failed.');
+  } finally { setLoading(btn, false); setModalLoading(modal, false); }
 }
 
 async function deleteCurrency(id) {
@@ -651,11 +693,16 @@ async function deleteCurrency(id) {
     confirmLabel: 'Remove',
   });
   if (!ok) return;
+  const delBtn = document.querySelector(`.panel-delete[onclick*="${id}"]`);
+  if (delBtn) { setLoading(delBtn, true); delBtn.dataset.loadingText = ''; }
   try {
     await deleteCurrencyFromDB(id);
     currencies = currencies.filter(x => x.id !== id);
     render(); showToast(`${c.name} removed.`);
-  } catch(e) { console.error(e); showToast('Delete failed.'); }
+  } catch(e) {
+    console.error(e); showToast('Delete failed.');
+    if (delBtn) setLoading(delBtn, false);
+  }
 }
 
 // ══════════════════════════════════
@@ -752,6 +799,202 @@ function handleImport(e) {
     } catch { showToast('Invalid file.'); }
   };
   r.readAsText(file); e.target.value = '';
+}
+
+// ══════════════════════════════════
+//  TX HOLDER DROPDOWN  (mirrors loot tracker pattern)
+// ══════════════════════════════════
+async function loadTxMembers() {
+  if (_cachedTxMembers) return _cachedTxMembers;
+  try {
+    _cachedTxMembers = await db.select('party_members', { order: 'created_at.asc' });
+    return _cachedTxMembers;
+  } catch { return []; }
+}
+
+async function buildTxHolderDropdown(currentValue) {
+  const members = await loadTxMembers();
+  const wrap     = document.getElementById('txHolderWrap');
+  const dropdown = document.getElementById('txHolderDropdown');
+
+  const options = [
+    { value: '', name: '— Party Shared —', photo: null, sub: 'goes to party vault', isBlank: true },
+    ...members.map(m => ({
+      value: m.name,
+      name:  m.name,
+      photo: m.photo || null,
+      color: m.color || null,
+      sub:   [m.class, m.race].filter(Boolean).join(' · ') || '',
+    })),
+  ];
+
+  wrap._txHolderOptions = options;
+
+  dropdown.innerHTML = options.map((opt, i) => {
+    const divider = i === 1 && members.length
+      ? `<div class="holder-opt-divider">Party Members</div>`
+      : '';
+
+    const avatarContent = opt.photo
+      ? `<img src="${opt.photo}" alt="${esc(opt.name)}" />`
+      : opt.isBlank
+        ? `<span style="color:var(--text-dim);font-size:0.7rem">⚙</span>`
+        : `<span style="color:${opt.color || 'var(--gold)'}">${esc(opt.name.charAt(0).toUpperCase())}</span>`;
+
+    const isSelected = opt.value === currentValue;
+    return `${divider}<div class="holder-opt ${isSelected ? 'selected' : ''}" data-tx-holder-idx="${i}">
+      <div class="holder-opt-avatar" style="${opt.color && !opt.photo ? `border-color:${opt.color}40` : ''}">${avatarContent}</div>
+      <div class="holder-opt-info">
+        <div class="holder-opt-name">${esc(opt.name)}</div>
+        ${opt.sub ? `<div class="holder-opt-sub">${esc(opt.sub)}</div>` : ''}
+      </div>
+    </div>`;
+  }).join('');
+
+  // Click handlers
+  dropdown.querySelectorAll('.holder-opt').forEach(el => {
+    el.addEventListener('click', function(e) {
+      e.stopPropagation();
+      const idx = parseInt(this.getAttribute('data-tx-holder-idx'));
+      const opt = wrap._txHolderOptions[idx];
+      if (opt) selectTxHolder(opt.value, opt.name, opt.photo || '', opt.color || '');
+    });
+  });
+
+  setTxHolderDisplay(currentValue, options);
+}
+
+function setTxHolderDisplay(value, optionsList) {
+  const opt = optionsList ? optionsList.find(o => o.value === value) : null;
+  const avatar = document.getElementById('txHolderAvatar');
+  const nameEl = document.getElementById('txHolderName');
+
+  if (!value || !opt) {
+    avatar.className = 'holder-sel-avatar hidden';
+    avatar.innerHTML = '';
+    nameEl.textContent = '— Party Shared —';
+    nameEl.className = 'holder-sel-name placeholder';
+    document.getElementById('txMember').value = '';
+    return;
+  }
+
+  nameEl.className = 'holder-sel-name';
+  nameEl.textContent = opt.name;
+  document.getElementById('txMember').value = value;
+
+  if (opt.photo) {
+    avatar.className = 'holder-sel-avatar';
+    avatar.innerHTML = `<img src="${opt.photo}" alt="${esc(opt.name)}" />`;
+  } else if (opt.isBlank) {
+    avatar.className = 'holder-sel-avatar hidden';
+    avatar.innerHTML = '';
+  } else {
+    avatar.className = 'holder-sel-avatar';
+    avatar.style.borderColor = opt.color ? `${opt.color}60` : 'var(--border)';
+    avatar.innerHTML = `<span style="color:${opt.color || 'var(--gold)'}">${esc((opt.name || '?').charAt(0).toUpperCase())}</span>`;
+  }
+}
+
+function selectTxHolder(value, name, photo, color) {
+  document.getElementById('txMember').value = value;
+  const avatar = document.getElementById('txHolderAvatar');
+  const nameEl = document.getElementById('txHolderName');
+
+  nameEl.textContent = value ? name : '— Party Shared —';
+  nameEl.className = 'holder-sel-name' + (value ? '' : ' placeholder');
+
+  if (!value) {
+    avatar.className = 'holder-sel-avatar hidden';
+    avatar.innerHTML = '';
+  } else if (photo) {
+    avatar.className = 'holder-sel-avatar';
+    avatar.innerHTML = `<img src="${photo}" alt="${esc(name)}" />`;
+  } else {
+    avatar.className = 'holder-sel-avatar';
+    avatar.style.borderColor = color ? `${color}60` : 'var(--border)';
+    avatar.innerHTML = `<span style="color:${color || 'var(--gold)'}">${esc((name || '?').charAt(0).toUpperCase())}</span>`;
+  }
+
+  document.querySelectorAll('#txHolderDropdown .holder-opt').forEach(el => el.classList.remove('selected'));
+  document.querySelectorAll('#txHolderDropdown .holder-opt').forEach(el => {
+    const n = el.querySelector('.holder-opt-name');
+    if (n && n.textContent === (value || '— Party Shared —')) el.classList.add('selected');
+  });
+
+  closeTxHolderDropdown();
+}
+
+async function toggleTxHolderDropdown() {
+  const wrap = document.getElementById('txHolderWrap');
+  if (wrap.classList.contains('open')) { closeTxHolderDropdown(); return; }
+  const currentVal = document.getElementById('txMember').value;
+  await buildTxHolderDropdown(currentVal);
+  wrap.classList.add('open');
+}
+
+function closeTxHolderDropdown() {
+  document.getElementById('txHolderWrap').classList.remove('open');
+}
+
+document.addEventListener('click', e => {
+  const wrap = document.getElementById('txHolderWrap');
+  if (wrap && !wrap.contains(e.target)) closeTxHolderDropdown();
+});
+
+// ══════════════════════════════════
+//  MEMBER WEALTH SECTION
+// ══════════════════════════════════
+async function renderMemberWealth() {
+  const row = document.getElementById('memberWealthRow');
+  if (!row) return;
+
+  const members = await loadTxMembers();
+  if (!members.length) { row.innerHTML = ''; return; }
+
+  const base = currencies.find(c => c.id === 'cr') || currencies[0];
+
+  // Per-member vault: sum only transactions tagged to that member
+  const memberVaults = {};
+  for (const tx of ledger) {
+    if (!tx.member) continue;
+    const sign = tx.type === 'spend' ? -1 : 1;
+    if (!memberVaults[tx.member]) memberVaults[tx.member] = {};
+    for (const [cid, amt] of Object.entries(tx.coins || {})) {
+      memberVaults[tx.member][cid] = Math.max(0,
+        (memberVaults[tx.member][cid] || 0) + sign * (amt || 0));
+    }
+  }
+
+  function memberWealthStr(name) {
+    const v = memberVaults[name] || {};
+    let total = 0; let hasRate = false;
+    for (const cur of currencies) {
+      const amt = v[cur.id] || 0;
+      if (cur.rate != null) { total += amt * cur.rate; hasRate = true; }
+    }
+    if (!hasRate || total === 0) return '—';
+    return total.toLocaleString(undefined, { maximumFractionDigits: 1 }) + ' ' + base.abbr;
+  }
+
+  row.innerHTML = `
+    <div class="mw-label">⚙ Member Wealth</div>
+    <div class="mw-cards">
+      ${members.map(m => {
+        const wealth = memberWealthStr(m.name);
+        const avatar = m.photo
+          ? `<img src="${m.photo}" alt="${esc(m.name)}" class="mw-avatar-img" />`
+          : `<div class="mw-avatar-initial" style="color:${m.color||'var(--gold)'};border-color:${m.color||'var(--border)'}40;text-shadow:0 0 8px ${m.color||'var(--amber)'}">
+               ${esc(m.name.charAt(0).toUpperCase())}
+             </div>`;
+        return `<div class="mw-card">
+          <div class="mw-avatar">${avatar}</div>
+          <div class="mw-info">
+            <div class="mw-name">${esc(m.name)}</div>
+            <div class="mw-wealth ${wealth === '—' ? 'mw-empty' : ''}">${wealth}</div>
+          </div>
+        </div>`;
+      }).join('')}
+    </div>`;
 }
 
 // ══════════════════════════════════

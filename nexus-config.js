@@ -231,3 +231,38 @@ async function saveTerms(newTerms) {
   TERMS = { ...TERM_DEFAULTS, ...newTerms };
   await db.upsert('nexus_settings', { key: 'term_mappings', value: JSON.stringify(TERMS) });
 }
+
+// ══════════════════════════════════════════════════════════════
+//  BUTTON LOADING STATE  — shared across all modules
+//
+//  setLoading(btn, true)   — disables btn, shows spinner text
+//  setLoading(btn, false)  — restores original text, re-enables
+//
+//  Usage:
+//    const btn = document.getElementById('mySaveBtn');
+//    setLoading(btn, true);
+//    try { await doWork(); } finally { setLoading(btn, false); }
+// ══════════════════════════════════════════════════════════════
+function setLoading(btn, loading) {
+  if (!btn) return;
+  if (loading) {
+    btn.dataset.origText = btn.innerHTML;
+    btn.innerHTML = '<span class="btn-spinner"></span>' + (btn.dataset.loadingText || 'Processing…');
+    btn.disabled = true;
+    btn.classList.add('btn-loading');
+  } else {
+    btn.innerHTML = btn.dataset.origText || btn.innerHTML;
+    btn.disabled = false;
+    btn.classList.remove('btn-loading');
+  }
+}
+
+// Disable/enable ALL action buttons inside a container (modal, panel)
+// Useful for locking the whole modal while a request is in-flight
+function setModalLoading(modalEl, loading) {
+  if (!modalEl) return;
+  modalEl.querySelectorAll('button').forEach(b => {
+    if (loading) { b.disabled = true; b.classList.add('btn-modal-locked'); }
+    else         { b.disabled = false; b.classList.remove('btn-modal-locked'); }
+  });
+}

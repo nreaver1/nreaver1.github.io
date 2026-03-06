@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>LOOT TRACKER // Item Registry</title>
   <script src="nexus-config.js"></script>
+  <link rel="icon" type="image/x-icon" href="favicon.ico" />
   <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@400;700;900&family=Rajdhani:wght@400;500;600;700&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="nexus.css" />
 </head>
@@ -82,11 +83,75 @@
       </select>
       <select id="filterType" onchange="renderTable()">
         <option value="">All Types</option>
-        <option value="Weapon">Weapon</option><option value="Armor">Armor</option>
-        <option value="Wondrous">Wondrous</option><option value="Ring">Ring</option>
-        <option value="Staff">Staff</option><option value="Wand">Wand</option>
-        <option value="Rod">Rod</option><option value="Potion">Potion</option>
-        <option value="Scroll">Scroll</option><option value="Other">Other</option>
+        <optgroup label="Weapon">
+          <option value="Melee Weapon">Melee Weapon</option>
+          <option value="Ranged Weapon">Ranged Weapon</option>
+          <option value="Thrown Weapon">Thrown Weapon</option>
+          <option value="Ammunition">Ammunition</option>
+          <option value="Other Weapon">Other Weapon</option>
+        </optgroup>
+        <optgroup label="Armor &amp; Shield">
+          <option value="Light Armor">Light Armor</option>
+          <option value="Medium Armor">Medium Armor</option>
+          <option value="Heavy Armor">Heavy Armor</option>
+          <option value="Shield">Shield</option>
+          <option value="Other Armor">Other Armor</option>
+        </optgroup>
+        <optgroup label="Potion">
+          <option value="Potion of Healing">Potion of Healing</option>
+          <option value="Potion of Greater Healing">Potion of Greater Healing</option>
+          <option value="Potion of Superior Healing">Potion of Superior Healing</option>
+          <option value="Potion of Supreme Healing">Potion of Supreme Healing</option>
+          <option value="Potion of Animal Friendship">Potion of Animal Friendship</option>
+          <option value="Potion of Clairvoyance">Potion of Clairvoyance</option>
+          <option value="Potion of Climbing">Potion of Climbing</option>
+          <option value="Potion of Diminution">Potion of Diminution</option>
+          <option value="Potion of Fire Breath">Potion of Fire Breath</option>
+          <option value="Potion of Flying">Potion of Flying</option>
+          <option value="Potion of Gaseous Form">Potion of Gaseous Form</option>
+          <option value="Potion of Giant Strength">Potion of Giant Strength</option>
+          <option value="Potion of Growth">Potion of Growth</option>
+          <option value="Potion of Heroism">Potion of Heroism</option>
+          <option value="Potion of Invisibility">Potion of Invisibility</option>
+          <option value="Potion of Invulnerability">Potion of Invulnerability</option>
+          <option value="Potion of Mind Reading">Potion of Mind Reading</option>
+          <option value="Potion of Poison">Potion of Poison</option>
+          <option value="Potion of Resistance">Potion of Resistance</option>
+          <option value="Potion of Speed">Potion of Speed</option>
+          <option value="Potion of Water Breathing">Potion of Water Breathing</option>
+          <option value="Other Potion">Other Potion</option>
+        </optgroup>
+        <optgroup label="Scroll">
+          <option value="Spell Scroll">Spell Scroll</option>
+          <option value="Other Scroll">Other Scroll</option>
+        </optgroup>
+        <optgroup label="Wand, Staff &amp; Rod">
+          <option value="Wand">Wand</option>
+          <option value="Staff">Staff</option>
+          <option value="Rod">Rod</option>
+          <option value="Other Wand / Staff / Rod">Other Wand / Staff / Rod</option>
+        </optgroup>
+        <optgroup label="Worn / Carried">
+          <option value="Ring">Ring</option>
+          <option value="Cloak">Cloak</option>
+          <option value="Boots">Boots</option>
+          <option value="Gloves">Gloves</option>
+          <option value="Helm">Helm</option>
+          <option value="Amulet">Amulet</option>
+          <option value="Belt">Belt</option>
+          <option value="Bracers">Bracers</option>
+          <option value="Wondrous Item">Wondrous Item</option>
+          <option value="Other Worn / Carried">Other Worn / Carried</option>
+        </optgroup>
+        <optgroup label="Adventuring Gear">
+          <option value="Bag">Bag</option>
+          <option value="Container">Container</option>
+          <option value="Instrument">Instrument</option>
+          <option value="Tool">Tool</option>
+          <option value="Vehicle">Vehicle</option>
+          <option value="Other Gear">Other Gear</option>
+        </optgroup>
+        <option value="Other">Other</option>
       </select>
     </div>
     <div class="toolbar-right">
@@ -139,11 +204,76 @@
         <div class="field">
           <label>Type</label>
           <select class="mi" id="fieldType">
-            <option value="Wondrous">Wondrous</option><option value="Weapon">Weapon</option>
-            <option value="Armor">Armor</option><option value="Ring">Ring</option>
-            <option value="Staff">Staff</option><option value="Wand">Wand</option>
-            <option value="Rod">Rod</option><option value="Potion">Potion</option>
-            <option value="Scroll">Scroll</option><option value="Other">Other</option>
+            <option value="">All Types</option>
+        <optgroup label="Weapon">
+          <option value="Melee Weapon">Melee Weapon</option>
+          <option value="Ranged Weapon">Ranged Weapon</option>
+          <option value="Thrown Weapon">Thrown Weapon</option>
+          <option value="Ammunition">Ammunition</option>
+          <option value="Other Weapon">Other Weapon</option>
+        </optgroup>
+        <optgroup label="Armor &amp; Shield">
+          <option value="Light Armor">Light Armor</option>
+          <option value="Medium Armor">Medium Armor</option>
+          <option value="Heavy Armor">Heavy Armor</option>
+          <option value="Shield">Shield</option>
+          <option value="Other Armor">Other Armor</option>
+        </optgroup>
+        <optgroup label="Potion">
+          <option value="Potion of Healing">Potion of Healing</option>
+          <option value="Potion of Greater Healing">Potion of Greater Healing</option>
+          <option value="Potion of Superior Healing">Potion of Superior Healing</option>
+          <option value="Potion of Supreme Healing">Potion of Supreme Healing</option>
+          <option value="Potion of Animal Friendship">Potion of Animal Friendship</option>
+          <option value="Potion of Clairvoyance">Potion of Clairvoyance</option>
+          <option value="Potion of Climbing">Potion of Climbing</option>
+          <option value="Potion of Diminution">Potion of Diminution</option>
+          <option value="Potion of Fire Breath">Potion of Fire Breath</option>
+          <option value="Potion of Flying">Potion of Flying</option>
+          <option value="Potion of Gaseous Form">Potion of Gaseous Form</option>
+          <option value="Potion of Giant Strength">Potion of Giant Strength</option>
+          <option value="Potion of Growth">Potion of Growth</option>
+          <option value="Potion of Heroism">Potion of Heroism</option>
+          <option value="Potion of Invisibility">Potion of Invisibility</option>
+          <option value="Potion of Invulnerability">Potion of Invulnerability</option>
+          <option value="Potion of Mind Reading">Potion of Mind Reading</option>
+          <option value="Potion of Poison">Potion of Poison</option>
+          <option value="Potion of Resistance">Potion of Resistance</option>
+          <option value="Potion of Speed">Potion of Speed</option>
+          <option value="Potion of Water Breathing">Potion of Water Breathing</option>
+          <option value="Other Potion">Other Potion</option>
+        </optgroup>
+        <optgroup label="Scroll">
+          <option value="Spell Scroll">Spell Scroll</option>
+          <option value="Other Scroll">Other Scroll</option>
+        </optgroup>
+        <optgroup label="Wand, Staff &amp; Rod">
+          <option value="Wand">Wand</option>
+          <option value="Staff">Staff</option>
+          <option value="Rod">Rod</option>
+          <option value="Other Wand / Staff / Rod">Other Wand / Staff / Rod</option>
+        </optgroup>
+        <optgroup label="Worn / Carried">
+          <option value="Ring">Ring</option>
+          <option value="Cloak">Cloak</option>
+          <option value="Boots">Boots</option>
+          <option value="Gloves">Gloves</option>
+          <option value="Helm">Helm</option>
+          <option value="Amulet">Amulet</option>
+          <option value="Belt">Belt</option>
+          <option value="Bracers">Bracers</option>
+          <option value="Wondrous Item">Wondrous Item</option>
+          <option value="Other Worn / Carried">Other Worn / Carried</option>
+        </optgroup>
+        <optgroup label="Adventuring Gear">
+          <option value="Bag">Bag</option>
+          <option value="Container">Container</option>
+          <option value="Instrument">Instrument</option>
+          <option value="Tool">Tool</option>
+          <option value="Vehicle">Vehicle</option>
+          <option value="Other Gear">Other Gear</option>
+        </optgroup>
+        <option value="Other">Other</option>
           </select>
         </div>
         <div class="field">
@@ -195,7 +325,7 @@
     </div>
     <div class="modal-footer">
       <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
-      <button class="btn btn-primary" onclick="saveItem()">Save Item</button>
+      <button class="btn btn-primary" id="btnSaveItem" onclick="saveItem()">Save Item</button>
     </div>
   </div>
 </div>
@@ -709,7 +839,7 @@ async function openModal(id){
     await initHolderDisplay(it.holder||'');
   } else {
     ['fieldName','fieldDesc'].forEach(fid=>document.getElementById(fid).value='');
-    document.getElementById('fieldType').value='Wondrous';
+    document.getElementById('fieldType').value='Wondrous Item';
     document.getElementById('fieldRarity').value='rare';
     document.getElementById('fieldAttunement').value='none';
     await initHolderDisplay('');
@@ -733,12 +863,17 @@ async function saveItem(){
     desc:document.getElementById('fieldDesc').value.trim(),
     statEffects:collectFx(),
   };
+  const btn = document.getElementById('btnSaveItem');
+  const modal = document.getElementById('itemModal');
+  btn.dataset.loadingText = editingId ? 'Updating…' : 'Saving…';
+  setLoading(btn, true); setModalLoading(modal, true);
   try{
     await saveItemToDB(item);
     if(editingId){ const idx=items.findIndex(i=>i.id===editingId); if(idx>=0) items[idx]=item; showToast('Item updated.'); }
     else{ items.push(item); showToast('Item logged to registry.'); }
     renderTable(); closeModal();
-  }catch(e){ console.error(e); showToast('Save failed — check your Supabase config.'); }
+  }catch(e){ console.error(e); showToast('Save failed — check your Supabase config.');
+  }finally{ setLoading(btn, false); setModalLoading(modal, false); }
 }
 
 async function deleteItem(id){
@@ -750,11 +885,16 @@ async function deleteItem(id){
     confirmLabel: 'Remove',
   });
   if(!ok) return;
+  const delBtn = document.querySelector(`.btn-icon.delete[onclick*="${id}"]`);
+  if(delBtn){ setLoading(delBtn, true); delBtn.dataset.loadingText = ''; }
   try{
     await deleteItemFromDB(id);
     items=items.filter(i=>i.id!==id);
     renderTable(); showToast('Item removed.');
-  }catch(e){ console.error(e); showToast('Delete failed.'); }
+  }catch(e){
+    console.error(e); showToast('Delete failed.');
+    if(delBtn) setLoading(delBtn, false);
+  }
 }
 
 // ── EXPORT / IMPORT ──
