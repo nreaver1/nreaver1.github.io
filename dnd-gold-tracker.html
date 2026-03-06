@@ -55,7 +55,7 @@
 <header>
   <div class="brand">
     <div class="brand-top">⚙ vault-ledger // v3.0.0</div>
-    <div class="brand-name">COIN ENGINE</div>
+    <div class="brand-name" id="pageBrandName">COIN ENGINE</div>
     <div class="brand-sub">party treasury management system</div>
   </div>
   <div class="header-actions">
@@ -782,7 +782,11 @@ document.addEventListener('keydown', e => {
 // ══════════════════════════════════
 //  INIT
 // ══════════════════════════════════
-loadTerms().catch(()=>{}); loadData().then(() => {
+loadTerms().catch(()=>{}).finally(() => {
+  const el = document.getElementById('pageBrandName');
+  if (el) el.textContent = t('treasury').toUpperCase();
+});
+loadData().then(() => {
   render();
   // Set default sort indicator (newest first)
   const arrow = document.getElementById('sort-id');
