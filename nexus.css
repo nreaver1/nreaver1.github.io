@@ -1566,3 +1566,131 @@ td { padding: 0.7rem 1rem; }
   margin-top: 0.15rem;
   opacity: 0.8;
 }
+
+/* ═══════════════════════════════════════════════════════════════
+   TREASURY — NEGATIVE BALANCE / DEBT STATES
+   ═══════════════════════════════════════════════════════════════ */
+
+/* Total bar turns red when party is in debt */
+#totalBar.is-negative {
+  border-color: rgba(224,60,60,0.35);
+  background: linear-gradient(135deg, rgba(224,60,60,0.06), rgba(224,60,60,0.02));
+  box-shadow: 0 0 0 1px rgba(224,60,60,0.15), 0 4px 24px rgba(0,0,0,0.4);
+}
+
+/* Debt warning strip inside total bar */
+.total-debt-warning {
+  grid-column: 1 / -1;
+  width: 100%;
+  margin-top: 0.75rem;
+  padding: 0.55rem 0.9rem;
+  background: rgba(224,60,60,0.08);
+  border: 1px solid rgba(224,60,60,0.3);
+  border-radius: 4px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 1rem;
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 0.62rem;
+  letter-spacing: 0.08em;
+}
+.debt-icon {
+  color: var(--red);
+  font-size: 0.85rem;
+  filter: drop-shadow(0 0 5px rgba(224,60,60,0.6));
+  flex-shrink: 0;
+}
+.debt-label {
+  color: var(--red);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  font-size: 0.6rem;
+  flex-shrink: 0;
+}
+.debt-member {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.2rem 0.55rem;
+  background: rgba(224,60,60,0.1);
+  border: 1px solid rgba(224,60,60,0.25);
+  border-radius: 3px;
+  color: var(--text);
+}
+.debt-amount {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 0.58rem;
+  font-weight: 700;
+  color: var(--red);
+}
+
+/* Member cards in debt */
+.mw-card-neg {
+  border-color: rgba(224,60,60,0.3);
+  background: rgba(224,60,60,0.04);
+}
+.mw-card-neg:hover {
+  border-color: rgba(224,60,60,0.5);
+}
+.mw-wealth.mw-neg {
+  color: var(--red);
+  text-shadow: 0 0 6px rgba(224,60,60,0.35);
+}
+.mw-debt-badge {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 0.5rem;
+  letter-spacing: 0.12em;
+  color: var(--red);
+  border: 1px solid rgba(224,60,60,0.35);
+  border-radius: 2px;
+  padding: 0.05rem 0.3rem;
+  margin-top: 0.2rem;
+  display: inline-block;
+  opacity: 0.85;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   TREASURY — WHO COLUMN in ledger
+   ═══════════════════════════════════════════════════════════════ */
+.tx-who {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  white-space: nowrap;
+}
+.tx-who-img {
+  width: 24px; height: 24px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.tx-who-initial {
+  width: 24px; height: 24px;
+  border-radius: 50%;
+  border: 1px solid;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: 'Orbitron', sans-serif;
+  font-size: 0.6rem;
+  font-weight: 700;
+  flex-shrink: 0;
+  background: rgba(14,240,208,0.04);
+}
+.tx-who-name {
+  font-family: 'Rajdhani', sans-serif;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--text);
+  max-width: 90px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.tx-who-empty {
+  color: var(--text-dim);
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 0.65rem;
+  opacity: 0.4;
+}

@@ -75,7 +75,7 @@
   <!-- Per-member wealth strip -->
   <div class="member-wealth-row" id="memberWealthRow"></div>
 
-  <div class="total-bar">
+  <div class="total-bar" id="totalBar">
     <div>
       <div class="total-label">⚙ Total Party Wealth</div>
       <div style="display:flex;align-items:baseline;gap:4px;margin-top:4px">
@@ -84,6 +84,7 @@
       </div>
     </div>
     <div class="total-breakdown" id="totalBreakdown">— treasury empty —</div>
+    <div class="total-debt-warning" id="totalDebt" style="display:none"></div>
   </div>
 
   <div class="section-head">
@@ -98,6 +99,7 @@
           <th onclick="sortLedger('desc')">Description <span class="sort-arrow" id="sort-desc"></span></th>
           <th onclick="sortLedger('type')" class="hide-sm">Type <span class="sort-arrow" id="sort-type"></span></th>
           <th onclick="sortLedger('amount')">Amount <span class="sort-arrow" id="sort-amount"></span></th>
+          <th onclick="sortLedger('member')" class="hide-sm">Who <span class="sort-arrow" id="sort-member"></span></th>
           <th class="hide-sm">Breakdown</th>
           <th></th>
         </tr>
@@ -254,7 +256,8 @@ let editId = null;
 let ledgerSortKey = 'id', ledgerSortDir = -1; // default: newest first
 let currentType = 'gain';
 let selectedColor = '#f0a832';
-let _cachedTxMembers = null; // party members cache for tx holder dropdown
+let _cachedTxMembers = null;   // party members cache for tx holder dropdown
+let memberVaultsCache = {};     // per-member vault totals, refreshed by renderMemberWealth
 
 function uid() { return '_' + Math.random().toString(36).slice(2,11); }
 
@@ -338,7 +341,7 @@ function recalcVault() {
   for (const tx of ledger) {
     const sign = tx.type === 'spend' ? -1 : 1;
     for (const [cid, amt] of Object.entries(tx.coins || {})) {
-      vault[cid] = Math.max(0, (vault[cid] || 0) + sign * (amt || 0));
+      vault[cid] = (vault[cid] || 0) + sign * (amt || 0); // allow negatives
     }
   }
 }
@@ -348,8 +351,7 @@ function recalcVault() {
 // ══════════════════════════════════
 function render() {
   renderGrid();
-  renderTotal();
-  renderMemberWealth();
+  renderMemberWealth().then(() => renderTotal()); // wealth cache must be ready before total debt calc
   renderLedger();
 }
 
@@ -382,17 +384,70 @@ function renderGrid() {
 function renderTotal() {
   const base = currencies.find(c => c.id === 'cr') || currencies[0];
   let total = 0; let anyRate = false;
-  const parts = [];
+  const parts = []; const negParts = [];
   for (const c of currencies) {
     const amt = vault[c.id] || 0;
-    if (amt > 0) parts.push(`${fmt(amt)} ${c.abbr}`);
+    if (amt !== 0) {
+      const str = `${fmt(Math.abs(amt))} ${c.abbr}`;
+      if (amt < 0) negParts.push(str);
+      else parts.push(str);
+    }
     if (c.rate != null) { total += amt * c.rate; anyRate = true; }
   }
-  document.getElementById('totalVal').textContent = anyRate
-    ? total.toLocaleString(undefined, { maximumFractionDigits: 2 })
+
+  const totalEl    = document.getElementById('totalVal');
+  const unitEl     = document.getElementById('totalUnit');
+  const breakdownEl= document.getElementById('totalBreakdown');
+  const debtEl     = document.getElementById('totalDebt');
+
+  const isNeg = anyRate && total < 0;
+  document.getElementById('totalBar')?.classList.toggle('is-negative', isNeg);
+
+  totalEl.textContent = anyRate
+    ? Math.abs(total).toLocaleString(undefined, { maximumFractionDigits: 2 })
     : '—';
-  document.getElementById('totalUnit').textContent = base.abbr + ' equiv.';
-  document.getElementById('totalBreakdown').textContent = parts.length ? parts.join('  ·  ') : '— treasury empty —';
+  totalEl.style.color = isNeg ? 'var(--red)' : '';
+  totalEl.style.textShadow = isNeg ? '0 0 20px rgba(224,60,60,0.5)' : '';
+
+  unitEl.textContent  = (isNeg ? '-' : '') + base.abbr + ' equiv.';
+  unitEl.style.color  = isNeg ? 'var(--red)' : '';
+
+  const allParts = [...parts, ...negParts.map(p => '−' + p)];
+  breakdownEl.textContent = allParts.length ? allParts.join('  ·  ') : '— treasury empty —';
+
+  // Debt breakdown — which members are in the red
+  if (debtEl) {
+    if (isNeg && _cachedTxMembers && _cachedTxMembers.length) {
+      const debtors = _cachedTxMembers
+        .map(m => {
+          let mv = 0; let mHasRate = false;
+          for (const cur of currencies) {
+            const v = (memberVaultsCache[m.name] || {})[cur.id] || 0;
+            if (cur.rate != null) { mv += v * cur.rate; mHasRate = true; }
+          }
+          return { name: m.name, val: mv, hasRate: mHasRate };
+        })
+        .filter(d => d.hasRate && d.val < 0);
+
+      if (debtors.length) {
+        debtEl.innerHTML = `
+          <span class="debt-icon">⚠</span>
+          <span class="debt-label">Negative balance caused by:</span>
+          ${debtors.map(d =>
+            `<span class="debt-member">${esc(d.name)}
+              <span class="debt-amount">${d.val.toLocaleString(undefined,{maximumFractionDigits:1})} ${base.abbr}</span>
+            </span>`
+          ).join('')}`;
+        debtEl.style.display = 'flex';
+      } else {
+        debtEl.style.display = 'none';
+        debtEl.innerHTML = '';
+      }
+    } else {
+      debtEl.style.display = 'none';
+      debtEl.innerHTML = '';
+    }
+  }
 }
 
 function sortLedger(key) {
@@ -413,7 +468,7 @@ function renderLedger() {
   document.getElementById('txCount').textContent = ledger.length + ' entr' + (ledger.length === 1 ? 'y' : 'ies');
   const tbody = document.getElementById('ledgerBody');
   if (!ledger.length) {
-    tbody.innerHTML = `<tr><td colspan="6"><div class="empty-ledger"><span class="empty-icon">⚙</span><p>No transactions logged</p></div></td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="7"><div class="empty-ledger"><span class="empty-icon">⚙</span><p>No transactions logged</p></div></td></tr>`;
     return;
   }
   // Build sorted copy
@@ -436,6 +491,11 @@ function renderLedger() {
         return (tx.type === 'spend' ? -1 : 1) * tot;
       };
       return (getVal(a) - getVal(b)) * ledgerSortDir;
+    } else if (ledgerSortKey === 'member') {
+      // unassigned entries sort to the bottom
+      const am = a.member || '￿';
+      const bm = b.member || '￿';
+      return am.localeCompare(bm) * ledgerSortDir;
     }
     return 0;
   });
@@ -457,15 +517,31 @@ function renderLedger() {
     } else {
       amtDisplay = breakdown.map(b => `${sign>0?'+':'-'}${b}`).join('<br>') || '—';
     }
+    // Build Who cell — look up member photo from cache
+    let whoCell = '<td class="hide-sm"><div class="tx-who-empty">—</div></td>';
+    if (tx.member) {
+      const mp = (_cachedTxMembers || []).find(m => m.name === tx.member);
+      const avatar = mp && mp.photo
+        ? `<img src="${mp.photo}" alt="${esc(tx.member)}" class="tx-who-img" />`
+        : `<div class="tx-who-initial" style="color:${mp && mp.color ? mp.color : 'var(--gold)'};border-color:${mp && mp.color ? mp.color + '50' : 'var(--border)'}">
+             ${esc(tx.member.charAt(0).toUpperCase())}
+           </div>`;
+      whoCell = `<td class="hide-sm">
+        <div class="tx-who">
+          ${avatar}
+          <span class="tx-who-name">${esc(tx.member)}</span>
+        </div>
+      </td>`;
+    }
     return `<tr>
       <td><div class="tx-id">#${String(ledger.indexOf(tx) + 1).padStart(3,'0')}</div></td>
       <td>
         <div class="tx-desc">${esc(tx.desc)}</div>
-        ${tx.member ? `<div class="tx-member-tag">${esc(tx.member)}</div>` : ''}
         ${tx.note ? `<div class="tx-note">${esc(tx.note)}</div>` : ''}
       </td>
       <td class="hide-sm"><span class="tx-type tx-${tx.type}">${tx.type.toUpperCase()}</span></td>
       <td><div class="tx-amount ${sign > 0 ? 'positive' : 'negative'}">${amtDisplay}</div></td>
+      ${whoCell}
       <td class="hide-sm"><div class="tx-coins">${breakdown.join(' / ') || '—'}</div></td>
       <td style="white-space:nowrap">
         <button class="btn-icon" onclick="openTxModal('${tx.id}')" title="Edit">✎</button>
@@ -954,43 +1030,49 @@ async function renderMemberWealth() {
   const base = currencies.find(c => c.id === 'cr') || currencies[0];
 
   // Per-member vault: sum only transactions tagged to that member
-  const memberVaults = {};
+  memberVaultsCache = {};
+  const memberVaults = memberVaultsCache;
   for (const tx of ledger) {
     if (!tx.member) continue;
     const sign = tx.type === 'spend' ? -1 : 1;
     if (!memberVaults[tx.member]) memberVaults[tx.member] = {};
     for (const [cid, amt] of Object.entries(tx.coins || {})) {
-      memberVaults[tx.member][cid] = Math.max(0,
-        (memberVaults[tx.member][cid] || 0) + sign * (amt || 0));
+      memberVaults[tx.member][cid] =
+        (memberVaults[tx.member][cid] || 0) + sign * (amt || 0); // allow negatives
     }
   }
 
-  function memberWealthStr(name) {
+  function memberWealthVal(name) {
     const v = memberVaults[name] || {};
     let total = 0; let hasRate = false;
     for (const cur of currencies) {
       const amt = v[cur.id] || 0;
       if (cur.rate != null) { total += amt * cur.rate; hasRate = true; }
     }
-    if (!hasRate || total === 0) return '—';
-    return total.toLocaleString(undefined, { maximumFractionDigits: 1 }) + ' ' + base.abbr;
+    return hasRate ? total : null;
   }
 
   row.innerHTML = `
     <div class="mw-label">⚙ Member Wealth</div>
     <div class="mw-cards">
       ${members.map(m => {
-        const wealth = memberWealthStr(m.name);
+        const wv = memberWealthVal(m.name);
+        const isNegMember = wv !== null && wv < 0;
+        const wealthStr = wv === null ? '—'
+          : Math.abs(wv).toLocaleString(undefined, { maximumFractionDigits: 1 }) + ' ' + base.abbr;
+        const wealthClass = wv === null ? 'mw-empty' : isNegMember ? 'mw-neg' : '';
+        const prefix = isNegMember ? '−' : '';
         const avatar = m.photo
           ? `<img src="${m.photo}" alt="${esc(m.name)}" class="mw-avatar-img" />`
           : `<div class="mw-avatar-initial" style="color:${m.color||'var(--gold)'};border-color:${m.color||'var(--border)'}40;text-shadow:0 0 8px ${m.color||'var(--amber)'}">
                ${esc(m.name.charAt(0).toUpperCase())}
              </div>`;
-        return `<div class="mw-card">
+        return `<div class="mw-card ${isNegMember ? 'mw-card-neg' : ''}">
           <div class="mw-avatar">${avatar}</div>
           <div class="mw-info">
             <div class="mw-name">${esc(m.name)}</div>
-            <div class="mw-wealth ${wealth === '—' ? 'mw-empty' : ''}">${wealth}</div>
+            <div class="mw-wealth ${wealthClass}">${prefix}${wealthStr}</div>
+            ${isNegMember ? `<div class="mw-debt-badge">IN DEBT</div>` : ''}
           </div>
         </div>`;
       }).join('')}
