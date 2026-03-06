@@ -760,7 +760,10 @@ function handleImport(e){
       if(!Array.isArray(imported)) throw new Error();
       if(confirm(`Import ${imported.length} items? This replaces your current registry.`)){
         items=imported.map(it=>({...it,id:it.id||uid(),statEffects:it.statEffects||[]}));
-        saveData(); renderTable(); showToast(`Imported ${items.length} items.`);
+        try{
+          await db.upsertMany('loot_items', items.map(itemToRow));
+          renderTable(); showToast(`Imported ${items.length} items.`);
+        }catch(err){console.error(err);showToast('Import failed — check your Supabase config.');}
       }
     }catch{ showToast('Invalid file.'); }
   };

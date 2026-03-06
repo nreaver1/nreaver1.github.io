@@ -691,16 +691,22 @@ async function saveMember(){
     color:currentColor, photo:currentPhoto,
     abilities:abs, combat:cs, proficiencies:profs,
   };
-  if(editId){const i=members.findIndex(m=>m.id===editId);if(i>=0)members[i]=member;showToast('Member updated.');}
-  else{members.push(member);showToast(`${name} added to the roster.`);}
-  saveData();render();closeModal();
+  try{
+    await saveMemberToDB(member);
+    if(editId){const i=members.findIndex(m=>m.id===editId);if(i>=0)members[i]=member;showToast('Member updated.');}
+    else{members.push(member);showToast(`${name} added to the roster.`);}
+    render();closeModal();
+  }catch(err){console.error(err);showToast('Save failed — check your Supabase config.');}
 }
 
-function deleteMember(id){
+async function deleteMember(id){
   const m=members.find(x=>x.id===id); if(!m) return;
   if(!confirm(`Remove ${m.name} from the roster?`)) return;
-  members=members.filter(x=>x.id!==id);
-  saveData();render();showToast('Member removed.');
+  try{
+    await deleteMemberFromDB(id);
+    members=members.filter(x=>x.id!==id);
+    render();showToast('Member removed.');
+  }catch(err){console.error(err);showToast('Delete failed — check your Supabase config.');}
 }
 
 // ── COLOR SWATCHES ──
@@ -712,7 +718,7 @@ function selectColor(c){currentColor=c;document.querySelectorAll('.cswatch').for
 // ── EXPORT / IMPORT ──
 function exportJSON(){const blob=new Blob([JSON.stringify({version:2,members},null,2)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='party-roster.json';a.click();showToast('Roster exported.');}
 function importJSON(){document.getElementById('fileImport').click();}
-function handleImport(e){
+async function handleImport(e){
   const file=e.target.files[0]; if(!file) return;
   const r=new FileReader();
   r.onload=ev=>{
@@ -722,7 +728,16 @@ function handleImport(e){
       if(!Array.isArray(imported)) throw new Error();
       if(confirm(`Import ${imported.length} members? This replaces your current roster.`)){
         members=imported.map(m=>({...m,id:m.id||uid()}));
-        saveData();render();showToast(`Imported ${members.length} members.`);
+        try{
+          await db.upsertMany('party_members', members.map(m=>({
+            id:m.id, name:m.name, player:m.player||null, class:m.class||null,
+            race:m.race||null, level:m.level||null, status:m.status||'active',
+            prof:m.prof||2, bio:m.bio||null,
+            tags:m.tags||[], color:m.color||null, photo:m.photo||null,
+            abilities:m.abilities||{}, combat:m.combat||{}, proficiencies:m.proficiencies||{}
+          })));
+          render();showToast(`Imported ${members.length} members.`);
+        }catch(err){console.error(err);showToast('Import failed — check your Supabase config.');}
       }
     }catch{showToast('Invalid file.');}
   };
