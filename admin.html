@@ -1,0 +1,437 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>NEXUS // Admin</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Rajdhani:wght@400;500;600;700&family=Share+Tech+Mono&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="nexus.css" />
+  <style>
+    /* ── ADMIN-SPECIFIC STYLES ── */
+    .admin-gate {
+      min-height: 100vh;
+      display: flex; align-items: center; justify-content: center;
+      padding: 2rem;
+    }
+    .gate-box {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 2.5rem 2rem;
+      width: 100%; max-width: 360px;
+      box-shadow: 0 0 40px rgba(0,0,0,0.6), 0 0 0 1px rgba(14,240,208,0.05);
+      text-align: center;
+    }
+    .gate-icon { font-size: 2rem; margin-bottom: 0.8rem; filter: drop-shadow(0 0 8px rgba(14,240,208,0.4)); }
+    .gate-title {
+      font-family: 'Orbitron', sans-serif;
+      font-size: 0.9rem; font-weight: 900;
+      letter-spacing: 0.2em; color: var(--cyan);
+      text-shadow: 0 0 16px rgba(14,240,208,0.3);
+      margin-bottom: 0.3rem;
+    }
+    .gate-sub {
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 0.62rem; color: var(--text-dim);
+      letter-spacing: 0.15em; margin-bottom: 1.8rem;
+    }
+    .gate-box input[type="password"] {
+      text-align: center;
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 1rem; letter-spacing: 0.2em;
+      margin-bottom: 1rem;
+    }
+    .gate-error {
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 0.65rem; color: var(--red);
+      letter-spacing: 0.1em; margin-top: 0.7rem;
+      min-height: 1.2em;
+    }
+    /* ── ADMIN CONTENT ── */
+    #adminContent { display: none; }
+    .admin-main { max-width: 820px; margin: 0 auto; padding: 0 1.5rem 5rem; }
+    .admin-section-card {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 1.5rem;
+      margin-bottom: 1.4rem;
+    }
+    .admin-section-head {
+      font-family: 'Orbitron', sans-serif;
+      font-size: 0.72rem; font-weight: 700;
+      letter-spacing: 0.18em; text-transform: uppercase;
+      color: var(--cyan);
+      margin-bottom: 0.4rem;
+      display: flex; align-items: center; gap: 0.6rem;
+    }
+    .admin-section-head::before {
+      content: ''; display: inline-block;
+      width: 10px; height: 2px;
+      background: var(--cyan); box-shadow: 0 0 6px var(--cyan);
+    }
+    .admin-section-desc {
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 0.65rem; color: var(--text-dim);
+      letter-spacing: 0.06em; line-height: 1.6;
+      margin-bottom: 1.2rem;
+    }
+    /* Term mapping grid */
+    .term-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 0.8rem 1.2rem;
+    }
+    .term-row {
+      display: flex; flex-direction: column; gap: 0.25rem;
+    }
+    .term-row label {
+      font-size: 0.62rem; letter-spacing: 0.12em;
+    }
+    .term-row input {
+      font-size: 0.95rem;
+      padding: 0.4rem 0.7rem;
+    }
+    .term-default {
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 0.58rem; color: var(--text-dim);
+      letter-spacing: 0.06em;
+    }
+    /* Group headers within term grid */
+    .term-group-label {
+      grid-column: 1 / -1;
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 0.65rem; letter-spacing: 0.2em;
+      text-transform: uppercase; color: var(--cyan-dim);
+      padding: 0.5rem 0 0.2rem;
+      border-top: 1px solid var(--border);
+      margin-top: 0.4rem;
+      display: flex; align-items: center; gap: 0.5rem;
+    }
+    .term-group-label:first-child { border-top: none; margin-top: 0; padding-top: 0; }
+    .term-group-label::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+    /* Password change */
+    .pw-row { display: flex; gap: 0.8rem; align-items: flex-end; flex-wrap: wrap; }
+    .pw-row .field { flex: 1; min-width: 180px; }
+    .admin-save-bar {
+      position: sticky; bottom: 0;
+      background: linear-gradient(to top, var(--bg) 60%, transparent);
+      padding: 1.2rem 0 0.5rem;
+      display: flex; justify-content: flex-end; gap: 0.8rem;
+    }
+    .save-status {
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 0.65rem; color: var(--cyan);
+      letter-spacing: 0.1em; align-self: center;
+      opacity: 0; transition: opacity 0.3s;
+    }
+    .save-status.show { opacity: 1; }
+  </style>
+</head>
+<body class="has-sidenav page-admin">
+
+  <!-- Side Nav -->
+  <button class="nav-toggle" id="navToggle" aria-label="Toggle navigation">
+    <span></span><span></span><span></span>
+  </button>
+  <div class="nav-overlay" id="navOverlay" onclick="closeNav()"></div>
+  <nav class="sidenav" id="sidenav">
+    <a class="sidenav-logo" href="index.html">
+      <div class="sidenav-logo-top">⚙ nexus</div>
+      <div class="sidenav-logo-name">NEXUS</div>
+      <div class="sidenav-logo-sub">campaign system</div>
+    </a>
+    <div class="sidenav-section">Navigation</div>
+    <div class="sidenav-links">
+      <a class="sidenav-link" href="index.html">
+        <span class="nav-icon">⬡</span><span class="nav-label">Dashboard</span><span class="nav-pip"></span>
+      </a>
+      <a class="sidenav-link" href="party-roster.html">
+        <span class="nav-icon">👥</span><span class="nav-label">Party Roster</span><span class="nav-pip"></span>
+      </a>
+      <a class="sidenav-link" href="dnd-gold-tracker.html">
+        <span class="nav-icon">💰</span><span class="nav-label">Treasury</span><span class="nav-pip"></span>
+      </a>
+      <a class="sidenav-link" href="dnd-loot-tracker.html">
+        <span class="nav-icon">⚔️</span><span class="nav-label">Loot Tracker</span><span class="nav-pip"></span>
+      </a>
+      <a class="sidenav-link active" href="admin.html">
+        <span class="nav-icon">⚙</span><span class="nav-label">Admin</span><span class="nav-pip"></span>
+      </a>
+    </div>
+    <div class="sidenav-bottom">nexus // v1.0.0</div>
+  </nav>
+
+  <!-- ══════════════════════════════════
+       PASSWORD GATE
+  ══════════════════════════════════ -->
+  <div id="adminGate" class="admin-gate">
+    <div class="gate-box">
+      <div class="gate-icon">🔐</div>
+      <div class="gate-title">ADMIN ACCESS</div>
+      <div class="gate-sub">nexus // restricted panel</div>
+      <input type="password" id="gatePassword" placeholder="Enter password"
+             autocomplete="current-password"
+             onkeydown="if(event.key==='Enter') checkPassword()" />
+      <button class="btn btn-primary" style="width:100%" onclick="checkPassword()">Authenticate</button>
+      <div class="gate-error" id="gateError"></div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════
+       ADMIN CONTENT (shown after auth)
+  ══════════════════════════════════ -->
+  <div id="adminContent">
+    <header>
+      <div class="brand">
+        <div class="brand-top">⚙ nexus // admin</div>
+        <div class="brand-name" style="color:var(--amber);text-shadow:0 0 20px var(--amber),0 0 40px rgba(212,134,10,0.3)">ADMIN PANEL</div>
+        <div class="brand-sub">system configuration</div>
+      </div>
+      <div class="header-actions">
+        <button class="btn btn-ghost" onclick="lockAdmin()">🔒 Lock</button>
+      </div>
+    </header>
+    <div class="hline"></div>
+
+    <div class="admin-main">
+
+      <!-- ── TERM MAPPINGS ── -->
+      <div class="admin-section-card">
+        <div class="admin-section-head">Module &amp; Term Mappings</div>
+        <div class="admin-section-desc">
+          Rename any module or label to match your campaign's setting and tone.
+          Leave a field blank to keep the default name. Changes apply across all pages immediately after saving.
+        </div>
+
+        <div class="term-grid" id="termGrid">
+          <!-- Built by JS -->
+        </div>
+
+        <div class="admin-save-bar">
+          <span class="save-status" id="termSaveStatus">✓ Saved</span>
+          <button class="btn btn-ghost" onclick="resetTerms()">Reset to Defaults</button>
+          <button class="btn btn-primary" onclick="saveTermsAdmin()">Save Changes</button>
+        </div>
+      </div>
+
+      <!-- ── CHANGE PASSWORD ── -->
+      <div class="admin-section-card">
+        <div class="admin-section-head">Admin Password</div>
+        <div class="admin-section-desc">
+          Change the admin panel password. The password is stored as a SHA-256 hash in <code style="font-family:'Share Tech Mono',monospace;color:var(--cyan);font-size:0.75rem">nexus-config.js</code> —
+          update that file after changing it here, or the new password only persists for this browser session.
+        </div>
+        <div class="pw-row">
+          <div class="field"><label>New Password</label><input type="password" id="newPw1" placeholder="New password" /></div>
+          <div class="field"><label>Confirm Password</label><input type="password" id="newPw2" placeholder="Confirm" /></div>
+          <button class="btn btn-ghost" onclick="changePassword()" style="margin-bottom:0.1rem">Update</button>
+        </div>
+        <div id="pwStatus" style="font-family:'Share Tech Mono',monospace;font-size:0.65rem;margin-top:0.6rem;min-height:1.2em;"></div>
+        <div style="margin-top:1rem;padding:0.8rem 1rem;background:rgba(240,168,50,0.05);border:1px solid rgba(240,168,50,0.2);border-radius:4px;">
+          <div style="font-family:'Share Tech Mono',monospace;font-size:0.62rem;color:var(--amber);letter-spacing:0.08em;line-height:1.7">
+            ⚠ &nbsp;To make a password change permanent: after clicking Update, copy the hash shown below into
+            <strong>nexus-config.js</strong> as the value of <code style="color:var(--cyan)">ADMIN_PW_HASH</code>.
+          </div>
+          <div id="newHashDisplay" style="display:none;margin-top:0.6rem;font-family:'Share Tech Mono',monospace;font-size:0.65rem;color:var(--cyan);word-break:break-all;"></div>
+        </div>
+      </div>
+
+    </div><!-- /admin-main -->
+  </div><!-- /adminContent -->
+
+  <div class="toast" id="toast"></div>
+
+  <script src="nexus-config.js"></script>
+  <script>
+  // ══════════════════════════════════════════════════════════
+  //  PASSWORD GATE
+  //  SHA-256 hash of the admin password.
+  //  Default password: nexusadmin
+  //  To change: run  sha256("yournewpassword")  in the browser
+  //  console and paste the result here.
+  // ══════════════════════════════════════════════════════════
+  const ADMIN_PW_HASH = '2e79d8c9d40358c74318dcbf03ae82e8eb620b9b787c54aac2bbddec94801162';
+
+  // Session flag — stays unlocked while the tab is open
+  let adminUnlocked = sessionStorage.getItem('nexus_admin') === '1';
+
+  async function sha256(str) {
+    const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(str));
+    return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2,'0')).join('');
+  }
+
+  async function checkPassword() {
+    const pw = document.getElementById('gatePassword').value;
+    const hash = await sha256(pw);
+    if (hash === ADMIN_PW_HASH) {
+      sessionStorage.setItem('nexus_admin', '1');
+      adminUnlocked = true;
+      document.getElementById('adminGate').style.display = 'none';
+      document.getElementById('adminContent').style.display = 'block';
+      loadAdminData();
+    } else {
+      const err = document.getElementById('gateError');
+      err.textContent = 'Incorrect password.';
+      document.getElementById('gatePassword').value = '';
+      setTimeout(() => err.textContent = '', 2500);
+    }
+  }
+
+  function lockAdmin() {
+    sessionStorage.removeItem('nexus_admin');
+    adminUnlocked = false;
+    document.getElementById('adminContent').style.display = 'none';
+    document.getElementById('adminGate').style.display = 'flex';
+    document.getElementById('gatePassword').value = '';
+  }
+
+  // Auto-unlock if already authenticated this session
+  if (adminUnlocked) {
+    document.getElementById('adminGate').style.display = 'none';
+    document.getElementById('adminContent').style.display = 'block';
+  }
+
+  // ══════════════════════════════════════════════════════════
+  //  TERM MAPPING EDITOR
+  // ══════════════════════════════════════════════════════════
+
+  // Definition of every editable term, grouped for display
+  const TERM_DEFS = [
+    {
+      group: 'Module Names',
+      terms: [
+        { key: 'partyRoster',  label: 'Party Roster',  hint: 'Nav link, page title, dashboard card' },
+        { key: 'treasury',     label: 'Treasury',       hint: 'Nav link, page title, dashboard card' },
+        { key: 'lootTracker',  label: 'Loot Tracker',   hint: 'Nav link, page title, dashboard card' },
+        { key: 'sessionLog',   label: 'Session Log',    hint: 'Dashboard card (planned)' },
+        { key: 'worldMap',     label: 'World Map',      hint: 'Dashboard card (planned)' },
+        { key: 'bestiary',     label: 'Bestiary',       hint: 'Dashboard card (planned)' },
+        { key: 'diceRoller',   label: 'Dice Roller',    hint: 'Dashboard card (planned)' },
+      ]
+    },
+    {
+      group: 'Common Labels',
+      terms: [
+        { key: 'member',   label: 'Member (singular)',  hint: '"Add Member" buttons, toasts' },
+        { key: 'members',  label: 'Members (plural)',   hint: 'Stats bar, empty states' },
+        { key: 'currency', label: 'Currency',           hint: 'Treasury labels' },
+        { key: 'item',     label: 'Item (singular)',    hint: 'Loot tracker labels' },
+        { key: 'items',    label: 'Items (plural)',     hint: 'Stats bar, empty states' },
+        { key: 'session',  label: 'Session',            hint: 'Session Log labels' },
+        { key: 'creature', label: 'Creature',           hint: 'Bestiary labels' },
+      ]
+    },
+    {
+      group: 'Campaign Identity',
+      terms: [
+        { key: 'campaignName', label: 'Campaign Name',    hint: 'Site title, dashboard heading' },
+        { key: 'campaignSub',  label: 'Campaign Subtitle', hint: 'Tagline under campaign name' },
+      ]
+    },
+  ];
+
+  function buildTermGrid() {
+    const grid = document.getElementById('termGrid');
+    grid.innerHTML = TERM_DEFS.map(group => `
+      <div class="term-group-label">${group.group}</div>
+      ${group.terms.map(def => `
+        <div class="term-row">
+          <label>${def.label}</label>
+          <input type="text" id="term-${def.key}"
+                 value="${esc(TERMS[def.key] || '')}"
+                 placeholder="${esc(TERM_DEFAULTS[def.key])}" />
+          <span class="term-default">Default: ${esc(TERM_DEFAULTS[def.key])}</span>
+        </div>
+      `).join('')}
+    `).join('');
+  }
+
+  async function loadAdminData() {
+    await loadTerms();
+    buildTermGrid();
+  }
+
+  async function saveTermsAdmin() {
+    const newTerms = {};
+    TERM_DEFS.forEach(group => {
+      group.terms.forEach(def => {
+        const val = document.getElementById('term-' + def.key)?.value?.trim();
+        newTerms[def.key] = val || TERM_DEFAULTS[def.key];
+      });
+    });
+    try {
+      await saveTerms(newTerms);
+      const status = document.getElementById('termSaveStatus');
+      status.classList.add('show');
+      setTimeout(() => status.classList.remove('show'), 2000);
+      showToast('Term mappings saved.');
+    } catch(e) {
+      console.error(e);
+      showToast('Save failed — check Supabase config.');
+    }
+  }
+
+  function resetTerms() {
+    TERM_DEFS.forEach(group => {
+      group.terms.forEach(def => {
+        const el = document.getElementById('term-' + def.key);
+        if (el) el.value = TERM_DEFAULTS[def.key];
+      });
+    });
+  }
+
+  // ══════════════════════════════════════════════════════════
+  //  PASSWORD CHANGE
+  // ══════════════════════════════════════════════════════════
+  async function changePassword() {
+    const p1 = document.getElementById('newPw1').value;
+    const p2 = document.getElementById('newPw2').value;
+    const status = document.getElementById('pwStatus');
+    const hashDisplay = document.getElementById('newHashDisplay');
+    if (!p1) { status.style.color='var(--red)'; status.textContent = 'Enter a new password.'; return; }
+    if (p1 !== p2) { status.style.color='var(--red)'; status.textContent = 'Passwords do not match.'; return; }
+    const hash = await sha256(p1);
+    // Update in-memory so it works for this session
+    // (ADMIN_PW_HASH is const, so we shadow it on window)
+    window._adminPwHash = hash;
+    status.style.color = 'var(--green)';
+    status.textContent = '✓ Password updated for this session. Copy the hash below into nexus-config.js to make it permanent.';
+    hashDisplay.style.display = 'block';
+    hashDisplay.textContent = 'ADMIN_PW_HASH = \'' + hash + '\'';
+    document.getElementById('newPw1').value = '';
+    document.getElementById('newPw2').value = '';
+  }
+
+  // ══════════════════════════════════════════════════════════
+  //  UTILS
+  // ══════════════════════════════════════════════════════════
+  function esc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+  function showToast(msg, dur=2800) {
+    const t = document.getElementById('toast');
+    t.textContent = msg; t.classList.add('show');
+    clearTimeout(t._to); t._to = setTimeout(() => t.classList.remove('show'), dur);
+  }
+
+  // If already unlocked on load, populate the grid
+  if (adminUnlocked) loadAdminData();
+  </script>
+
+  <script>
+    function openNav() {
+      document.getElementById('sidenav').classList.add('nav-open');
+      document.getElementById('navOverlay').classList.add('nav-open');
+    }
+    function closeNav() {
+      document.getElementById('sidenav').classList.remove('nav-open');
+      document.getElementById('navOverlay').classList.remove('nav-open');
+    }
+    document.getElementById('navToggle').addEventListener('click', function() {
+      const nav = document.getElementById('sidenav');
+      nav.classList.contains('nav-open') ? closeNav() : openNav();
+    });
+  </script>
+</body>
+</html>

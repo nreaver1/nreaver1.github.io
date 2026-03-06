@@ -46,6 +46,9 @@
       <span class="nav-label">Loot Tracker</span>
       <span class="nav-pip"></span>
     </a>
+    <a class="sidenav-link" href="admin.html">
+      <span class="nav-icon">⚙</span><span class="nav-label">Admin</span><span class="nav-pip"></span>
+    </a>
   </div>
   <div class="sidenav-bottom">nexus // v1.0.0</div>
 </nav>
@@ -701,7 +704,13 @@ async function saveMember(){
 
 async function deleteMember(id){
   const m=members.find(x=>x.id===id); if(!m) return;
-  if(!confirm(`Remove ${m.name} from the roster?`)) return;
+  const ok = await nexusConfirm({
+    title:        'Remove Party Member',
+    name:         m.name,
+    message:      `${m.class||'Character'}${m.level?' (Level '+m.level+')':''} will be permanently removed from the roster.`,
+    confirmLabel: 'Remove',
+  });
+  if(!ok) return;
   try{
     await deleteMemberFromDB(id);
     members=members.filter(x=>x.id!==id);
@@ -721,7 +730,7 @@ function importJSON(){document.getElementById('fileImport').click();}
 async function handleImport(e){
   const file=e.target.files[0]; if(!file) return;
   const r=new FileReader();
-  r.onload=ev=>{
+  r.onload=async ev=>{
     try{
       const d=JSON.parse(ev.target.result);
       const imported=d.members||d;
@@ -746,7 +755,7 @@ async function handleImport(e){
 
 function showToast(msg,dur=2800){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');clearTimeout(t._to);t._to=setTimeout(()=>t.classList.remove('show'),dur);}
 document.addEventListener('keydown',e=>{if(e.key==='Escape')closeModal();if(e.key==='Enter'&&document.getElementById('memberModal').classList.contains('open')&&document.activeElement.tagName!=='TEXTAREA'&&document.activeElement.tagName!=='SELECT')saveMember();});
-loadData();render();
+loadTerms().catch(()=>{}); loadData().then(() => render());
 </script>
 
 <script>

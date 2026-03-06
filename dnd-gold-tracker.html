@@ -44,6 +44,9 @@
       <span class="nav-label">Loot Tracker</span>
       <span class="nav-pip"></span>
     </a>
+    <a class="sidenav-link" href="admin.html">
+      <span class="nav-icon">⚙</span><span class="nav-label">Admin</span><span class="nav-pip"></span>
+    </a>
   </div>
   <div class="sidenav-bottom">nexus // v1.0.0</div>
 </nav>
@@ -87,10 +90,10 @@
     <table>
       <thead>
         <tr>
-          <th>#</th>
-          <th>Description</th>
-          <th class="hide-sm">Type</th>
-          <th>Amount</th>
+          <th onclick="sortLedger('id')"># <span class="sort-arrow" id="sort-id"></span></th>
+          <th onclick="sortLedger('desc')">Description <span class="sort-arrow" id="sort-desc"></span></th>
+          <th onclick="sortLedger('type')" class="hide-sm">Type <span class="sort-arrow" id="sort-type"></span></th>
+          <th onclick="sortLedger('amount')">Amount <span class="sort-arrow" id="sort-amount"></span></th>
           <th class="hide-sm">Breakdown</th>
           <th></th>
         </tr>
@@ -232,6 +235,7 @@ let currencies = [];
 let vault = {};
 let ledger = [];
 let editId = null;
+let ledgerSortKey = 'id', ledgerSortDir = -1; // default: newest first
 let currentType = 'gain';
 let selectedColor = '#f0a832';
 
@@ -372,6 +376,19 @@ function renderTotal() {
   document.getElementById('totalBreakdown').textContent = parts.length ? parts.join('  ·  ') : '— treasury empty —';
 }
 
+function sortLedger(key) {
+  if (ledgerSortKey === key) ledgerSortDir *= -1;
+  else { ledgerSortKey = key; ledgerSortDir = key === 'id' ? -1 : 1; }
+  document.querySelectorAll('thead th').forEach(th => th.classList.remove('sorted'));
+  document.querySelectorAll('.sort-arrow').forEach(el => el.textContent = '');
+  const arrow = document.getElementById('sort-' + key);
+  if (arrow) { arrow.textContent = ledgerSortDir === 1 ? ' ▲' : ' ▼'; }
+  document.querySelectorAll('thead th').forEach(th => {
+    if (th.querySelector('#sort-' + key)) th.classList.add('sorted');
+  });
+  renderLedger();
+}
+
 function renderLedger() {
   const base = currencies.find(c => c.id === 'cr') || currencies[0];
   document.getElementById('txCount').textContent = ledger.length + ' entr' + (ledger.length === 1 ? 'y' : 'ies');
@@ -380,7 +397,30 @@ function renderLedger() {
     tbody.innerHTML = `<tr><td colspan="6"><div class="empty-ledger"><span class="empty-icon">⚙</span><p>No transactions logged</p></div></td></tr>`;
     return;
   }
-  tbody.innerHTML = [...ledger].reverse().map((tx, i) => {
+  // Build sorted copy
+  const base2 = currencies.find(c => c.id === 'cr') || currencies[0];
+  const sorted = [...ledger].sort((a, b) => {
+    if (ledgerSortKey === 'id') {
+      return (a.ts - b.ts) * ledgerSortDir;
+    } else if (ledgerSortKey === 'desc') {
+      return (a.desc || '').localeCompare(b.desc || '') * ledgerSortDir;
+    } else if (ledgerSortKey === 'type') {
+      return (a.type || '').localeCompare(b.type || '') * ledgerSortDir;
+    } else if (ledgerSortKey === 'amount') {
+      // sort by base-currency equivalent
+      const getVal = tx => {
+        let tot = 0;
+        for (const [cid, amt] of Object.entries(tx.coins || {})) {
+          const cur = currencies.find(x => x.id === cid);
+          if (cur) tot += (amt || 0) * (cur.rate || 1);
+        }
+        return (tx.type === 'spend' ? -1 : 1) * tot;
+      };
+      return (getVal(a) - getVal(b)) * ledgerSortDir;
+    }
+    return 0;
+  });
+  tbody.innerHTML = sorted.map((tx, i) => {
     const sign = tx.type === 'spend' ? -1 : 1;
     let crTotal = 0; let allHaveRates = true;
     const breakdown = [];
@@ -399,7 +439,7 @@ function renderLedger() {
       amtDisplay = breakdown.map(b => `${sign>0?'+':'-'}${b}`).join('<br>') || '—';
     }
     return `<tr>
-      <td><div class="tx-id">#${String(ledger.length - i).padStart(3,'0')}</div></td>
+      <td><div class="tx-id">#${String(ledger.indexOf(tx) + 1).padStart(3,'0')}</div></td>
       <td>
         <div class="tx-desc">${esc(tx.desc)}</div>
         ${tx.note ? `<div class="tx-note">${esc(tx.note)}</div>` : ''}
@@ -489,7 +529,16 @@ async function saveTx() {
 }
 
 async function deleteTx(id) {
-  if (!confirm('Delete this ledger entry?')) return;
+  const tx = ledger.find(t => t.id === id);
+  const label = tx ? (tx.desc || 'Unnamed Entry') : 'Ledger Entry';
+  const typeLabel = tx ? tx.type.charAt(0).toUpperCase() + tx.type.slice(1) : '';
+  const ok = await nexusConfirm({
+    title:        'Remove Ledger Entry',
+    name:         label,
+    message:      `${typeLabel ? typeLabel + ' — ' : ''}This transaction will be permanently deleted and the vault total will update.`,
+    confirmLabel: 'Delete',
+  });
+  if (!ok) return;
   try {
     await deleteTxFromDB(id);
     ledger = ledger.filter(t => t.id !== id);
@@ -595,7 +644,13 @@ async function deleteCurrency(id) {
   const c = currencies.find(x => x.id === id);
   if (!c) return;
   if (id === 'cr') { showToast('Cannot remove the base currency.'); return; }
-  if (!confirm(`Remove "${c.name}" from the treasury?\n\nPast transactions will be preserved but the panel will be hidden.`)) return;
+  const ok = await nexusConfirm({
+    title:        'Remove Currency',
+    name:         c.name,
+    message:      'The currency panel will be removed. Past transactions referencing it will be preserved.',
+    confirmLabel: 'Remove',
+  });
+  if (!ok) return;
   try {
     await deleteCurrencyFromDB(id);
     currencies = currencies.filter(x => x.id !== id);
@@ -727,7 +782,14 @@ document.addEventListener('keydown', e => {
 // ══════════════════════════════════
 //  INIT
 // ══════════════════════════════════
-loadData().then(() => render());
+loadTerms().catch(()=>{}); loadData().then(() => {
+  render();
+  // Set default sort indicator (newest first)
+  const arrow = document.getElementById('sort-id');
+  if (arrow) { arrow.textContent = ' ▼'; }
+  const th = arrow ? arrow.closest('th') : null;
+  if (th) th.classList.add('sorted');
+});
 </script>
 
 <script>

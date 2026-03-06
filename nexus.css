@@ -1212,3 +1212,117 @@ td { padding: 0.7rem 1rem; }
   td.hide-mobile, th.hide-mobile { display: none; }
   .fx-row { flex-wrap: wrap; }
 }
+
+/* ═══════════════════════════════════════════════════════════════
+   NEXUS CONFIRM DIALOG  (shared across all modules)
+   ═══════════════════════════════════════════════════════════════ */
+.nxc-overlay {
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,0.75);
+  z-index: 9000;
+  display: flex; align-items: center; justify-content: center;
+  padding: 1rem;
+  opacity: 0;
+  transition: opacity 0.18s ease;
+}
+.nxc-overlay.nxc-open { opacity: 1; }
+
+.nxc-dialog {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  width: 100%; max-width: 400px;
+  box-shadow: 0 0 40px rgba(0,0,0,0.7), 0 0 0 1px rgba(14,240,208,0.06);
+  transform: translateY(12px) scale(0.97);
+  transition: transform 0.18s ease;
+  overflow: hidden;
+}
+.nxc-overlay.nxc-open .nxc-dialog { transform: translateY(0) scale(1); }
+
+.nxc-header {
+  display: flex; align-items: center; gap: 0.7rem;
+  padding: 1.1rem 1.3rem 0.9rem;
+  border-bottom: 1px solid var(--border);
+  background: rgba(14,240,208,0.03);
+}
+.nxc-icon {
+  font-size: 1.1rem;
+  color: var(--red);
+  flex-shrink: 0;
+  line-height: 1;
+  filter: drop-shadow(0 0 6px rgba(224,60,60,0.5));
+}
+.nxc-title {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--text);
+}
+
+.nxc-name {
+  margin: 0.9rem 1.3rem 0;
+  font-family: 'Rajdhani', sans-serif;
+  font-size: 1.15rem;
+  font-weight: 600;
+  color: var(--gold);
+  text-shadow: 0 0 12px rgba(240,168,50,0.25);
+  letter-spacing: 0.03em;
+  line-height: 1.3;
+}
+
+.nxc-message {
+  margin: 0.5rem 1.3rem 0;
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 0.7rem;
+  color: var(--text-dim);
+  letter-spacing: 0.05em;
+  line-height: 1.6;
+}
+
+.nxc-actions {
+  display: flex; justify-content: flex-end; gap: 0.6rem;
+  padding: 1rem 1.3rem 1.1rem;
+  margin-top: 0.6rem;
+}
+
+.nxc-btn {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 0.6rem;
+  font-weight: 700;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  padding: 0.5rem 1.1rem;
+  border-radius: 3px;
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.nxc-cancel {
+  background: transparent;
+  border-color: var(--border);
+  color: var(--text-dim);
+}
+.nxc-cancel:hover { border-color: var(--cyan-dim); color: var(--text); }
+
+.nxc-danger {
+  background: linear-gradient(135deg, rgba(224,60,60,0.15), rgba(224,60,60,0.08));
+  border-color: rgba(224,60,60,0.5);
+  color: var(--red);
+  box-shadow: 0 0 10px rgba(224,60,60,0.15);
+}
+.nxc-danger:hover {
+  background: rgba(224,60,60,0.25);
+  border-color: var(--red);
+  box-shadow: 0 0 18px rgba(224,60,60,0.35);
+}
+.nxc-danger:focus { outline: none; box-shadow: 0 0 0 2px rgba(224,60,60,0.4); }
+
+.nxc-confirm {
+  background: linear-gradient(135deg, var(--cyan-dim), #066050);
+  border-color: transparent;
+  color: #020f0d;
+  box-shadow: 0 0 10px rgba(14,240,208,0.2);
+}
+.nxc-confirm:hover { filter: brightness(1.15); }

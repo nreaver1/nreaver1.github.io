@@ -42,6 +42,9 @@
       <span class="nav-label">Loot Tracker</span>
       <span class="nav-pip"></span>
     </a>
+    <a class="sidenav-link" href="admin.html">
+      <span class="nav-icon">⚙</span><span class="nav-label">Admin</span><span class="nav-pip"></span>
+    </a>
   </div>
   <div class="sidenav-bottom">nexus // v1.0.0</div>
 </nav>
@@ -222,10 +225,44 @@
     } catch(e) { console.error(e); }
   }
 
+  loadTerms().then(() => applyTerms());
   loadPartyStats();
   loadTreasuryStats();
   loadLootStats();
 </script>
+
+function applyTerms() {
+  // Dashboard card titles
+  const map = {
+    'PARTY ROSTER':   t('partyRoster').toUpperCase(),
+    'TREASURY':       t('treasury').toUpperCase(),
+    'LOOT TRACKER':   t('lootTracker').toUpperCase(),
+    'SESSION LOG':    t('sessionLog').toUpperCase(),
+    'WORLD MAP':      t('worldMap').toUpperCase(),
+    'BESTIARY':       t('bestiary').toUpperCase(),
+    'DICE ROLLER':    t('diceRoller').toUpperCase(),
+  };
+  document.querySelectorAll('.card-title').forEach(el => {
+    const key = el.textContent.trim();
+    if (map[key]) el.textContent = map[key];
+  });
+  // Nav links
+  document.querySelectorAll('.sidenav-link .nav-label').forEach(el => {
+    const txt = el.textContent.trim();
+    if (txt === 'Party Roster') el.textContent = t('partyRoster');
+    if (txt === 'Treasury')     el.textContent = t('treasury');
+    if (txt === 'Loot Tracker') el.textContent = t('lootTracker');
+  });
+  // Status bar items
+  document.querySelectorAll('.status-item').forEach(el => {
+    const txt = el.textContent.trim();
+    if (txt === 'Party Roster') el.innerHTML = el.innerHTML.replace('Party Roster', t('partyRoster'));
+    if (txt === 'Treasury')     el.innerHTML = el.innerHTML.replace('Treasury', t('treasury'));
+    if (txt === 'Loot Tracker') el.innerHTML = el.innerHTML.replace('Loot Tracker', t('lootTracker'));
+    if (txt === 'Session Log')  el.innerHTML = el.innerHTML.replace('Session Log', t('sessionLog'));
+  });
+}
+
 
 <script>
   function openNav() {
