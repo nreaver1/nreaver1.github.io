@@ -8,8 +8,9 @@
 // │  PASTE YOUR SUPABASE CREDENTIALS HERE                       │
 // │  Dashboard → Project Settings → API                        │
 // └─────────────────────────────────────────────────────────────┘
-const SUPABASE_URL  = 'https://YOUR_PROJECT_REF.supabase.co';
-const SUPABASE_ANON = 'YOUR_ANON_PUBLIC_KEY';
+const SUPABASE_URL  = 'https://qlckogwtpfznjsnjpqlx.supabase.co';
+// This api key is public facing anyway so who cares
+const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFsY2tvZ3d0cGZ6bmpzbmpwcWx4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI3OTc0OTksImV4cCI6MjA4ODM3MzQ5OX0.fokbNPnEF0fBSj_GYc6XOzd4oXQd10lNuaLdCSKXMmM';
 
 // ══════════════════════════════════════════════════════════════
 //  Low-level fetch wrapper — talks directly to Supabase REST API
