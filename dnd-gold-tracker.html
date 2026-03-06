@@ -161,7 +161,7 @@
 <div class="modal-backdrop" id="addCurrencyModal" onclick="backdropClose(event,'addCurrencyModal')">
   <div class="modal">
     <div class="modal-header">
-      <span class="modal-title">⚙ ADD CURRENCY TYPE</span>
+      <span class="modal-title" id="currencyModalTitle">⚙ ADD CURRENCY TYPE</span>
       <button class="btn-icon" onclick="closeModal('addCurrencyModal')">✕</button>
     </div>
     <div class="modal-body">
@@ -183,10 +183,16 @@
         <label>Color</label>
         <div class="color-row" id="colorSwatches"></div>
       </div>
-      <div class="field">
+      <div class="field" id="rateField">
         <label>Transfer Rate to Credits <span class="optional">optional</span></label>
         <input type="number" id="nc-rate" placeholder="e.g. 10 means 1 of this = 10 CR" min="0.001" step="any" oninput="updatePreview()" />
         <div class="hint-text" id="rateHint">Leave blank if unknown — this currency will be excluded from the CR total</div>
+      </div>
+      <div class="field" id="rateLockedField" style="display:none">
+        <label>Transfer Rate to Credits</label>
+        <div class="hint-text" style="color:var(--cyan-dim);border:1px solid var(--border);padding:0.5rem 0.7rem;border-radius:4px;">
+          ⚙ Base currency is always 1 : 1 — this cannot be changed.
+        </div>
       </div>
       <div class="field">
         <label>Preview</label>
@@ -201,7 +207,7 @@
       </div>
     </div>
     <div class="modal-footer">
-      <button class="btn btn-ghost" onclick="closeModal('addCurrencyModal')">Cancel</button>
+      <button class="btn btn-ghost" onclick="closeModal('addCurrencyModal');editCurrencyId=null;">Cancel</button>
       <button class="btn btn-primary" id="btnSaveCurrency" onclick="saveNewCurrency()">Add Currency</button>
     </div>
   </div>
@@ -209,19 +215,26 @@
 
 <!-- SPLIT MODAL -->
 <div class="modal-backdrop" id="splitModal" onclick="backdropClose(event,'splitModal')">
-  <div class="modal">
+  <div class="modal modal-wide">
     <div class="modal-header">
       <span class="modal-title">⚙ SPLIT LOOT EVENLY</span>
       <button class="btn-icon" onclick="closeModal('splitModal')">✕</button>
     </div>
     <div class="modal-body">
       <div class="field">
-        <label>Number of Party Members</label>
-        <input type="number" id="splitCount" min="1" max="20" value="4" oninput="calcSplit()" />
-      </div>
-      <div class="field">
         <label>Amounts to Split</label>
         <div class="coin-inputs-dynamic" id="splitCoinInputs"></div>
+      </div>
+      <div class="field">
+        <label>Number of Recipients</label>
+        <div class="split-count-row">
+          <input type="number" id="splitCount" min="1" max="20" value="1" oninput="onSplitCountChange()" />
+          <span class="split-count-hint" id="splitCountHint"></span>
+        </div>
+      </div>
+      <div class="field" id="splitMembersField">
+        <label>Recipients</label>
+        <div class="split-member-cards" id="splitMemberCards"></div>
       </div>
       <div class="split-result" id="splitResult"></div>
     </div>
@@ -256,6 +269,7 @@ let editId = null;
 let ledgerSortKey = 'id', ledgerSortDir = -1; // default: newest first
 let currentType = 'gain';
 let selectedColor = '#f0a832';
+let editCurrencyId = null;  // null = adding new, string = editing existing
 let _cachedTxMembers = null;   // party members cache for tx holder dropdown
 let memberVaultsCache = {};     // per-member vault totals, refreshed by renderMemberWealth
 
@@ -367,8 +381,11 @@ function renderGrid() {
       else if (!isBase)
         equivLine = 'no rate set';
       return `
-      <div class="coin-panel" onclick="quickAdd('${c.id}')">
-        ${!isBase ? `<button class="panel-delete" onclick="event.stopPropagation();deleteCurrency('${c.id}')" title="Remove">✕</button>` : ''}
+      <div class="coin-panel" onclick="openEditCurrencyModal('${c.id}')" title="Click to edit">
+        <div class="coin-panel-actions">
+          <button class="panel-edit" onclick="event.stopPropagation();openEditCurrencyModal('${c.id}')" title="Edit">✎</button>
+          ${!isBase ? `<button class="panel-delete" onclick="event.stopPropagation();deleteCurrency('${c.id}')" title="Remove">✕</button>` : ''}
+        </div>
         <div class="coin-symbol" style="color:${c.color};text-shadow:0 0 12px ${c.color}">${esc(c.symbol)}</div>
         <div class="coin-label">${esc(c.name)}</div>
         <div class="coin-amount" style="color:${c.color}">${fmt(amt)}</div>
@@ -671,11 +688,52 @@ function quickAdd(cid) {
 }
 
 // ══════════════════════════════════
-//  ADD CURRENCY MODAL
+//  ADD / EDIT CURRENCY MODAL
 // ══════════════════════════════════
 function openAddCurrencyModal() {
-  selectedColor = PRESET_COLORS[Math.floor(Math.random() * PRESET_COLORS.length)];
+  editCurrencyId = null;
+  selectedColor = PRESET_COLORS[0];
   ['nc-name','nc-abbr','nc-symbol','nc-rate'].forEach(id => document.getElementById(id).value = '');
+  document.getElementById('currencyModalTitle').textContent = '⚙ ADD CURRENCY TYPE';
+  document.getElementById('btnSaveCurrency').textContent = 'Add Currency';
+  document.getElementById('rateField').style.display = '';
+  document.getElementById('rateLockedField').style.display = 'none';
+  document.getElementById('nc-abbr').readOnly = false;
+  buildColorSwatches();
+  updatePreview();
+  openModal('addCurrencyModal');
+  setTimeout(() => document.getElementById('nc-name').focus(), 150);
+}
+
+function openEditCurrencyModal(id) {
+  const cur = currencies.find(x => x.id === id);
+  if (!cur) return;
+  editCurrencyId = id;
+  const isBase = id === currencies.find(c => c.rate === 1 && currencies.indexOf(c) === 0)?.id
+               || id === 'cr'
+               || (currencies[0] && currencies[0].id === id && currencies[0].rate === 1);
+
+  // Pre-fill fields
+  document.getElementById('nc-name').value   = cur.name;
+  document.getElementById('nc-abbr').value   = cur.abbr;
+  document.getElementById('nc-symbol').value = cur.symbol;
+  document.getElementById('nc-rate').value   = cur.rate != null ? cur.rate : '';
+
+  // Title and button
+  document.getElementById('currencyModalTitle').textContent = '⚙ EDIT CURRENCY';
+  document.getElementById('btnSaveCurrency').textContent = 'Save Changes';
+
+  // Rate field: lock for base currency
+  if (isBase) {
+    document.getElementById('rateField').style.display = 'none';
+    document.getElementById('rateLockedField').style.display = '';
+  } else {
+    document.getElementById('rateField').style.display = '';
+    document.getElementById('rateLockedField').style.display = 'none';
+  }
+
+  // Set color
+  selectedColor = cur.color || PRESET_COLORS[0];
   buildColorSwatches();
   updatePreview();
   openModal('addCurrencyModal');
@@ -740,22 +798,62 @@ async function saveNewCurrency() {
   if (!name)   { showToast('Name required.'); return; }
   if (!abbr)   { showToast('Abbreviation required.'); return; }
   if (!symbol) { showToast('Symbol required.'); return; }
-  if (currencies.find(c => c.abbr === abbr)) { showToast(`"${abbr}" is already in use.`); return; }
-  const rateRaw = parseFloat(document.getElementById('nc-rate').value);
-  const rate = (!isNaN(rateRaw) && rateRaw > 0) ? rateRaw : null;
-  const cur = { id: uid(), name, abbr, symbol, color: selectedColor, rate };
-  currencies.push(cur);
-  vault[cur.id] = 0;
-  const btn = document.getElementById('btnSaveCurrency');
+
+  // Abbr dupe check — skip self when editing
+  const abbrConflict = currencies.find(c => c.abbr === abbr && c.id !== editCurrencyId);
+  if (abbrConflict) { showToast(`"${abbr}" is already in use.`); return; }
+
+  const btn   = document.getElementById('btnSaveCurrency');
   const modal = document.getElementById('addCurrencyModal');
-  btn.dataset.loadingText = 'Adding…';
-  setLoading(btn, true); setModalLoading(modal, true);
-  try {
-    await saveCurrencyToDB(cur);
-    render(); closeModal('addCurrencyModal');
-    showToast(`${name} (${abbr}) added to treasury.`);
-  } catch(e) { console.error(e); showToast('Save failed.');
-  } finally { setLoading(btn, false); setModalLoading(modal, false); }
+
+  if (editCurrencyId) {
+    // ── EDIT path ──
+    const existing = currencies.find(c => c.id === editCurrencyId);
+    if (!existing) return;
+    const isBase = editCurrencyId === (currencies[0]?.id) && (existing.rate === 1 || existing.id === 'cr');
+
+    // Rate: keep 1 for base, otherwise read field
+    let rate;
+    if (isBase) {
+      rate = 1;
+    } else {
+      const rateRaw = parseFloat(document.getElementById('nc-rate').value);
+      rate = (!isNaN(rateRaw) && rateRaw > 0) ? rateRaw : null;
+    }
+
+    existing.name   = name;
+    existing.abbr   = abbr;
+    existing.symbol = symbol;
+    existing.color  = selectedColor;
+    existing.rate   = rate;
+
+    btn.dataset.loadingText = 'Saving…';
+    setLoading(btn, true); setModalLoading(modal, true);
+    try {
+      await saveCurrencyToDB(existing);
+      // Invalidate tx member cache so holder dropdown picks up new name if needed
+      _cachedTxMembers = null;
+      render(); closeModal('addCurrencyModal');
+      showToast(`${name} updated.`);
+    } catch(e) { console.error(e); showToast('Save failed.');
+    } finally { setLoading(btn, false); setModalLoading(modal, false); }
+
+  } else {
+    // ── ADD path ──
+    const rateRaw = parseFloat(document.getElementById('nc-rate').value);
+    const rate = (!isNaN(rateRaw) && rateRaw > 0) ? rateRaw : null;
+    const cur = { id: uid(), name, abbr, symbol, color: selectedColor, rate };
+    currencies.push(cur);
+    vault[cur.id] = 0;
+    btn.dataset.loadingText = 'Adding…';
+    setLoading(btn, true); setModalLoading(modal, true);
+    try {
+      await saveCurrencyToDB(cur);
+      render(); closeModal('addCurrencyModal');
+      showToast(`${name} (${abbr}) added to treasury.`);
+    } catch(e) { console.error(e); showToast('Save failed.');
+    } finally { setLoading(btn, false); setModalLoading(modal, false); }
+  }
 }
 
 async function deleteCurrency(id) {
@@ -784,46 +882,180 @@ async function deleteCurrency(id) {
 // ══════════════════════════════════
 //  SPLIT
 // ══════════════════════════════════
-function openSplitModal() {
+// ── Split modal state ──
+let splitRecipients = []; // array of {type:'member'|'vault', member: obj|null}
+
+// Compute a member's net worth in base-currency units from memberVaultsCache
+function getMemberNetWorth(memberName) {
+  const v = memberVaultsCache[memberName] || {};
+  let total = 0;
+  let hasRate = false;
+  for (const cur of currencies) {
+    const amt = v[cur.id] || 0;
+    if (cur.rate != null) { total += amt * cur.rate; hasRate = true; }
+  }
+  return hasRate ? total : null;
+}
+
+function buildSplitRecipientCard(recipient, index) {
+  const base = currencies.find(c => c.id === 'cr') || currencies[0];
+  if (recipient.type === 'vault') {
+    return `<div class="split-member-card split-vault-card" data-idx="${index}">
+      <div class="split-card-avatar split-card-vault-icon">🎒</div>
+      <div class="split-card-info">
+        <div class="split-card-name">Party Vault</div>
+        <div class="split-card-wealth split-card-wealth-dim">shared</div>
+      </div>
+      <button class="split-card-remove" onclick="removeSplitRecipient(${index})" title="Remove">✕</button>
+    </div>`;
+  }
+  const m = recipient.member;
+  const wv = getMemberNetWorth(m.name);
+  const isNeg = wv !== null && wv < 0;
+  const wealthStr = wv === null ? '—'
+    : (isNeg ? '−' : '') + Math.abs(wv).toLocaleString(undefined, { maximumFractionDigits: 1 }) + ' ' + base.abbr;
+  const wealthClass = wv === null ? 'split-card-wealth-dim' : isNeg ? 'split-card-wealth-neg' : 'split-card-wealth-pos';
+  const avatar = m.photo
+    ? `<img src="${m.photo}" alt="${esc(m.name)}" class="split-card-avatar-img" />`
+    : `<div class="split-card-avatar split-card-avatar-initial"
+         style="color:${m.color || 'var(--gold)'};border-color:${m.color ? m.color + '50' : 'var(--border)'}">
+         ${esc(m.name.charAt(0).toUpperCase())}
+       </div>`;
+  return `<div class="split-member-card" data-idx="${index}">
+    <div class="split-card-avatar-wrap">${avatar}</div>
+    <div class="split-card-info">
+      <div class="split-card-name">${esc(m.name)}</div>
+      <div class="split-card-wealth ${wealthClass}">${wealthStr}</div>
+    </div>
+    <button class="split-card-remove" onclick="removeSplitRecipient(${index})" title="Remove">✕</button>
+  </div>`;
+}
+
+function renderSplitCards() {
+  const container = document.getElementById('splitMemberCards');
+  if (!container) return;
+  if (!splitRecipients.length) {
+    container.innerHTML = '<div class="split-cards-empty">No recipients — raise the count above.</div>';
+    return;
+  }
+  container.innerHTML = splitRecipients.map((r, i) => buildSplitRecipientCard(r, i)).join('');
+}
+
+function removeSplitRecipient(index) {
+  splitRecipients.splice(index, 1);
+  const countEl = document.getElementById('splitCount');
+  countEl.value = splitRecipients.length;
+  updateSplitHint();
+  renderSplitCards();
+  calcSplit();
+}
+
+function updateSplitHint() {
+  const hint = document.getElementById('splitCountHint');
+  if (!hint) return;
+  const members = (_cachedTxMembers || []).filter(m => (m.status || 'active') === 'active');
+  const n = splitRecipients.length;
+  const vaultSlots = splitRecipients.filter(r => r.type === 'vault').length;
+  hint.textContent = vaultSlots > 0
+    ? `${n - vaultSlots} member${n - vaultSlots !== 1 ? 's' : ''} + ${vaultSlots} vault slot${vaultSlots !== 1 ? 's' : ''}`
+    : `${n} of ${members.length} active member${members.length !== 1 ? 's' : ''}`;
+}
+
+function onSplitCountChange() {
+  const members = (_cachedTxMembers || []).filter(m => (m.status || 'active') === 'active');
+  const newN = Math.max(1, Math.min(20, parseInt(document.getElementById('splitCount').value) || 1));
+  document.getElementById('splitCount').value = newN;
+
+  if (newN > splitRecipients.length) {
+    // Add recipients: prefer remaining active members, then vault slots
+    const usedNames = new Set(splitRecipients.filter(r => r.type === 'member').map(r => r.member.name));
+    const available = members.filter(m => !usedNames.has(m.name));
+    while (splitRecipients.length < newN) {
+      if (available.length > 0) {
+        splitRecipients.push({ type: 'member', member: available.shift() });
+      } else {
+        splitRecipients.push({ type: 'vault', member: null });
+      }
+    }
+  } else {
+    // Remove from the end
+    splitRecipients = splitRecipients.slice(0, newN);
+  }
+
+  updateSplitHint();
+  renderSplitCards();
+  calcSplit();
+}
+
+async function openSplitModal() {
+  // Load members fresh
+  _cachedTxMembers = null;
+  await loadTxMembers();
+
+  const members = (_cachedTxMembers || []).filter(m => (m.status || 'active') === 'active');
+
+  // Default: all active members
+  splitRecipients = members.map(m => ({ type: 'member', member: m }));
+
+  const countEl = document.getElementById('splitCount');
+  countEl.value = splitRecipients.length || 1;
+  if (!splitRecipients.length) {
+    splitRecipients = [{ type: 'vault', member: null }];
+    countEl.value = 1;
+  }
+
   buildCoinInputs('splitCoinInputs', vault);
   document.getElementById('splitResult').classList.remove('visible');
+  updateSplitHint();
+  renderSplitCards();
   calcSplit();
   openModal('splitModal');
 }
 
 function calcSplit() {
-  const n = Math.max(1, parseInt(document.getElementById('splitCount').value) || 1);
+  const n = splitRecipients.length || Math.max(1, parseInt(document.getElementById('splitCount').value) || 1);
   const coins = readCoinInputs('splitCoinInputs');
   const base = currencies.find(c => c.id === 'cr') || currencies[0];
-  let crTotal = 0; let allRates = true;
+
+  let crTotal = 0;
+  let allRates = true;
   const parts = [];
 
   for (const [cid, amt] of Object.entries(coins)) {
-    const c = currencies.find(x => x.id === cid);
-    if (!c || !amt) continue;
-    parts.push(`${fmt(amt)} ${c.abbr}`);
-    if (c.rate != null) crTotal += amt * c.rate;
+    const cur = currencies.find(x => x.id === cid);
+    if (!cur || !amt) continue;
+    parts.push(`${fmt(amt)} ${cur.abbr}`);
+    if (cur.rate != null) crTotal += amt * cur.rate;
     else allRates = false;
   }
 
-  let lines = [];
+  const lines = [];
   lines.push(`SPLITTING : ${parts.length ? parts.join(' + ') : 'nothing entered'}`);
-  lines.push(`MEMBERS   : ${n}`);
+  lines.push(`RECIPIENTS: ${n}`);
   lines.push('─────────────────────────────');
+
   if (allRates && crTotal > 0) {
-    lines.push(`TOTAL     : ${crTotal.toLocaleString(undefined,{maximumFractionDigits:2})} ${base.abbr}`);
-    lines.push(`PER MEMBER: ${(crTotal/n).toLocaleString(undefined,{maximumFractionDigits:2})} ${base.abbr}`);
+    lines.push(`TOTAL     : ${crTotal.toLocaleString(undefined, { maximumFractionDigits: 2 })} ${base.abbr}`);
+    lines.push(`PER SHARE : ${(crTotal / n).toLocaleString(undefined, { maximumFractionDigits: 2 })} ${base.abbr}`);
   } else if (!allRates) {
-    lines.push('(some currencies have no rate — CR total N/A)');
+    lines.push('(some currencies have no rate — base total N/A)');
   }
-  lines.push('');
-  lines.push('PER-CURRENCY SHARE:');
-  for (const [cid, amt] of Object.entries(coins)) {
-    const c = currencies.find(x => x.id === cid);
-    if (!c || !amt) continue;
-    const each = Math.floor(amt / n);
-    const rem = amt - each * n;
-    lines.push(`  ${c.abbr.padEnd(6)}: ${fmt(each)} each${rem > 0 ? `  (+${rem} remainder)` : ''}`);
+
+  if (Object.keys(coins).some(cid => coins[cid] > 0)) {
+    lines.push('');
+    lines.push('PER-CURRENCY SHARE:');
+    for (const [cid, amt] of Object.entries(coins)) {
+      const cur = currencies.find(x => x.id === cid);
+      if (!cur || !amt) continue;
+      const each = Math.floor(amt / n);
+      const rem  = amt - each * n;
+      lines.push(`  ${cur.abbr.padEnd(6)}: ${fmt(each)} each${rem > 0 ? '  (+' + rem + ' remainder → vault)' : ''}`);
+    }
+
+    if (splitRecipients.some(r => r.type === 'vault')) {
+      lines.push('');
+      lines.push('⚙ vault slots receive equal share as members');
+    }
   }
 
   document.getElementById('splitResult').textContent = lines.join('\n');
@@ -831,16 +1063,92 @@ function calcSplit() {
 }
 
 async function applySplit() {
-  const n = Math.max(1, parseInt(document.getElementById('splitCount').value) || 1);
+  const n = splitRecipients.length;
+  if (!n) { showToast('Add at least one recipient.'); return; }
   const coins = readCoinInputs('splitCoinInputs');
   if (!Object.keys(coins).length) { showToast('Enter amounts to split.'); return; }
-  const tx = { id: uid(), type: 'spend', desc: `Distributed loot — split ${n} ways`, note: 'Auto-logged from split calculator', ts: Date.now(), coins };
+
+  // Validate: all amounts must divide sensibly
+  const perShare = {}; // cid → amount each recipient gets (floor)
+  const remainder = {}; // cid → leftover that goes to vault
+  for (const [cid, amt] of Object.entries(coins)) {
+    if (!amt) continue;
+    perShare[cid]  = Math.floor(amt / n);
+    remainder[cid] = amt - perShare[cid] * n;
+  }
+
+  // Build transactions:
+  // 1. One SPEND from party vault for the full split amount
+  const totalCoins = {};
+  for (const [cid, amt] of Object.entries(coins)) {
+    if (amt > 0) totalCoins[cid] = amt;
+  }
+
+  const recipientNames = splitRecipients.map(r =>
+    r.type === 'member' ? r.member.name : 'Party Vault'
+  ).join(', ');
+
+  const spendTx = {
+    id: uid(), type: 'spend',
+    desc: `Split loot — ${n} way${n !== 1 ? 's' : ''} (${recipientNames})`,
+    note: 'Auto-logged from split calculator',
+    ts: Date.now(),
+    coins: totalCoins,
+    member: null,
+  };
+
+  // 2. One GAIN per recipient (their share)
+  const gainTxs = [];
+  const shareCoins = {};
+  for (const [cid, amt] of Object.entries(perShare)) {
+    if (amt > 0) shareCoins[cid] = amt;
+  }
+
+  if (Object.keys(shareCoins).length) {
+    for (const recipient of splitRecipients) {
+      gainTxs.push({
+        id: uid(), type: 'gain',
+        desc: `Loot share — split ${n} way${n !== 1 ? 's' : ''}`,
+        note: 'Auto-logged from split calculator',
+        ts: Date.now() + 1,
+        coins: { ...shareCoins },
+        member: recipient.type === 'member' ? recipient.member.name : null,
+      });
+    }
+  }
+
+  // 3. Remainder coins (if any) go to a vault GAIN with no member tag
+  const remCoins = {};
+  for (const [cid, amt] of Object.entries(remainder)) {
+    if (amt > 0) remCoins[cid] = amt;
+  }
+  let remTx = null;
+  if (Object.keys(remCoins).length) {
+    remTx = {
+      id: uid(), type: 'gain',
+      desc: 'Split remainder — returned to party vault',
+      note: 'Auto-logged from split calculator',
+      ts: Date.now() + 2,
+      coins: remCoins,
+      member: null,
+    };
+  }
+
   try {
-    await saveTxToDB(tx);
-    ledger.push(tx);
-    recalcVault(); render(); closeModal('splitModal');
-    showToast(`Split logged for ${n} members.`);
-  } catch(e) { console.error(e); showToast('Save failed.'); }
+    const allTxs = [spendTx, ...gainTxs, ...(remTx ? [remTx] : [])];
+    await Promise.all(allTxs.map(tx => saveTxToDB(tx)));
+    ledger.push(...allTxs);
+    recalcVault();
+    await renderMemberWealth();
+    renderTotal();
+    renderGrid();
+    renderLedger();
+    closeModal('splitModal');
+    showToast(`Split logged — ${n} recipient${n !== 1 ? 's' : ''}.`);
+  } catch(e) {
+    console.error(e);
+    showToast('Save failed — check Supabase config.');
+  }
 }
 
 // ══════════════════════════════════
@@ -1084,7 +1392,7 @@ async function renderMemberWealth() {
 // ══════════════════════════════════
 function openModal(id)  { document.getElementById(id).classList.add('open'); }
 function closeModal(id) { document.getElementById(id).classList.remove('open'); }
-function backdropClose(e, id) { if (e.target === document.getElementById(id)) closeModal(id); }
+function backdropClose(e, id) { if (e.target === document.getElementById(id)) { closeModal(id); if (id === 'addCurrencyModal') editCurrencyId = null; } }
 
 // ══════════════════════════════════
 //  TOAST
@@ -1099,7 +1407,7 @@ function showToast(msg, dur = 2800) {
 //  KEYBOARD
 // ══════════════════════════════════
 document.addEventListener('keydown', e => {
-  if (e.key === 'Escape') ['txModal','addCurrencyModal','splitModal'].forEach(closeModal);
+  if (e.key === 'Escape') { ['txModal','addCurrencyModal','splitModal'].forEach(closeModal); editCurrencyId = null; }
   if (e.key === 'Enter' && document.getElementById('txModal').classList.contains('open') && document.activeElement.tagName !== 'TEXTAREA') saveTx();
   if (e.key === 'Enter' && document.getElementById('addCurrencyModal').classList.contains('open') && document.activeElement.tagName !== 'TEXTAREA') saveNewCurrency();
 });

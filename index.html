@@ -10,6 +10,7 @@
   <link rel="stylesheet" href="nexus.css" />
 </head>
 <body class="has-sidenav page-dashboard">
+
 <button class="nav-toggle" id="navToggle" aria-label="Toggle navigation">
   <span></span><span></span><span></span>
 </button>
@@ -44,12 +45,13 @@
       <span class="nav-pip"></span>
     </a>
     <a class="sidenav-link" href="admin.html">
-      <span class="nav-icon">⚙</span><span class="nav-label">Admin</span><span class="nav-pip"></span>
+      <span class="nav-icon">⚙</span>
+      <span class="nav-label">Admin</span>
+      <span class="nav-pip"></span>
     </a>
   </div>
   <div class="sidenav-bottom">nexus // v1.0.0</div>
 </nav>
-
 
 <header>
   <div class="campaign-eyebrow">⚙ campaign management system // initialized</div>
@@ -59,9 +61,7 @@
 </header>
 
 <!-- Party avatar strip -->
-<div class="party-strip" id="partyStrip">
-  <!-- populated by JS -->
-</div>
+<div class="party-strip" id="partyStrip"></div>
 <div class="party-strip-label" id="partyLabel">loading party roster…</div>
 
 <main>
@@ -145,16 +145,34 @@
 
   <div class="module-grid">
     <div class="module-card coming-soon" style="--card-accent:#4a6080">
-      <div class="card-head"><div class="card-icon" style="filter:none;opacity:0.25">🗺️</div><span class="card-status status-planned">PLANNED</span></div>
-      <div><div class="card-title" style="color:var(--text-dim)">WORLD MAP</div><div class="card-desc">Pin locations, track explored regions and points of interest.</div></div>
+      <div class="card-head">
+        <div class="card-icon" style="filter:none;opacity:0.25">🗺️</div>
+        <span class="card-status status-planned">PLANNED</span>
+      </div>
+      <div>
+        <div class="card-title" style="color:var(--text-dim)">WORLD MAP</div>
+        <div class="card-desc">Pin locations, track explored regions and points of interest.</div>
+      </div>
     </div>
     <div class="module-card coming-soon" style="--card-accent:#4a6080">
-      <div class="card-head"><div class="card-icon" style="filter:none;opacity:0.25">📖</div><span class="card-status status-planned">PLANNED</span></div>
-      <div><div class="card-title" style="color:var(--text-dim)">BESTIARY</div><div class="card-desc">Log encountered enemies, notes on weaknesses and lore.</div></div>
+      <div class="card-head">
+        <div class="card-icon" style="filter:none;opacity:0.25">📖</div>
+        <span class="card-status status-planned">PLANNED</span>
+      </div>
+      <div>
+        <div class="card-title" style="color:var(--text-dim)">BESTIARY</div>
+        <div class="card-desc">Log encountered enemies, notes on weaknesses and lore.</div>
+      </div>
     </div>
     <div class="module-card coming-soon" style="--card-accent:#4a6080">
-      <div class="card-head"><div class="card-icon" style="filter:none;opacity:0.25">🎲</div><span class="card-status status-planned">PLANNED</span></div>
-      <div><div class="card-title" style="color:var(--text-dim)">DICE ROLLER</div><div class="card-desc">Roll any die combination with modifiers and roll history.</div></div>
+      <div class="card-head">
+        <div class="card-icon" style="filter:none;opacity:0.25">🎲</div>
+        <span class="card-status status-planned">PLANNED</span>
+      </div>
+      <div>
+        <div class="card-title" style="color:var(--text-dim)">DICE ROLLER</div>
+        <div class="card-desc">Roll any die combination with modifiers and roll history.</div>
+      </div>
     </div>
   </div>
 </main>
@@ -173,7 +191,35 @@
 <script>
   function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 
-  // Pull live stats from Supabase to show on dashboard cards
+  function applyTerms() {
+    const map = {
+      'PARTY ROSTER': t('partyRoster').toUpperCase(),
+      'TREASURY':     t('treasury').toUpperCase(),
+      'LOOT TRACKER': t('lootTracker').toUpperCase(),
+      'SESSION LOG':  t('sessionLog').toUpperCase(),
+      'WORLD MAP':    t('worldMap').toUpperCase(),
+      'BESTIARY':     t('bestiary').toUpperCase(),
+      'DICE ROLLER':  t('diceRoller').toUpperCase(),
+    };
+    document.querySelectorAll('.card-title').forEach(el => {
+      const key = el.textContent.trim();
+      if (map[key]) el.textContent = map[key];
+    });
+    document.querySelectorAll('.sidenav-link .nav-label').forEach(el => {
+      const txt = el.textContent.trim();
+      if (txt === 'Party Roster') el.textContent = t('partyRoster');
+      if (txt === 'Treasury')     el.textContent = t('treasury');
+      if (txt === 'Loot Tracker') el.textContent = t('lootTracker');
+    });
+    document.querySelectorAll('.status-item').forEach(el => {
+      const txt = el.textContent.trim();
+      if (txt === 'Party Roster') el.innerHTML = el.innerHTML.replace('Party Roster', t('partyRoster'));
+      if (txt === 'Treasury')     el.innerHTML = el.innerHTML.replace('Treasury',     t('treasury'));
+      if (txt === 'Loot Tracker') el.innerHTML = el.innerHTML.replace('Loot Tracker', t('lootTracker'));
+      if (txt === 'Session Log')  el.innerHTML = el.innerHTML.replace('Session Log',  t('sessionLog'));
+    });
+  }
+
   async function loadPartyStats() {
     try {
       const members = await db.select('party_members', { order: 'created_at.asc' });
@@ -184,20 +230,24 @@
       const strip = document.getElementById('partyStrip');
       const label = document.getElementById('partyLabel');
       if (!members.length) {
-        strip.innerHTML = `<div class="party-avatar party-avatar-empty" title="No members yet">+</div>`;
-        label.textContent = 'no party members yet — add some in Party Roster';
+        strip.innerHTML = '<div class="party-avatar party-avatar-empty" title="No members yet">+</div>';
+        label.textContent = 'no party members yet \u2014 add some in Party Roster';
         return;
       }
       strip.innerHTML = members.map(m => {
         if (m.photo) {
           return `<div class="party-avatar" title="${esc(m.name)}"><img src="${m.photo}" alt="${esc(m.name)}" /></div>`;
         }
-        return `<div class="party-avatar" title="${esc(m.name)}" style="color:${m.color||'var(--gold)'};text-shadow:0 0 8px ${m.color||'var(--amber)'}">
+        return `<div class="party-avatar" title="${esc(m.name)}"
+          style="color:${m.color || 'var(--gold)'};text-shadow:0 0 8px ${m.color || 'var(--amber)'}">
           ${esc(m.name.charAt(0).toUpperCase())}
         </div>`;
       }).join('');
-      label.textContent = members.map(m => m.name).join('  ·  ');
-    } catch(e) { console.error(e); document.getElementById('statMembers').textContent = '—'; }
+      label.textContent = members.map(m => m.name).join('  \u00b7  ');
+    } catch(e) {
+      console.error(e);
+      document.getElementById('statMembers').textContent = '—';
+    }
   }
 
   async function loadTreasuryStats() {
@@ -210,12 +260,14 @@
       for (const tx of ledgerRows) {
         const sign = tx.type === 'spend' ? -1 : 1;
         for (const [cid, amt] of Object.entries(tx.coins || {})) {
-          vault[cid] = Math.max(0, (vault[cid] || 0) + sign * (amt || 0));
+          vault[cid] = (vault[cid] || 0) + sign * (amt || 0);
         }
       }
       document.getElementById('statCredits').textContent = (vault['cr'] || 0).toLocaleString();
       document.getElementById('statTxCount').textContent = ledgerRows.length;
-    } catch(e) { console.error(e); }
+    } catch(e) {
+      console.error(e);
+    }
   }
 
   async function loadLootStats() {
@@ -223,61 +275,30 @@
       const items = await db.select('loot_items');
       document.getElementById('statItems').textContent = items.length;
       document.getElementById('statAttuned').textContent = items.filter(i => i.attunement === 'attuned').length;
-    } catch(e) { console.error(e); }
+    } catch(e) {
+      console.error(e);
+    }
   }
+
+  function openNav() {
+    document.getElementById('sidenav').classList.add('nav-open');
+    document.getElementById('navOverlay').classList.add('nav-open');
+  }
+
+  function closeNav() {
+    document.getElementById('sidenav').classList.remove('nav-open');
+    document.getElementById('navOverlay').classList.remove('nav-open');
+  }
+
+  document.getElementById('navToggle').addEventListener('click', function() {
+    const nav = document.getElementById('sidenav');
+    nav.classList.contains('nav-open') ? closeNav() : openNav();
+  });
 
   loadTerms().then(() => applyTerms());
   loadPartyStats();
   loadTreasuryStats();
   loadLootStats();
-</script>
-
-function applyTerms() {
-  // Dashboard card titles
-  const map = {
-    'PARTY ROSTER':   t('partyRoster').toUpperCase(),
-    'TREASURY':       t('treasury').toUpperCase(),
-    'LOOT TRACKER':   t('lootTracker').toUpperCase(),
-    'SESSION LOG':    t('sessionLog').toUpperCase(),
-    'WORLD MAP':      t('worldMap').toUpperCase(),
-    'BESTIARY':       t('bestiary').toUpperCase(),
-    'DICE ROLLER':    t('diceRoller').toUpperCase(),
-  };
-  document.querySelectorAll('.card-title').forEach(el => {
-    const key = el.textContent.trim();
-    if (map[key]) el.textContent = map[key];
-  });
-  // Nav links
-  document.querySelectorAll('.sidenav-link .nav-label').forEach(el => {
-    const txt = el.textContent.trim();
-    if (txt === 'Party Roster') el.textContent = t('partyRoster');
-    if (txt === 'Treasury')     el.textContent = t('treasury');
-    if (txt === 'Loot Tracker') el.textContent = t('lootTracker');
-  });
-  // Status bar items
-  document.querySelectorAll('.status-item').forEach(el => {
-    const txt = el.textContent.trim();
-    if (txt === 'Party Roster') el.innerHTML = el.innerHTML.replace('Party Roster', t('partyRoster'));
-    if (txt === 'Treasury')     el.innerHTML = el.innerHTML.replace('Treasury', t('treasury'));
-    if (txt === 'Loot Tracker') el.innerHTML = el.innerHTML.replace('Loot Tracker', t('lootTracker'));
-    if (txt === 'Session Log')  el.innerHTML = el.innerHTML.replace('Session Log', t('sessionLog'));
-  });
-}
-
-
-<script>
-  function openNav() {
-    document.getElementById('sidenav').classList.add('nav-open');
-    document.getElementById('navOverlay').classList.add('nav-open');
-  }
-  function closeNav() {
-    document.getElementById('sidenav').classList.remove('nav-open');
-    document.getElementById('navOverlay').classList.remove('nav-open');
-  }
-  document.getElementById('navToggle').addEventListener('click', function() {
-    const nav = document.getElementById('sidenav');
-    nav.classList.contains('nav-open') ? closeNav() : openNav();
-  });
 </script>
 
 </body>
