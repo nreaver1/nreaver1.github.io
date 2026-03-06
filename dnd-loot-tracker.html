@@ -4,320 +4,13 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>LOOT TRACKER // Item Registry</title>
+  <script src="nexus-config.js"></script>
   <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@400;700;900&family=Rajdhani:wght@400;500;600;700&display=swap" rel="stylesheet" />
-  <style>
-    :root {
-      --bg:#090b0f;--bg2:#0d1018;--panel:#0a0d14;--border:#1e2d45;
-      --amber:#d4860a;--gold:#f0a832;--gold-hot:#ffe066;
-      --cyan:#0ef0d0;--cyan-dim:#0a8a78;
-      --red:#e03c3c;--green:#3ce08a;
-      --text:#c8d8f0;--text-dim:#4a6080;
-      --glow-c:rgba(14,240,208,0.12);
-      --r-common:#7a7a7a;--r-uncommon:#3ce08a;--r-rare:#6a9fe8;
-      --r-very-rare:#c07de8;--r-legendary:#f0a832;--r-artifact:#e03c3c;
-    }
-    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
-    html{scroll-behavior:smooth;}
-    body{background:var(--bg);background-image:repeating-linear-gradient(0deg,transparent,transparent 39px,rgba(14,240,208,0.03) 39px,rgba(14,240,208,0.03) 40px),repeating-linear-gradient(90deg,transparent,transparent 39px,rgba(14,240,208,0.02) 39px,rgba(14,240,208,0.02) 40px);font-family:'Rajdhani',sans-serif;color:var(--text);min-height:100vh;}
-    body::before{content:'';position:fixed;inset:0;background:repeating-linear-gradient(to bottom,transparent 0px,transparent 3px,rgba(0,0,0,0.08) 3px,rgba(0,0,0,0.08) 4px);pointer-events:none;z-index:9999;}
-
-    header{padding:2rem 2rem 0;display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:1rem;}
-    .brand{display:flex;flex-direction:column;gap:0.2rem;}
-    .brand-top{font-family:'Share Tech Mono',monospace;font-size:0.65rem;color:var(--cyan-dim);letter-spacing:0.3em;text-transform:uppercase;}
-    .brand-name{font-family:'Orbitron',sans-serif;font-size:clamp(1.4rem,4vw,2.2rem);font-weight:900;color:var(--cyan);text-shadow:0 0 20px var(--cyan-dim),0 0 50px rgba(14,240,208,0.2);letter-spacing:0.08em;line-height:1;}
-    .brand-sub{font-family:'Share Tech Mono',monospace;font-size:0.6rem;color:var(--gold);letter-spacing:0.25em;opacity:0.6;margin-top:2px;}
-    .header-actions{display:flex;gap:0.6rem;align-items:center;padding-top:0.5rem;flex-wrap:wrap;}
-    .hline{height:1px;background:linear-gradient(to right,transparent,var(--amber),var(--cyan-dim),var(--amber),transparent);margin:1.2rem 2rem;opacity:0.4;}
-    main{max-width:1150px;margin:0 auto;padding:0 1.5rem 5rem;}
-
-    .stats-bar{display:flex;gap:2rem;flex-wrap:wrap;margin-bottom:1.4rem;padding:0.85rem 1.3rem;background:rgba(14,240,208,0.03);border:1px solid rgba(14,240,208,0.12);border-radius:4px;}
-    .stat{display:flex;flex-direction:column;gap:2px;}
-    .stat-val{font-family:'Orbitron',sans-serif;font-size:1.2rem;font-weight:700;color:var(--cyan);}
-    .stat-label{font-family:'Share Tech Mono',monospace;font-size:0.52rem;letter-spacing:0.18em;text-transform:uppercase;color:var(--text-dim);}
-
-    .toolbar{display:flex;flex-wrap:wrap;gap:0.7rem;align-items:center;margin-bottom:1.2rem;}
-    .toolbar-left{display:flex;gap:0.6rem;flex-wrap:wrap;flex:1;}
-    .toolbar-right{display:flex;gap:0.6rem;}
-
-    input[type="text"],select{background:rgba(14,240,208,0.04);border:1px solid var(--border);border-radius:3px;color:var(--text);font-family:'Rajdhani',sans-serif;font-size:1rem;padding:0.45rem 0.75rem;outline:none;transition:border-color 0.2s,box-shadow 0.2s;}
-    input[type="text"]:focus,select:focus{border-color:var(--cyan-dim);box-shadow:0 0 8px var(--glow-c);}
-    input[type="text"]::placeholder{color:var(--text-dim);}
-    select option{background:var(--bg2);color:var(--text);}
-    .search-input{min-width:200px;flex:1;}
-
-    .btn{font-family:'Orbitron',sans-serif;font-size:0.6rem;font-weight:700;letter-spacing:0.15em;text-transform:uppercase;padding:0.5rem 1rem;border-radius:3px;border:none;cursor:pointer;transition:all 0.16s;white-space:nowrap;text-decoration:none;display:inline-flex;align-items:center;gap:0.3rem;}
-    .btn-primary{background:linear-gradient(135deg,var(--cyan-dim),#066050);color:#020f0d;box-shadow:0 0 12px rgba(14,240,208,0.3);}
-    .btn-primary:hover{filter:brightness(1.15);box-shadow:0 0 20px rgba(14,240,208,0.5);}
-    .btn-ghost{background:transparent;border:1px solid var(--border);color:var(--text-dim);}
-    .btn-ghost:hover{border-color:var(--amber);color:var(--amber);}
-    .btn-icon{background:none;border:none;cursor:pointer;font-size:0.9rem;padding:0.25rem 0.45rem;opacity:0.35;transition:opacity 0.15s;color:var(--text);}
-    .btn-icon:hover{opacity:1;}
-    .btn-icon.delete:hover{color:var(--red);}
-
-    .table-wrap{background:var(--panel);border:1px solid var(--border);border-radius:4px;overflow:hidden;box-shadow:0 6px 40px rgba(0,0,0,0.4);}
-    table{width:100%;border-collapse:collapse;}
-    thead th{background:rgba(14,240,208,0.04);font-family:'Share Tech Mono',monospace;font-size:0.58rem;letter-spacing:0.2em;text-transform:uppercase;color:var(--cyan-dim);padding:0.7rem 1rem;text-align:left;border-bottom:1px solid rgba(14,240,208,0.12);cursor:pointer;user-select:none;white-space:nowrap;transition:color 0.15s;}
-    thead th:hover{color:var(--cyan);}
-    thead th.sorted{color:var(--gold);}
-    thead th .sort-arrow{margin-left:3px;font-size:0.55rem;opacity:0.7;}
-    tbody tr{border-bottom:1px solid rgba(30,45,69,0.5);transition:background 0.12s;animation:rowIn 0.22s ease both;}
-    @keyframes rowIn{from{opacity:0;transform:translateX(-5px);}to{opacity:1;transform:translateX(0);}}
-    tbody tr:last-child{border-bottom:none;}
-    tbody tr:hover{background:rgba(14,240,208,0.03);}
-    td{padding:0.7rem 1rem;font-size:1rem;vertical-align:middle;}
-    .item-name{font-weight:600;color:var(--text);font-family:'Rajdhani',sans-serif;font-size:1rem;}
-    .item-desc{font-style:italic;font-size:0.82rem;color:var(--text-dim);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:260px;}
-
-    .rarity-badge{display:inline-block;font-family:'Share Tech Mono',monospace;font-size:0.56rem;letter-spacing:0.12em;text-transform:uppercase;padding:0.2rem 0.55rem;border-radius:2px;border:1px solid currentColor;white-space:nowrap;}
-    .rarity-common{color:var(--r-common);background:rgba(122,122,122,0.08);}
-    .rarity-uncommon{color:var(--r-uncommon);background:rgba(60,224,138,0.08);}
-    .rarity-rare{color:var(--r-rare);background:rgba(106,159,232,0.08);}
-    .rarity-very-rare{color:var(--r-very-rare);background:rgba(192,125,232,0.08);}
-    .rarity-legendary{color:var(--r-legendary);background:rgba(240,168,50,0.08);}
-    .rarity-artifact{color:var(--r-artifact);background:rgba(224,60,60,0.08);}
-
-    .attunement{font-family:'Share Tech Mono',monospace;font-size:0.58rem;letter-spacing:0.1em;color:var(--gold);}
-    .no-attune{color:var(--text-dim);opacity:0.4;}
-    .td-actions{white-space:nowrap;}
-
-    /* stat effect pills in table */
-    .fx-list{display:flex;flex-wrap:wrap;gap:3px;max-width:220px;}
-    .fx-pill{font-family:'Share Tech Mono',monospace;font-size:0.48rem;letter-spacing:0.08em;padding:0.15rem 0.4rem;border-radius:2px;white-space:nowrap;}
-    .fx-pos{color:var(--green);border:1px solid rgba(60,224,138,0.4);background:rgba(60,224,138,0.07);}
-    .fx-neg{color:var(--red);border:1px solid rgba(224,60,60,0.4);background:rgba(224,60,60,0.07);}
-    .fx-adv{color:var(--cyan);border:1px solid rgba(14,240,208,0.35);background:rgba(14,240,208,0.06);}
-    .fx-dis{color:var(--amber);border:1px solid rgba(212,134,10,0.4);background:rgba(212,134,10,0.07);}
-
-    .empty-state{text-align:center;padding:4rem 2rem;color:var(--text-dim);}
-    .empty-icon{font-size:2.5rem;display:block;margin-bottom:1rem;opacity:0.25;}
-    .empty-state p{font-family:'Share Tech Mono',monospace;font-size:0.6rem;letter-spacing:0.2em;text-transform:uppercase;}
-
-    /* ── MODAL ── */
-    .modal-backdrop{position:fixed;inset:0;background:rgba(0,0,0,0.85);display:flex;align-items:center;justify-content:center;z-index:1000;opacity:0;pointer-events:none;transition:opacity 0.2s;padding:1rem;}
-    .modal-backdrop.open{opacity:1;pointer-events:all;}
-    .modal{background:var(--bg2);border:1px solid var(--cyan-dim);border-radius:5px;width:100%;max-width:580px;box-shadow:0 0 40px var(--glow-c),0 20px 60px rgba(0,0,0,0.8);transform:translateY(10px) scale(0.98);transition:transform 0.2s;max-height:92vh;overflow-y:auto;}
-    .modal-backdrop.open .modal{transform:translateY(0) scale(1);}
-    .modal-header{padding:1.1rem 1.4rem 0.8rem;border-bottom:1px solid rgba(14,240,208,0.15);display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;background:var(--bg2);z-index:2;}
-    .modal-title{font-family:'Orbitron',sans-serif;font-size:0.75rem;font-weight:700;letter-spacing:0.2em;color:var(--cyan);text-shadow:0 0 10px var(--cyan-dim);}
-    .modal-body{padding:1.3rem 1.4rem;display:flex;flex-direction:column;gap:1rem;}
-    .modal-footer{padding:0.8rem 1.4rem 1.2rem;display:flex;justify-content:flex-end;gap:0.6rem;}
-
-    .field{display:flex;flex-direction:column;gap:0.3rem;}
-    .field-row{display:flex;gap:0.8rem;}
-    .field-row .field{flex:1;}
-    label{font-family:'Share Tech Mono',monospace;font-size:0.58rem;letter-spacing:0.2em;text-transform:uppercase;color:var(--cyan-dim);}
-    .optional{color:var(--text-dim);font-size:0.5rem;margin-left:4px;}
-
-    input[type="text"].mi,input[type="number"].mi,select.mi,textarea.mi{background:rgba(14,240,208,0.04);border:1px solid var(--border);border-radius:3px;color:var(--text);font-family:'Rajdhani',sans-serif;font-size:1rem;padding:0.45rem 0.75rem;outline:none;transition:border-color 0.2s,box-shadow 0.2s;width:100%;}
-    input.mi:focus,select.mi:focus,textarea.mi:focus{border-color:var(--cyan-dim);box-shadow:0 0 8px var(--glow-c);}
-    input.mi::placeholder,textarea.mi::placeholder{color:var(--text-dim);}
-    select.mi option{background:var(--bg2);color:var(--text);}
-    textarea.mi{resize:vertical;min-height:68px;font-family:'Rajdhani',sans-serif;}
-
-    /* ── STAT EFFECTS EDITOR ── */
-    .fx-section-label{font-family:'Share Tech Mono',monospace;font-size:0.58rem;letter-spacing:0.2em;text-transform:uppercase;color:var(--cyan-dim);display:flex;align-items:center;justify-content:space-between;}
-    .fx-rows{display:flex;flex-direction:column;gap:0.5rem;margin-top:0.4rem;}
-    .fx-row{display:flex;gap:0.5rem;align-items:center;background:rgba(14,240,208,0.03);border:1px solid var(--border);border-radius:3px;padding:0.5rem 0.7rem;}
-    .fx-row select,.fx-row input{background:rgba(14,240,208,0.04);border:1px solid var(--border);border-radius:3px;color:var(--text);font-family:'Rajdhani',sans-serif;font-size:0.9rem;padding:0.3rem 0.5rem;outline:none;transition:border-color 0.2s;}
-    .fx-row select:focus,.fx-row input:focus{border-color:var(--cyan-dim);}
-    .fx-row select option{background:var(--bg2);color:var(--text);}
-    .fx-row select optgroup{background:#0d1220;color:var(--cyan-dim);font-family:'Share Tech Mono',monospace;font-size:0.7rem;letter-spacing:0.12em;}
-    select optgroup{background:#0d1220;color:var(--cyan-dim);}
-    select option{background:var(--bg2);color:var(--text);}
-    .fx-stat-sel{flex:2;}
-    .fx-type-sel{flex:2;}
-    .fx-val-inp{width:70px;flex-shrink:0;text-align:center;}
-    .fx-del-btn{background:none;border:none;cursor:pointer;color:var(--red);opacity:0.5;font-size:1rem;padding:0 4px;transition:opacity 0.15s;flex-shrink:0;}
-    .fx-del-btn:hover{opacity:1;}
-    .fx-hint{font-family:'Share Tech Mono',monospace;font-size:0.5rem;color:var(--text-dim);letter-spacing:0.08em;margin-top:2px;}
-
-    .toast{position:fixed;bottom:1.5rem;right:1.5rem;background:var(--bg2);border:1px solid var(--cyan-dim);color:var(--cyan);font-family:'Share Tech Mono',monospace;font-size:0.62rem;letter-spacing:0.15em;padding:0.7rem 1.1rem;border-radius:3px;box-shadow:0 0 16px var(--glow-c);z-index:2000;opacity:0;pointer-events:none;transform:translateY(6px);transition:opacity 0.2s,transform 0.2s;}
-    .toast.show{opacity:1;pointer-events:all;transform:translateY(0);}
-    ::-webkit-scrollbar{width:5px;}::-webkit-scrollbar-track{background:var(--bg);}::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px;}
-    /* ── HOLDER DROPDOWN ── */
-    .holder-select-wrap{position:relative;user-select:none;}
-    .holder-selected{display:flex;align-items:center;gap:0.55rem;background:rgba(14,240,208,0.04);border:1px solid var(--border);border-radius:3px;padding:0.42rem 0.75rem;cursor:pointer;transition:border-color 0.2s,box-shadow 0.2s;min-height:38px;}
-    .holder-selected:hover,.holder-select-wrap.open .holder-selected{border-color:var(--cyan-dim);box-shadow:0 0 8px var(--glow-c);}
-    .holder-sel-avatar{width:22px;height:22px;border-radius:50%;flex-shrink:0;background:var(--bg);border:1px solid var(--border);overflow:hidden;display:flex;align-items:center;justify-content:center;font-family:'Orbitron',sans-serif;font-size:0.55rem;font-weight:700;color:var(--gold);}
-    .holder-sel-avatar img{width:100%;height:100%;object-fit:cover;border-radius:50%;}
-    .holder-sel-avatar.hidden{display:none;}
-    .holder-sel-name{flex:1;font-family:'Rajdhani',sans-serif;font-size:1rem;color:var(--text);}
-    .holder-sel-name.placeholder{color:var(--text-dim);}
-    .holder-sel-arrow{font-size:0.7rem;color:var(--text-dim);transition:transform 0.2s;flex-shrink:0;}
-    .holder-select-wrap.open .holder-sel-arrow{transform:rotate(180deg);}
-
-    .holder-dropdown{display:none;position:absolute;top:calc(100% + 4px);left:0;right:0;background:var(--bg2);border:1px solid var(--cyan-dim);border-radius:3px;box-shadow:0 8px 32px rgba(0,0,0,0.6),0 0 20px var(--glow-c);z-index:500;overflow:hidden;max-height:260px;overflow-y:auto;}
-    .holder-select-wrap.open .holder-dropdown{display:block;}
-    .holder-opt{display:flex;align-items:center;gap:0.6rem;padding:0.5rem 0.85rem;cursor:pointer;transition:background 0.12s;border-bottom:1px solid rgba(30,45,69,0.5);}
-    .holder-opt:last-child{border-bottom:none;}
-    .holder-opt:hover{background:rgba(14,240,208,0.06);}
-    .holder-opt.selected{background:rgba(14,240,208,0.09);}
-    .holder-opt-avatar{width:28px;height:28px;border-radius:50%;flex-shrink:0;background:var(--bg);border:1px solid var(--border);overflow:hidden;display:flex;align-items:center;justify-content:center;font-family:'Orbitron',sans-serif;font-size:0.65rem;font-weight:700;}
-    .holder-opt-avatar img{width:100%;height:100%;object-fit:cover;border-radius:50%;}
-    .holder-opt-info{flex:1;min-width:0;}
-    .holder-opt-name{font-family:'Rajdhani',sans-serif;font-size:0.95rem;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-    .holder-opt-sub{font-family:'Share Tech Mono',monospace;font-size:0.48rem;letter-spacing:0.1em;color:var(--text-dim);text-transform:uppercase;}
-    .holder-opt-divider{padding:0.3rem 0.85rem;font-family:'Share Tech Mono',monospace;font-size:0.5rem;letter-spacing:0.2em;text-transform:uppercase;color:var(--cyan-dim);background:rgba(14,240,208,0.03);border-bottom:1px solid var(--border);}
-
-    @media(max-width:640px){header{padding:1.2rem 1rem 0;}main{padding:0 0.8rem 4rem;}.hline{margin:1rem;}td.hide-mobile,th.hide-mobile{display:none;}.field-row{flex-direction:column;}.fx-row{flex-wrap:wrap;}}
-
-    /* ══════════════════════════════
-       SIDE NAV
-    ══════════════════════════════ */
-    .sidenav {
-      position: fixed;
-      top: 0; left: 0; bottom: 0;
-      width: 220px;
-      background: #070a0e;
-      border-right: 1px solid #1a2a3a;
-      display: flex;
-      flex-direction: column;
-      z-index: 800;
-      transition: transform 0.25s cubic-bezier(.4,0,.2,1);
-    }
-    .sidenav-logo {
-      padding: 1.4rem 1.2rem 1rem;
-      border-bottom: 1px solid #1a2a3a;
-      text-decoration: none;
-      display: block;
-    }
-    .sidenav-logo-top {
-      font-family: 'Share Tech Mono', monospace;
-      font-size: 0.5rem;
-      letter-spacing: 0.3em;
-      text-transform: uppercase;
-      color: #0a8a78;
-      margin-bottom: 2px;
-    }
-    .sidenav-logo-name {
-      font-family: 'Orbitron', sans-serif;
-      font-size: 1.3rem;
-      font-weight: 900;
-      color: #0ef0d0;
-      text-shadow: 0 0 16px rgba(14,240,208,0.35);
-      letter-spacing: 0.1em;
-      line-height: 1;
-    }
-    .sidenav-logo-sub {
-      font-family: 'Share Tech Mono', monospace;
-      font-size: 0.48rem;
-      letter-spacing: 0.2em;
-      color: #f0a832;
-      opacity: 0.55;
-      margin-top: 3px;
-    }
-    .sidenav-section {
-      font-family: 'Share Tech Mono', monospace;
-      font-size: 0.46rem;
-      letter-spacing: 0.28em;
-      text-transform: uppercase;
-      color: #3a5070;
-      padding: 1rem 1.2rem 0.35rem;
-    }
-    .sidenav-links {
-      flex: 1;
-      overflow-y: auto;
-      padding: 0.25rem 0.6rem 1rem;
-    }
-    .sidenav-link {
-      display: flex;
-      align-items: center;
-      gap: 0.7rem;
-      padding: 0.6rem 0.7rem;
-      border-radius: 4px;
-      text-decoration: none;
-      color: #4a6080;
-      font-family: 'Orbitron', sans-serif;
-      font-size: 0.58rem;
-      font-weight: 700;
-      letter-spacing: 0.12em;
-      text-transform: uppercase;
-      transition: background 0.15s, color 0.15s;
-      margin-bottom: 2px;
-      border: 1px solid transparent;
-    }
-    .sidenav-link:hover {
-      background: rgba(14,240,208,0.05);
-      color: #c8d8f0;
-      border-color: rgba(14,240,208,0.1);
-    }
-    .sidenav-link.active {
-      background: rgba(14,240,208,0.08);
-      color: #0ef0d0;
-      border-color: rgba(14,240,208,0.2);
-      text-shadow: 0 0 10px rgba(14,240,208,0.3);
-    }
-    .sidenav-link .nav-icon {
-      font-size: 1rem;
-      flex-shrink: 0;
-      width: 20px;
-      text-align: center;
-    }
-    .sidenav-link .nav-label { flex: 1; }
-    .sidenav-link .nav-pip {
-      width: 5px; height: 5px;
-      border-radius: 50%;
-      background: #0ef0d0;
-      box-shadow: 0 0 5px #0ef0d0;
-      flex-shrink: 0;
-      opacity: 0;
-    }
-    .sidenav-link.active .nav-pip { opacity: 1; }
-    .sidenav-bottom {
-      padding: 0.8rem 1.2rem;
-      border-top: 1px solid #1a2a3a;
-      font-family: 'Share Tech Mono', monospace;
-      font-size: 0.46rem;
-      letter-spacing: 0.1em;
-      color: #3a5070;
-    }
-    /* hamburger toggle (mobile) */
-    .nav-toggle {
-      display: none;
-      position: fixed;
-      top: 0.9rem; left: 0.9rem;
-      z-index: 900;
-      background: #070a0e;
-      border: 1px solid #1a2a3a;
-      border-radius: 4px;
-      width: 36px; height: 36px;
-      align-items: center;
-      justify-content: center;
-      cursor: pointer;
-      flex-direction: column;
-      gap: 4px;
-      padding: 8px 7px;
-    }
-    .nav-toggle span {
-      display: block;
-      width: 100%;
-      height: 2px;
-      background: #0ef0d0;
-      border-radius: 2px;
-      transition: transform 0.2s, opacity 0.2s;
-    }
-    .nav-overlay {
-      display: none;
-      position: fixed;
-      inset: 0;
-      background: rgba(0,0,0,0.6);
-      z-index: 790;
-    }
-    /* push content right on desktop */
-    body.has-sidenav {
-      padding-left: 220px;
-    }
-    @media (max-width: 768px) {
-      body.has-sidenav { padding-left: 0; }
-      .sidenav { transform: translateX(-100%); box-shadow: none; }
-      .sidenav.nav-open { transform: translateX(0); box-shadow: 4px 0 30px rgba(0,0,0,0.7); }
-      .nav-toggle { display: flex; }
-      .nav-overlay.nav-open { display: block; }
-    }
-
-  </style>
+  <link rel="stylesheet" href="nexus.css" />
 </head>
-<body class="has-sidenav">
+<body class="has-sidenav page-loot">
+
+<div id="loadingOverlay" style="display:none;position:fixed;inset:0;background:rgba(6,8,9,0.75);z-index:5000;align-items:center;justify-content:center;flex-direction:column;gap:0.8rem;"><div style="font-family:'Orbitron',sans-serif;font-size:0.75rem;font-weight:700;letter-spacing:0.3em;color:#0ef0d0;text-shadow:0 0 20px rgba(14,240,208,0.5);animation:pulse 1s ease-in-out infinite;">LOADING…</div></div>
 <button class="nav-toggle" id="navToggle" aria-label="Toggle navigation">
   <span></span><span></span><span></span>
 </button>
@@ -597,12 +290,58 @@ const seedItems = [
 
 function uid(){ return '_'+Math.random().toString(36).slice(2,11); }
 
-function loadData(){
-  try{ const r=localStorage.getItem('thehoard_items'); items=r?JSON.parse(r):seedItems; }
-  catch{ items=seedItems; }
-  items.forEach(it=>{ if(!it.statEffects) it.statEffects=[]; });
+async function loadData(){
+  try{
+    showLoading(true);
+    const rows = await db.select('loot_items', { order: 'created_at.asc' });
+    if(rows.length){
+      items = rows.map(r=>({
+        id:          r.id,
+        name:        r.name,
+        type:        r.type,
+        rarity:      r.rarity,
+        holder:      r.holder,
+        attunement:  r.attunement,
+        desc:        r.description,
+        statEffects: r.stat_effects || [],
+      }));
+    } else {
+      // seed data on first load
+      items = seedItems;
+      await db.upsertMany('loot_items', items.map(itemToRow));
+    }
+  } catch(e){
+    console.error(e);
+    showToast('Could not load items — check your Supabase config.');
+    items = seedItems;
+  } finally{ showLoading(false); }
 }
-function saveData(){ try{ localStorage.setItem('thehoard_items',JSON.stringify(items)); }catch{} }
+
+function itemToRow(it){
+  return {
+    id:          it.id,
+    name:        it.name,
+    type:        it.type        || 'Wondrous',
+    rarity:      it.rarity      || 'common',
+    holder:      it.holder      || null,
+    attunement:  it.attunement  || 'none',
+    description: it.desc        || null,
+    stat_effects: it.statEffects || [],
+  };
+}
+
+async function saveItemToDB(item){
+  await db.upsert('loot_items', itemToRow(item));
+}
+
+async function deleteItemFromDB(id){
+  await db.delete('loot_items', id);
+}
+
+function showLoading(on){
+  let el=document.getElementById('loadingOverlay');
+  if(el) el.style.display=on?'flex':'none';
+}
 
 // ══════════════════════════════════════════
 //  RENDER
@@ -700,13 +439,26 @@ function sortBy(key){
 // ══════════════════════════════════════════
 //  HOLDER DROPDOWN
 // ══════════════════════════════════════════
-function loadPartyMembers(){
-  try{ const r=localStorage.getItem('party_roster_v1'); return r?JSON.parse(r):[]; }
-  catch{ return []; }
+// Party members cache for the holder dropdown (loaded on demand)
+let _cachedPartyMembers = null;
+
+async function loadPartyMembersAsync(){
+  if(_cachedPartyMembers) return _cachedPartyMembers;
+  try{
+    _cachedPartyMembers = await db.select('party_members', { order: 'created_at.asc' });
+    return _cachedPartyMembers;
+  }catch{ return []; }
 }
 
-function buildHolderDropdown(currentValue){
-  const members=loadPartyMembers();
+// Sync fallback used by renderHolderCell (called in table render)
+// Populated by the async version when dropdown is opened
+function loadPartyMembers(){
+  return _cachedPartyMembers || [];
+}
+
+async function buildHolderDropdown(currentValue){
+  const members=await loadPartyMembersAsync();
+  _cachedPartyMembers=members;
   const wrap=document.getElementById('holderSelectWrap');
   const dropdown=document.getElementById('holderDropdown');
 
@@ -839,11 +591,11 @@ function selectHolder(value, name, photo, color){
   closeHolderDropdown();
 }
 
-function toggleHolderDropdown(){
+async function toggleHolderDropdown(){
   const wrap=document.getElementById('holderSelectWrap');
   if(wrap.classList.contains('open')){ closeHolderDropdown(); return; }
   const currentVal=document.getElementById('fieldHolder').value;
-  buildHolderDropdown(currentVal);
+  await buildHolderDropdown(currentVal);
   wrap.classList.add('open');
 }
 
@@ -923,8 +675,8 @@ function collectFx(){
 }
 
 // Sets the holder display to a saved value without opening the dropdown
-function initHolderDisplay(value){
-  const members=loadPartyMembers();
+async function initHolderDisplay(value){
+  const members=await loadPartyMembersAsync();
   const specialOpts=[
     {value:'',name:'— Unassigned —',photo:null,isBlank:true},
     {value:'Party Inventory',name:'Party Inventory',photo:null,isSpecial:true},
@@ -937,7 +689,7 @@ function initHolderDisplay(value){
 // ══════════════════════════════════════════
 //  MODAL
 // ══════════════════════════════════════════
-function openModal(id){
+async function openModal(id){
   editingId=id||null;
   document.getElementById('modalTitle').textContent=id?'⚙ EDIT ITEM':'⚙ ADD LOOT ITEM';
   pendingFx=[];
@@ -951,13 +703,13 @@ function openModal(id){
     document.getElementById('fieldDesc').value=it.desc||'';
     (it.statEffects||[]).forEach(fx=>addFxRow({...fx}));
     // init holder dropdown with saved value
-    initHolderDisplay(it.holder||'');
+    await initHolderDisplay(it.holder||'');
   } else {
     ['fieldName','fieldDesc'].forEach(fid=>document.getElementById(fid).value='');
     document.getElementById('fieldType').value='Wondrous';
     document.getElementById('fieldRarity').value='rare';
     document.getElementById('fieldAttunement').value='none';
-    initHolderDisplay('');
+    await initHolderDisplay('');
   }
   document.getElementById('modalBackdrop').classList.add('open');
   setTimeout(()=>document.getElementById('fieldName').focus(),150);
@@ -966,7 +718,7 @@ function openModal(id){
 function closeModal(){ document.getElementById('modalBackdrop').classList.remove('open'); editingId=null; pendingFx=[]; }
 function backdropClose(e){ if(e.target===document.getElementById('modalBackdrop')) closeModal(); }
 
-function saveItem(){
+async function saveItem(){
   const name=document.getElementById('fieldName').value.trim();
   if(!name){ showToast('Item name is required.'); return; }
   const item={
@@ -978,15 +730,21 @@ function saveItem(){
     desc:document.getElementById('fieldDesc').value.trim(),
     statEffects:collectFx(),
   };
-  if(editingId){ const idx=items.findIndex(i=>i.id===editingId); if(idx>=0) items[idx]=item; showToast('Item updated.'); }
-  else{ items.push(item); showToast('Item logged to registry.'); }
-  saveData(); renderTable(); closeModal();
+  try{
+    await saveItemToDB(item);
+    if(editingId){ const idx=items.findIndex(i=>i.id===editingId); if(idx>=0) items[idx]=item; showToast('Item updated.'); }
+    else{ items.push(item); showToast('Item logged to registry.'); }
+    renderTable(); closeModal();
+  }catch(e){ console.error(e); showToast('Save failed — check your Supabase config.'); }
 }
 
-function deleteItem(id){
+async function deleteItem(id){
   if(!confirm('Remove this item from the registry?')) return;
-  items=items.filter(i=>i.id!==id);
-  saveData(); renderTable(); showToast('Item removed.');
+  try{
+    await deleteItemFromDB(id);
+    items=items.filter(i=>i.id!==id);
+    renderTable(); showToast('Item removed.');
+  }catch(e){ console.error(e); showToast('Delete failed.'); }
 }
 
 // ── EXPORT / IMPORT ──
@@ -995,7 +753,7 @@ function importJSON(){ document.getElementById('fileImport').click(); }
 function handleImport(e){
   const file=e.target.files[0]; if(!file) return;
   const reader=new FileReader();
-  reader.onload=ev=>{
+  reader.onload=async ev=>{
     try{
       const data=JSON.parse(ev.target.result);
       const imported=data.items||data;
@@ -1012,12 +770,11 @@ function handleImport(e){
 function showToast(msg,dur=2800){ const t=document.getElementById('toast'); t.textContent=msg; t.classList.add('show'); clearTimeout(t._to); t._to=setTimeout(()=>t.classList.remove('show'),dur); }
 document.addEventListener('keydown',e=>{ if(e.key==='Escape') closeModal(); if(e.key==='Enter'&&document.getElementById('modalBackdrop').classList.contains('open')&&document.activeElement.tagName!=='TEXTAREA'&&document.activeElement.tagName!=='SELECT') saveItem(); });
 
-function populateHolderFilter(){
+async function populateHolderFilter(){
   const sel=document.getElementById('filterHolder');
   const current=sel.value;
-  // Clear existing member options (keep blank + Party Inventory)
   while(sel.options.length>2) sel.remove(2);
-  const members=loadPartyMembers();
+  const members=await loadPartyMembersAsync();
   if(members.length){
     const divOpt=document.createElement('option');
     divOpt.disabled=true; divOpt.textContent='── Party Members ──';
@@ -1031,9 +788,7 @@ function populateHolderFilter(){
   if(current) sel.value=current;
 }
 
-loadData();
-populateHolderFilter();
-renderTable();
+loadData().then(()=>{ renderTable(); populateHolderFilter(); });
 </script>
 
 <script>

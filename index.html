@@ -4,499 +4,11 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>NEXUS // Campaign Dashboard</title>
+  <script src="nexus-config.js"></script>
   <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@400;700;900&family=Rajdhani:wght@400;500;600;700&display=swap" rel="stylesheet" />
-  <style>
-    :root {
-      --bg:        #060809;
-      --bg2:       #0a0d12;
-      --panel:     #0b0f18;
-      --border:    #1a2a3a;
-      --amber:     #d4860a;
-      --gold:      #f0a832;
-      --gold-hot:  #ffe066;
-      --cyan:      #0ef0d0;
-      --cyan-dim:  #0a8a78;
-      --red:       #e03c3c;
-      --green:     #3ce08a;
-      --text:      #c8d8f0;
-      --text-dim:  #3a5070;
-      --glow-g:    rgba(240,168,50,0.2);
-      --glow-c:    rgba(14,240,208,0.15);
-    }
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-    html { scroll-behavior: smooth; }
-
-    body {
-      background: var(--bg);
-      background-image:
-        radial-gradient(ellipse at 15% 20%, rgba(14,240,208,0.04) 0%, transparent 50%),
-        radial-gradient(ellipse at 85% 80%, rgba(240,168,50,0.05) 0%, transparent 50%),
-        repeating-linear-gradient(0deg, transparent, transparent 59px, rgba(14,240,208,0.025) 59px, rgba(14,240,208,0.025) 60px),
-        repeating-linear-gradient(90deg, transparent, transparent 59px, rgba(14,240,208,0.015) 59px, rgba(14,240,208,0.015) 60px);
-      font-family: 'Rajdhani', sans-serif;
-      color: var(--text);
-      min-height: 100vh;
-      overflow-x: hidden;
-    }
-
-    /* scanlines */
-    body::before {
-      content: '';
-      position: fixed; inset: 0;
-      background: repeating-linear-gradient(to bottom, transparent 0px, transparent 3px, rgba(0,0,0,0.07) 3px, rgba(0,0,0,0.07) 4px);
-      pointer-events: none;
-      z-index: 9999;
-    }
-
-    /* ── HEADER ── */
-    header {
-      padding: 3rem 2.5rem 0;
-      position: relative;
-      text-align: center;
-    }
-    .campaign-eyebrow {
-      font-family: 'Share Tech Mono', monospace;
-      font-size: 0.6rem;
-      letter-spacing: 0.4em;
-      text-transform: uppercase;
-      color: var(--cyan-dim);
-      margin-bottom: 0.6rem;
-      animation: fadeUp 0.6s ease both;
-    }
-    .campaign-title {
-      font-family: 'Orbitron', sans-serif;
-      font-size: clamp(2.2rem, 7vw, 4.5rem);
-      font-weight: 900;
-      color: var(--gold);
-      text-shadow:
-        0 0 30px rgba(240,168,50,0.5),
-        0 0 80px rgba(240,168,50,0.2),
-        0 2px 4px rgba(0,0,0,0.8);
-      letter-spacing: 0.1em;
-      line-height: 1;
-      animation: fadeUp 0.6s 0.1s ease both;
-    }
-    .campaign-subtitle {
-      font-family: 'Share Tech Mono', monospace;
-      font-size: 0.7rem;
-      letter-spacing: 0.3em;
-      color: var(--cyan);
-      opacity: 0.65;
-      margin-top: 0.7rem;
-      animation: fadeUp 0.6s 0.2s ease both;
-    }
-
-    /* glowing line under title */
-    .title-line {
-      width: 200px;
-      height: 1px;
-      background: linear-gradient(to right, transparent, var(--cyan), var(--gold), var(--cyan), transparent);
-      margin: 1.5rem auto 0;
-      opacity: 0.6;
-      animation: fadeUp 0.6s 0.3s ease both;
-    }
-
-    @keyframes fadeUp {
-      from { opacity:0; transform:translateY(14px); }
-      to   { opacity:1; transform:translateY(0); }
-    }
-
-    /* ── PARTY STRIP ── */
-    .party-strip {
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      gap: 0.8rem;
-      padding: 2rem 2.5rem 0;
-      flex-wrap: wrap;
-      animation: fadeUp 0.6s 0.4s ease both;
-    }
-    .party-avatar {
-      width: 52px; height: 52px;
-      border-radius: 50%;
-      border: 2px solid rgba(14,240,208,0.3);
-      object-fit: cover;
-      background: var(--panel);
-      display: flex; align-items: center; justify-content: center;
-      font-family: 'Orbitron', sans-serif;
-      font-size: 1.1rem;
-      font-weight: 700;
-      color: var(--gold);
-      text-shadow: 0 0 8px var(--amber);
-      transition: border-color 0.2s, box-shadow 0.2s, transform 0.2s;
-      cursor: default;
-      overflow: hidden;
-      flex-shrink: 0;
-    }
-    .party-avatar:hover { border-color: var(--cyan); box-shadow: 0 0 14px var(--glow-c); transform: scale(1.08); }
-    .party-avatar img { width: 100%; height: 100%; object-fit: cover; border-radius: 50%; }
-    .party-avatar-empty {
-      border-style: dashed;
-      border-color: var(--text-dim);
-      color: var(--text-dim);
-      font-size: 1.2rem;
-    }
-    .party-strip-label {
-      font-family: 'Share Tech Mono', monospace;
-      font-size: 0.55rem;
-      color: var(--text-dim);
-      letter-spacing: 0.2em;
-      text-transform: uppercase;
-      text-align: center;
-      margin-top: 0.5rem;
-    }
-
-    /* ── MAIN GRID ── */
-    main {
-      max-width: 1100px;
-      margin: 0 auto;
-      padding: 2.5rem 2rem 5rem;
-    }
-
-    .grid-label {
-      font-family: 'Share Tech Mono', monospace;
-      font-size: 0.58rem;
-      letter-spacing: 0.3em;
-      text-transform: uppercase;
-      color: var(--cyan-dim);
-      margin-bottom: 1.2rem;
-      display: flex;
-      align-items: center;
-      gap: 0.6rem;
-    }
-    .grid-label::before, .grid-label::after {
-      content: '';
-      flex: 1;
-      height: 1px;
-      background: linear-gradient(to right, var(--border), transparent);
-    }
-    .grid-label::before { background: linear-gradient(to left, var(--border), transparent); }
-
-    .module-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-      gap: 1.2rem;
-      margin-bottom: 2rem;
-    }
-
-    /* ── MODULE CARD ── */
-    .module-card {
-      background: var(--panel);
-      border: 1px solid var(--border);
-      border-radius: 6px;
-      padding: 1.6rem 1.5rem 1.4rem;
-      position: relative;
-      overflow: hidden;
-      cursor: pointer;
-      text-decoration: none;
-      color: inherit;
-      display: flex;
-      flex-direction: column;
-      gap: 0.8rem;
-      transition: border-color 0.2s, box-shadow 0.2s, transform 0.2s;
-      animation: fadeUp 0.5s ease both;
-    }
-    .module-card:nth-child(1) { animation-delay: 0.1s; }
-    .module-card:nth-child(2) { animation-delay: 0.2s; }
-    .module-card:nth-child(3) { animation-delay: 0.3s; }
-    .module-card:nth-child(4) { animation-delay: 0.4s; }
-
-    .module-card::before {
-      content: '';
-      position: absolute;
-      inset: 0;
-      background: radial-gradient(ellipse at 0% 0%, var(--card-glow, rgba(14,240,208,0.05)), transparent 60%);
-      opacity: 0;
-      transition: opacity 0.25s;
-    }
-    .module-card:hover { border-color: var(--card-accent, var(--cyan-dim)); box-shadow: 0 0 24px var(--card-glow, var(--glow-c)); transform: translateY(-2px); }
-    .module-card:hover::before { opacity: 1; }
-
-    /* accent stripe on left edge */
-    .module-card::after {
-      content: '';
-      position: absolute;
-      left: 0; top: 20%; bottom: 20%;
-      width: 2px;
-      background: var(--card-accent, var(--cyan));
-      box-shadow: 0 0 8px var(--card-accent, var(--cyan));
-      border-radius: 2px;
-      opacity: 0;
-      transition: opacity 0.2s;
-    }
-    .module-card:hover::after { opacity: 1; }
-
-    .module-card.active-module { border-color: rgba(14,240,208,0.2); }
-
-    .card-icon {
-      font-size: 1.8rem;
-      line-height: 1;
-      filter: drop-shadow(0 0 6px var(--card-accent, var(--cyan)));
-    }
-    .card-head {
-      display: flex;
-      align-items: flex-start;
-      justify-content: space-between;
-      gap: 0.5rem;
-    }
-    .card-status {
-      font-family: 'Share Tech Mono', monospace;
-      font-size: 0.52rem;
-      letter-spacing: 0.15em;
-      padding: 0.18rem 0.55rem;
-      border-radius: 2px;
-      white-space: nowrap;
-      flex-shrink: 0;
-    }
-    .status-live    { color: var(--green); border: 1px solid rgba(60,224,138,0.35); background: rgba(60,224,138,0.07); }
-    .status-soon    { color: var(--amber); border: 1px solid rgba(212,134,10,0.35);  background: rgba(212,134,10,0.06); }
-    .status-planned { color: var(--text-dim); border: 1px solid var(--border); background: transparent; }
-
-    .card-title {
-      font-family: 'Orbitron', sans-serif;
-      font-size: 0.9rem;
-      font-weight: 700;
-      letter-spacing: 0.12em;
-      color: var(--text);
-      line-height: 1.2;
-    }
-    .card-desc {
-      font-size: 0.95rem;
-      color: var(--text-dim);
-      line-height: 1.5;
-      font-weight: 400;
-    }
-    .card-stats {
-      display: flex;
-      gap: 1.2rem;
-      padding-top: 0.5rem;
-      border-top: 1px solid var(--border);
-      flex-wrap: wrap;
-    }
-    .cstat {
-      display: flex;
-      flex-direction: column;
-      gap: 1px;
-    }
-    .cstat-val {
-      font-family: 'Orbitron', sans-serif;
-      font-size: 1rem;
-      font-weight: 700;
-      color: var(--card-accent, var(--cyan));
-    }
-    .cstat-label {
-      font-family: 'Share Tech Mono', monospace;
-      font-size: 0.5rem;
-      letter-spacing: 0.15em;
-      text-transform: uppercase;
-      color: var(--text-dim);
-    }
-
-    .card-arrow {
-      position: absolute;
-      bottom: 1.2rem; right: 1.3rem;
-      font-family: 'Share Tech Mono', monospace;
-      font-size: 0.65rem;
-      color: var(--card-accent, var(--cyan));
-      opacity: 0;
-      transform: translateX(-4px);
-      transition: opacity 0.2s, transform 0.2s;
-      letter-spacing: 0.1em;
-    }
-    .module-card:hover .card-arrow { opacity: 1; transform: translateX(0); }
-
-    /* COMING SOON card dim */
-    .module-card.coming-soon {
-      opacity: 0.55;
-      cursor: not-allowed;
-    }
-    .module-card.coming-soon:hover { transform: none; box-shadow: none; }
-
-    /* ── BOTTOM STATUS BAR ── */
-    .status-bar {
-      border-top: 1px solid var(--border);
-      padding: 1rem 2.5rem;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      flex-wrap: wrap;
-      gap: 1rem;
-    }
-    .status-items { display: flex; gap: 1.5rem; flex-wrap: wrap; }
-    .status-item { display: flex; align-items: center; gap: 0.4rem; font-family: 'Share Tech Mono', monospace; font-size: 0.55rem; letter-spacing: 0.12em; text-transform: uppercase; color: var(--text-dim); }
-    .status-dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
-    .dot-green { background: var(--green); box-shadow: 0 0 5px var(--green); }
-    .dot-amber { background: var(--amber); box-shadow: 0 0 5px var(--amber); }
-    .dot-dim   { background: var(--text-dim); }
-    .status-version { font-family: 'Share Tech Mono', monospace; font-size: 0.52rem; color: var(--text-dim); letter-spacing: 0.1em; }
-
-    ::-webkit-scrollbar { width: 5px; }
-    ::-webkit-scrollbar-track { background: var(--bg); }
-    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
-
-    @media (max-width: 600px) {
-      header { padding: 2rem 1.2rem 0; }
-      main { padding: 2rem 1rem 4rem; }
-      .status-bar { padding: 1rem 1.2rem; }
-    }
-
-    /* ══════════════════════════════
-       SIDE NAV
-    ══════════════════════════════ */
-    .sidenav {
-      position: fixed;
-      top: 0; left: 0; bottom: 0;
-      width: 220px;
-      background: #070a0e;
-      border-right: 1px solid #1a2a3a;
-      display: flex;
-      flex-direction: column;
-      z-index: 800;
-      transition: transform 0.25s cubic-bezier(.4,0,.2,1);
-    }
-    .sidenav-logo {
-      padding: 1.4rem 1.2rem 1rem;
-      border-bottom: 1px solid #1a2a3a;
-      text-decoration: none;
-      display: block;
-    }
-    .sidenav-logo-top {
-      font-family: 'Share Tech Mono', monospace;
-      font-size: 0.5rem;
-      letter-spacing: 0.3em;
-      text-transform: uppercase;
-      color: #0a8a78;
-      margin-bottom: 2px;
-    }
-    .sidenav-logo-name {
-      font-family: 'Orbitron', sans-serif;
-      font-size: 1.3rem;
-      font-weight: 900;
-      color: #0ef0d0;
-      text-shadow: 0 0 16px rgba(14,240,208,0.35);
-      letter-spacing: 0.1em;
-      line-height: 1;
-    }
-    .sidenav-logo-sub {
-      font-family: 'Share Tech Mono', monospace;
-      font-size: 0.48rem;
-      letter-spacing: 0.2em;
-      color: #f0a832;
-      opacity: 0.55;
-      margin-top: 3px;
-    }
-    .sidenav-section {
-      font-family: 'Share Tech Mono', monospace;
-      font-size: 0.46rem;
-      letter-spacing: 0.28em;
-      text-transform: uppercase;
-      color: #3a5070;
-      padding: 1rem 1.2rem 0.35rem;
-    }
-    .sidenav-links {
-      flex: 1;
-      overflow-y: auto;
-      padding: 0.25rem 0.6rem 1rem;
-    }
-    .sidenav-link {
-      display: flex;
-      align-items: center;
-      gap: 0.7rem;
-      padding: 0.6rem 0.7rem;
-      border-radius: 4px;
-      text-decoration: none;
-      color: #4a6080;
-      font-family: 'Orbitron', sans-serif;
-      font-size: 0.58rem;
-      font-weight: 700;
-      letter-spacing: 0.12em;
-      text-transform: uppercase;
-      transition: background 0.15s, color 0.15s;
-      margin-bottom: 2px;
-      border: 1px solid transparent;
-    }
-    .sidenav-link:hover {
-      background: rgba(14,240,208,0.05);
-      color: #c8d8f0;
-      border-color: rgba(14,240,208,0.1);
-    }
-    .sidenav-link.active {
-      background: rgba(14,240,208,0.08);
-      color: #0ef0d0;
-      border-color: rgba(14,240,208,0.2);
-      text-shadow: 0 0 10px rgba(14,240,208,0.3);
-    }
-    .sidenav-link .nav-icon {
-      font-size: 1rem;
-      flex-shrink: 0;
-      width: 20px;
-      text-align: center;
-    }
-    .sidenav-link .nav-label { flex: 1; }
-    .sidenav-link .nav-pip {
-      width: 5px; height: 5px;
-      border-radius: 50%;
-      background: #0ef0d0;
-      box-shadow: 0 0 5px #0ef0d0;
-      flex-shrink: 0;
-      opacity: 0;
-    }
-    .sidenav-link.active .nav-pip { opacity: 1; }
-    .sidenav-bottom {
-      padding: 0.8rem 1.2rem;
-      border-top: 1px solid #1a2a3a;
-      font-family: 'Share Tech Mono', monospace;
-      font-size: 0.46rem;
-      letter-spacing: 0.1em;
-      color: #3a5070;
-    }
-    /* hamburger toggle (mobile) */
-    .nav-toggle {
-      display: none;
-      position: fixed;
-      top: 0.9rem; left: 0.9rem;
-      z-index: 900;
-      background: #070a0e;
-      border: 1px solid #1a2a3a;
-      border-radius: 4px;
-      width: 36px; height: 36px;
-      align-items: center;
-      justify-content: center;
-      cursor: pointer;
-      flex-direction: column;
-      gap: 4px;
-      padding: 8px 7px;
-    }
-    .nav-toggle span {
-      display: block;
-      width: 100%;
-      height: 2px;
-      background: #0ef0d0;
-      border-radius: 2px;
-      transition: transform 0.2s, opacity 0.2s;
-    }
-    .nav-overlay {
-      display: none;
-      position: fixed;
-      inset: 0;
-      background: rgba(0,0,0,0.6);
-      z-index: 790;
-    }
-    /* push content right on desktop */
-    body.has-sidenav {
-      padding-left: 220px;
-    }
-    @media (max-width: 768px) {
-      body.has-sidenav { padding-left: 0; }
-      .sidenav { transform: translateX(-100%); box-shadow: none; }
-      .sidenav.nav-open { transform: translateX(0); box-shadow: 4px 0 30px rgba(0,0,0,0.7); }
-      .nav-toggle { display: flex; }
-      .nav-overlay.nav-open { display: block; }
-    }
-
-  </style>
+  <link rel="stylesheet" href="nexus.css" />
 </head>
-<body class="has-sidenav">
+<body class="has-sidenav page-dashboard">
 <button class="nav-toggle" id="navToggle" aria-label="Toggle navigation">
   <span></span><span></span><span></span>
 </button>
@@ -655,18 +167,16 @@
 </div>
 
 <script>
-  // Pull live stats from localStorage to show on dashboard cards
+  function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 
-  // Party roster stats
-  function loadPartyStats() {
+  // Pull live stats from Supabase to show on dashboard cards
+  async function loadPartyStats() {
     try {
-      const raw = localStorage.getItem('party_roster_v1');
-      const members = raw ? JSON.parse(raw) : [];
+      const members = await db.select('party_members', { order: 'created_at.asc' });
       document.getElementById('statMembers').textContent = members.length;
       const classes = [...new Set(members.map(m => m.class).filter(Boolean))];
-      document.getElementById('statClasses').textContent = classes.length || '—';
+      document.getElementById('statClasses').textContent = classes.length || '\u2014';
 
-      // render party strip
       const strip = document.getElementById('partyStrip');
       const label = document.getElementById('partyLabel');
       if (!members.length) {
@@ -683,33 +193,34 @@
         </div>`;
       }).join('');
       label.textContent = members.map(m => m.name).join('  ·  ');
-    } catch { document.getElementById('statMembers').textContent = '—'; }
+    } catch(e) { console.error(e); document.getElementById('statMembers').textContent = '—'; }
   }
 
-  // Treasury stats
-  function loadTreasuryStats() {
+  async function loadTreasuryStats() {
     try {
-      const raw = localStorage.getItem('vault_ledger_v3');
-      if (!raw) return;
-      const d = JSON.parse(raw);
-      const cr = d.vault?.cr ?? 0;
-      document.getElementById('statCredits').textContent = cr.toLocaleString();
-      document.getElementById('statTxCount').textContent = (d.ledger||[]).length;
-    } catch {}
+      const [curRows, ledgerRows] = await Promise.all([
+        db.select('treasury_currencies'),
+        db.select('treasury_ledger'),
+      ]);
+      const vault = {};
+      for (const tx of ledgerRows) {
+        const sign = tx.type === 'spend' ? -1 : 1;
+        for (const [cid, amt] of Object.entries(tx.coins || {})) {
+          vault[cid] = Math.max(0, (vault[cid] || 0) + sign * (amt || 0));
+        }
+      }
+      document.getElementById('statCredits').textContent = (vault['cr'] || 0).toLocaleString();
+      document.getElementById('statTxCount').textContent = ledgerRows.length;
+    } catch(e) { console.error(e); }
   }
 
-  // Loot tracker stats
-  function loadLootStats() {
+  async function loadLootStats() {
     try {
-      const raw = localStorage.getItem('thehoard_items');
-      if (!raw) return;
-      const items = JSON.parse(raw);
+      const items = await db.select('loot_items');
       document.getElementById('statItems').textContent = items.length;
       document.getElementById('statAttuned').textContent = items.filter(i => i.attunement === 'attuned').length;
-    } catch {}
+    } catch(e) { console.error(e); }
   }
-
-  function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 
   loadPartyStats();
   loadTreasuryStats();
