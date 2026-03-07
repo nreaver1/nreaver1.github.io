@@ -582,15 +582,19 @@ function buildCoinInputs(containerId, values = {}) {
     <div class="coin-input-row">
       <span class="cir-symbol" style="color:${c.color};text-shadow:0 0 8px ${c.color}">${esc(c.symbol)}</span>
       <span class="cir-name">${esc(c.abbr)}</span>
-      <input type="number" class="cir-input" id="${containerId}-${c.id}" min="0" value="${values[c.id] || 0}" placeholder="0" />
+      <input type="number" class="cir-input" id="${containerId}-${c.id}" value="${values[c.id] || 0}" placeholder="0" step="1" />
     </div>`).join('');
 }
 
 function readCoinInputs(containerId) {
   const coins = {};
   for (const c of currencies) {
-    const v = parseFloat(document.getElementById(`${containerId}-${c.id}`)?.value) || 0;
-    if (v > 0) coins[c.id] = v;
+    const el = document.getElementById(`${containerId}-${c.id}`);
+    if (!el) continue;
+    const raw = el.value.trim();
+    if (raw === '' || raw === '0') continue;  // truly empty / zero = skip
+    const v = parseFloat(raw);
+    if (!isNaN(v) && v !== 0) coins[c.id] = v;
   }
   return coins;
 }
@@ -1085,39 +1089,46 @@ function calcSplit() {
   const coins = readCoinInputs('splitCoinInputs');
   const base = currencies.find(c => c.id === 'cr') || currencies[0];
 
-  let crTotal = 0;
+  let baseTotal = 0;
   let allRates = true;
   const parts = [];
 
   for (const [cid, amt] of Object.entries(coins)) {
     const cur = currencies.find(x => x.id === cid);
-    if (!cur || !amt) continue;
-    parts.push(`${fmt(amt)} ${cur.abbr}`);
-    if (cur.rate != null) crTotal += amt * cur.rate;
+    if (!cur) continue;
+    const sign = amt < 0 ? '−' : '+';
+    parts.push(`${sign}${fmt(Math.abs(amt))} ${cur.abbr}`);
+    if (cur.rate != null) baseTotal += amt * cur.rate;
     else allRates = false;
   }
 
   const lines = [];
-  lines.push(`SPLITTING : ${parts.length ? parts.join(' + ') : 'nothing entered'}`);
+  lines.push(`SPLITTING : ${parts.length ? parts.join('  ') : 'nothing entered'}`);
   lines.push(`RECIPIENTS: ${n}`);
   lines.push('─────────────────────────────');
 
-  if (allRates && crTotal > 0) {
-    lines.push(`TOTAL     : ${crTotal.toLocaleString(undefined, { maximumFractionDigits: 2 })} ${base.abbr}`);
-    lines.push(`PER SHARE : ${(crTotal / n).toLocaleString(undefined, { maximumFractionDigits: 2 })} ${base.abbr}`);
+  if (allRates && Object.keys(coins).length) {
+    const perShare = baseTotal / n;
+    const sign = baseTotal < 0 ? '−' : '';
+    lines.push(`TOTAL     : ${sign}${fmt(Math.abs(baseTotal))} ${base.abbr}`);
+    lines.push(`PER SHARE : ${perShare < 0 ? '−' : ''}${fmt(Math.abs(perShare))} ${base.abbr}`);
   } else if (!allRates) {
     lines.push('(some currencies have no rate — base total N/A)');
   }
 
-  if (Object.keys(coins).some(cid => coins[cid] > 0)) {
+  if (Object.keys(coins).length) {
     lines.push('');
     lines.push('PER-CURRENCY SHARE:');
     for (const [cid, amt] of Object.entries(coins)) {
       const cur = currencies.find(x => x.id === cid);
-      if (!cur || !amt) continue;
-      const each = Math.floor(amt / n);
-      const rem  = amt - each * n;
-      lines.push(`  ${cur.abbr.padEnd(6)}: ${fmt(each)} each${rem > 0 ? '  (+' + rem + ' remainder → vault)' : ''}`);
+      if (!cur) continue;
+      // truncate toward zero so remainder has same sign as original
+      const each = Math.trunc(amt / n);
+      const rem  = amt - each * n;  // always same sign as amt, or 0
+      const remStr = rem !== 0
+        ? `  (${rem > 0 ? '+' : ''}${rem} remainder → vault)`
+        : '';
+      lines.push(`  ${cur.abbr.padEnd(6)}: ${each >= 0 ? '+' : ''}${fmt(each)} each${remStr}`);
     }
 
     if (splitRecipients.some(r => r.type === 'vault')) {
@@ -1136,74 +1147,118 @@ async function applySplit() {
   const coins = readCoinInputs('splitCoinInputs');
   if (!Object.keys(coins).length) { showToast('Enter amounts to split.'); return; }
 
-  // Validate: all amounts must divide sensibly
-  const perShare = {}; // cid → amount each recipient gets (floor)
-  const remainder = {}; // cid → leftover that goes to vault
+  // ── Per-currency math (truncate toward zero so remainder matches sign) ──
+  // perShare[cid]: integer each recipient receives (may be negative = debt share)
+  // remainder[cid]: leftover after n * perShare, same sign as original or 0
+  const perShare  = {};
+  const remainder = {};
   for (const [cid, amt] of Object.entries(coins)) {
-    if (!amt) continue;
-    perShare[cid]  = Math.floor(amt / n);
+    perShare[cid]  = Math.trunc(amt / n);
     remainder[cid] = amt - perShare[cid] * n;
   }
 
-  // Build transactions:
-  // 1. One SPEND from party vault for the full split amount
-  const totalCoins = {};
+  // ── Verify math: perShare[cid] * n + remainder[cid] === coins[cid] ──
   for (const [cid, amt] of Object.entries(coins)) {
-    if (amt > 0) totalCoins[cid] = amt;
+    const check = perShare[cid] * n + remainder[cid];
+    if (check !== amt) {
+      console.error(`Split math error for ${cid}: ${perShare[cid]}×${n} + ${remainder[cid]} = ${check}, expected ${amt}`);
+      showToast('Internal math error — split aborted.'); return;
+    }
   }
 
   const recipientNames = splitRecipients.map(r =>
     r.type === 'member' ? r.member.name : 'Party Vault'
   ).join(', ');
+  const ts = Date.now();
 
-  const spendTx = {
-    id: uid(), type: 'spend',
-    desc: `Split loot — ${n} way${n !== 1 ? 's' : ''} (${recipientNames})`,
-    note: 'Auto-logged from split calculator',
-    ts: Date.now(),
-    coins: totalCoins,
-    member: null,
-  };
-
-  // 2. One GAIN per recipient (their share)
-  const gainTxs = [];
-  const shareCoins = {};
-  for (const [cid, amt] of Object.entries(perShare)) {
-    if (amt > 0) shareCoins[cid] = amt;
+  // ── Transaction 1: one SPEND/GAIN for the full pool being distributed ──
+  // Positive amounts → SPEND (removing from shared pool to distribute)
+  // Negative amounts → GAIN  (adding debt burden to shared pool)
+  // We log the absolute amounts under the correct type so vault math is clean.
+  const positiveCoins = {};
+  const negativeCoins = {};
+  for (const [cid, amt] of Object.entries(coins)) {
+    if (amt > 0) positiveCoins[cid] = amt;
+    else if (amt < 0) negativeCoins[cid] = Math.abs(amt);
   }
 
-  if (Object.keys(shareCoins).length) {
-    for (const recipient of splitRecipients) {
-      gainTxs.push({
+  const poolTxs = [];
+  if (Object.keys(positiveCoins).length) {
+    poolTxs.push({
+      id: uid(), type: 'spend',
+      desc: `Split ${n} way${n !== 1 ? 's' : ''} — ${recipientNames}`,
+      note: 'Auto-logged from split calculator',
+      ts, coins: positiveCoins, member: null,
+    });
+  }
+  if (Object.keys(negativeCoins).length) {
+    poolTxs.push({
+      id: uid(), type: 'gain',
+      desc: `Debt split ${n} way${n !== 1 ? 's' : ''} — ${recipientNames}`,
+      note: 'Auto-logged from split calculator',
+      ts: ts + 1, coins: negativeCoins, member: null,
+    });
+  }
+
+  // ── Transactions 2…n+1: one per recipient for their per-share ──
+  // Positive perShare → GAIN tagged to member (they received it)
+  // Negative perShare → SPEND tagged to member (debt allocated to them)
+  const recipientTxs = [];
+  for (const recipient of splitRecipients) {
+    const memberName = recipient.type === 'member' ? recipient.member.name : null;
+    const gainShare  = {};
+    const spendShare = {};
+    for (const [cid, each] of Object.entries(perShare)) {
+      if (each > 0) gainShare[cid]  = each;
+      else if (each < 0) spendShare[cid] = Math.abs(each);
+    }
+    if (Object.keys(gainShare).length) {
+      recipientTxs.push({
         id: uid(), type: 'gain',
         desc: `Loot share — split ${n} way${n !== 1 ? 's' : ''}`,
         note: 'Auto-logged from split calculator',
-        ts: Date.now() + 1,
-        coins: { ...shareCoins },
-        member: recipient.type === 'member' ? recipient.member.name : null,
+        ts: ts + 2, coins: gainShare, member: memberName,
+      });
+    }
+    if (Object.keys(spendShare).length) {
+      recipientTxs.push({
+        id: uid(), type: 'spend',
+        desc: `Debt share — split ${n} way${n !== 1 ? 's' : ''}`,
+        note: 'Auto-logged from split calculator',
+        ts: ts + 3, coins: spendShare, member: memberName,
       });
     }
   }
 
-  // 3. Remainder coins (if any) go to a vault GAIN with no member tag
-  const remCoins = {};
-  for (const [cid, amt] of Object.entries(remainder)) {
-    if (amt > 0) remCoins[cid] = amt;
+  // ── Transaction n+2: remainders returned to party vault (if any) ──
+  // Same sign logic: positive remainder → GAIN to vault, negative → SPEND from vault
+  const remGain  = {};
+  const remSpend = {};
+  for (const [cid, rem] of Object.entries(remainder)) {
+    if (rem > 0) remGain[cid]  = rem;
+    else if (rem < 0) remSpend[cid] = Math.abs(rem);
   }
-  let remTx = null;
-  if (Object.keys(remCoins).length) {
-    remTx = {
+  const remTxs = [];
+  if (Object.keys(remGain).length) {
+    remTxs.push({
       id: uid(), type: 'gain',
       desc: 'Split remainder — returned to party vault',
       note: 'Auto-logged from split calculator',
-      ts: Date.now() + 2,
-      coins: remCoins,
-      member: null,
-    };
+      ts: ts + 4, coins: remGain, member: null,
+    });
+  }
+  if (Object.keys(remSpend).length) {
+    remTxs.push({
+      id: uid(), type: 'spend',
+      desc: 'Split remainder (debt) — charged to party vault',
+      note: 'Auto-logged from split calculator',
+      ts: ts + 5, coins: remSpend, member: null,
+    });
   }
 
   try {
-    const allTxs = [spendTx, ...gainTxs, ...(remTx ? [remTx] : [])];
+    const allTxs = [...poolTxs, ...recipientTxs, ...remTxs];
+    if (!allTxs.length) { showToast('Nothing to log.'); return; }
     await Promise.all(allTxs.map(tx => saveTxToDB(tx)));
     ledger.push(...allTxs);
     recalcVault();

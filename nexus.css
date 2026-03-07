@@ -1033,9 +1033,9 @@ body.page-dashboard main { max-width: 1100px; padding: 2.5rem 2rem 5rem; }
 .coin-panel::after { content: ''; position: absolute; inset: 0; opacity: 0; transition: opacity 0.2s; background: radial-gradient(ellipse at 50% 0%, rgba(14,240,208,0.05), transparent 70%); }
 .coin-panel:hover { border-color: var(--cyan-dim); box-shadow: 0 0 16px var(--glow-c); }
 .coin-panel:hover::after { opacity: 1; }
-.panel-delete { position: absolute; top: 5px; right: 6px; background: none; border: none; cursor: pointer; font-size: 0.8rem; opacity: 0; color: var(--red); transition: opacity 0.15s; z-index: 2; }
-.coin-panel:hover .panel-delete { opacity: 0.55; }
-.panel-delete:hover { opacity: 1 !important; }
+/* .panel-delete is now inside .coin-panel-actions — no standalone absolute positioning needed */
+.panel-delete { background: none; border: none; cursor: pointer; font-size: 0.8rem; color: var(--red); opacity: 0.55; transition: opacity 0.15s, color 0.12s; padding: 0; width: 22px; height: 22px; display: flex; align-items: center; justify-content: center; border-radius: 3px; }
+.panel-delete:hover { opacity: 1; background: rgba(224,60,60,0.12); }
 .coin-symbol { font-family: 'Orbitron', sans-serif; font-size: 1.12rem; font-weight: 700; line-height: 1; margin-bottom: 0.4rem; }
 .coin-label  { font-family: 'Share Tech Mono', monospace; font-size: 0.8rem; letter-spacing: 0.2em; text-transform: uppercase; color: var(--text-dim); margin-bottom: 0.5rem; }
 .coin-amount { font-family: 'Orbitron', sans-serif; font-size: clamp(0.88rem, 2.5vw, 1.28rem); font-weight: 700; line-height: 1; }
@@ -1734,14 +1734,22 @@ td { padding: 0.7rem 1rem; }
 .coin-panel-actions {
   position: absolute;
   top: 0.4rem;
+  left: 0.4rem;
   right: 0.4rem;
   display: flex;
+  justify-content: space-between;
+  align-items: center;
   gap: 0.25rem;
   opacity: 0;
   transition: opacity 0.15s;
+  pointer-events: none;
+}
+.coin-panel:hover .coin-panel-actions {
+  pointer-events: auto;
 }
 .coin-panel:hover .coin-panel-actions {
   opacity: 1;
+  pointer-events: auto;
 }
 .panel-edit {
   background: rgba(14,240,208,0.08);
