@@ -292,6 +292,35 @@
             ? totalInBase.toLocaleString(undefined, { maximumFractionDigits: 1 }) + ' ' + (base?.abbr || '')
             : '—';
           wealthStat.style.display = '';
+
+          // Animated text gradient using currency colors
+          const doubled = [...curRows, ...curRows];
+          const stops = doubled.map((cur, i) => {
+            const pct = (i / (doubled.length - 1) * 100).toFixed(1);
+            return `${cur.color} ${pct}%`;
+          });
+          const styleId = 'nexus-index-wealth-style';
+          let styleEl = document.getElementById(styleId);
+          if (!styleEl) {
+            styleEl = document.createElement('style');
+            styleEl.id = styleId;
+            document.head.appendChild(styleEl);
+          }
+          styleEl.textContent = `
+            @keyframes indexWealthFlow {
+              0%   { background-position: 0% 50%; }
+              50%  { background-position: 100% 50%; }
+              100% { background-position: 0% 50%; }
+            }
+            #statTotalWealth {
+              background: linear-gradient(90deg, ${stops.join(', ')});
+              background-size: 200% auto;
+              -webkit-background-clip: text;
+              background-clip: text;
+              -webkit-text-fill-color: transparent;
+              animation: indexWealthFlow 6s ease infinite;
+            }
+          `;
         }
       }
     } catch(e) {

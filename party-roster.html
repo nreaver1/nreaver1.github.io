@@ -556,6 +556,66 @@ function buildCard(m,idx){
     if (!walletLines.length) {
       return `<div class="member-wallet-empty">No currency assigned to ${esc(m.name)} yet.</div>`;
     }
+
+    // Compute total wealth in base currency
+    const baseCur = (_cachedTreasuryCurrencies || []).find(c => c.id === 'cr') || (_cachedTreasuryCurrencies || [])[0];
+    let totalWealth = 0;
+    let allHaveRates = true;
+    for (const { cur, amt } of walletLines) {
+      if (cur.rate != null) totalWealth += amt * cur.rate;
+      else allHaveRates = false;
+    }
+
+    const totalIsNeg  = allHaveRates && totalWealth < 0;
+    const multiCur    = walletLines.length >= 2;
+    const showGradient = allHaveRates && !totalIsNeg && multiCur;
+
+    // Build animated gradient style for this member if needed
+    const gradStyleId = `mw-grad-${m.id}`;
+    const gradClass   = `mw-total-grad-${m.id}`;
+    if (showGradient) {
+      const doubled = [...walletLines, ...walletLines];
+      const stops   = doubled.map(({ cur: wc }, i) =>
+        `${wc.color} ${(i / (doubled.length - 1) * 100).toFixed(1)}%`
+      ).join(', ');
+      // Inject / update style tag after render tick
+      requestAnimationFrame(() => {
+        let styleEl = document.getElementById(gradStyleId);
+        if (!styleEl) {
+          styleEl = document.createElement('style');
+          styleEl.id = gradStyleId;
+          document.head.appendChild(styleEl);
+        }
+        styleEl.textContent = `
+          @keyframes mwFlow_${m.id} {
+            0%   { background-position: 0% 50%; }
+            50%  { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+          }
+          .${gradClass} {
+            background: linear-gradient(90deg, ${stops});
+            background-size: 200% auto;
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+            animation: mwFlow_${m.id} 6s ease infinite;
+          }
+        `;
+      });
+    } else {
+      // Clean up if no longer needed
+      requestAnimationFrame(() => {
+        const old = document.getElementById(gradStyleId);
+        if (old) old.remove();
+      });
+    }
+
+    const totalStr = allHaveRates && baseCur
+      ? Math.abs(totalWealth).toLocaleString(undefined, { maximumFractionDigits: 1 }) + ' ' + baseCur.abbr
+      : '—';
+    const totalSign  = totalIsNeg ? '−' : '';
+    const totalClass = totalIsNeg ? 'mw-total-neg' : showGradient ? gradClass : 'mw-total-plain';
+
     return `<div class="member-wallet">
       <div class="member-wallet-label">⚙ Currency Holdings</div>
       <div class="member-wallet-rows">
@@ -568,6 +628,10 @@ function buildCard(m,idx){
             <span class="mw-cur-amt ${isNeg ? 'mw-cur-neg' : ''}">${sign}${Math.abs(amt).toLocaleString(undefined,{maximumFractionDigits:2})}</span>
           </div>`;
         }).join('')}
+      </div>
+      <div class="member-wallet-total">
+        <span class="mw-total-label">Total</span>
+        <span class="mw-total-val ${totalClass}">${totalSign}${totalStr}</span>
       </div>
     </div>`;
   })();

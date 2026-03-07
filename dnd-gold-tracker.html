@@ -433,38 +433,50 @@ function renderTotal() {
   unitEl.textContent  = (isNeg ? '-' : '') + base.abbr + ' equiv.';
   unitEl.style.color  = isNeg ? 'var(--red)' : '';
 
-  // ── Multi-currency gradient on the total bar ──
+  // ── Multi-currency animated gradient on the total bar ──
   if (totalBarEl && !isNeg) {
     const activeCurs = currencies.filter(cur => (vault[cur.id] || 0) !== 0 || currencies.length <= 1);
     const gradCurs = activeCurs.length >= 2 ? activeCurs : currencies;
     if (gradCurs.length >= 2) {
-      // Build evenly-spaced smooth gradient stops from each currency color
-      const stops = gradCurs.map((cur, i) => {
-        const pct = (i / (gradCurs.length - 1) * 100).toFixed(1);
-        // Use the currency color with low opacity for the background tint
-        return `${cur.color}18 ${pct}%`;
+      // Build a doubled color list so the animation loops seamlessly:
+      // [A, B, C, A, B, C] — background-size 200% lets it scroll left→right
+      const doubled = [...gradCurs, ...gradCurs];
+      const stops = doubled.map((cur, i) => {
+        const pct = (i / (doubled.length - 1) * 100).toFixed(1);
+        return `${cur.color}22 ${pct}%`;
       });
-      // Add glow-stop pairs for smooth blending: color at -10% and +10% around each stop
-      const detailedStops = [];
-      gradCurs.forEach((cur, i) => {
-        const center = i / (gradCurs.length - 1) * 100;
-        detailedStops.push(`${cur.color}08 ${Math.max(0, center - 15).toFixed(1)}%`);
-        detailedStops.push(`${cur.color}1a ${center.toFixed(1)}%`);
-        detailedStops.push(`${cur.color}08 ${Math.min(100, center + 15).toFixed(1)}%`);
-      });
-      totalBarEl.style.background = `linear-gradient(135deg, ${detailedStops.join(', ')})`;
-      // Border also blends: use first and last currency colors
+      // Inject the keyframe + style via a dynamic <style> tag keyed to this render
+      const styleId = 'nexus-wealth-gradient-style';
+      let styleEl = document.getElementById(styleId);
+      if (!styleEl) {
+        styleEl = document.createElement('style');
+        styleEl.id = styleId;
+        document.head.appendChild(styleEl);
+      }
+      styleEl.textContent = `
+        @keyframes wealthFlow {
+          0%   { background-position: 0% 50%; }
+          50%  { background-position: 100% 50%; }
+          100% { background-position: 0% 50%; }
+        }
+      `;
+      totalBarEl.style.background = `linear-gradient(135deg, ${stops.join(', ')})`;
+      totalBarEl.style.backgroundSize = '200% 200%';
+      totalBarEl.style.animation = 'wealthFlow 6s ease infinite';
+      // Border: gradient from first to last currency
       totalBarEl.style.borderColor = '';
       totalBarEl.style.borderImage =
-        `linear-gradient(90deg, ${gradCurs[0].color}60, ${gradCurs[gradCurs.length-1].color}60) 1`;
+        `linear-gradient(90deg, ${gradCurs[0].color}70, ${gradCurs[gradCurs.length-1].color}70) 1`;
     } else {
-      // Single currency or fallback — restore default
       totalBarEl.style.background = '';
+      totalBarEl.style.backgroundSize = '';
+      totalBarEl.style.animation = '';
       totalBarEl.style.borderImage = '';
     }
   } else if (totalBarEl && isNeg) {
-    // Clear custom gradient when negative (is-negative class handles it)
     totalBarEl.style.background = '';
+    totalBarEl.style.backgroundSize = '';
+    totalBarEl.style.animation = '';
     totalBarEl.style.borderImage = '';
   }
 
