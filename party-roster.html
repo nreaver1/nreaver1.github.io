@@ -61,8 +61,7 @@
     <div class="brand-sub">active crew manifest</div>
   </div>
   <div class="header-actions">
-    <button class="btn btn-ghost" onclick="importJSON()">⬆ Import</button>
-    <button class="btn btn-ghost" onclick="exportJSON()">⬇ Export</button>
+    <!-- Import / Export hidden for now -->
     <button class="btn btn-primary" onclick="openModal()">+ Add Member</button>
   </div>
 </header>
@@ -447,7 +446,7 @@ function buildCard(m,idx){
     return `<div class="ability-box" title="${ABILITY_LABELS[a]}: ${score}${hasEffect?` (${netBonus>=0?'+':''}${netBonus} from items) = ${effectiveScore}`:''}">
       <div class="ability-abbr">${ABILITY_LABELS[a]}</div>
       <div class="ability-score" style="${hasEffect?`color:${netBonus>0?'var(--green)':'var(--red)'}`:''}">${effectiveScore}</div>
-      <div class="ability-mod">${modStr(effectiveMod)}</div>
+      <div class="ability-mod" style="${effectiveMod===0?'color:var(--text-dim);opacity:0.55':''}">${modStr(effectiveMod)}</div>
     </div>`;
   }).join('');
 
@@ -458,14 +457,21 @@ function buildCard(m,idx){
   const initNet=net['initiative']?(net['initiative'].bonus||0)-(net['initiative'].penalty||0):0;
   const dexMod=abilityMod((abs['dex']||10)+(net['dex']?(net['dex'].bonus||0)-(net['dex'].penalty||0):0));
   const combatBoxes=[
-    {label:'AC',val:(cs.ac||10)+acNet,bonus:acNet},
-    {label:'HP',val:`${cs.hpcur??cs.hp??'—'}/${(cs.hp||0)+hpNet}`,bonus:hpNet},
-    {label:'Speed',val:`${(cs.speed||30)+spdNet}ft`,bonus:spdNet},
-    {label:'Initiative',val:modStr(dexMod+(cs.init||0)+initNet),bonus:initNet},
-    ...(cs.spelldc?[{label:'Spell DC',val:cs.spelldc,bonus:0}]:[]),
-    ...(cs.spellatk!=null?[{label:'Spell Atk',val:modStr(cs.spellatk),bonus:0}]:[]),
-    ...(cs.passperc?[{label:'Passive Perc',val:cs.passperc,bonus:0}]:[]),
-  ].map(b=>`<div class="combat-box"><div class="combat-val" style="${b.bonus>0?'color:var(--green)':b.bonus<0?'color:var(--red)':''}">${esc(String(b.val))}</div><div class="combat-label">${b.label}</div></div>`).join('');
+    {label:'AC',    val:(cs.ac||10)+acNet,                        base:(cs.ac||10),          bonus:acNet},
+    {label:'HP',    val:`${cs.hpcur??cs.hp??'—'}/${(cs.hp||0)+hpNet}`, base:(cs.hp||0),      bonus:hpNet},
+    {label:'Speed', val:`${(cs.speed||30)+spdNet}ft`,             base:(cs.speed||30),       bonus:spdNet},
+    {label:'Init.', val:modStr(dexMod+(cs.init||0)+initNet),      base:modStr(dexMod+(cs.init||0)), bonus:initNet},
+    ...(cs.spelldc?[{label:'Spell DC',  val:cs.spelldc,  base:cs.spelldc,  bonus:0}]:[]),
+    ...(cs.spellatk!=null?[{label:'Spell Atk',val:modStr(cs.spellatk),base:modStr(cs.spellatk),bonus:0}]:[]),
+    ...(cs.passperc?[{label:'Passive Perc',val:cs.passperc,base:cs.passperc,bonus:0}]:[]),
+  ].map(b => {
+    const hasEffect = b.bonus !== 0;
+    const titleAttr = hasEffect
+      ? ` title="${b.label}: ${b.base} (${b.bonus>=0?'+':''}${b.bonus} from items) = ${b.val}"`
+      : '';
+    const valColor = b.bonus>0?'color:var(--green)':b.bonus<0?'color:var(--red)':'';
+    return `<div class="combat-box"${titleAttr}><div class="combat-val" style="${valColor}">${esc(String(b.val))}</div><div class="combat-label">${b.label}</div></div>`;
+  }).join('');
 
   // saving throws
   const savesHtml=SAVING_THROWS.map(s=>{
@@ -475,7 +481,7 @@ function buildCard(m,idx){
     return `<div class="check-row">
       <div class="check-prof ${m.proficiencies?.[s.key]?'prof':''}"></div>
       <span class="check-name">${s.label}</span>
-      <span class="check-val ${val>=0?'pos':'neg'}">${modStr(val)} ${advStr}</span>
+      <span class="check-val ${val>0?'pos':val<0?'neg':'zero'}">${modStr(val)} ${advStr}</span>
     </div>`;
   }).join('');
 
@@ -486,7 +492,7 @@ function buildCard(m,idx){
     return `<div class="check-row">
       <div class="check-prof ${m.proficiencies?.[s.key]?'prof':''}"></div>
       <span class="check-name">${s.label} <span style="opacity:0.5;font-size:0.45rem">${s.ability.toUpperCase()}</span></span>
-      <span class="check-val ${val>=0?'pos':'neg'}">${modStr(val)}${advStr}</span>
+      <span class="check-val ${val>0?'pos':val<0?'neg':'zero'}">${modStr(val)}${advStr}</span>
     </div>`;
   }).join('');
 

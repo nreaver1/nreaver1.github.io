@@ -876,8 +876,9 @@ body.page-dashboard main { max-width: 1100px; padding: 2.5rem 2rem 5rem; }
 .check-prof.prof { background: var(--member-color, var(--cyan)); border-color: var(--member-color, var(--cyan)); }
 .check-name { font-family: 'Share Tech Mono', monospace; font-size: 0.8rem; letter-spacing: 0.06em; color: var(--text-dim); flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .check-val  { font-family: 'Orbitron', sans-serif; font-size: 0.8rem; font-weight: 700; color: var(--text); white-space: nowrap; }
-.check-val.pos { color: var(--green); }
-.check-val.neg { color: var(--red); }
+.check-val.pos  { color: var(--green); }
+.check-val.neg  { color: var(--red); }
+.check-val.zero { color: var(--text-dim); opacity: 0.6; }
 
 /* effects tab */
 .fx-from-items { display: flex; flex-direction: column; gap: 0.5rem; }
