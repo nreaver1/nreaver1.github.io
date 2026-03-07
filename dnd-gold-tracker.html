@@ -244,6 +244,48 @@
   </div>
 </div>
 
+
+<!-- MEMBER DETAIL MODAL -->
+<div class="modal-backdrop" id="memberModal" onclick="backdropClose(event,'memberModal')">
+  <div class="modal modal-wide" style="max-width:640px">
+    <div class="modal-header">
+      <span class="modal-title" id="memberModalTitle">⚙ MEMBER HOLDINGS</span>
+      <button class="btn-icon" onclick="closeModal('memberModal')">✕</button>
+    </div>
+    <div class="modal-body" style="padding-top:0.75rem">
+      <!-- Top: portrait + currency holdings -->
+      <div class="mm-top">
+        <div class="mm-portrait-col" id="mmPortraitCol"></div>
+        <div class="mm-holdings-col" id="mmHoldingsCol"></div>
+      </div>
+      <!-- Total wealth bar -->
+      <div class="total-bar mm-total-bar" id="mmTotalBar">
+        <div>
+          <div class="total-label">⚙ Total Wealth</div>
+          <div style="display:flex;align-items:baseline;gap:4px;margin-top:4px">
+            <span class="total-value" id="mmTotalVal">—</span>
+            <span class="total-unit"  id="mmTotalUnit"></span>
+          </div>
+        </div>
+        <div class="total-breakdown" id="mmTotalBreakdown"></div>
+      </div>
+      <!-- Recent transactions -->
+      <div class="mm-ledger-head">
+        <span class="section-title" style="font-size:0.8rem">Recent Transactions</span>
+        <span class="tx-count" id="mmTxCount"></span>
+      </div>
+      <div class="mm-ledger-wrap">
+        <table class="ledger-table mm-ledger-table">
+          <tbody id="mmLedgerBody"></tbody>
+        </table>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('memberModal')">Close</button>
+    </div>
+  </div>
+</div>
+
 <input type="file" id="fileImport" accept=".json" style="display:none" onchange="handleImport(event)" />
 <div class="toast" id="toast"></div>
 
@@ -626,12 +668,13 @@ function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').re
 // ══════════════════════════════════
 //  COIN INPUT HELPERS
 // ══════════════════════════════════
-function buildCoinInputs(containerId, values = {}) {
+function buildCoinInputs(containerId, values = {}, oninput = '') {
+  const inputHandler = oninput ? ` oninput="${oninput}"` : '';
   document.getElementById(containerId).innerHTML = currencies.map(c => `
     <div class="coin-input-row">
       <span class="cir-symbol" style="color:${c.color};text-shadow:0 0 8px ${c.color}">${esc(c.symbol)}</span>
       <span class="cir-name">${esc(c.abbr)}</span>
-      <input type="number" class="cir-input" id="${containerId}-${c.id}" value="${values[c.id] || 0}" placeholder="0" step="1" />
+      <input type="number" class="cir-input" id="${containerId}-${c.id}" value="${values[c.id] || 0}" placeholder="0" step="1"${inputHandler} />
     </div>`).join('');
 }
 
@@ -1125,7 +1168,7 @@ async function openSplitModal() {
     countEl.value = 1;
   }
 
-  buildCoinInputs('splitCoinInputs', {});
+  buildCoinInputs('splitCoinInputs', {}, 'calcSplit()');
   document.getElementById('splitResult').classList.remove('visible');
   updateSplitHint();
   renderSplitCards();
@@ -1471,6 +1514,156 @@ document.addEventListener('click', e => {
 // ══════════════════════════════════
 //  MEMBER WEALTH SECTION
 // ══════════════════════════════════
+
+// ══════════════════════════════════
+//  MEMBER DETAIL MODAL
+// ══════════════════════════════════
+function openMemberModal(memberName) {
+  const m = (_cachedTxMembers || []).find(x => x.name === memberName);
+  const base = currencies.find(c => c.id === 'cr') || currencies[0];
+  const wallet = memberVaultsCache[memberName] || {};
+
+  // ── Title ──
+  document.getElementById('memberModalTitle').textContent = '⚙ ' + memberName.toUpperCase();
+
+  // ── Portrait ──
+  const portraitCol = document.getElementById('mmPortraitCol');
+  const avatar = m && m.photo
+    ? `<img src="${m.photo}" alt="${esc(memberName)}" class="mm-portrait-img" />`
+    : `<div class="mm-portrait-initial" style="color:${m && m.color ? m.color : 'var(--gold)'};border-color:${m && m.color ? m.color + '50' : 'var(--border)'}">
+         ${esc(memberName.charAt(0).toUpperCase())}
+       </div>`;
+  portraitCol.innerHTML = `
+    <div class="mm-portrait">${avatar}</div>
+    <div class="mm-member-name">${esc(memberName)}</div>`;
+
+  // ── Holdings ──
+  const holdingsCol = document.getElementById('mmHoldingsCol');
+  const holdingLines = currencies
+    .map(cur => ({ cur, amt: wallet[cur.id] || 0 }))
+    .filter(({ amt }) => amt !== 0);
+
+  if (holdingLines.length) {
+    holdingsCol.innerHTML = `
+      <div class="mm-holdings-label">Currency Holdings</div>
+      <div class="mm-holdings-rows">
+        ${holdingLines.map(({ cur, amt }) => {
+          const isNeg = amt < 0;
+          return `<div class="mm-holding-row">
+            <span class="mm-h-symbol" style="color:${cur.color};text-shadow:0 0 8px ${cur.color}40">${esc(cur.symbol)}</span>
+            <span class="mm-h-name">${esc(cur.abbr)}</span>
+            <span class="mm-h-amt ${isNeg ? 'mm-h-neg' : ''}">${isNeg ? '−' : ''}${Math.abs(amt).toLocaleString(undefined,{maximumFractionDigits:2})}</span>
+          </div>`;
+        }).join('')}
+      </div>`;
+  } else {
+    holdingsCol.innerHTML = `<div class="mm-holdings-empty">No holdings recorded.</div>`;
+  }
+
+  // ── Total wealth bar ──
+  const totalBarEl = document.getElementById('mmTotalBar');
+  const totalValEl = document.getElementById('mmTotalVal');
+  const totalUnitEl = document.getElementById('mmTotalUnit');
+  const totalBdEl  = document.getElementById('mmTotalBreakdown');
+
+  let totalWealth = 0; let allRates = true;
+  const parts = [];
+  for (const cur of currencies) {
+    const amt = wallet[cur.id] || 0;
+    if (!amt) continue;
+    parts.push(`${amt < 0 ? '−' : ''}${Math.abs(amt).toLocaleString()} ${cur.abbr}`);
+    if (cur.rate != null) totalWealth += amt * cur.rate;
+    else allRates = false;
+  }
+
+  const isNeg = allRates && totalWealth < 0;
+  totalValEl.textContent = allRates
+    ? Math.abs(totalWealth).toLocaleString(undefined, { maximumFractionDigits: 2 })
+    : '—';
+  totalValEl.style.color      = isNeg ? 'var(--red)' : '';
+  totalValEl.style.textShadow = isNeg ? '0 0 20px rgba(224,60,60,0.5)' : '';
+  totalUnitEl.textContent     = (isNeg ? '-' : '') + (base ? base.abbr : '') + ' equiv.';
+  totalUnitEl.style.color     = isNeg ? 'var(--red)' : '';
+  totalBdEl.textContent       = parts.join('  ·  ') || '— no holdings —';
+
+  totalBarEl.classList.toggle('is-negative', isNeg);
+
+  // Animated gradient — same logic as main total bar
+  const gradStyleId = 'mm-wealth-grad-style';
+  let gradStyleEl = document.getElementById(gradStyleId);
+  if (!isNeg && holdingLines.length >= 2) {
+    const gradCurs = holdingLines.map(l => l.cur);
+    const doubled  = [...gradCurs, ...gradCurs];
+    const stops    = doubled.map((cur, i) =>
+      `${cur.color}22 ${(i / (doubled.length - 1) * 100).toFixed(1)}%`
+    ).join(', ');
+    if (!gradStyleEl) {
+      gradStyleEl = document.createElement('style');
+      gradStyleEl.id = gradStyleId;
+      document.head.appendChild(gradStyleEl);
+    }
+    gradStyleEl.textContent = `
+      @keyframes mmWealthFlow {
+        0%   { background-position: 0% 50%; }
+        50%  { background-position: 100% 50%; }
+        100% { background-position: 0% 50%; }
+      }
+    `;
+    totalBarEl.style.background    = `linear-gradient(135deg, ${stops})`;
+    totalBarEl.style.backgroundSize = '200% 200%';
+    totalBarEl.style.animation     = 'mmWealthFlow 6s ease infinite';
+    totalBarEl.style.borderImage   =
+      `linear-gradient(90deg, ${gradCurs[0].color}70, ${gradCurs[gradCurs.length-1].color}70) 1`;
+  } else {
+    if (gradStyleEl) gradStyleEl.remove();
+    totalBarEl.style.background    = '';
+    totalBarEl.style.backgroundSize = '';
+    totalBarEl.style.animation     = '';
+    totalBarEl.style.borderImage   = '';
+  }
+
+  // ── Ledger (member-tagged, newest-first, max 5 shown, scroll if more) ──
+  const memberTxs = [...ledger]
+    .filter(tx => tx.member === memberName)
+    .sort((a, b) => b.ts - a.ts);
+
+  const txCountEl = document.getElementById('mmTxCount');
+  txCountEl.textContent = memberTxs.length + ' entr' + (memberTxs.length === 1 ? 'y' : 'ies');
+
+  const shown = memberTxs.slice(0, 5);
+  const tbody = document.getElementById('mmLedgerBody');
+
+  if (!shown.length) {
+    tbody.innerHTML = `<tr><td colspan="4"><div class="empty-ledger" style="padding:0.75rem 0"><span class="empty-icon">⚙</span><p>No transactions for this member</p></div></td></tr>`;
+  } else {
+    tbody.innerHTML = shown.map(tx => {
+      const sign = tx.type === 'spend' ? -1 : 1;
+      let crTotal = 0; let allHaveRates = true;
+      const breakdown = [];
+      for (const [cid, amt] of Object.entries(tx.coins || {})) {
+        if (!amt) continue;
+        const cur = currencies.find(x => x.id === cid);
+        const label = cur ? cur.abbr : (currencyLabels[cid]?.abbr || cid.toUpperCase());
+        breakdown.push(`${fmt(amt)} ${label}`);
+        if (cur && cur.rate != null) crTotal += amt * cur.rate;
+        else allHaveRates = false;
+      }
+      const amtDisplay = allHaveRates && breakdown.length
+        ? `${sign > 0 ? '+' : '−'}${crTotal.toLocaleString(undefined,{maximumFractionDigits:2})} ${base.abbr}`
+        : breakdown.map(b => `${sign>0?'+':'−'}${b}`).join(' / ') || '—';
+      const date = new Date(tx.ts).toLocaleDateString(undefined, { month:'short', day:'numeric' });
+      return `<tr>
+        <td><div class="tx-desc" style="font-size:0.8rem">${esc(tx.desc)}</div>${tx.note ? `<div class="tx-note">${esc(tx.note)}</div>` : ''}</td>
+        <td><span class="tx-type tx-${tx.type}" style="font-size:0.72rem">${tx.type.toUpperCase()}</span></td>
+        <td><div class="tx-amount ${sign > 0 ? 'positive' : 'negative'}" style="font-size:0.8rem">${amtDisplay}</div></td>
+        <td style="white-space:nowrap;font-size:0.72rem;color:var(--text-dim)">${date}</td>
+      </tr>`;
+    }).join('');
+  }
+
+  openModal('memberModal');
+}
+
 async function renderMemberWealth() {
   const row = document.getElementById('memberWealthRow');
   if (!row) return;
@@ -1518,7 +1711,7 @@ async function renderMemberWealth() {
           : `<div class="mw-avatar-initial" style="color:${m.color||'var(--gold)'};border-color:${m.color||'var(--border)'}40;text-shadow:0 0 8px ${m.color||'var(--amber)'}">
                ${esc(m.name.charAt(0).toUpperCase())}
              </div>`;
-        return `<div class="mw-card ${isNegMember ? 'mw-card-neg' : ''}">
+        return `<div class="mw-card ${isNegMember ? 'mw-card-neg' : ''}" onclick="openMemberModal('${esc(m.name)}')" style="cursor:pointer" title="View ${esc(m.name)}'s holdings">
           <div class="mw-avatar">${avatar}</div>
           <div class="mw-info">
             <div class="mw-name">${esc(m.name)}</div>
@@ -1550,7 +1743,7 @@ function showToast(msg, dur = 2800) {
 //  KEYBOARD
 // ══════════════════════════════════
 document.addEventListener('keydown', e => {
-  if (e.key === 'Escape') { ['txModal','addCurrencyModal','splitModal'].forEach(closeModal); editCurrencyId = null; }
+  if (e.key === 'Escape') { ['txModal','addCurrencyModal','splitModal','memberModal'].forEach(closeModal); editCurrencyId = null; }
   if (e.key === 'Enter' && document.getElementById('txModal').classList.contains('open') && document.activeElement.tagName !== 'TEXTAREA') saveTx();
   if (e.key === 'Enter' && document.getElementById('addCurrencyModal').classList.contains('open') && document.activeElement.tagName !== 'TEXTAREA') saveNewCurrency();
 });

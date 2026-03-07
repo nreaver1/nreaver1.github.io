@@ -2022,3 +2022,147 @@ td { padding: 0.7rem 1rem; }
 }
 .mw-total-plain { color: var(--gold); }
 .mw-total-neg   { color: var(--red); }
+
+/* ═══════════════════════════════════════════════════════════════
+   MEMBER DETAIL MODAL
+   ═══════════════════════════════════════════════════════════════ */
+/* Top row: portrait left, holdings right */
+.mm-top {
+  display: flex;
+  gap: 1.25rem;
+  align-items: flex-start;
+  margin-bottom: 1rem;
+}
+
+/* Portrait column */
+.mm-portrait-col {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 80px;
+}
+.mm-portrait {
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  overflow: hidden;
+  border: 2px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.mm-portrait-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.mm-portrait-initial {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: 'Orbitron', sans-serif;
+  font-size: 1.6rem;
+  font-weight: 900;
+  border: 2px solid var(--border);
+  border-radius: 50%;
+}
+.mm-member-name {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 0.8rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  text-align: center;
+}
+
+/* Holdings column */
+.mm-holdings-col {
+  flex: 1;
+}
+.mm-holdings-label {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 0.8rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--cyan-dim);
+  margin-bottom: 0.5rem;
+}
+.mm-holdings-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+.mm-holding-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.mm-h-symbol {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 1rem;
+  font-weight: 700;
+  min-width: 1.2rem;
+  text-align: center;
+  flex-shrink: 0;
+}
+.mm-h-name {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 0.8rem;
+  color: var(--text-dim);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  min-width: 2.5rem;
+}
+.mm-h-amt {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: var(--gold);
+  margin-left: auto;
+}
+.mm-h-neg { color: var(--red); }
+.mm-holdings-empty {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 0.8rem;
+  color: var(--text-dim);
+  opacity: 0.7;
+  padding: 0.25rem 0;
+}
+
+/* Total bar inside modal — reuses .total-bar but needs tighter margin */
+.mm-total-bar {
+  margin-bottom: 1rem;
+}
+
+/* Ledger section */
+.mm-ledger-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.4rem;
+  padding-bottom: 0.3rem;
+  border-bottom: 1px solid var(--border);
+}
+.mm-ledger-wrap {
+  max-height: 220px;
+  overflow-y: auto;
+  border-radius: 4px;
+}
+.mm-ledger-wrap::-webkit-scrollbar { width: 4px; }
+.mm-ledger-wrap::-webkit-scrollbar-track { background: transparent; }
+.mm-ledger-wrap::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+.mm-ledger-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.8rem;
+}
+.mm-ledger-table td {
+  padding: 0.35rem 0.4rem;
+  border-bottom: 1px solid var(--border-faint, rgba(255,255,255,0.04));
+  vertical-align: middle;
+}
+.mm-ledger-table tr:last-child td { border-bottom: none; }
