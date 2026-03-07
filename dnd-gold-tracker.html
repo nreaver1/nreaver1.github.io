@@ -271,6 +271,7 @@ let currentType = 'gain';
 let selectedColor = '#f0a832';
 let editCurrencyId = null;  // null = adding new, string = editing existing
 let _cachedTxMembers = null;   // party members cache for tx holder dropdown
+const currencyLabels = {};      // id → {name,abbr} — persists after currency deleted
 let memberVaultsCache = {};     // per-member vault totals, refreshed by renderMemberWealth
 
 function uid() { return '_' + Math.random().toString(36).slice(2,11); }
@@ -291,6 +292,8 @@ async function loadData() {
         id: r.id, name: r.name, abbr: r.abbr,
         symbol: r.symbol, color: r.color, rate: r.rate,
       }));
+      // Snapshot labels so deleted currencies still display correctly
+      currencies.forEach(cur => { currencyLabels[cur.id] = { name: cur.name, abbr: cur.abbr }; });
     } else {
       // First run — seed default currency
       currencies = JSON.parse(JSON.stringify(DEFAULT_CURRENCIES));
@@ -523,7 +526,7 @@ function renderLedger() {
     for (const [cid, amt] of Object.entries(tx.coins || {})) {
       if (!amt) continue;
       const c = currencies.find(x => x.id === cid);
-      const label = c ? c.abbr : cid.toUpperCase();
+      const label = c ? c.abbr : (currencyLabels[cid]?.abbr || cid.toUpperCase());
       breakdown.push(`${fmt(amt)} ${label}`);
       if (c && c.rate != null) crTotal += amt * c.rate;
       else allHaveRates = false;
@@ -831,6 +834,7 @@ async function saveNewCurrency() {
     setLoading(btn, true); setModalLoading(modal, true);
     try {
       await saveCurrencyToDB(existing);
+      currencyLabels[existing.id] = { name: existing.name, abbr: existing.abbr };
       // Invalidate tx member cache so holder dropdown picks up new name if needed
       _cachedTxMembers = null;
       render(); closeModal('addCurrencyModal');
@@ -849,6 +853,7 @@ async function saveNewCurrency() {
     setLoading(btn, true); setModalLoading(modal, true);
     try {
       await saveCurrencyToDB(cur);
+      currencyLabels[cur.id] = { name: cur.name, abbr: cur.abbr };
       render(); closeModal('addCurrencyModal');
       showToast(`${name} (${abbr}) added to treasury.`);
     } catch(e) { console.error(e); showToast('Save failed.');
@@ -857,22 +862,85 @@ async function saveNewCurrency() {
 }
 
 async function deleteCurrency(id) {
-  const c = currencies.find(x => x.id === id);
-  if (!c) return;
+  const cur = currencies.find(x => x.id === id);
+  if (!cur) return;
   if (id === 'cr') { showToast('Cannot remove the base currency.'); return; }
-  const ok = await nexusConfirm({
+
+  // Count how many transactions reference this currency
+  const txWithCurrency = ledger.filter(tx => tx.coins && tx.coins[id] != null);
+  const txCount = txWithCurrency.length;
+
+  const result = await nexusConfirm({
     title:        'Remove Currency',
-    name:         c.name,
-    message:      'The currency panel will be removed. Past transactions referencing it will be preserved.',
+    name:         cur.name,
+    message:      `The currency panel will be removed.${txCount > 0 ? ` ${txCount} transaction${txCount !== 1 ? 's' : ''} reference this currency.` : ''}`,
     confirmLabel: 'Remove',
+    checkboxes: [
+      {
+        id:      'removeTx',
+        label:   `Also delete all ${txCount} transaction${txCount !== 1 ? 's' : ''} containing ${cur.abbr}`,
+        checked: false,
+      },
+      {
+        id:      'removeHoldings',
+        label:   `Strip ${cur.abbr} from all party member and vault holdings`,
+        checked: false,
+      },
+    ],
   });
-  if (!ok) return;
+
+  if (!result || !result.confirmed) return;
+
+  const removeTx       = result.checks.removeTx;
+  const removeHoldings = result.checks.removeHoldings;
+
   const delBtn = document.querySelector(`.panel-delete[onclick*="${id}"]`);
   if (delBtn) { setLoading(delBtn, true); delBtn.dataset.loadingText = ''; }
+
   try {
+    // ── Step 1: optionally remove transactions that contain this currency ──
+    if (removeTx) {
+      const toDelete = ledger.filter(tx => tx.coins && tx.coins[id] != null);
+      await Promise.all(toDelete.map(tx => deleteTxFromDB(tx.id)));
+      ledger = ledger.filter(tx => !(tx.coins && tx.coins[id] != null));
+    }
+
+    // ── Step 2: optionally strip currency from remaining transactions' coin objects ──
+    if (removeHoldings) {
+      // Find transactions that still have this currency in coins (after optional tx delete)
+      const toStrip = ledger.filter(tx => tx.coins && tx.coins[id] != null);
+      await Promise.all(toStrip.map(async tx => {
+        const newCoins = { ...tx.coins };
+        delete newCoins[id];
+        tx.coins = newCoins;
+        // If the tx now has no coins at all, delete it entirely
+        if (Object.keys(newCoins).length === 0) {
+          await deleteTxFromDB(tx.id);
+          return null;
+        } else {
+          await saveTxToDB(tx);
+          return tx;
+        }
+      }));
+      // Remove empty-coin transactions from local ledger
+      ledger = ledger.filter(tx => tx.coins && Object.keys(tx.coins).length > 0);
+    }
+
+    // ── Step 3: remove the currency itself ──
     await deleteCurrencyFromDB(id);
     currencies = currencies.filter(x => x.id !== id);
-    render(); showToast(`${c.name} removed.`);
+
+    recalcVault();
+    await renderMemberWealth();
+    renderTotal();
+    renderGrid();
+    renderLedger();
+
+    const parts = ['removed'];
+    if (removeTx) parts.push(`${txCount} transaction${txCount !== 1 ? 's' : ''} deleted`);
+    if (removeHoldings) parts.push('holdings stripped');
+    showToast(`${cur.name} ${parts.join(' · ')}.`);
+
   } catch(e) {
     console.error(e); showToast('Delete failed.');
     if (delBtn) setLoading(delBtn, false);

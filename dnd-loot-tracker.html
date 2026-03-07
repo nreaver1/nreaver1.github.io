@@ -83,21 +83,21 @@
       </select>
       <select id="filterType" onchange="renderTable()">
         <option value="">All Types</option>
-        <optgroup label="Weapon">
+        <optgroup label="⚔️ Weapon">
           <option value="Melee Weapon">Melee Weapon</option>
           <option value="Ranged Weapon">Ranged Weapon</option>
           <option value="Thrown Weapon">Thrown Weapon</option>
           <option value="Ammunition">Ammunition</option>
           <option value="Other Weapon">Other Weapon</option>
         </optgroup>
-        <optgroup label="Armor &amp; Shield">
+        <optgroup label="🛡️ Armor &amp; Shield">
           <option value="Light Armor">Light Armor</option>
           <option value="Medium Armor">Medium Armor</option>
           <option value="Heavy Armor">Heavy Armor</option>
           <option value="Shield">Shield</option>
           <option value="Other Armor">Other Armor</option>
         </optgroup>
-        <optgroup label="Potion">
+        <optgroup label="🧪 Potion">
           <option value="Potion of Healing">Potion of Healing</option>
           <option value="Potion of Greater Healing">Potion of Greater Healing</option>
           <option value="Potion of Superior Healing">Potion of Superior Healing</option>
@@ -121,17 +121,17 @@
           <option value="Potion of Water Breathing">Potion of Water Breathing</option>
           <option value="Other Potion">Other Potion</option>
         </optgroup>
-        <optgroup label="Scroll">
+        <optgroup label="📜 Scroll">
           <option value="Spell Scroll">Spell Scroll</option>
           <option value="Other Scroll">Other Scroll</option>
         </optgroup>
-        <optgroup label="Wand, Staff &amp; Rod">
+        <optgroup label="🪄 Wand, Staff &amp; Rod">
           <option value="Wand">Wand</option>
           <option value="Staff">Staff</option>
           <option value="Rod">Rod</option>
           <option value="Other Wand / Staff / Rod">Other Wand / Staff / Rod</option>
         </optgroup>
-        <optgroup label="Worn / Carried">
+        <optgroup label="💍 Worn / Carried">
           <option value="Ring">Ring</option>
           <option value="Cloak">Cloak</option>
           <option value="Boots">Boots</option>
@@ -143,7 +143,7 @@
           <option value="Wondrous Item">Wondrous Item</option>
           <option value="Other Worn / Carried">Other Worn / Carried</option>
         </optgroup>
-        <optgroup label="Adventuring Gear">
+        <optgroup label="🎒 Adventuring Gear">
           <option value="Bag">Bag</option>
           <option value="Container">Container</option>
           <option value="Instrument">Instrument</option>
@@ -205,21 +205,21 @@
           <label>Type</label>
           <select class="mi" id="fieldType">
             <option value="">All Types</option>
-        <optgroup label="Weapon">
+        <optgroup label="⚔️ Weapon">
           <option value="Melee Weapon">Melee Weapon</option>
           <option value="Ranged Weapon">Ranged Weapon</option>
           <option value="Thrown Weapon">Thrown Weapon</option>
           <option value="Ammunition">Ammunition</option>
           <option value="Other Weapon">Other Weapon</option>
         </optgroup>
-        <optgroup label="Armor &amp; Shield">
+        <optgroup label="🛡️ Armor &amp; Shield">
           <option value="Light Armor">Light Armor</option>
           <option value="Medium Armor">Medium Armor</option>
           <option value="Heavy Armor">Heavy Armor</option>
           <option value="Shield">Shield</option>
           <option value="Other Armor">Other Armor</option>
         </optgroup>
-        <optgroup label="Potion">
+        <optgroup label="🧪 Potion">
           <option value="Potion of Healing">Potion of Healing</option>
           <option value="Potion of Greater Healing">Potion of Greater Healing</option>
           <option value="Potion of Superior Healing">Potion of Superior Healing</option>
@@ -243,17 +243,17 @@
           <option value="Potion of Water Breathing">Potion of Water Breathing</option>
           <option value="Other Potion">Other Potion</option>
         </optgroup>
-        <optgroup label="Scroll">
+        <optgroup label="📜 Scroll">
           <option value="Spell Scroll">Spell Scroll</option>
           <option value="Other Scroll">Other Scroll</option>
         </optgroup>
-        <optgroup label="Wand, Staff &amp; Rod">
+        <optgroup label="🪄 Wand, Staff &amp; Rod">
           <option value="Wand">Wand</option>
           <option value="Staff">Staff</option>
           <option value="Rod">Rod</option>
           <option value="Other Wand / Staff / Rod">Other Wand / Staff / Rod</option>
         </optgroup>
-        <optgroup label="Worn / Carried">
+        <optgroup label="💍 Worn / Carried">
           <option value="Ring">Ring</option>
           <option value="Cloak">Cloak</option>
           <option value="Boots">Boots</option>
@@ -265,7 +265,7 @@
           <option value="Wondrous Item">Wondrous Item</option>
           <option value="Other Worn / Carried">Other Worn / Carried</option>
         </optgroup>
-        <optgroup label="Adventuring Gear">
+        <optgroup label="🎒 Adventuring Gear">
           <option value="Bag">Bag</option>
           <option value="Container">Container</option>
           <option value="Instrument">Instrument</option>
@@ -421,6 +421,42 @@ const seedItems = [
   { id:uid(), name:"Orb of Old Code",   type:"Wondrous", rarity:"artifact", holder:"Party Vault",attunement:"required", desc:"Do NOT activate.",                                   statEffects:[] },
 ];
 
+// ══════════════════════════════════════════════════════════════
+//  LOOT TYPE EMOJI  — one emoji per optgroup, used in selects + table
+// ══════════════════════════════════════════════════════════════
+const LOOT_GROUP_EMOJI = {
+  'Weapon':            '⚔️',
+  'Armor & Shield':    '🛡️',
+  'Potion':            '🧪',
+  'Scroll':            '📜',
+  'Wand, Staff & Rod': '🪄',
+  'Worn / Carried':    '💍',
+  'Adventuring Gear':  '🎒',
+  'Other':             '✨',
+};
+
+// Given a specific item type string, return the emoji for its group
+function lootTypeEmoji(type) {
+  if (!type) return LOOT_GROUP_EMOJI['Other'];
+  const t = type.toLowerCase();
+  if (t.includes('weapon') || t.includes('melee') || t.includes('ranged') ||
+      t.includes('thrown') || t.includes('ammunition'))          return LOOT_GROUP_EMOJI['Weapon'];
+  if (t.includes('armor') || t.includes('armour') || t.includes('shield') ||
+      t.includes('light armor') || t.includes('medium armor') ||
+      t.includes('heavy armor'))                                  return LOOT_GROUP_EMOJI['Armor & Shield'];
+  if (t.includes('potion'))                                       return LOOT_GROUP_EMOJI['Potion'];
+  if (t.includes('scroll'))                                       return LOOT_GROUP_EMOJI['Scroll'];
+  if (t.includes('wand') || t.includes('staff') || t.includes('rod')) return LOOT_GROUP_EMOJI['Wand, Staff & Rod'];
+  if (t.includes('ring') || t.includes('cloak') || t.includes('boots') ||
+      t.includes('gloves') || t.includes('helm') || t.includes('amulet') ||
+      t.includes('belt') || t.includes('bracers') || t.includes('wondrous') ||
+      t.includes('worn') || t.includes('carried'))               return LOOT_GROUP_EMOJI['Worn / Carried'];
+  if (t.includes('bag') || t.includes('container') || t.includes('instrument') ||
+      t.includes('tool') || t.includes('vehicle') || t.includes('gear'))
+                                                                  return LOOT_GROUP_EMOJI['Adventuring Gear'];
+  return LOOT_GROUP_EMOJI['Other'];
+}
+
 function uid(){ return '_'+Math.random().toString(36).slice(2,11); }
 
 async function loadData(){
@@ -517,7 +553,7 @@ function renderTable(){
         <div class="item-name">${esc(it.name)}</div>
         ${it.desc?`<div class="item-desc">${esc(it.desc)}</div>`:''}
       </td>
-      <td class="hide-mobile" style="font-family:'Share Tech Mono',monospace;font-size:0.7rem;color:var(--text-dim);letter-spacing:0.08em">${esc(it.type)}</td>
+      <td class="hide-mobile"><span class="loot-type-cell"><span class="loot-type-emoji">${lootTypeEmoji(it.type)}</span><span class="loot-type-label">${esc(it.type)}</span></span></td>
       <td><span class="rarity-badge rarity-${it.rarity}">${rarityLabel(it.rarity)}</span></td>
       <td class="hide-mobile">${renderHolderCell(it.holder)}</td>
       <td class="hide-mobile"><div class="fx-list">${fxHtml||'<span style="font-family:\'Share Tech Mono\',monospace;font-size:0.5rem;color:var(--text-dim);">—</span>'}</div></td>

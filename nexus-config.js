@@ -127,7 +127,7 @@ if (SUPABASE_URL.includes('YOUR_PROJECT_REF') || SUPABASE_ANON.includes('YOUR_AN
 //    });
 //    if (!confirmed) return;
 // ══════════════════════════════════════════════════════════════
-function nexusConfirm({ title, name, message, danger = true, confirmLabel = 'Remove', cancelLabel = 'Cancel' } = {}) {
+function nexusConfirm({ title, name, message, danger = true, confirmLabel = 'Remove', cancelLabel = 'Cancel', checkboxes = null } = {}) {
   return new Promise(resolve => {
     // Remove any existing dialog
     const existing = document.getElementById('nexusConfirmOverlay');
@@ -144,6 +144,12 @@ function nexusConfirm({ title, name, message, danger = true, confirmLabel = 'Rem
         </div>
         ${name ? `<div class="nxc-name">${name}</div>` : ''}
         ${message ? `<div class="nxc-message">${message}</div>` : ''}
+        ${checkboxes && checkboxes.length ? `<div class="nxc-checkboxes">${checkboxes.map(cb =>
+          `<label class="nxc-check-label">
+            <input type="checkbox" class="nxc-checkbox" id="nxcCheck_${cb.id}" ${cb.checked ? 'checked' : ''} />
+            <span class="nxc-check-text">${cb.label}</span>
+          </label>`
+        ).join('')}</div>` : ''}
         <div class="nxc-actions">
           <button class="nxc-btn nxc-cancel" id="nxcCancel">${cancelLabel}</button>
           <button class="nxc-btn ${danger ? 'nxc-danger' : 'nxc-confirm'}" id="nxcConfirm">${confirmLabel}</button>
@@ -161,7 +167,18 @@ function nexusConfirm({ title, name, message, danger = true, confirmLabel = 'Rem
       resolve(result);
     }
 
-    document.getElementById('nxcConfirm').addEventListener('click', () => close(true));
+    document.getElementById('nxcConfirm').addEventListener('click', () => {
+      if (checkboxes && checkboxes.length) {
+        const checks = {};
+        checkboxes.forEach(cb => {
+          const el = document.getElementById('nxcCheck_' + cb.id);
+          checks[cb.id] = el ? el.checked : false;
+        });
+        close({ confirmed: true, checks });
+      } else {
+        close(true);
+      }
+    });
     document.getElementById('nxcCancel').addEventListener('click',  () => close(false));
     overlay.addEventListener('click', e => { if (e.target === overlay) close(false); });
     document.addEventListener('keydown', function handler(e) {
@@ -266,3 +283,115 @@ function setModalLoading(modalEl, loading) {
     else         { b.disabled = false; b.classList.remove('btn-modal-locked'); }
   });
 }
+
+// ══════════════════════════════════════════════════════════════
+//  ADMIN AUTH WRAPPER
+//  A Higher-Order Function that gates any async action behind
+//  the admin password prompt. Decoupled from all specific assets.
+//
+//  Usage:
+//    const safeDelete = requireAdmin(deletePartyMember);
+//    safeDelete(memberId);          // prompts, then calls deletePartyMember(memberId)
+//
+//    Or inline (no intermediate variable needed):
+//    onclick="requireAdmin(deleteCurrencyType)(currencyId)"
+//
+//  The hash is read at call-time from window.NEXUS_ADMIN_HASH so
+//  each page only needs to set that one constant. If the session
+//  is already authenticated (nexus_admin = '1') the prompt is
+//  skipped entirely.
+// ══════════════════════════════════════════════════════════════
+
+async function _nexusSha256(str) {
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(str));
+  return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+function requireAdmin(fn) {
+  return async function (...args) {
+    // Skip prompt if already authenticated this session
+    if (sessionStorage.getItem('nexus_admin') === '1') return fn(...args);
+
+    const pw = await new Promise(resolve => {
+      const overlay = document.createElement('div');
+      overlay.className = 'nxc-overlay';
+      overlay.innerHTML = `
+        <div class="nxc-dialog" role="dialog" aria-modal="true">
+          <div class="nxc-header">
+            <span class="nxc-icon">🔒</span>
+            <span class="nxc-title">Admin Required</span>
+          </div>
+          <div class="nxc-message" style="margin-top:0.9rem">Enter the admin password to continue.</div>
+          <div style="padding:0.6rem 1.3rem 0">
+            <input id="_nxaInput" type="password" placeholder="Password"
+              style="width:100%;box-sizing:border-box;background:var(--bg);border:1px solid var(--border);
+                     border-radius:3px;color:var(--text);font-family:'Share Tech Mono',monospace;
+                     font-size:1rem;padding:0.45rem 0.7rem;outline:none" />
+            <div id="_nxaErr" style="font-family:'Share Tech Mono',monospace;font-size:0.8rem;
+                                     color:var(--red);min-height:1.2em;margin-top:0.35rem"></div>
+          </div>
+          <div class="nxc-actions">
+            <button class="nxc-btn nxc-cancel"  id="_nxaCancel">Cancel</button>
+            <button class="nxc-btn nxc-danger"   id="_nxaConfirm">Confirm</button>
+          </div>
+        </div>`;
+      document.body.appendChild(overlay);
+      requestAnimationFrame(() => overlay.classList.add('nxc-open'));
+
+      const input   = overlay.querySelector('#_nxaInput');
+      const errEl   = overlay.querySelector('#_nxaErr');
+      const btnOk   = overlay.querySelector('#_nxaConfirm');
+      const btnCancel = overlay.querySelector('#_nxaCancel');
+
+      function dismiss(value) {
+        overlay.classList.remove('nxc-open');
+        overlay.addEventListener('transitionend', () => overlay.remove(), { once: true });
+        resolve(value);
+      }
+
+      btnCancel.addEventListener('click', () => dismiss(null));
+      overlay.addEventListener('click', e => { if (e.target === overlay) dismiss(null); });
+
+      async function attempt() {
+        const hash = await _nexusSha256(input.value);
+        if (hash === (window.NEXUS_ADMIN_HASH || '')) {
+          sessionStorage.setItem('nexus_admin', '1');
+          dismiss(input.value);
+        } else {
+          errEl.textContent = 'Incorrect password.';
+          input.value = '';
+          setTimeout(() => { errEl.textContent = ''; }, 2500);
+          input.focus();
+        }
+      }
+
+      btnOk.addEventListener('click', attempt);
+      input.addEventListener('keydown', e => {
+        if (e.key === 'Enter')  attempt();
+        if (e.key === 'Escape') dismiss(null);
+      });
+
+      setTimeout(() => input.focus(), 50);
+    });
+
+    if (pw === null) return;   // user cancelled — action aborted
+    return fn(...args);
+  };
+}
+
+// ──────────────────────────────────────────────────────────────
+//  EXAMPLE (do not call — for reference only)
+//
+//  async function deleteWidget(id) {
+//    await db.delete('widgets', id);
+//    widgets = widgets.filter(w => w.id !== id);
+//    render();
+//  }
+//
+//  // One-liner to protect it:
+//  const safeDeleteWidget = requireAdmin(deleteWidget);
+//
+//  // Then call exactly like the original:
+//  safeDeleteWidget(widgetId);
+//
+// ──────────────────────────────────────────────────────────────
