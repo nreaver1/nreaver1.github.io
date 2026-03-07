@@ -99,8 +99,9 @@
         <div class="card-desc">Track credits and custom currencies, log transactions, split loot.</div>
       </div>
       <div class="card-stats">
-        <div class="cstat"><span class="cstat-val" id="statCredits">—</span><span class="cstat-label">Credits</span></div>
+        <div class="cstat"><span class="cstat-val" id="statCredits">—</span><span class="cstat-label" id="statCreditsLabel">Credits</span></div>
         <div class="cstat"><span class="cstat-val" id="statTxCount">—</span><span class="cstat-label">Transactions</span></div>
+        <div class="cstat" id="statWealthStat" style="display:none"><span class="cstat-val" id="statTotalWealth">—</span><span class="cstat-label">Total Wealth</span></div>
       </div>
       <span class="card-arrow">OPEN →</span>
     </a>
@@ -263,8 +264,36 @@
           vault[cid] = (vault[cid] || 0) + sign * (amt || 0);
         }
       }
-      document.getElementById('statCredits').textContent = (vault['cr'] || 0).toLocaleString();
+
+      // Base currency (credits or first)
+      const base = curRows.find(c => c.id === 'cr') || curRows[0];
+
+      // Update credits label to match base currency name (respects edits)
+      const creditsLabel = document.getElementById('statCreditsLabel');
+      if (creditsLabel && base) creditsLabel.textContent = base.name || 'Credits';
+
+      // Credits stat: show base currency amount
+      document.getElementById('statCredits').textContent =
+        (vault[base?.id] || 0).toLocaleString();
       document.getElementById('statTxCount').textContent = ledgerRows.length;
+
+      // If more than one currency type, compute and show total party wealth
+      if (curRows.length > 1) {
+        let totalInBase = 0; let allHaveRates = true;
+        for (const cur of curRows) {
+          const amt = vault[cur.id] || 0;
+          if (cur.rate != null) totalInBase += amt * cur.rate;
+          else allHaveRates = false;
+        }
+        const wealthEl = document.getElementById('statTotalWealth');
+        const wealthStat = document.getElementById('statWealthStat');
+        if (wealthEl && wealthStat) {
+          wealthEl.textContent = allHaveRates
+            ? totalInBase.toLocaleString(undefined, { maximumFractionDigits: 1 }) + ' ' + (base?.abbr || '')
+            : '—';
+          wealthStat.style.display = '';
+        }
+      }
     } catch(e) {
       console.error(e);
     }

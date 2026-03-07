@@ -220,7 +220,9 @@ function abilityMod(score){return Math.floor(((score||10)-10)/2);}
 function modStr(n){return n>=0?`+${n}`:String(n);}
 // Cache loot items for stat effect display on cards
 let _cachedLootItems = null;
-let _cachedVaultSummary = null; // { display: "1,240 CR", breakdown: "1200 CR · 2 VS" }
+let _cachedVaultSummary = null;        // { total, breakdown, hasData }
+let _cachedMemberWallet = {};           // { memberName: { cid: amount } }
+let _cachedTreasuryCurrencies = [];     // currency rows from DB
 
 function getItemEffects(){
   return _cachedLootItems || [];
@@ -247,7 +249,22 @@ async function prefetchTreasury(){
       db.select('treasury_currencies', { order: 'sort_order.asc,created_at.asc' }),
       db.select('treasury_ledger'),
     ]);
-    // Build vault totals
+
+    // Build per-member currency totals from member-tagged transactions
+    _cachedMemberWallet = {};    // { memberName: { cid: amount } }
+    _cachedTreasuryCurrencies = curRows;
+
+    for(const tx of ledgerRows){
+      if(!tx.member_name) continue;  // skip untagged / party vault rows
+      const name = tx.member_name;
+      const sign = tx.type === 'spend' ? -1 : 1;
+      if(!_cachedMemberWallet[name]) _cachedMemberWallet[name] = {};
+      for(const [cid, amt] of Object.entries(tx.coins || {})){
+        _cachedMemberWallet[name][cid] = (_cachedMemberWallet[name][cid] || 0) + sign * (amt || 0);
+      }
+    }
+
+    // Keep the vault summary for any legacy callers
     const vault = {};
     for(const tx of ledgerRows){
       const sign = tx.type === 'spend' ? -1 : 1;
@@ -256,11 +273,8 @@ async function prefetchTreasury(){
         if(vault[cid] < 0) vault[cid] = 0;
       }
     }
-    // Build summary string: convert everything to base rate
     const base = curRows.find(c => c.id === 'cr') || curRows[0];
-    let totalInBase = 0;
-    let allHaveRates = true;
-    const parts = [];
+    let totalInBase = 0; let allHaveRates = true; const parts = [];
     for(const cur of curRows){
       const amt = vault[cur.id] || 0;
       if(!amt) continue;
@@ -271,15 +285,27 @@ async function prefetchTreasury(){
     const totalStr = allHaveRates && base
       ? totalInBase.toLocaleString(undefined, {maximumFractionDigits:1}) + ' ' + base.abbr
       : parts[0] || '0';
-    _cachedVaultSummary = {
-      total: totalStr,
-      breakdown: parts.join(' · ') || 'Empty',
-      hasData: parts.length > 0,
-    };
+    _cachedVaultSummary = { total: totalStr, breakdown: parts.join(' · ') || 'Empty', hasData: parts.length > 0 };
+
   }catch(e){
     console.error('Could not load treasury:', e);
     _cachedVaultSummary = { total: '—', breakdown: '—', hasData: false };
+    _cachedMemberWallet = {};
+    _cachedTreasuryCurrencies = [];
   }
+}
+
+// Return currency rows for a specific member — used in loot tab
+function getMemberWallet(memberName) {
+  const wallet = (_cachedMemberWallet || {})[memberName] || {};
+  const currencies = _cachedTreasuryCurrencies || [];
+  const lines = [];
+  for(const cur of currencies){
+    const amt = wallet[cur.id] || 0;
+    if(!amt) continue;
+    lines.push({ cur, amt });
+  }
+  return lines;  // array of { cur: {id,name,abbr,symbol,color,rate}, amt: number }
 }
 
 // ── COMPUTE NET EFFECTS for a member (from loot tracker) ──
@@ -524,17 +550,32 @@ function buildCard(m,idx){
       <span class="loot-tab-arrow">→</span>
     </a>`).join('');
 
-  const vault = _cachedVaultSummary;
-  const vaultBlock = vault ? `
-    <div class="loot-tab-vault">
-      <span class="loot-vault-label">⚙ Party Vault</span>
-      <span class="loot-vault-total" title="${vault.breakdown}">${vault.total}</span>
-    </div>` : '';
+  // Per-member currency holdings from treasury
+  const walletLines = getMemberWallet(m.name);
+  const walletBlock = (() => {
+    if (!walletLines.length) {
+      return `<div class="member-wallet-empty">No currency assigned to ${esc(m.name)} yet.</div>`;
+    }
+    return `<div class="member-wallet">
+      <div class="member-wallet-label">⚙ Currency Holdings</div>
+      <div class="member-wallet-rows">
+        ${walletLines.map(({ cur, amt }) => {
+          const isNeg = amt < 0;
+          const sign  = isNeg ? '−' : '';
+          return `<div class="member-wallet-row">
+            <span class="mw-cur-symbol" style="color:${cur.color};text-shadow:0 0 8px ${cur.color}40">${esc(cur.symbol)}</span>
+            <span class="mw-cur-name">${esc(cur.abbr)}</span>
+            <span class="mw-cur-amt ${isNeg ? 'mw-cur-neg' : ''}">${sign}${Math.abs(amt).toLocaleString(undefined,{maximumFractionDigits:2})}</span>
+          </div>`;
+        }).join('')}
+      </div>
+    </div>`;
+  })();
 
   const lootTab = `
     <div class="tab-panel" id="tab-loot-${m.id}">
       ${lootRows || `<div class="fx-empty">No items assigned to ${esc(m.name)}.<br><span style="font-size:0.48rem;opacity:0.6">Assign items in the Loot Tracker using "Held By".</span></div>`}
-      ${vaultBlock}
+      ${walletBlock}
     </div>`;
 
   const tags=(m.tags||[]).map(t=>`<span class="tag">${esc(t)}</span>`).join('');
