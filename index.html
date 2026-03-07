@@ -236,11 +236,11 @@
         return;
       }
       strip.innerHTML = members.map(m => {
+        const dest = `dnd-gold-tracker.html?member=${encodeURIComponent(m.name)}`;
         if (m.photo) {
-          return `<div class="party-avatar" title="${esc(m.name)}"><img src="${m.photo}" alt="${esc(m.name)}" /></div>`;
+          return `<div class="party-avatar" title="View ${esc(m.name)}'s holdings" style="cursor:pointer" onclick="location.href='${dest}'"><img src="${m.photo}" alt="${esc(m.name)}" /></div>`;
         }
-        return `<div class="party-avatar" title="${esc(m.name)}"
-          style="color:${m.color || 'var(--gold)'};text-shadow:0 0 8px ${m.color || 'var(--amber)'}">
+        return `<div class="party-avatar" title="View ${esc(m.name)}'s holdings" style="cursor:pointer;color:${m.color || 'var(--gold)'};text-shadow:0 0 8px ${m.color || 'var(--amber)'}" onclick="location.href='${dest}'">
           ${esc(m.name.charAt(0).toUpperCase())}
         </div>`;
       }).join('');
