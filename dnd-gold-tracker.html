@@ -60,7 +60,8 @@
     <div class="brand-sub">party treasury management system</div>
   </div>
   <div class="header-actions">
-    <!-- Import / Export / Split hidden for now -->
+    <!-- Import / Export hidden for now -->
+    <button class="btn btn-cyan" onclick="openSplitModal()">⚙ Split</button>
     <button class="btn btn-primary" onclick="openTxModal()">+ Log Currency</button>
   </div>
 </header>
@@ -215,7 +216,7 @@
 <div class="modal-backdrop" id="splitModal" onclick="backdropClose(event,'splitModal')">
   <div class="modal modal-wide">
     <div class="modal-header">
-      <span class="modal-title">⚙ SPLIT LOOT EVENLY</span>
+      <span class="modal-title">⚙ SPLIT LOOT</span>
       <button class="btn-icon" onclick="closeModal('splitModal')">✕</button>
     </div>
     <div class="modal-body">
@@ -238,7 +239,7 @@
     </div>
     <div class="modal-footer">
       <button class="btn btn-ghost" onclick="closeModal('splitModal')">Close</button>
-      <button class="btn btn-cyan" onclick="applySplit()">Apply &amp; Log Split</button>
+      <button class="btn btn-cyan" onclick="applySplit()">Apply &amp; Log Gains</button>
     </div>
   </div>
 </div>
@@ -1124,7 +1125,7 @@ async function openSplitModal() {
     countEl.value = 1;
   }
 
-  buildCoinInputs('splitCoinInputs', vault);
+  buildCoinInputs('splitCoinInputs', {});
   document.getElementById('splitResult').classList.remove('visible');
   updateSplitHint();
   renderSplitCards();
@@ -1151,7 +1152,7 @@ function calcSplit() {
   }
 
   const lines = [];
-  lines.push(`SPLITTING : ${parts.length ? parts.join('  ') : 'nothing entered'}`);
+  lines.push(`TO ADD    : ${parts.length ? parts.join('  ') : 'nothing entered'}`);
   lines.push(`RECIPIENTS: ${n}`);
   lines.push('─────────────────────────────');
 
@@ -1219,36 +1220,7 @@ async function applySplit() {
   ).join(', ');
   const ts = Date.now();
 
-  // ── Transaction 1: one SPEND/GAIN for the full pool being distributed ──
-  // Positive amounts → SPEND (removing from shared pool to distribute)
-  // Negative amounts → GAIN  (adding debt burden to shared pool)
-  // We log the absolute amounts under the correct type so vault math is clean.
-  const positiveCoins = {};
-  const negativeCoins = {};
-  for (const [cid, amt] of Object.entries(coins)) {
-    if (amt > 0) positiveCoins[cid] = amt;
-    else if (amt < 0) negativeCoins[cid] = Math.abs(amt);
-  }
-
-  const poolTxs = [];
-  if (Object.keys(positiveCoins).length) {
-    poolTxs.push({
-      id: uid(), type: 'spend',
-      desc: `Split ${n} way${n !== 1 ? 's' : ''} — ${recipientNames}`,
-      note: 'Auto-logged from split calculator',
-      ts, coins: positiveCoins, member: null,
-    });
-  }
-  if (Object.keys(negativeCoins).length) {
-    poolTxs.push({
-      id: uid(), type: 'gain',
-      desc: `Debt split ${n} way${n !== 1 ? 's' : ''} — ${recipientNames}`,
-      note: 'Auto-logged from split calculator',
-      ts: ts + 1, coins: negativeCoins, member: null,
-    });
-  }
-
-  // ── Transactions 2…n+1: one per recipient for their per-share ──
+  // ── One GAIN per recipient for their per-share (currency comes from outside the vault) ──
   // Positive perShare → GAIN tagged to member (they received it)
   // Negative perShare → SPEND tagged to member (debt allocated to them)
   const recipientTxs = [];
@@ -1265,7 +1237,7 @@ async function applySplit() {
         id: uid(), type: 'gain',
         desc: `Loot share — split ${n} way${n !== 1 ? 's' : ''}`,
         note: 'Auto-logged from split calculator',
-        ts: ts + 2, coins: gainShare, member: memberName,
+        ts: ts + 1, coins: gainShare, member: memberName,
       });
     }
     if (Object.keys(spendShare).length) {
@@ -1273,7 +1245,7 @@ async function applySplit() {
         id: uid(), type: 'spend',
         desc: `Debt share — split ${n} way${n !== 1 ? 's' : ''}`,
         note: 'Auto-logged from split calculator',
-        ts: ts + 3, coins: spendShare, member: memberName,
+        ts: ts + 2, coins: spendShare, member: memberName,
       });
     }
   }
@@ -1292,7 +1264,7 @@ async function applySplit() {
       id: uid(), type: 'gain',
       desc: 'Split remainder — returned to party vault',
       note: 'Auto-logged from split calculator',
-      ts: ts + 4, coins: remGain, member: null,
+      ts: ts + 3, coins: remGain, member: null,
     });
   }
   if (Object.keys(remSpend).length) {
@@ -1300,12 +1272,12 @@ async function applySplit() {
       id: uid(), type: 'spend',
       desc: 'Split remainder (debt) — charged to party vault',
       note: 'Auto-logged from split calculator',
-      ts: ts + 5, coins: remSpend, member: null,
+      ts: ts + 4, coins: remSpend, member: null,
     });
   }
 
   try {
-    const allTxs = [...poolTxs, ...recipientTxs, ...remTxs];
+    const allTxs = [...recipientTxs, ...remTxs];
     if (!allTxs.length) { showToast('Nothing to log.'); return; }
     await Promise.all(allTxs.map(tx => saveTxToDB(tx)));
     ledger.push(...allTxs);
