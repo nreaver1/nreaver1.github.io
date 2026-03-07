@@ -1751,24 +1751,13 @@ document.addEventListener('keydown', e => {
 // ══════════════════════════════════
 //  INIT
 // ══════════════════════════════════
-loadData().then(async () => {
+loadData().then(() => {
   render();
   // Set default sort indicator (newest first)
   const arrow = document.getElementById('sort-id');
   if (arrow) { arrow.textContent = ' ▼'; }
   const th = arrow ? arrow.closest('th') : null;
   if (th) th.classList.add('sorted');
-
-  // Auto-open member modal if ?member= query param is present (e.g. from index.html avatar click)
-  const urlMember = new URLSearchParams(window.location.search).get('member');
-  if (urlMember) {
-    // renderMemberWealth (which populates memberVaultsCache) runs async inside render().
-    // Wait for it to settle before opening the modal so wealth data is ready.
-    await renderMemberWealth();
-    openMemberModal(urlMember);
-    // Clean the param from the URL without reloading so bookmarks/back stay clean
-    history.replaceState(null, '', window.location.pathname);
-  }
 });
 </script>
 
