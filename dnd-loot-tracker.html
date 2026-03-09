@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>LOOT TRACKER // Item Registry</title>
   <script src="nexus-config.js"></script>
+  <script src="nexus-utils.js"></script>
   <link rel="icon" type="image/x-icon" href="favicon.ico" />
   <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@400;700;900&family=Rajdhani:wght@400;500;600;700&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="nexus.css" />
@@ -446,13 +447,13 @@ function lootTypeEmoji(type) {
   if (t.includes('potion'))                                       return LOOT_GROUP_EMOJI['Potion'];
   if (t.includes('scroll'))                                       return LOOT_GROUP_EMOJI['Scroll'];
   if (t.includes('wand') || t.includes('staff') || t.includes('rod')) return LOOT_GROUP_EMOJI['Wand, Staff & Rod'];
+  if (t.includes('bag') || t.includes('container') || t.includes('instrument') ||
+      t.includes('tool') || t.includes('vehicle') || t.includes('gear'))
+                                                                  return LOOT_GROUP_EMOJI['Adventuring Gear'];
   if (t.includes('ring') || t.includes('cloak') || t.includes('boots') ||
       t.includes('gloves') || t.includes('helm') || t.includes('amulet') ||
       t.includes('belt') || t.includes('bracers') || t.includes('wondrous') ||
       t.includes('worn') || t.includes('carried'))               return LOOT_GROUP_EMOJI['Worn / Carried'];
-  if (t.includes('bag') || t.includes('container') || t.includes('instrument') ||
-      t.includes('tool') || t.includes('vehicle') || t.includes('gear'))
-                                                                  return LOOT_GROUP_EMOJI['Adventuring Gear'];
   return LOOT_GROUP_EMOJI['Other'];
 }
 
