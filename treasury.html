@@ -1730,7 +1730,10 @@ document.addEventListener('keydown', e => {
 // ══════════════════════════════════
 //  INIT
 // ══════════════════════════════════
-loadData().then(() => {
+Promise.all([
+  loadData(),
+  loadTxMembers(),   // pre-warm cache so renderLedger shows member photos on first render
+]).then(() => {
   render();
   // Set default sort indicator (newest first)
   const arrow = document.getElementById('sort-id');

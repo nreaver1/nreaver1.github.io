@@ -519,9 +519,10 @@
       confirmLabel: 'Yes, Delete Everything',
       cancelLabel:  'Cancel',
       checkboxes: [{
-        id:      'ack',
-        label:   'I understand this cannot be undone',
-        checked: false,
+        id:       'ack',
+        label:    'I understand this cannot be undone',
+        checked:  false,
+        required: true,   // blocks confirm + shakes if unticked
       }],
     });
     // result is false (cancelled) or { confirmed: true, checks: { ack: bool } }

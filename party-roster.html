@@ -542,6 +542,40 @@ function showLoading(on){
 // ══════════════════════════════════════════
 //  RENDER CARDS
 // ══════════════════════════════════════════
+// ── captureTabState() / restoreTabState(state) ───────────────
+// Snapshots the active tab for every rendered member card so it
+// can be restored after render() rebuilds the DOM. Called before
+// any render() that should preserve the user's column selection.
+//
+// Returns: { memberId: 'bio'|'stats'|'effects'|'loot', … }
+function captureTabState(){
+  const state={};
+  document.querySelectorAll('.member-card[data-member-id]').forEach(card=>{
+    const id=card.getAttribute('data-member-id');
+    const activeBtn=card.querySelector('.card-tab.active');
+    if(activeBtn){
+      // derive tab name from the button text (strip count suffix like " (2)")
+      const text=activeBtn.textContent.trim().toLowerCase().replace(/\s*\(\d+\)$/,'');
+      state[id]=text;
+    }
+  });
+  return state;
+}
+
+// Applies a previously captured tab state back onto the freshly
+// rendered cards. Any card not in the snapshot keeps its default (Bio).
+function restoreTabState(state){
+  if(!state||!Object.keys(state).length) return;
+  Object.entries(state).forEach(([id,tab])=>{
+    if(tab==='bio') return; // Bio is the default — already correct
+    const card=document.querySelector(`.member-card[data-member-id="${id}"]`);
+    if(!card) return;
+    const btn=Array.from(card.querySelectorAll('.card-tab'))
+      .find(b=>b.textContent.trim().toLowerCase().replace(/\s*\(\d+\)$/,'')===tab);
+    if(btn) switchTab(id,tab,btn);
+  });
+}
+
 function render(){
   updateStats();
   const grid=document.getElementById('rosterGrid');
@@ -896,7 +930,7 @@ function handleInlinePhoto(e,id){
   reader.onload=async ev=>{
     const idx=members.findIndex(m=>m.id===id); if(idx<0)return;
     members[idx].photo=ev.target.result;
-    try{ await saveMemberToDB(members[idx]); render(); showToast('Portrait updated.'); }
+    try{ await saveMemberToDB(members[idx]); const _tabs=captureTabState(); render(); restoreTabState(_tabs); showToast('Portrait updated.'); }
     catch(e){ console.error(e); showToast('Photo save failed.'); }
   };
   reader.readAsDataURL(file); e.target.value='';
@@ -1054,7 +1088,7 @@ async function saveMember(){
     await saveMemberToDB(member);
     if(editId){const i=members.findIndex(m=>m.id===editId);if(i>=0)members[i]=member;showToast('Member updated.');}
     else{members.push(member);showToast(`${name} added to the roster.`);}
-    render();closeModal();
+    const _tabs=captureTabState(); render(); restoreTabState(_tabs); closeModal();
   }catch(err){console.error(err);showToast('Save failed — check your Supabase config.');}
   finally{setLoading(btn,false); setModalLoading(modal,false);}
 }
@@ -1073,7 +1107,7 @@ async function deleteMember(id){
   try{
     await deleteMemberFromDB(id);
     members=members.filter(x=>x.id!==id);
-    render();showToast('Member removed.');
+    const _tabs=captureTabState(); render(); restoreTabState(_tabs); showToast('Member removed.');
   }catch(err){
     console.error(err);showToast('Delete failed — check your Supabase config.');
     if(delBtn) setLoading(delBtn,false);

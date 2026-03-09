@@ -976,7 +976,11 @@ async function populateHolderFilter(){
   if(current) sel.value=current;
 }
 
-loadTerms().catch(()=>{}); loadData().then(()=>{ renderTable(); populateHolderFilter(); });
+loadTerms().catch(()=>{});
+Promise.all([
+  loadData(),
+  loadPartyMembersAsync(),   // pre-warm cache so renderHolderCell shows photos on first render
+]).then(()=>{ renderTable(); populateHolderFilter(); });
 </script>
 
 <script>

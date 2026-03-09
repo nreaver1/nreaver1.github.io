@@ -146,7 +146,7 @@ function nexusConfirm({ title, name, message, danger = true, confirmLabel = 'Rem
         ${message ? `<div class="nxc-message">${message}</div>` : ''}
         ${checkboxes && checkboxes.length ? `<div class="nxc-checkboxes">${checkboxes.map(cb =>
           `<label class="nxc-check-label">
-            <input type="checkbox" class="nxc-checkbox" id="nxcCheck_${cb.id}" ${cb.checked ? 'checked' : ''} />
+            <input type="checkbox" class="nxc-checkbox" id="nxcCheck_${cb.id}" ${cb.checked ? 'checked' : ''} onchange="this.closest('.nxc-check-label').classList.remove('nxc-required-warn')" />
             <span class="nxc-check-text">${cb.label}</span>
           </label>`
         ).join('')}</div>` : ''}
@@ -169,6 +169,23 @@ function nexusConfirm({ title, name, message, danger = true, confirmLabel = 'Rem
 
     document.getElementById('nxcConfirm').addEventListener('click', () => {
       if (checkboxes && checkboxes.length) {
+        // Block close if any required checkbox is unchecked — highlight and shake it
+        const unmetRequired = checkboxes.filter(cb => {
+          if (!cb.required) return false;
+          const el = document.getElementById('nxcCheck_' + cb.id);
+          return el && !el.checked;
+        });
+        if (unmetRequired.length) {
+          unmetRequired.forEach(cb => {
+            const label = document.querySelector(`label[for="nxcCheck_${cb.id}"], .nxc-check-label:has(#nxcCheck_${cb.id})`);
+            if (!label) return;
+            label.classList.remove('nxc-shake');           // reset so animation re-triggers
+            void label.offsetWidth;                        // force reflow
+            label.classList.add('nxc-required-warn', 'nxc-shake');
+            label.addEventListener('animationend', () => label.classList.remove('nxc-shake'), { once: true });
+          });
+          return;  // do NOT close the dialog
+        }
         const checks = {};
         checkboxes.forEach(cb => {
           const el = document.getElementById('nxcCheck_' + cb.id);
