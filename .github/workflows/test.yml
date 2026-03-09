@@ -38,4 +38,4 @@ jobs:
 
       # 3. Run the tests using Node's built-in runner (no npm install needed)
       - name: Run NEXUS tests
-        run: node --test nexus.test.js
+        run: node --test tests/nexus.test.js

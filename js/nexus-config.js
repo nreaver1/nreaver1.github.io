@@ -1,7 +1,7 @@
 // ══════════════════════════════════════════════════════════════
-//  nexus-config.js  —  Supabase connection + shared DB helpers
+//  js/nexus-config.js  —  Supabase connection + shared DB helpers
 //  Include this FIRST in every page:
-//    <script src="nexus-config.js"></script>
+//    <script src="js/nexus-config.js"></script>
 // ══════════════════════════════════════════════════════════════
 
 // ┌─────────────────────────────────────────────────────────────┐
@@ -109,7 +109,7 @@ const db = {
 if (SUPABASE_URL.includes('YOUR_PROJECT_REF') || SUPABASE_ANON.includes('YOUR_ANON')) {
   console.warn(
     '%c[NEXUS] Supabase credentials not configured.\n' +
-    'Open nexus-config.js and paste your Project URL and anon key.',
+    'Open js/nexus-config.js and paste your Project URL and anon key.',
     'color:#f0a832;font-weight:bold;font-size:13px'
   );
 }
