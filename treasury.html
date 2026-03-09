@@ -316,7 +316,7 @@ let _cachedTxMembers = null;   // party members cache for tx holder dropdown
 const currencyLabels = {};      // id → {name,abbr} — persists after currency deleted
 let memberVaultsCache = {};     // per-member vault totals, refreshed by renderMemberWealth
 
-function uid() { return '_' + Math.random().toString(36).slice(2,11); }
+// uid — defined in js/nexus-utils.js
 
 // ══════════════════════════════════
 //  PERSIST  (Supabase)
@@ -650,8 +650,7 @@ function renderLedger() {
   }).join('');
 }
 
-function fmt(n) { return Number(n).toLocaleString(); }
-function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+// fmt, esc — defined in js/nexus-utils.js
 
 // ══════════════════════════════════
 //  COIN INPUT HELPERS

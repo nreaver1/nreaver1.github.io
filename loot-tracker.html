@@ -421,43 +421,7 @@ const seedItems = [
   { id:uid(), name:"Orb of Old Code",   type:"Wondrous", rarity:"artifact", holder:"Party Vault",attunement:"required", desc:"Do NOT activate.",                                   statEffects:[] },
 ];
 
-// ══════════════════════════════════════════════════════════════
-//  LOOT TYPE EMOJI  — one emoji per optgroup, used in selects + table
-// ══════════════════════════════════════════════════════════════
-const LOOT_GROUP_EMOJI = {
-  'Weapon':            '⚔️',
-  'Armor & Shield':    '🛡️',
-  'Potion':            '🧪',
-  'Scroll':            '📜',
-  'Wand, Staff & Rod': '🪄',
-  'Worn / Carried':    '💍',
-  'Adventuring Gear':  '🎒',
-  'Other':             '✨',
-};
-
-// Given a specific item type string, return the emoji for its group
-function lootTypeEmoji(type) {
-  if (!type) return LOOT_GROUP_EMOJI['Other'];
-  const t = type.toLowerCase();
-  if (t.includes('weapon') || t.includes('melee') || t.includes('ranged') ||
-      t.includes('thrown') || t.includes('ammunition'))          return LOOT_GROUP_EMOJI['Weapon'];
-  if (t.includes('armor') || t.includes('armour') || t.includes('shield') ||
-      t.includes('light armor') || t.includes('medium armor') ||
-      t.includes('heavy armor'))                                  return LOOT_GROUP_EMOJI['Armor & Shield'];
-  if (t.includes('potion'))                                       return LOOT_GROUP_EMOJI['Potion'];
-  if (t.includes('scroll'))                                       return LOOT_GROUP_EMOJI['Scroll'];
-  if (t.includes('wand') || t.includes('staff') || t.includes('rod')) return LOOT_GROUP_EMOJI['Wand, Staff & Rod'];
-  if (t.includes('bag') || t.includes('container') || t.includes('instrument') ||
-      t.includes('tool') || t.includes('vehicle') || t.includes('gear'))
-                                                                  return LOOT_GROUP_EMOJI['Adventuring Gear'];
-  if (t.includes('ring') || t.includes('cloak') || t.includes('boots') ||
-      t.includes('gloves') || t.includes('helm') || t.includes('amulet') ||
-      t.includes('belt') || t.includes('bracers') || t.includes('wondrous') ||
-      t.includes('worn') || t.includes('carried'))               return LOOT_GROUP_EMOJI['Worn / Carried'];
-  return LOOT_GROUP_EMOJI['Other'];
-}
-
-function uid(){ return '_'+Math.random().toString(36).slice(2,11); }
+// LOOT_GROUP_EMOJI, lootTypeEmoji, uid — defined in js/nexus-utils.js
 
 async function loadData(){
   try{

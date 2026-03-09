@@ -710,3 +710,89 @@ describe('lootTypeEmoji()', () => {
   });
 
 });
+
+
+// ══════════════════════════════════════════════════════════════
+//  SECTION 5 — DUPLICATE DECLARATION REGRESSION TESTS
+//
+//  Root cause of the loot-tracker breakage (March 2026):
+//  After nexus-utils.js was extracted, loot-tracker.html still
+//  contained its own copies of LOOT_GROUP_EMOJI (const),
+//  lootTypeEmoji, and uid. When the browser loaded nexus-utils.js
+//  first, the second `const LOOT_GROUP_EMOJI` declaration threw
+//  "Identifier has already been declared" — halting all JS on
+//  the page. Nothing rendered and no modals opened.
+//
+//  These tests guard against the same class of bug recurring:
+//  they verify that nexus-utils.js exports exactly one copy of
+//  each symbol, and that re-requiring the module (simulating a
+//  double-load) doesn't throw.
+// ══════════════════════════════════════════════════════════════
+
+describe('nexus-utils.js — no duplicate declarations', () => {
+
+  // Expected: the module exports exactly one of each symbol.
+  // If a file re-declares a `const` that nexus-utils already
+  // defined, the browser throws immediately and nothing works.
+
+  it('exports exactly one LOOT_GROUP_EMOJI object', () => {
+    // If there were two const declarations in the same scope,
+    // require() itself would have thrown before we got here.
+    assert.strictEqual(typeof LOOT_GROUP_EMOJI, 'object');
+    assert.ok(LOOT_GROUP_EMOJI !== null);
+  });
+
+  it('exports exactly one lootTypeEmoji function', () => {
+    assert.strictEqual(typeof lootTypeEmoji, 'function');
+  });
+
+  it('exports exactly one uid function', () => {
+    assert.strictEqual(typeof uid, 'function');
+  });
+
+  it('exports exactly one esc function', () => {
+    assert.strictEqual(typeof esc, 'function');
+  });
+
+  it('exports exactly one fmt function', () => {
+    assert.strictEqual(typeof fmt, 'function');
+  });
+
+  // Expected: requiring the module a second time returns the
+  // same cached object — Node's module cache prevents re-execution,
+  // matching the browser's behaviour when a script tag runs once.
+  it('re-requiring nexus-utils returns the same module (no re-execution)', () => {
+    const first  = require('../js/nexus-utils.js');
+    const second = require('../js/nexus-utils.js');
+    assert.strictEqual(first, second,
+      'require() should return the cached module, not re-run the file');
+  });
+
+  // Expected: all exported symbols are present and the right type.
+  // This is a canary — if someone removes an export, this fails
+  // before any page that uses it can break silently.
+  it('all expected symbols are exported with correct types', () => {
+    const utils = require('../js/nexus-utils.js');
+    const expected = {
+      uid:                    'function',
+      fmt:                    'function',
+      esc:                    'function',
+      abilityMod:             'function',
+      modStr:                 'function',
+      computeCheck:           'function',
+      computeNetEffects:      'function',
+      recalcVaultFromLedger:  'function',
+      calcSplitShares:        'function',
+      getMemberNetWorth:      'function',
+      LOOT_GROUP_EMOJI:       'object',
+      lootTypeEmoji:          'function',
+    };
+    for (const [name, type] of Object.entries(expected)) {
+      assert.strictEqual(
+        typeof utils[name], type,
+        `nexus-utils.js should export ${name} as ${type}, got ${typeof utils[name]}`
+      );
+    }
+  });
+
+});

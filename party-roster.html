@@ -213,7 +213,7 @@ let editId=null;
 let currentColor=COLORS[0];
 let currentPhoto=null;
 
-function uid(){return '_'+Math.random().toString(36).slice(2,11);}
+// uid — defined in js/nexus-utils.js
 
 // ── STAT HELPERS ──
 function abilityMod(score){return Math.floor(((score||10)-10)/2);}
@@ -711,7 +711,7 @@ function updateStats(){
   document.getElementById('statAvgLevel').textContent=levels.length?(levels.reduce((a,b)=>a+b,0)/levels.length).toFixed(1):'—';
   document.getElementById('statUniqueClasses').textContent=[...new Set(members.map(m=>m.class).filter(Boolean))].length;
 }
-function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+// esc — defined in js/nexus-utils.js
 
 // ══════════════════════════════════════════
 //  PHOTO HANDLING
