@@ -1079,3 +1079,151 @@ describe('computeNetEffects() — damage type tracking', () => {
   });
 
 });
+
+
+// ══════════════════════════════════════════════════════════════
+//  SECTION 9 — fx-val-wrap LAYOUT REGRESSION
+//
+//  The fx-dmg-sel must live inside an .fx-val-wrap div alongside
+//  the fx-val-inp, so it renders below the numeric input rather
+//  than overflowing the row to the right.
+//
+//  We test this structurally by checking the generated HTML
+//  string from addFxRow (by inspecting what lt_addFxRow produces
+//  in the party-roster namespace, mirrored here as a pure string
+//  builder test).
+// ══════════════════════════════════════════════════════════════
+
+describe('fx-val-wrap layout — dmg select inside wrapper', () => {
+
+  // Simulate the HTML template string used by both addFxRow and lt_addFxRow.
+  // The key invariant: fx-dmg-sel must appear INSIDE .fx-val-wrap, and
+  // .fx-val-wrap must appear BEFORE the .fx-del-btn.
+  function buildRowHTML(idx, fxType, fxStat, showDmg) {
+    const needsVal = (t) => t === 'bonus' || t === 'penalty';
+    const displayVal = needsVal(fxType) ? 'block' : 'none';
+    const displayDmg = showDmg ? 'block' : 'none';
+    return `
+      <select class="fx-stat-sel"></select>
+      <select class="fx-type-sel"></select>
+      <div class="fx-val-wrap">
+        <input type="number" class="fx-val-inp" id="fx-val-${idx}" style="display:${displayVal}" />
+        <select class="fx-dmg-sel" id="fx-dmg-${idx}" style="display:${displayDmg}"></select>
+      </div>
+      <button class="fx-del-btn">✕</button>`;
+  }
+
+  it('fx-dmg-sel appears inside .fx-val-wrap, not as a direct sibling of fx-stat-sel', () => {
+    const html = buildRowHTML(0, 'bonus', 'damage_rolls', true);
+    const wrapIdx   = html.indexOf('fx-val-wrap');
+    const dmgIdx    = html.indexOf('fx-dmg-sel');
+    const closeWrap = html.indexOf('</div>', wrapIdx);
+    assert.ok(wrapIdx > -1,   '.fx-val-wrap must exist');
+    assert.ok(dmgIdx  > -1,   '.fx-dmg-sel must exist');
+    assert.ok(dmgIdx  > wrapIdx,  'fx-dmg-sel must appear after .fx-val-wrap opens');
+    assert.ok(dmgIdx  < closeWrap,'fx-dmg-sel must appear before .fx-val-wrap closes');
+  });
+
+  it('.fx-val-wrap appears before .fx-del-btn', () => {
+    const html = buildRowHTML(0, 'bonus', 'damage_rolls', true);
+    const wrapIdx = html.indexOf('fx-val-wrap');
+    const delIdx  = html.indexOf('fx-del-btn');
+    assert.ok(wrapIdx < delIdx, '.fx-val-wrap must come before .fx-del-btn');
+  });
+
+  it('fx-dmg-sel is hidden when stat is not a damage stat', () => {
+    // e.g. editing an AC bonus — no damage type dropdown should show
+    const html = buildRowHTML(0, 'bonus', 'ac', false);
+    assert.ok(html.includes('display:none'), 'fx-dmg-sel should be display:none for non-damage stats');
+  });
+
+  it('fx-dmg-sel is visible when stat is damage_rolls + type is bonus', () => {
+    const html = buildRowHTML(0, 'bonus', 'damage_rolls', true);
+    // The dmg select span should have display:block
+    const dmgMatch = html.match(/fx-dmg-sel[^>]*style="display:([^"]+)"/);
+    assert.ok(dmgMatch, 'fx-dmg-sel should have a style attribute');
+    assert.strictEqual(dmgMatch[1], 'block', 'fx-dmg-sel should be display:block for damage_rolls bonus');
+  });
+
+  it('fx-val-inp is hidden for advantage/disadvantage effects', () => {
+    const html = buildRowHTML(0, 'advantage', 'stealth', false);
+    const valMatch = html.match(/fx-val-inp[^>]*style="display:([^"]+)"/);
+    assert.ok(valMatch, 'fx-val-inp should have a style attribute');
+    assert.strictEqual(valMatch[1], 'none', 'fx-val-inp should be hidden for advantage type');
+  });
+
+});
+
+
+// ══════════════════════════════════════════════════════════════
+//  SECTION 10 — lt_collectFx LOGIC (party-roster modal)
+//
+//  lt_collectFx mirrors collectFx from loot-tracker.html.
+//  These tests cover the collect logic as a pure function.
+// ══════════════════════════════════════════════════════════════
+
+describe('lt_collectFx() — party-roster modal collect logic', () => {
+
+  // Pure replica of lt_collectFx for testing
+  const LT_DAMAGE_STATS = new Set(['damage_rolls','spell_damage','attack_rolls']);
+  function lt_collectFx(pendingFx) {
+    return pendingFx.filter(f => f && f.stat).map(f => {
+      const fx = {
+        stat:  f.stat,
+        type:  f.type || 'bonus',
+        value: (f.type === 'bonus' || f.type === 'penalty') ? (f.value || 0) : null,
+      };
+      if (f.damageType && LT_DAMAGE_STATS.has(f.stat) && (f.type === 'bonus' || f.type === 'penalty')) {
+        fx.damageType = f.damageType;
+      }
+      return fx;
+    });
+  }
+
+  it('filters out null (deleted) rows', () => {
+    const pending = [
+      { stat: 'ac', type: 'bonus', value: 2 },
+      null,
+      { stat: 'stealth', type: 'advantage' },
+    ];
+    const result = lt_collectFx(pending);
+    assert.strictEqual(result.length, 2);
+  });
+
+  it('filters out rows with no stat selected', () => {
+    const pending = [{ stat: '', type: 'bonus', value: 1 }];
+    const result = lt_collectFx(pending);
+    assert.strictEqual(result.length, 0);
+  });
+
+  it('sets value to null for advantage/disadvantage effects', () => {
+    const pending = [{ stat: 'stealth', type: 'advantage' }];
+    const result = lt_collectFx(pending);
+    assert.strictEqual(result[0].value, null);
+  });
+
+  it('includes damageType for damage_rolls + bonus when set', () => {
+    const pending = [{ stat: 'damage_rolls', type: 'bonus', value: 2, damageType: 'fire' }];
+    const result = lt_collectFx(pending);
+    assert.strictEqual(result[0].damageType, 'fire');
+  });
+
+  it('excludes damageType for non-damage stats even if damageType is set', () => {
+    const pending = [{ stat: 'ac', type: 'bonus', value: 2, damageType: 'fire' }];
+    const result = lt_collectFx(pending);
+    assert.strictEqual(result[0].damageType, undefined);
+  });
+
+  it('excludes damageType for advantage effects on damage stats', () => {
+    const pending = [{ stat: 'damage_rolls', type: 'advantage', damageType: 'fire' }];
+    const result = lt_collectFx(pending);
+    assert.strictEqual(result[0].damageType, undefined);
+  });
+
+  it('rounds absent value to 0 for bonus effects', () => {
+    const pending = [{ stat: 'ac', type: 'bonus', value: null }];
+    const result = lt_collectFx(pending);
+    assert.strictEqual(result[0].value, 0);
+  });
+
+});

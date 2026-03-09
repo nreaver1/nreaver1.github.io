@@ -1204,15 +1204,17 @@ td { padding: 0.7rem 1rem; }
 /* stat effects editor */
 .fx-section-label { font-family: 'Share Tech Mono', monospace; font-size: 0.8rem; letter-spacing: 0.15em; text-transform: uppercase; color: var(--cyan-dim); display: flex; align-items: center; justify-content: space-between; }
 .fx-rows { display: flex; flex-direction: column; gap: 0.5rem; margin-top: 0.4rem; }
-.fx-row  { display: flex; gap: 0.5rem; align-items: center; background: rgba(14,240,208,0.03); border: 1px solid var(--border); border-radius: 3px; padding: 0.5rem 0.7rem; }
+.fx-row  { display: flex; gap: 0.5rem; align-items: flex-start; background: rgba(14,240,208,0.03); border: 1px solid var(--border); border-radius: 3px; padding: 0.5rem 0.7rem; }
 .fx-row select, .fx-row input { background: rgba(14,240,208,0.04); border: 1px solid var(--border); border-radius: 3px; color: var(--text); font-family: 'Rajdhani', sans-serif; font-size: 0.8rem; padding: 0.3rem 0.5rem; outline: none; transition: border-color 0.2s; width: auto; }
 .fx-row select:focus, .fx-row input:focus { border-color: var(--cyan-dim); }
 .fx-stat-sel { flex: 2; }
 .fx-type-sel { flex: 2; }
-.fx-val-inp  { width: 70px; flex-shrink: 0; text-align: center; }
-.fx-dmg-sel  { flex: 1.5; min-width: 110px; color: var(--amber) !important; border-color: rgba(240,168,50,0.25) !important; }
+/* fx-val-wrap groups the numeric input + damage-type select vertically */
+.fx-val-wrap { display: flex; flex-direction: column; gap: 3px; flex-shrink: 0; }
+.fx-val-inp  { width: 70px; text-align: center; }
+.fx-dmg-sel  { width: 70px; color: var(--amber) !important; border-color: rgba(240,168,50,0.25) !important; font-size: 0.72rem !important; padding: 0.2rem 0.3rem !important; }
 .fx-dmg-sel:focus { border-color: var(--amber) !important; }
-.fx-del-btn  { background: none; border: none; cursor: pointer; color: var(--red); opacity: 0.5; font-size: 0.8rem; padding: 0 4px; transition: opacity 0.15s; flex-shrink: 0; }
+.fx-del-btn  { background: none; border: none; cursor: pointer; color: var(--red); opacity: 0.5; font-size: 0.8rem; padding: 0 4px; transition: opacity 0.15s; flex-shrink: 0; margin-top: 4px; }
 .fx-del-btn:hover { opacity: 1; }
 .fx-hint { font-family: 'Share Tech Mono', monospace; font-size: 0.8rem; color: var(--text-dim); letter-spacing: 0.08em; margin-top: 2px; }
 

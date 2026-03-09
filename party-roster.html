@@ -159,6 +159,133 @@
 </div>
 
 <input type="file" id="fileImport" accept=".json" style="display:none" onchange="handleImport(event)" />
+
+<!-- ══════════════════════════════════════════════════════════
+     LOOT ITEM EDIT MODAL  (opened from Effects tab)
+     All IDs are prefixed lt_ to avoid collision with the
+     member modal that already exists on this page.
+════════════════════════════════════════════════════════════ -->
+<div class="modal-backdrop" id="lt_modalBackdrop" onclick="lt_backdropClose(event)">
+  <div class="modal" id="lt_itemModal">
+    <div class="modal-header">
+      <span class="modal-title" id="lt_modalTitle">⚙ EDIT ITEM</span>
+      <button class="btn-icon" onclick="lt_closeModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="field">
+        <label>Item Name *</label>
+        <input type="text" class="mi" id="lt_fieldName" placeholder="e.g. Plasma Sword, Shadow Cloak…" />
+      </div>
+      <div class="field-row">
+        <div class="field">
+          <label>Type</label>
+          <select class="mi" id="lt_fieldType">
+            <option value="">All Types</option>
+            <optgroup label="⚔️ Weapon">
+              <option value="Melee Weapon">Melee Weapon</option>
+              <option value="Ranged Weapon">Ranged Weapon</option>
+              <option value="Thrown Weapon">Thrown Weapon</option>
+              <option value="Ammunition">Ammunition</option>
+              <option value="Other Weapon">Other Weapon</option>
+            </optgroup>
+            <optgroup label="🛡️ Armor &amp; Shield">
+              <option value="Light Armor">Light Armor</option>
+              <option value="Medium Armor">Medium Armor</option>
+              <option value="Heavy Armor">Heavy Armor</option>
+              <option value="Shield">Shield</option>
+              <option value="Other Armor">Other Armor</option>
+            </optgroup>
+            <optgroup label="🧪 Potion">
+              <option value="Potion of Healing">Potion of Healing</option>
+              <option value="Potion of Greater Healing">Potion of Greater Healing</option>
+              <option value="Potion of Superior Healing">Potion of Superior Healing</option>
+              <option value="Potion of Supreme Healing">Potion of Supreme Healing</option>
+              <option value="Other Potion">Other Potion</option>
+            </optgroup>
+            <optgroup label="📜 Scroll">
+              <option value="Spell Scroll">Spell Scroll</option>
+              <option value="Other Scroll">Other Scroll</option>
+            </optgroup>
+            <optgroup label="🪄 Wand, Staff &amp; Rod">
+              <option value="Wand">Wand</option>
+              <option value="Staff">Staff</option>
+              <option value="Rod">Rod</option>
+              <option value="Other Wand / Staff / Rod">Other Wand / Staff / Rod</option>
+            </optgroup>
+            <optgroup label="💍 Worn / Carried">
+              <option value="Ring">Ring</option>
+              <option value="Cloak">Cloak</option>
+              <option value="Boots">Boots</option>
+              <option value="Gloves">Gloves</option>
+              <option value="Helm">Helm</option>
+              <option value="Amulet">Amulet</option>
+              <option value="Belt">Belt</option>
+              <option value="Bracers">Bracers</option>
+              <option value="Wondrous Item">Wondrous Item</option>
+              <option value="Other Worn / Carried">Other Worn / Carried</option>
+            </optgroup>
+            <optgroup label="🎒 Adventuring Gear">
+              <option value="Bag">Bag</option>
+              <option value="Container">Container</option>
+              <option value="Instrument">Instrument</option>
+              <option value="Tool">Tool</option>
+              <option value="Vehicle">Vehicle</option>
+              <option value="Other Gear">Other Gear</option>
+            </optgroup>
+            <option value="Other">Other</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Rarity</label>
+          <select class="mi" id="lt_fieldRarity">
+            <option value="common">Common</option>
+            <option value="uncommon">Uncommon</option>
+            <option value="rare" selected>Rare</option>
+            <option value="very-rare">Very Rare</option>
+            <option value="legendary">Legendary</option>
+            <option value="artifact">Artifact</option>
+          </select>
+        </div>
+      </div>
+      <div class="field-row">
+        <div class="field">
+          <label>Held By</label>
+          <!-- Simple text select — no fancy dropdown needed here -->
+          <select class="mi" id="lt_fieldHolder">
+            <option value="">— Unassigned —</option>
+            <option value="Party Inventory">Party Inventory</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Attunement</label>
+          <select class="mi" id="lt_fieldAttunement">
+            <option value="none">Not required</option>
+            <option value="required">Required</option>
+            <option value="attuned">Attuned</option>
+          </select>
+        </div>
+      </div>
+      <div class="field">
+        <label>Description / Notes</label>
+        <textarea class="mi" id="lt_fieldDesc" placeholder="Item description, acquisition notes…"></textarea>
+      </div>
+      <!-- STAT EFFECTS -->
+      <div class="field">
+        <div class="fx-section-label">
+          <span>Stat Effects</span>
+          <button class="btn btn-ghost" style="font-size:0.52rem;padding:0.3rem 0.7rem;" onclick="lt_addFxRow()">+ Add Effect</button>
+        </div>
+        <div class="fx-hint">Add any bonuses, penalties, advantage, or disadvantage this item grants.</div>
+        <div class="fx-rows" id="lt_fxRows"></div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="lt_closeModal()">Cancel</button>
+      <button class="btn btn-primary" id="lt_btnSaveItem" onclick="lt_saveItem()">Save Item</button>
+    </div>
+  </div>
+</div>
+
 <div class="toast" id="toast"></div>
 
 <script>
@@ -523,7 +650,10 @@ function buildCard(m,idx){
     if(!(item.statEffects||[]).length) return '';
     const pills=(item.statEffects||[]).map(fx=>`<span class="fx-pill ${fxClass(fx.type)}">${esc(fxShort(fx))}</span>`).join('');
     return `<div class="fx-item-group">
-      <div class="fx-item-name">⚙ ${esc(item.name)} <span class="fx-item-rarity">[${esc(item.rarity)}]</span></div>
+      <div class="fx-item-name" style="justify-content:space-between">
+        <span>⚙ ${esc(item.name)} <span class="fx-item-rarity">[${esc(item.rarity)}]</span></span>
+        <button class="btn-icon" title="Edit item effects" style="font-size:0.7rem;opacity:0.7;padding:0 4px;" onclick="lt_openModal('${esc(item.id)}')">✎</button>
+      </div>
       <div class="fx-effects-list">${pills}</div>
     </div>`;
   }).filter(Boolean).join('');
@@ -983,6 +1113,237 @@ async function handleImport(e){
 
 function showToast(msg,dur=2800){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');clearTimeout(t._to);t._to=setTimeout(()=>t.classList.remove('show'),dur);}
 document.addEventListener('keydown',e=>{if(e.key==='Escape')closeModal();if(e.key==='Enter'&&document.getElementById('memberModal').classList.contains('open')&&document.activeElement.tagName!=='TEXTAREA'&&document.activeElement.tagName!=='SELECT')saveMember();});
+
+
+// ══════════════════════════════════════════════════════════════
+//  LOOT ITEM EDIT MODAL  (lt_ namespace)
+//
+//  Lets the DM edit loot items directly from the Effects tab on
+//  a member card, without navigating to the Loot Tracker page.
+//
+//  After saving, _cachedLootItems is invalidated and the open
+//  member card's Effects tab is re-rendered so net totals update
+//  immediately without a full page reload.
+// ══════════════════════════════════════════════════════════════
+
+let lt_editingId   = null;
+let lt_pendingFx   = [];
+// DAMAGE_STATS mirrors the same set used in loot-tracker.html
+const LT_DAMAGE_STATS = new Set(['damage_rolls','spell_damage','attack_rolls']);
+
+// ── Stat + type option builders (mirror loot-tracker.html) ──
+const LT_ALL_STATS = [
+  {key:'str',label:'STR – Strength'},{key:'dex',label:'DEX – Dexterity'},{key:'con',label:'CON – Constitution'},
+  {key:'int',label:'INT – Intelligence'},{key:'wis',label:'WIS – Wisdom'},{key:'cha',label:'CHA – Charisma'},
+  {key:'ac',label:'AC – Armor Class'},{key:'hp',label:'HP – Hit Points (Max)'},{key:'speed',label:'Speed (ft)'},
+  {key:'initiative',label:'Initiative'},{key:'prof_bonus',label:'Proficiency Bonus'},
+  {key:'save_str',label:'Save – Strength'},{key:'save_dex',label:'Save – Dexterity'},{key:'save_con',label:'Save – Constitution'},
+  {key:'save_int',label:'Save – Intelligence'},{key:'save_wis',label:'Save – Wisdom'},{key:'save_cha',label:'Save – Charisma'},
+  {key:'acrobatics',label:'Skill – Acrobatics (DEX)'},{key:'animal_handling',label:'Skill – Animal Handling (WIS)'},
+  {key:'arcana',label:'Skill – Arcana (INT)'},{key:'athletics',label:'Skill – Athletics (STR)'},
+  {key:'deception',label:'Skill – Deception (CHA)'},{key:'history',label:'Skill – History (INT)'},
+  {key:'insight',label:'Skill – Insight (WIS)'},{key:'intimidation',label:'Skill – Intimidation (CHA)'},
+  {key:'investigation',label:'Skill – Investigation (INT)'},{key:'medicine',label:'Skill – Medicine (WIS)'},
+  {key:'nature',label:'Skill – Nature (INT)'},{key:'perception',label:'Skill – Perception (WIS)'},
+  {key:'performance',label:'Skill – Performance (CHA)'},{key:'persuasion',label:'Skill – Persuasion (CHA)'},
+  {key:'religion',label:'Skill – Religion (INT)'},{key:'sleight_of_hand',label:'Skill – Sleight of Hand (DEX)'},
+  {key:'stealth',label:'Skill – Stealth (DEX)'},{key:'survival',label:'Skill – Survival (WIS)'},
+  {key:'attack_rolls',label:'Attack Rolls'},{key:'spell_attack',label:'Spell Attack Rolls'},
+  {key:'spell_dc',label:'Spell Save DC'},{key:'damage_rolls',label:'Damage Rolls'},{key:'spell_damage',label:'Spell Damage Rolls'},
+];
+const LT_FX_TYPES = [
+  {key:'bonus',label:'+Bonus'},{key:'penalty',label:'−Penalty'},
+  {key:'advantage',label:'Advantage'},{key:'disadvantage',label:'Disadvantage'},
+];
+
+function lt_buildStatSelect(){
+  const groups=[
+    {label:'Main Stats',keys:['str','dex','con','int','wis','cha','ac','hp','speed','initiative','prof_bonus']},
+    {label:'Saving Throws',keys:['save_str','save_dex','save_con','save_int','save_wis','save_cha']},
+    {label:'Skills',keys:['acrobatics','animal_handling','arcana','athletics','deception','history','insight','intimidation','investigation','medicine','nature','perception','performance','persuasion','religion','sleight_of_hand','stealth','survival']},
+    {label:'Rolls',keys:['attack_rolls','spell_attack','spell_dc','damage_rolls','spell_damage']},
+  ];
+  const statMap={};
+  LT_ALL_STATS.forEach(s=>statMap[s.key]=s.label);
+  return `<option value="">— Stat —</option>`+
+    groups.map(g=>`<optgroup label="${g.label}">`+g.keys.map(k=>`<option value="${k}">${esc(statMap[k]||k)}</option>`).join('')+`</optgroup>`).join('');
+}
+function lt_buildTypeSelect(){
+  return LT_FX_TYPES.map(t=>`<option value="${t.key}">${t.label}</option>`).join('');
+}
+function lt_buildDmgTypeSelect(){
+  return `<option value="">— All / Untyped —</option>`+
+    (typeof DAMAGE_TYPES!=='undefined'?DAMAGE_TYPES:[]).map(t=>
+      `<option value="${t}">${t.charAt(0).toUpperCase()+t.slice(1)}</option>`
+    ).join('');
+}
+
+function lt_addFxRow(existing){
+  const container=document.getElementById('lt_fxRows');
+  const idx=lt_pendingFx.length;
+  const fx=existing||{stat:'',type:'bonus',value:null,damageType:''};
+  lt_pendingFx.push(fx);
+  const row=document.createElement('div');
+  row.className='fx-row';
+  row.id=`lt_fx-row-${idx}`;
+  const needsVal=(t)=>t==='bonus'||t==='penalty';
+  const showDmg=(t,s)=>(t==='bonus'||t==='penalty')&&LT_DAMAGE_STATS.has(s);
+  row.innerHTML=`
+    <select class="fx-stat-sel" onchange="lt_pendingFx[${idx}].stat=this.value;lt_fxUpdateDmgVis(${idx})">${lt_buildStatSelect()}</select>
+    <select class="fx-type-sel" onchange="lt_pendingFx[${idx}].type=this.value;document.getElementById('lt_fx-val-${idx}').style.display=(this.value==='bonus'||this.value==='penalty')?'block':'none';lt_fxUpdateDmgVis(${idx})">${lt_buildTypeSelect()}</select>
+    <div class="fx-val-wrap">
+      <input type="number" class="fx-val-inp" id="lt_fx-val-${idx}" placeholder="±#" style="display:${needsVal(fx.type)?'block':'none'}" onchange="lt_pendingFx[${idx}].value=parseFloat(this.value)||null" />
+      <select class="fx-dmg-sel" id="lt_fx-dmg-${idx}" style="display:${showDmg(fx.type,fx.stat)?'block':'none'}" onchange="lt_pendingFx[${idx}].damageType=this.value||null">${lt_buildDmgTypeSelect()}</select>
+    </div>
+    <button class="fx-del-btn" onclick="lt_removeFxRow(${idx})">✕</button>`;
+  container.appendChild(row);
+  row.querySelector('.fx-stat-sel').value=fx.stat||'';
+  row.querySelector('.fx-type-sel').value=fx.type||'bonus';
+  if(fx.value!=null) document.getElementById(`lt_fx-val-${idx}`).value=fx.value;
+  document.getElementById(`lt_fx-dmg-${idx}`).value=fx.damageType||'';
+}
+function lt_fxUpdateDmgVis(idx){
+  const stat=lt_pendingFx[idx]?.stat||'';
+  const type=lt_pendingFx[idx]?.type||'';
+  const sel=document.getElementById(`lt_fx-dmg-${idx}`);
+  if(sel) sel.style.display=(type==='bonus'||type==='penalty')&&LT_DAMAGE_STATS.has(stat)?'block':'none';
+}
+function lt_removeFxRow(idx){
+  lt_pendingFx[idx]=null;
+  const row=document.getElementById(`lt_fx-row-${idx}`);
+  if(row) row.remove();
+}
+function lt_collectFx(){
+  return lt_pendingFx.filter(f=>f&&f.stat).map(f=>{
+    const fx={stat:f.stat,type:f.type||'bonus',value:(f.type==='bonus'||f.type==='penalty')?(f.value||0):null};
+    if(f.damageType&&LT_DAMAGE_STATS.has(f.stat)&&(f.type==='bonus'||f.type==='penalty')) fx.damageType=f.damageType;
+    return fx;
+  });
+}
+
+// Populate the Held By <select> with current party members + special options
+async function lt_populateHolderSelect(currentValue){
+  const sel=document.getElementById('lt_fieldHolder');
+  // keep the first two static options (Unassigned, Party Inventory)
+  while(sel.options.length>2) sel.remove(2);
+  try{
+    const members=await db.select('party_members',{order:'created_at.asc'});
+    members.forEach(m=>{
+      const opt=document.createElement('option');
+      opt.value=m.name; opt.textContent=m.name;
+      sel.appendChild(opt);
+    });
+  }catch(e){ console.error('lt holder list failed',e); }
+  sel.value=currentValue||'';
+}
+
+async function lt_openModal(id){
+  lt_editingId=id||null;
+  document.getElementById('lt_modalTitle').textContent=id?'⚙ EDIT ITEM':'⚙ ADD LOOT ITEM';
+  lt_pendingFx=[];
+  document.getElementById('lt_fxRows').innerHTML='';
+
+  if(id){
+    // Pull from cache first; fall back to a fresh DB fetch if not found
+    let it=(_cachedLootItems||[]).find(i=>i.id===id);
+    if(!it){
+      try{
+        const rows=await db.select('loot_items',{filter:`id=eq.${id}`});
+        if(rows.length){
+          it={
+            id:rows[0].id,name:rows[0].name,type:rows[0].type,rarity:rows[0].rarity,
+            holder:rows[0].holder,attunement:rows[0].attunement,
+            desc:rows[0].desc,statEffects:rows[0].stat_effects||[],
+          };
+        }
+      }catch(e){ console.error(e); showToast('Could not load item.'); return; }
+    }
+    if(!it){ showToast('Item not found.'); return; }
+
+    document.getElementById('lt_fieldName').value=it.name||'';
+    document.getElementById('lt_fieldType').value=it.type||'';
+    document.getElementById('lt_fieldRarity').value=it.rarity||'rare';
+    document.getElementById('lt_fieldAttunement').value=it.attunement||'none';
+    document.getElementById('lt_fieldDesc').value=it.desc||'';
+    await lt_populateHolderSelect(it.holder||'');
+    (it.statEffects||[]).forEach(fx=>lt_addFxRow({...fx}));
+  } else {
+    document.getElementById('lt_fieldName').value='';
+    document.getElementById('lt_fieldDesc').value='';
+    document.getElementById('lt_fieldType').value='Wondrous Item';
+    document.getElementById('lt_fieldRarity').value='rare';
+    document.getElementById('lt_fieldAttunement').value='none';
+    await lt_populateHolderSelect('');
+  }
+
+  document.getElementById('lt_modalBackdrop').classList.add('open');
+  setTimeout(()=>document.getElementById('lt_fieldName').focus(),150);
+}
+
+function lt_closeModal(){
+  document.getElementById('lt_modalBackdrop').classList.remove('open');
+  lt_editingId=null; lt_pendingFx=[];
+}
+function lt_backdropClose(e){
+  if(e.target===document.getElementById('lt_modalBackdrop')) lt_closeModal();
+}
+
+async function lt_saveItem(){
+  const name=document.getElementById('lt_fieldName').value.trim();
+  if(!name){ showToast('Item name is required.'); return; }
+
+  const item={
+    id:        lt_editingId||uid(),
+    name,
+    type:       document.getElementById('lt_fieldType').value,
+    rarity:     document.getElementById('lt_fieldRarity').value,
+    holder:     document.getElementById('lt_fieldHolder').value,
+    attunement: document.getElementById('lt_fieldAttunement').value,
+    desc:       document.getElementById('lt_fieldDesc').value.trim(),
+    statEffects: lt_collectFx(),
+  };
+
+  const btn   = document.getElementById('lt_btnSaveItem');
+  const modal = document.getElementById('lt_itemModal');
+  btn.dataset.loadingText = lt_editingId ? 'Updating…' : 'Saving…';
+  setLoading(btn,true); setModalLoading(modal,true);
+  try{
+    await db.upsert('loot_items',{
+      id:          item.id,
+      name:        item.name,
+      type:        item.type,
+      rarity:      item.rarity,
+      holder:      item.holder,
+      attunement:  item.attunement,
+      desc:        item.desc,
+      stat_effects: item.statEffects,
+    });
+
+    // ── Invalidate cache and refresh effects panel ──
+    // Update the cached item in-place so the effects tab re-renders
+    // with the new stat effects immediately, without a full page reload.
+    if(_cachedLootItems){
+      const idx=_cachedLootItems.findIndex(i=>i.id===item.id);
+      if(idx>=0) _cachedLootItems[idx]=item;
+      else       _cachedLootItems.push(item);
+    }
+
+    showToast(lt_editingId ? 'Item updated.' : 'Item added.');
+    lt_closeModal();
+
+    // Re-render only the cards that display this item's holder
+    // (or all cards if holder changed). Cheapest path: full render.
+    render();
+
+  }catch(e){ console.error(e); showToast('Save failed — check your Supabase config.');
+  }finally{ setLoading(btn,false); setModalLoading(modal,false); }
+}
+
+// Extend the global Escape handler to also close the loot modal
+document.addEventListener('keydown',function(e){
+  if(e.key==='Escape') lt_closeModal();
+});
+
 loadTerms().catch(()=>{});
 loadData().then(() => Promise.all([prefetchLootItems(), prefetchTreasury()]).then(() => render()));
 </script>

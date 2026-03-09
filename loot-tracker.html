@@ -800,8 +800,10 @@ function addFxRow(existing){
   row.innerHTML=`
     <select class="fx-stat-sel" onchange="pendingFx[${idx}].stat=this.value;fxUpdateDmgVis(${idx})">${buildStatSelect()}</select>
     <select class="fx-type-sel" onchange="pendingFx[${idx}].type=this.value;document.getElementById('fx-val-${idx}').style.display=(this.value==='bonus'||this.value==='penalty')?'block':'none';fxUpdateDmgVis(${idx})">${buildTypeSelect()}</select>
-    <input  type="number" class="fx-val-inp" id="fx-val-${idx}" placeholder="±#" style="display:${needsVal(fx.type)?'block':'none'}" onchange="pendingFx[${idx}].value=parseFloat(this.value)||null" />
-    <select class="fx-dmg-sel" id="fx-dmg-${idx}" style="display:${showDmg(fx.type,fx.stat)?'block':'none'}" onchange="pendingFx[${idx}].damageType=this.value||null">${buildDmgTypeSelect()}</select>
+    <div class="fx-val-wrap">
+      <input  type="number" class="fx-val-inp" id="fx-val-${idx}" placeholder="±#" style="display:${needsVal(fx.type)?'block':'none'}" onchange="pendingFx[${idx}].value=parseFloat(this.value)||null" />
+      <select class="fx-dmg-sel" id="fx-dmg-${idx}" style="display:${showDmg(fx.type,fx.stat)?'block':'none'}" onchange="pendingFx[${idx}].damageType=this.value||null">${buildDmgTypeSelect()}</select>
+    </div>
     <button class="fx-del-btn" onclick="removeFxRow(${idx})">✕</button>`;
   container.appendChild(row);
   // set saved values
