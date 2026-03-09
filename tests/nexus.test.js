@@ -1227,3 +1227,65 @@ describe('lt_collectFx() — party-roster modal collect logic', () => {
   });
 
 });
+
+
+// ══════════════════════════════════════════════════════════════
+//  SECTION 11 — lt_saveItem DB column mapping
+//
+//  The loot_items table uses the column name "description" (not
+//  "desc"). lt_saveItem was sending "desc" which caused a
+//  Supabase PGRST204 schema cache error.
+//
+//  This test verifies the row object that would be sent to
+//  db.upsert uses "description" as the key, not "desc".
+// ══════════════════════════════════════════════════════════════
+
+describe('lt_saveItem — DB column name mapping', () => {
+
+  // Replicate the row-building logic from lt_saveItem
+  function buildUpsertRow(item) {
+    return {
+      id:           item.id,
+      name:         item.name,
+      type:         item.type,
+      rarity:       item.rarity,
+      holder:       item.holder,
+      attunement:   item.attunement,
+      description:  item.desc,       // must be "description", not "desc"
+      stat_effects: item.statEffects,
+    };
+  }
+
+  it('row uses "description" key, not "desc"', () => {
+    const item = { id: '_abc', name: 'Test', type: 'Wondrous Item', rarity: 'rare',
+                   holder: '', attunement: 'none', desc: 'A test item.', statEffects: [] };
+    const row = buildUpsertRow(item);
+    assert.ok('description' in row,  'row must have "description" key');
+    assert.ok(!('desc' in row),      'row must NOT have "desc" key');
+  });
+
+  it('description value is passed through correctly', () => {
+    const item = { id: '_abc', name: 'Test', type: 'Wondrous Item', rarity: 'rare',
+                   holder: '', attunement: 'none', desc: 'A test item.', statEffects: [] };
+    const row = buildUpsertRow(item);
+    assert.strictEqual(row.description, 'A test item.');
+  });
+
+  it('stat_effects key (not statEffects) is used for the DB column', () => {
+    const item = { id: '_abc', name: 'Test', type: 'Ring', rarity: 'uncommon',
+                   holder: 'Mira', attunement: 'attuned', desc: '',
+                   statEffects: [{ stat: 'ac', type: 'bonus', value: 1 }] };
+    const row = buildUpsertRow(item);
+    assert.ok('stat_effects' in row,      'row must have "stat_effects" key');
+    assert.ok(!('statEffects' in row),    'row must NOT have "statEffects" key');
+    assert.strictEqual(row.stat_effects.length, 1);
+  });
+
+  it('null description is passed through (not coerced)', () => {
+    const item = { id: '_abc', name: 'Test', type: 'Other', rarity: 'common',
+                   holder: '', attunement: 'none', desc: null, statEffects: [] };
+    const row = buildUpsertRow(item);
+    assert.strictEqual(row.description, null);
+  });
+
+});

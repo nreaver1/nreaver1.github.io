@@ -1309,13 +1309,13 @@ async function lt_saveItem(){
   setLoading(btn,true); setModalLoading(modal,true);
   try{
     await db.upsert('loot_items',{
-      id:          item.id,
-      name:        item.name,
-      type:        item.type,
-      rarity:      item.rarity,
-      holder:      item.holder,
-      attunement:  item.attunement,
-      desc:        item.desc,
+      id:           item.id,
+      name:         item.name,
+      type:         item.type,
+      rarity:       item.rarity,
+      holder:       item.holder,
+      attunement:   item.attunement,
+      description:  item.desc,      // DB column is "description", not "desc"
       stat_effects: item.statEffects,
     });
 
