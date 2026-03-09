@@ -1,9 +1,9 @@
 // ══════════════════════════════════════════════════════════════
-//  nexus-utils.js  —  Pure utility functions shared across all
+//  js/nexus-utils.js  —  Pure utility functions shared across all
 //  NEXUS modules. No DOM access, no Supabase, no side effects.
 //
 //  These functions are:
-//    1. Included in every page via <script src="nexus-utils.js">
+//    1. Included in every page via <script src="js/nexus-utils.js">
 //    2. Exported via module.exports for the test suite (Node only)
 //
 //  If you add or change any function here, run the tests:

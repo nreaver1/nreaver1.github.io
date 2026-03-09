@@ -1,8 +1,8 @@
 // ══════════════════════════════════════════════════════════════
 //  nexus.test.js  —  NEXUS Campaign System Test Suite
 //
-//  Covers all pure functions in nexus-utils.js.
-//  Run with:   node --test nexus.test.js
+//  Covers all pure functions in js/nexus-utils.js.
+//  Run with:   node --test tests/nexus.test.js
 //
 //  Uses Node's built-in test runner (node:test) — no dependencies.
 //  Output is TAP format. Each section is clearly labelled with:
@@ -28,7 +28,7 @@ const {
   getMemberNetWorth,
   LOOT_GROUP_EMOJI,
   lootTypeEmoji,
-} = require('./nexus-utils.js');
+} = require('../js/nexus-utils.js');
 
 
 // ══════════════════════════════════════════════════════════════

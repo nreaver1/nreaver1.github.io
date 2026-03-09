@@ -4,11 +4,11 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>NEXUS // Campaign Dashboard</title>
-  <script src="nexus-config.js"></script>
-  <script src="nexus-utils.js"></script>
-  <link rel="icon" type="image/x-icon" href="favicon.ico" />
+  <script src="js/nexus-config.js"></script>
+  <script src="js/nexus-utils.js"></script>
+  <link rel="icon" type="image/x-icon" href="assets/favicon.ico" />
   <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@400;700;900&family=Rajdhani:wght@400;500;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="nexus.css" />
+  <link rel="stylesheet" href="css/nexus.css" />
 </head>
 <body class="has-sidenav page-dashboard">
 
@@ -35,12 +35,12 @@
       <span class="nav-label">Party Roster</span>
       <span class="nav-pip"></span>
     </a>
-    <a class="sidenav-link" href="dnd-gold-tracker.html">
+    <a class="sidenav-link" href="treasury.html">
       <span class="nav-icon">💰</span>
       <span class="nav-label">Treasury</span>
       <span class="nav-pip"></span>
     </a>
-    <a class="sidenav-link" href="dnd-loot-tracker.html">
+    <a class="sidenav-link" href="loot-tracker.html">
       <span class="nav-icon">⚔️</span>
       <span class="nav-label">Loot Tracker</span>
       <span class="nav-pip"></span>
@@ -89,7 +89,7 @@
     </a>
 
     <!-- Treasury -->
-    <a class="module-card active-module" href="dnd-gold-tracker.html"
+    <a class="module-card active-module" href="treasury.html"
        style="--card-accent:#f0a832; --card-glow:rgba(240,168,50,0.12)">
       <div class="card-head">
         <div class="card-icon">💰</div>
@@ -108,7 +108,7 @@
     </a>
 
     <!-- Loot Tracker -->
-    <a class="module-card active-module" href="dnd-loot-tracker.html"
+    <a class="module-card active-module" href="loot-tracker.html"
        style="--card-accent:#c07de8; --card-glow:rgba(192,125,232,0.1)">
       <div class="card-head">
         <div class="card-icon">⚔️</div>
@@ -470,7 +470,7 @@
         gradStyleEl.id = gradStyleId;
         document.head.appendChild(gradStyleEl);
       }
-      gradStyleEl.textContent = ''; // keyframe is in nexus.css
+      gradStyleEl.textContent = ''; // keyframe is in css/nexus.css
       totalBarEl.style.background     = `linear-gradient(135deg, ${stops})`;
       totalBarEl.style.backgroundSize = '200% 200%';
       totalBarEl.style.animation      = 'idxMmFlow 6s ease infinite';
@@ -569,7 +569,7 @@
     </div>
     <div class="modal-footer">
       <button class="btn btn-ghost" onclick="closeIdxMemberModal()">Close</button>
-      <a class="btn btn-cyan" href="dnd-gold-tracker.html">View Full Treasury →</a>
+      <a class="btn btn-cyan" href="treasury.html">View Full Treasury →</a>
     </div>
   </div>
 </div>

@@ -4,11 +4,11 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>PARTY ROSTER // Crew Registry</title>
-  <script src="nexus-config.js"></script>
-  <script src="nexus-utils.js"></script>
-  <link rel="icon" type="image/x-icon" href="favicon.ico" />
+  <script src="js/nexus-config.js"></script>
+  <script src="js/nexus-utils.js"></script>
+  <link rel="icon" type="image/x-icon" href="assets/favicon.ico" />
   <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@400;700;900&family=Rajdhani:wght@400;500;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="nexus.css" />
+  <link rel="stylesheet" href="css/nexus.css" />
 </head>
 <body class="has-sidenav page-roster">
 
@@ -38,12 +38,12 @@
       <span class="nav-label">Party Roster</span>
       <span class="nav-pip"></span>
     </a>
-    <a class="sidenav-link" href="dnd-gold-tracker.html">
+    <a class="sidenav-link" href="treasury.html">
       <span class="nav-icon">💰</span>
       <span class="nav-label">Treasury</span>
       <span class="nav-pip"></span>
     </a>
-    <a class="sidenav-link" href="dnd-loot-tracker.html">
+    <a class="sidenav-link" href="loot-tracker.html">
       <span class="nav-icon">⚔️</span>
       <span class="nav-label">Loot Tracker</span>
       <span class="nav-pip"></span>
@@ -547,7 +547,7 @@ function buildCard(m,idx){
   const rarityColor = { common:'var(--text-dim)', uncommon:'var(--green)', rare:'#6a9fe8', 'very-rare':'#c07de8', legendary:'var(--amber)', artifact:'var(--red)' };
   const attuneBadge = at => at==='attuned'?'<span class="loot-attuned-badge">ATTUNED</span>':at==='required'?'<span class="loot-attuned-badge loot-attuned-req">REQ</span>':'';
   const lootRows = memberItems.map(it => `
-    <a class="loot-tab-row" href="dnd-loot-tracker.html" title="View in Loot Tracker">
+    <a class="loot-tab-row" href="loot-tracker.html" title="View in Loot Tracker">
       <span class="loot-tab-name">${esc(it.name)}</span>
       <span class="loot-tab-meta">
         ${it.type?`<span class="loot-tab-type">${esc(it.type)}</span>`:''}

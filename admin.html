@@ -6,9 +6,9 @@
   <title>NEXUS // Admin</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link rel="icon" type="image/x-icon" href="favicon.ico" />
+  <link rel="icon" type="image/x-icon" href="assets/favicon.ico" />
   <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Rajdhani:wght@400;500;600;700&family=Share+Tech+Mono&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="nexus.css" />
+  <link rel="stylesheet" href="css/nexus.css" />
   <style>
     /* ── ADMIN-SPECIFIC STYLES ── */
     .admin-gate {
@@ -152,10 +152,10 @@
       <a class="sidenav-link" href="party-roster.html">
         <span class="nav-icon">👥</span><span class="nav-label">Party Roster</span><span class="nav-pip"></span>
       </a>
-      <a class="sidenav-link" href="dnd-gold-tracker.html">
+      <a class="sidenav-link" href="treasury.html">
         <span class="nav-icon">💰</span><span class="nav-label">Treasury</span><span class="nav-pip"></span>
       </a>
-      <a class="sidenav-link" href="dnd-loot-tracker.html">
+      <a class="sidenav-link" href="loot-tracker.html">
         <span class="nav-icon">⚔️</span><span class="nav-label">Loot Tracker</span><span class="nav-pip"></span>
       </a>
       <a class="sidenav-link active" href="admin.html">
@@ -222,7 +222,7 @@
       <div class="admin-section-card">
         <div class="admin-section-head">Admin Password</div>
         <div class="admin-section-desc">
-          Change the admin panel password. The password is stored as a SHA-256 hash in <code style="font-family:'Share Tech Mono',monospace;color:var(--cyan);font-size:0.75rem">nexus-config.js</code> —
+          Change the admin panel password. The password is stored as a SHA-256 hash in <code style="font-family:'Share Tech Mono',monospace;color:var(--cyan);font-size:0.75rem">js/nexus-config.js</code> —
           update that file after changing it here, or the new password only persists for this browser session.
         </div>
         <div class="pw-row">
@@ -234,7 +234,7 @@
         <div style="margin-top:1rem;padding:0.8rem 1rem;background:rgba(240,168,50,0.05);border:1px solid rgba(240,168,50,0.2);border-radius:4px;">
           <div style="font-family:'Share Tech Mono',monospace;font-size:0.62rem;color:var(--amber);letter-spacing:0.08em;line-height:1.7">
             ⚠ &nbsp;To make a password change permanent: after clicking Update, copy the hash shown below into
-            <strong>nexus-config.js</strong> as the value of <code style="color:var(--cyan)">ADMIN_PW_HASH</code>.
+            <strong>js/nexus-config.js</strong> as the value of <code style="color:var(--cyan)">ADMIN_PW_HASH</code>.
           </div>
           <div id="newHashDisplay" style="display:none;margin-top:0.6rem;font-family:'Share Tech Mono',monospace;font-size:0.65rem;color:var(--cyan);word-break:break-all;"></div>
         </div>
@@ -245,8 +245,8 @@
 
   <div class="toast" id="toast"></div>
 
-  <script src="nexus-config.js"></script>
-  <script src="nexus-utils.js"></script>
+  <script src="js/nexus-config.js"></script>
+  <script src="js/nexus-utils.js"></script>
   <script>
   // ══════════════════════════════════════════════════════════
   //  PASSWORD GATE
@@ -400,7 +400,7 @@
     // (ADMIN_PW_HASH is const, so we shadow it on window)
     window._adminPwHash = hash;
     status.style.color = 'var(--green)';
-    status.textContent = '✓ Password updated for this session. Copy the hash below into nexus-config.js to make it permanent.';
+    status.textContent = '✓ Password updated for this session. Copy the hash below into js/nexus-config.js to make it permanent.';
     hashDisplay.style.display = 'block';
     hashDisplay.textContent = 'ADMIN_PW_HASH = \'' + hash + '\'';
     document.getElementById('newPw1').value = '';
