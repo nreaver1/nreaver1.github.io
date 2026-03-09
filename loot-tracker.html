@@ -392,12 +392,20 @@ const FX_TYPES = [
   { key:'disadvantage',label:'Disadvantage', cls:'fx-dis' },
 ];
 
+// All 13 D&D 5e damage types — used for the optional damage type
+// selector on damage_rolls and spell_damage stat effects.
+// Sourced from nexus-utils.js (DAMAGE_TYPES) at runtime; this list
+// must stay in sync. We reference window.DAMAGE_TYPES below.
+const DAMAGE_STATS = new Set(['damage_rolls', 'spell_damage', 'attack_rolls']);
+
 function statLabel(key){ return (ALL_STATS.find(s=>s.key===key)||{label:key}).label.split(' – ')[0].split(' – ')[0]; }
 function fxClass(type){ return (FX_TYPES.find(t=>t.key===type)||{cls:'fx-pos'}).cls; }
 function fxShort(fx){
-  if(fx.type==='bonus')      return `+${fx.value} ${statLabel(fx.stat)}`;
-  if(fx.type==='penalty')    return `−${fx.value} ${statLabel(fx.stat)}`;
-  if(fx.type==='advantage')  return `Adv: ${statLabel(fx.stat)}`;
+  // Include damage type label in pill when set (e.g. "+2 Dmg [acid]")
+  const dmgLabel = fx.damageType ? ` [${fx.damageType}]` : '';
+  if(fx.type==='bonus')        return `+${fx.value} ${statLabel(fx.stat)}${dmgLabel}`;
+  if(fx.type==='penalty')      return `−${fx.value} ${statLabel(fx.stat)}${dmgLabel}`;
+  if(fx.type==='advantage')    return `Adv: ${statLabel(fx.stat)}`;
   if(fx.type==='disadvantage') return `Dis: ${statLabel(fx.stat)}`;
   return '';
 }
@@ -772,25 +780,43 @@ function buildTypeSelect(){
   return FX_TYPES.map(t=>`<option value="${t.key}">${t.label}</option>`).join('');
 }
 
+function buildDmgTypeSelect(){
+  return `<option value="">— All / Untyped —</option>` +
+    (typeof DAMAGE_TYPES !== 'undefined' ? DAMAGE_TYPES : []).map(t =>
+      `<option value="${t}">${t.charAt(0).toUpperCase()+t.slice(1)}</option>`
+    ).join('');
+}
+
 function addFxRow(existing){
   const container=document.getElementById('fxRows');
   const idx=pendingFx.length;
-  const fx=existing||{stat:'',type:'bonus',value:null};
+  const fx=existing||{stat:'',type:'bonus',value:null,damageType:''};
   pendingFx.push(fx);
   const row=document.createElement('div');
   row.className='fx-row';
   row.id=`fx-row-${idx}`;
-  const needsVal=(t)=>t==='bonus'||t==='penalty';
+  const needsVal =(t)=>t==='bonus'||t==='penalty';
+  const showDmg  =(t,s)=>(t==='bonus'||t==='penalty')&&DAMAGE_STATS.has(s);
   row.innerHTML=`
-    <select class="fx-stat-sel" onchange="pendingFx[${idx}].stat=this.value">${buildStatSelect()}</select>
-    <select class="fx-type-sel" onchange="pendingFx[${idx}].type=this.value;document.getElementById('fx-val-${idx}').style.display=(this.value==='bonus'||this.value==='penalty')?'block':'none'">${buildTypeSelect()}</select>
-    <input type="number" class="fx-val-inp" id="fx-val-${idx}" placeholder="±#" style="display:${needsVal(fx.type)?'block':'none'}" onchange="pendingFx[${idx}].value=parseFloat(this.value)||null" />
+    <select class="fx-stat-sel" onchange="pendingFx[${idx}].stat=this.value;fxUpdateDmgVis(${idx})">${buildStatSelect()}</select>
+    <select class="fx-type-sel" onchange="pendingFx[${idx}].type=this.value;document.getElementById('fx-val-${idx}').style.display=(this.value==='bonus'||this.value==='penalty')?'block':'none';fxUpdateDmgVis(${idx})">${buildTypeSelect()}</select>
+    <input  type="number" class="fx-val-inp" id="fx-val-${idx}" placeholder="±#" style="display:${needsVal(fx.type)?'block':'none'}" onchange="pendingFx[${idx}].value=parseFloat(this.value)||null" />
+    <select class="fx-dmg-sel" id="fx-dmg-${idx}" style="display:${showDmg(fx.type,fx.stat)?'block':'none'}" onchange="pendingFx[${idx}].damageType=this.value||null">${buildDmgTypeSelect()}</select>
     <button class="fx-del-btn" onclick="removeFxRow(${idx})">✕</button>`;
   container.appendChild(row);
   // set saved values
   row.querySelector('.fx-stat-sel').value=fx.stat||'';
   row.querySelector('.fx-type-sel').value=fx.type||'bonus';
   if(fx.value!=null) document.getElementById(`fx-val-${idx}`).value=fx.value;
+  document.getElementById(`fx-dmg-${idx}`).value=fx.damageType||'';
+}
+
+// Show/hide the damage type select based on current stat + type selections
+function fxUpdateDmgVis(idx){
+  const stat = pendingFx[idx]?.stat || '';
+  const type = pendingFx[idx]?.type || '';
+  const sel  = document.getElementById(`fx-dmg-${idx}`);
+  if(sel) sel.style.display = (type==='bonus'||type==='penalty') && DAMAGE_STATS.has(stat) ? 'block' : 'none';
 }
 
 function removeFxRow(idx){
@@ -800,11 +826,18 @@ function removeFxRow(idx){
 }
 
 function collectFx(){
-  return pendingFx.filter(f=>f&&f.stat).map(f=>({
-    stat:f.stat,
-    type:f.type||'bonus',
-    value:(f.type==='bonus'||f.type==='penalty')?(f.value||0):null
-  }));
+  return pendingFx.filter(f=>f&&f.stat).map(f=>{
+    const fx={
+      stat:  f.stat,
+      type:  f.type||'bonus',
+      value: (f.type==='bonus'||f.type==='penalty')?(f.value||0):null,
+    };
+    // Only include damageType when it's a damage-relevant stat and a value was chosen
+    if(f.damageType && DAMAGE_STATS.has(f.stat) && (f.type==='bonus'||f.type==='penalty')){
+      fx.damageType = f.damageType;
+    }
+    return fx;
+  });
 }
 
 // Sets the holder display to a saved value without opening the dropdown

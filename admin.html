@@ -240,6 +240,94 @@
         </div>
       </div>
 
+      <!-- ── DANGER ZONE ── -->
+      <div class="admin-section-card" style="border-color:rgba(224,60,60,0.35);">
+        <div class="admin-section-head" style="color:var(--red);">
+          <span style="display:inline-block;width:10px;height:2px;background:var(--red);box-shadow:0 0 6px var(--red);margin-right:0.6rem;flex-shrink:0"></span>
+          Danger Zone
+        </div>
+        <div class="admin-section-desc">
+          Permanently delete all data from a module. These actions cannot be undone.
+          Each button requires a confirmation before anything is deleted.
+        </div>
+
+        <div style="display:flex;flex-direction:column;gap:0.75rem;">
+
+          <!-- Party Members -->
+          <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:0.6rem;
+                      padding:0.9rem 1rem;background:rgba(224,60,60,0.04);
+                      border:1px solid rgba(224,60,60,0.18);border-radius:4px;">
+            <div>
+              <div style="font-family:'Orbitron',sans-serif;font-size:0.7rem;font-weight:700;
+                          letter-spacing:0.12em;color:var(--text);margin-bottom:0.2rem;">
+                Clear All Party Members
+              </div>
+              <div style="font-family:'Share Tech Mono',monospace;font-size:0.62rem;
+                          color:var(--text-dim);letter-spacing:0.04em;">
+                Removes every member from the Party Roster. Treasury ledger entries and loot item holders are not affected.
+              </div>
+            </div>
+            <button class="btn" id="btnClearMembers"
+                    style="background:transparent;border:1px solid var(--red);color:var(--red);
+                           flex-shrink:0;opacity:0.85;transition:opacity 0.15s,box-shadow 0.15s;"
+                    onmouseover="this.style.opacity='1';this.style.boxShadow='0 0 12px rgba(224,60,60,0.3)'"
+                    onmouseout="this.style.opacity='0.85';this.style.boxShadow='none'"
+                    onclick="clearAllMembers()">
+              🗑 Clear Members
+            </button>
+          </div>
+
+          <!-- Treasury -->
+          <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:0.6rem;
+                      padding:0.9rem 1rem;background:rgba(224,60,60,0.04);
+                      border:1px solid rgba(224,60,60,0.18);border-radius:4px;">
+            <div>
+              <div style="font-family:'Orbitron',sans-serif;font-size:0.7rem;font-weight:700;
+                          letter-spacing:0.12em;color:var(--text);margin-bottom:0.2rem;">
+                Clear All Treasury Data
+              </div>
+              <div style="font-family:'Share Tech Mono',monospace;font-size:0.62rem;
+                          color:var(--text-dim);letter-spacing:0.04em;">
+                Deletes the entire transaction ledger and all currency types. Party member records are not affected.
+              </div>
+            </div>
+            <button class="btn" id="btnClearTreasury"
+                    style="background:transparent;border:1px solid var(--red);color:var(--red);
+                           flex-shrink:0;opacity:0.85;transition:opacity 0.15s,box-shadow 0.15s;"
+                    onmouseover="this.style.opacity='1';this.style.boxShadow='0 0 12px rgba(224,60,60,0.3)'"
+                    onmouseout="this.style.opacity='0.85';this.style.boxShadow='none'"
+                    onclick="clearAllTreasury()">
+              🗑 Clear Treasury
+            </button>
+          </div>
+
+          <!-- Loot Items -->
+          <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:0.6rem;
+                      padding:0.9rem 1rem;background:rgba(224,60,60,0.04);
+                      border:1px solid rgba(224,60,60,0.18);border-radius:4px;">
+            <div>
+              <div style="font-family:'Orbitron',sans-serif;font-size:0.7rem;font-weight:700;
+                          letter-spacing:0.12em;color:var(--text);margin-bottom:0.2rem;">
+                Clear All Loot Items
+              </div>
+              <div style="font-family:'Share Tech Mono',monospace;font-size:0.62rem;
+                          color:var(--text-dim);letter-spacing:0.04em;">
+                Removes every item from the Loot Tracker. Party member records and treasury data are not affected.
+              </div>
+            </div>
+            <button class="btn" id="btnClearLoot"
+                    style="background:transparent;border:1px solid var(--red);color:var(--red);
+                           flex-shrink:0;opacity:0.85;transition:opacity 0.15s,box-shadow 0.15s;"
+                    onmouseover="this.style.opacity='1';this.style.boxShadow='0 0 12px rgba(224,60,60,0.3)'"
+                    onmouseout="this.style.opacity='0.85';this.style.boxShadow='none'"
+                    onclick="clearAllLoot()">
+              🗑 Clear Loot
+            </button>
+          </div>
+
+        </div>
+      </div><!-- /danger zone -->
+
     </div><!-- /admin-main -->
   </div><!-- /adminContent -->
 
@@ -405,6 +493,112 @@
     hashDisplay.textContent = 'ADMIN_PW_HASH = \'' + hash + '\'';
     document.getElementById('newPw1').value = '';
     document.getElementById('newPw2').value = '';
+  }
+
+  // ══════════════════════════════════════════════════════════
+  //  DANGER ZONE — CLEAR ALL FUNCTIONS
+  //  Each function:
+  //    1. Shows a nexusConfirm dialog with an acknowledgement
+  //       checkbox that must be checked before confirming.
+  //    2. Only proceeds if the user both checks the box AND
+  //       clicks the confirm button.
+  //    3. Deletes all rows from the relevant Supabase table(s)
+  //       using a filter that matches every row (id neq '').
+  //    4. Shows a toast and re-locks the button while running.
+  // ══════════════════════════════════════════════════════════
+
+  // Shared confirm helper — presents the "are you sure" dialog
+  // with a mandatory acknowledgement checkbox.
+  // Returns true only if the user checked the box AND confirmed.
+  async function dangerConfirm(title, name, message) {
+    const result = await nexusConfirm({
+      title,
+      name,
+      message,
+      danger:       true,
+      confirmLabel: 'Yes, Delete Everything',
+      cancelLabel:  'Cancel',
+      checkboxes: [{
+        id:      'ack',
+        label:   'I understand this cannot be undone',
+        checked: false,
+      }],
+    });
+    // result is false (cancelled) or { confirmed: true, checks: { ack: bool } }
+    return result && result.confirmed && result.checks?.ack === true;
+  }
+
+  async function clearAllMembers() {
+    const confirmed = await dangerConfirm(
+      'Clear All Party Members',
+      'Every member in the Party Roster',
+      'All party member records will be permanently deleted. ' +
+      'Treasury ledger entries tagged to members and loot item holders will not be changed.'
+    );
+    if (!confirmed) return;
+
+    const btn = document.getElementById('btnClearMembers');
+    setLoading(btn, true); btn.dataset.loadingText = 'Deleting…';
+    try {
+      // Delete all rows — PostgREST requires a filter for DELETE.
+      // id=gt. means "id greater than empty string", which matches
+      // every row since all our text PKs are non-empty strings.
+      await db.deleteWhere('party_members', 'id=gt.');
+      showToast('All party members deleted.');
+    } catch(e) {
+      console.error(e);
+      showToast('Delete failed — check Supabase config.');
+    } finally {
+      setLoading(btn, false);
+    }
+  }
+
+  async function clearAllTreasury() {
+    const confirmed = await dangerConfirm(
+      'Clear All Treasury Data',
+      'The entire ledger and all currency types',
+      'All transaction ledger entries and all currency definitions will be permanently deleted. ' +
+      'Party member records are not affected.'
+    );
+    if (!confirmed) return;
+
+    const btn = document.getElementById('btnClearTreasury');
+    setLoading(btn, true); btn.dataset.loadingText = 'Deleting…';
+    try {
+      // Delete ledger first (references currencies), then currency types
+      // id=gt. matches all rows with a non-empty text PK
+      await db.deleteWhere('treasury_ledger',     'id=gt.');
+      await db.deleteWhere('treasury_currencies', 'id=gt.');
+      showToast('All treasury data deleted.');
+    } catch(e) {
+      console.error(e);
+      showToast('Delete failed — check Supabase config.');
+    } finally {
+      setLoading(btn, false);
+    }
+  }
+
+  async function clearAllLoot() {
+    const confirmed = await dangerConfirm(
+      'Clear All Loot Items',
+      'Every item in the Loot Tracker',
+      'All loot items will be permanently deleted. ' +
+      'Party member records and treasury data are not affected.'
+    );
+    if (!confirmed) return;
+
+    const btn = document.getElementById('btnClearLoot');
+    setLoading(btn, true); btn.dataset.loadingText = 'Deleting…';
+    try {
+      // id=gt. matches all rows with a non-empty text PK
+      await db.deleteWhere('loot_items', 'id=gt.');
+      showToast('All loot items deleted.');
+    } catch(e) {
+      console.error(e);
+      showToast('Delete failed — check Supabase config.');
+    } finally {
+      setLoading(btn, false);
+    }
   }
 
   // ══════════════════════════════════════════════════════════

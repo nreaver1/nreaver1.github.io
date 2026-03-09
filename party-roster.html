@@ -311,23 +311,30 @@ function getMemberWallet(memberName) {
 // ── COMPUTE NET EFFECTS for a member (from loot tracker) ──
 function computeNetEffects(memberName){
   const items=getItemEffects();
-  // items held by this member (case-insensitive) or "Party"
   const relevant=items.filter(it=>{
     const h=(it.holder||'').toLowerCase().trim();
     const n=(memberName||'').toLowerCase().trim();
     return h===n||h==='party';
   });
-  // group by stat: {stat: {bonus:N, penalty:N, advantage:count, disadvantage:count, sources:[]}}
   const net={};
   for(const item of relevant){
     for(const fx of (item.statEffects||[])){
       if(!fx.stat) continue;
       if(!net[fx.stat]) net[fx.stat]={bonus:0,penalty:0,advantage:0,disadvantage:0,sources:[]};
-      if(fx.type==='bonus') net[fx.stat].bonus+=(fx.value||0);
-      if(fx.type==='penalty') net[fx.stat].penalty+=(fx.value||0);
-      if(fx.type==='advantage') net[fx.stat].advantage++;
+      // top-level totals (unchanged)
+      if(fx.type==='bonus')        net[fx.stat].bonus+=(fx.value||0);
+      if(fx.type==='penalty')      net[fx.stat].penalty+=(fx.value||0);
+      if(fx.type==='advantage')    net[fx.stat].advantage++;
       if(fx.type==='disadvantage') net[fx.stat].disadvantage++;
       net[fx.stat].sources.push({itemName:item.name,itemRarity:item.rarity,fx});
+      // per-damage-type breakdown
+      if(fx.type==='bonus'||fx.type==='penalty'){
+        if(!net[fx.stat].byType) net[fx.stat].byType={};
+        const bucket=fx.damageType?fx.damageType.toLowerCase():'untyped';
+        if(!net[fx.stat].byType[bucket]) net[fx.stat].byType[bucket]={bonus:0,penalty:0};
+        if(fx.type==='bonus')   net[fx.stat].byType[bucket].bonus+=(fx.value||0);
+        if(fx.type==='penalty') net[fx.stat].byType[bucket].penalty+=(fx.value||0);
+      }
     }
   }
   return{net,relevant};
@@ -521,15 +528,38 @@ function buildCard(m,idx){
     </div>`;
   }).filter(Boolean).join('');
 
-  // net summary
+  // net summary — shows grand total + per-damage-type breakdown when relevant
   const netSummary=Object.entries(net).map(([stat,data])=>{
     const parts=[];
     const nb=(data.bonus||0)-(data.penalty||0);
     if(nb!==0) parts.push(`<span class="net-total ${nb>0?'pos':'neg'}">${nb>=0?'+':''}${nb}</span>`);
-    if(data.advantage>0) parts.push(`<span class="net-total adv">Adv</span>`);
+    if(data.advantage>0)    parts.push(`<span class="net-total adv">Adv</span>`);
     if(data.disadvantage>0) parts.push(`<span class="net-total dis">Dis</span>`);
     if(!parts.length) return '';
-    return `<div class="net-row"><span class="net-stat">${esc(statLabelShort(stat))}</span><span style="display:flex;gap:4px;align-items:center">${parts.join('')}</span></div>`;
+
+    // Build per-damage-type sub-rows when more than one bucket exists,
+    // or when the only bucket is a named damage type (not just 'untyped').
+    let typeRows='';
+    if(data.byType){
+      const buckets=Object.entries(data.byType);
+      const hasTyped=buckets.some(([k])=>k!=='untyped');
+      if(hasTyped){
+        typeRows=buckets.map(([dtype,d])=>{
+          const bv=(d.bonus||0)-(d.penalty||0);
+          if(bv===0) return '';
+          const label=dtype==='untyped'?'all others':dtype;
+          return `<div class="net-type-row"><span class="net-type-label">${esc(label)}</span><span class="net-total net-type-val ${bv>0?'pos':'neg'}">${bv>=0?'+':''}${bv}</span></div>`;
+        }).filter(Boolean).join('');
+      }
+    }
+
+    return `<div class="net-row net-row-has-types">
+      <span class="net-stat">${esc(statLabelShort(stat))}</span>
+      <span class="net-row-right">
+        <span style="display:flex;gap:4px;align-items:center">${parts.join('')}</span>
+        ${typeRows?`<div class="net-type-breakdown">${typeRows}</div>`:''}
+      </span>
+    </div>`;
   }).filter(Boolean).join('');
 
   const effectsTab=`
@@ -698,8 +728,9 @@ function statLabelShort(key){
 }
 function fxClass(type){return{bonus:'fx-pos',penalty:'fx-neg',advantage:'fx-adv',disadvantage:'fx-dis'}[type]||'fx-pos';}
 function fxShort(fx){
-  if(fx.type==='bonus')       return `+${fx.value} ${statLabelShort(fx.stat)}`;
-  if(fx.type==='penalty')     return `−${fx.value} ${statLabelShort(fx.stat)}`;
+  const dmgLabel=fx.damageType?` [${fx.damageType}]`:'';
+  if(fx.type==='bonus')       return `+${fx.value} ${statLabelShort(fx.stat)}${dmgLabel}`;
+  if(fx.type==='penalty')     return `−${fx.value} ${statLabelShort(fx.stat)}${dmgLabel}`;
   if(fx.type==='advantage')   return `Adv: ${statLabelShort(fx.stat)}`;
   if(fx.type==='disadvantage')return `Dis: ${statLabelShort(fx.stat)}`;
   return '';

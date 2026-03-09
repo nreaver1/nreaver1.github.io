@@ -238,10 +238,12 @@
       }
       strip.innerHTML = members.map(m => {
         const safeName = esc(m.name).replace(/'/g, "\'");
+        const color    = m.color || 'var(--cyan)';
+        const baseStyle = `cursor:pointer;--avatar-color:${color}`;
         if (m.photo) {
-          return `<div class="party-avatar" title="View ${esc(m.name)}'s holdings" style="cursor:pointer" onclick="openMemberModal('${safeName}')"><img src="${m.photo}" alt="${esc(m.name)}" /></div>`;
+          return `<div class="party-avatar" title="View ${esc(m.name)}'s holdings" style="${baseStyle}" onclick="openMemberModal('${safeName}')"><img src="${m.photo}" alt="${esc(m.name)}" /></div>`;
         }
-        return `<div class="party-avatar" title="View ${esc(m.name)}'s holdings" style="cursor:pointer;color:${m.color || 'var(--gold)'};text-shadow:0 0 8px ${m.color || 'var(--amber)'}" onclick="openMemberModal('${safeName}')">
+        return `<div class="party-avatar" title="View ${esc(m.name)}'s holdings" style="${baseStyle}" onclick="openMemberModal('${safeName}')">
           ${esc(m.name.charAt(0).toUpperCase())}
         </div>`;
       }).join('');

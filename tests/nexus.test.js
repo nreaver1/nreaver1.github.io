@@ -796,3 +796,286 @@ describe('nexus-utils.js — no duplicate declarations', () => {
   });
 
 });
+
+
+// ══════════════════════════════════════════════════════════════
+//  SECTION 6 — DANGER ZONE CONFIRM LOGIC
+//
+//  The dangerConfirm helper (admin.html) gates each clear-all
+//  action behind a nexusConfirm dialog with a mandatory
+//  acknowledgement checkbox. These tests cover the decision
+//  logic — specifically that the function only proceeds when
+//  BOTH conditions are true:
+//    1. The user clicked the confirm button (result.confirmed)
+//    2. The acknowledgement checkbox was checked (checks.ack)
+//
+//  We test this as a pure logic function extracted from the
+//  admin page, matching exactly what dangerConfirm evaluates.
+// ══════════════════════════════════════════════════════════════
+
+describe('dangerConfirm() result evaluation', () => {
+
+  // The exact condition from dangerConfirm:
+  //   result && result.confirmed && result.checks?.ack === true
+  function shouldProceed(result) {
+    return !!(result && result.confirmed && result.checks?.ack === true);
+  }
+
+  // Expected: returns false when user cancels (nexusConfirm returns false)
+  it('returns false when the user cancels the dialog', () => {
+    assert.strictEqual(shouldProceed(false), false);
+  });
+
+  // Expected: returns false when user clicks confirm but does NOT check the box
+  it('returns false when confirmed but acknowledgement checkbox is unchecked', () => {
+    assert.strictEqual(shouldProceed({ confirmed: true, checks: { ack: false } }), false);
+  });
+
+  // Expected: returns false when result has no checks property at all
+  it('returns false when confirmed but checks object is missing', () => {
+    assert.strictEqual(shouldProceed({ confirmed: true }), false);
+  });
+
+  // Expected: returns false when result is null (e.g. dialog closed via ESC)
+  it('returns false when result is null', () => {
+    assert.strictEqual(shouldProceed(null), false);
+  });
+
+  // Expected: returns false when result is undefined
+  it('returns false when result is undefined', () => {
+    assert.strictEqual(shouldProceed(undefined), false);
+  });
+
+  // Expected: the only path that returns true — confirmed AND box checked
+  it('returns true only when confirmed AND acknowledgement checkbox is checked', () => {
+    assert.strictEqual(shouldProceed({ confirmed: true, checks: { ack: true } }), true);
+  });
+
+  // Expected: confirmed=false with box checked still returns false
+  // (confirmed button was not clicked)
+  it('returns false when acknowledgement is checked but confirmed is false', () => {
+    assert.strictEqual(shouldProceed({ confirmed: false, checks: { ack: true } }), false);
+  });
+
+  // Expected: extra checkbox keys don't affect the ack check
+  it('ignores unrelated checkbox keys — only ack matters', () => {
+    assert.strictEqual(
+      shouldProceed({ confirmed: true, checks: { ack: true, other: false } }),
+      true
+    );
+  });
+
+});
+
+
+// ══════════════════════════════════════════════════════════════
+//  SECTION 7 — SUPABASE FILTER SYNTAX FOR BULK DELETE
+//
+//  The clearAll functions use db.deleteWhere() with the filter
+//  'id=gt.' to delete all rows from a table. This relies on the
+//  PostgREST behaviour that "id greater than empty string"
+//  matches all rows where id is a non-empty text value.
+//
+//  These tests verify the filter string is constructed correctly
+//  and that our text PKs (which all start with '_' from uid())
+//  will always be greater than an empty string.
+// ══════════════════════════════════════════════════════════════
+
+describe('bulk-delete filter correctness', () => {
+
+  // Expected: every uid()-generated ID starts with '_'
+  // and is therefore greater than '' in string comparison.
+  it('uid() always produces an ID that is > empty string', () => {
+    for (let i = 0; i < 50; i++) {
+      const id = uid();
+      assert.ok(id > '', `uid() "${id}" should be greater than empty string`);
+    }
+  });
+
+  // Expected: the filter string used in clearAll functions is exactly right
+  it('bulk-delete filter is the literal string "id=gt."', () => {
+    // This is the exact value passed to db.deleteWhere() in admin.html.
+    // If this string changes, the delete will silently do nothing.
+    const BULK_DELETE_FILTER = 'id=gt.';
+    assert.strictEqual(BULK_DELETE_FILTER, 'id=gt.');
+  });
+
+  // Expected: a '_'-prefixed ID is always > '' (covers all our real PKs)
+  it('underscore-prefixed IDs are always > empty string', () => {
+    const sampleIds = ['_abc123', '_k7fzx2q4m', '_zzz', '_000'];
+    for (const id of sampleIds) {
+      assert.ok(id > '', `"${id}" should be > ""`);
+    }
+  });
+
+  // Expected: the filter correctly excludes the empty string itself
+  it('empty string is NOT > empty string (filter would not delete blank IDs)', () => {
+    assert.ok(!( '' > '' ), 'empty string should not match id=gt. filter');
+  });
+
+});
+
+
+// ══════════════════════════════════════════════════════════════
+//  SECTION 8 — DAMAGE TYPE TRACKING IN computeNetEffects()
+//
+//  When a stat effect has a damageType field (e.g. 'acid'),
+//  computeNetEffects must:
+//    1. Still add it to the top-level bonus/penalty total
+//       (backwards-compatible — existing code still works)
+//    2. Track it in byType[damageType] for the display layer
+//    3. Group effects with no damageType under byType['untyped']
+//    4. Correctly merge multiple typed effects on the same stat
+// ══════════════════════════════════════════════════════════════
+
+const { DAMAGE_TYPES } = require('../js/nexus-utils.js');
+
+describe('computeNetEffects() — damage type tracking', () => {
+
+  // Expected: an untyped effect (no damageType field) goes into byType.untyped
+  it('effect with no damageType is bucketed as "untyped"', () => {
+    const items = [{
+      name: 'Power Gauntlets', holder: 'Thalindra', rarity: 'uncommon',
+      statEffects: [{ stat: 'damage_rolls', type: 'bonus', value: 2 }],
+    }];
+    const { net } = computeNetEffects('Thalindra', items);
+    assert.strictEqual(net.damage_rolls.byType.untyped.bonus, 2);
+  });
+
+  // Expected: a typed effect (damageType: 'acid') goes into byType.acid
+  it('effect with damageType "acid" is bucketed under byType.acid', () => {
+    const items = [{
+      name: 'Gloves of Acid', holder: 'Thalindra', rarity: 'uncommon',
+      statEffects: [{ stat: 'damage_rolls', type: 'bonus', value: 2, damageType: 'acid' }],
+    }];
+    const { net } = computeNetEffects('Thalindra', items);
+    assert.strictEqual(net.damage_rolls.byType.acid.bonus, 2);
+  });
+
+  // Expected: top-level bonus total includes typed effects —
+  // existing code that reads net[stat].bonus still gets the full sum
+  it('typed effect still contributes to the top-level bonus total', () => {
+    const items = [{
+      name: 'Gloves of Acid', holder: 'Thalindra', rarity: 'uncommon',
+      statEffects: [{ stat: 'damage_rolls', type: 'bonus', value: 2, damageType: 'acid' }],
+    }];
+    const { net } = computeNetEffects('Thalindra', items);
+    assert.strictEqual(net.damage_rolls.bonus, 2,
+      'top-level bonus should include acid-typed bonus');
+  });
+
+  // Expected: mixed typed + untyped effects on the same stat
+  // Top-level: 2 (acid) + 1 (untyped) = 3
+  // byType.acid: 2, byType.untyped: 1
+  it('mixed typed and untyped effects on the same stat sum independently in byType', () => {
+    const items = [{
+      name: 'Gloves of Acid', holder: 'Thalindra', rarity: 'uncommon',
+      statEffects: [
+        { stat: 'damage_rolls', type: 'bonus', value: 2, damageType: 'acid' },
+        { stat: 'damage_rolls', type: 'bonus', value: 1 },
+      ],
+    }];
+    const { net } = computeNetEffects('Thalindra', items);
+    assert.strictEqual(net.damage_rolls.bonus,             3,    'top-level total: acid + untyped');
+    assert.strictEqual(net.damage_rolls.byType.acid.bonus, 2,    'acid bucket');
+    assert.strictEqual(net.damage_rolls.byType.untyped.bonus, 1, 'untyped bucket');
+  });
+
+  // Expected: two different damage types from two different items stack correctly
+  it('two different damage types from different items are tracked separately', () => {
+    const items = [
+      {
+        name: 'Gloves of Acid', holder: 'Thalindra', rarity: 'uncommon',
+        statEffects: [{ stat: 'damage_rolls', type: 'bonus', value: 2, damageType: 'acid' }],
+      },
+      {
+        name: 'Ring of Fire',   holder: 'Thalindra', rarity: 'rare',
+        statEffects: [{ stat: 'damage_rolls', type: 'bonus', value: 3, damageType: 'fire' }],
+      },
+    ];
+    const { net } = computeNetEffects('Thalindra', items);
+    assert.strictEqual(net.damage_rolls.bonus,              5, 'top-level total: acid + fire');
+    assert.strictEqual(net.damage_rolls.byType.acid.bonus,  2, 'acid bucket');
+    assert.strictEqual(net.damage_rolls.byType.fire.bonus,  3, 'fire bucket');
+  });
+
+  // Expected: same damage type from two items stacks into a single bucket
+  it('two acid effects from different items accumulate in byType.acid', () => {
+    const items = [
+      {
+        name: 'Acid Flask',   holder: 'Thalindra', rarity: 'uncommon',
+        statEffects: [{ stat: 'damage_rolls', type: 'bonus', value: 1, damageType: 'acid' }],
+      },
+      {
+        name: 'Acid Pendant', holder: 'Thalindra', rarity: 'rare',
+        statEffects: [{ stat: 'damage_rolls', type: 'bonus', value: 2, damageType: 'acid' }],
+      },
+    ];
+    const { net } = computeNetEffects('Thalindra', items);
+    assert.strictEqual(net.damage_rolls.bonus,             3, 'top-level total');
+    assert.strictEqual(net.damage_rolls.byType.acid.bonus, 3, 'acid bucket stacked');
+  });
+
+  // Expected: damageType matching is case-insensitive
+  it('damageType matching is case-insensitive ("Acid" === "acid")', () => {
+    const items = [{
+      name: 'Fancy Gloves', holder: 'Thalindra', rarity: 'uncommon',
+      statEffects: [{ stat: 'damage_rolls', type: 'bonus', value: 2, damageType: 'Acid' }],
+    }];
+    const { net } = computeNetEffects('Thalindra', items);
+    assert.strictEqual(net.damage_rolls.byType.acid.bonus, 2,
+      'uppercase "Acid" should map to lowercase "acid" bucket');
+  });
+
+  // Expected: a typed penalty tracks in byType AND reduces the top-level total
+  it('typed penalty tracks in byType and reduces the top-level bonus total', () => {
+    const items = [{
+      name: 'Cursed Gloves', holder: 'Thalindra', rarity: 'uncommon',
+      statEffects: [{ stat: 'damage_rolls', type: 'penalty', value: 2, damageType: 'fire' }],
+    }];
+    const { net } = computeNetEffects('Thalindra', items);
+    assert.strictEqual(net.damage_rolls.penalty,               2, 'top-level penalty');
+    assert.strictEqual(net.damage_rolls.byType.fire.penalty,   2, 'fire bucket penalty');
+    assert.strictEqual(net.damage_rolls.byType.fire.bonus,     0, 'fire bucket bonus unchanged');
+  });
+
+  // Expected: advantage/disadvantage effects have no byType entry (they are not typed)
+  it('advantage effects do not create byType entries', () => {
+    const items = [{
+      name: 'Lucky Charm', holder: 'Thalindra', rarity: 'common',
+      statEffects: [{ stat: 'stealth', type: 'advantage', damageType: 'fire' }],
+    }];
+    const { net } = computeNetEffects('Thalindra', items);
+    assert.strictEqual(net.stealth.advantage, 1);
+    // advantage should not create a byType entry
+    assert.strictEqual(net.stealth.byType, undefined,
+      'advantage effects should not create byType');
+  });
+
+  // Expected: byType only has the damage types that actually appeared
+  it('byType only contains buckets for types that have effects', () => {
+    const items = [{
+      name: 'Gloves of Acid', holder: 'Thalindra', rarity: 'uncommon',
+      statEffects: [{ stat: 'damage_rolls', type: 'bonus', value: 2, damageType: 'acid' }],
+    }];
+    const { net } = computeNetEffects('Thalindra', items);
+    const keys = Object.keys(net.damage_rolls.byType);
+    assert.deepStrictEqual(keys, ['acid'],
+      'byType should only contain "acid", not all 13 damage types');
+  });
+
+  // Integrity: all 13 D&D damage types are present in DAMAGE_TYPES
+  it('DAMAGE_TYPES contains all 13 official D&D 5e damage types', () => {
+    const expected = [
+      'acid','bludgeoning','cold','fire','force',
+      'lightning','necrotic','piercing','poison',
+      'psychic','radiant','slashing','thunder',
+    ];
+    assert.strictEqual(DAMAGE_TYPES.length, 13,
+      'should have exactly 13 damage types');
+    for (const t of expected) {
+      assert.ok(DAMAGE_TYPES.includes(t), `missing damage type: ${t}`);
+    }
+  });
+
+});

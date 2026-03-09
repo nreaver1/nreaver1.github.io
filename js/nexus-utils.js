@@ -100,15 +100,43 @@ function computeCheck(key, ability, member, net, profBonus) {
 }
 
 /**
+ * DAMAGE_TYPES
+ * All 13 official D&D 5e damage types, used for the optional
+ * damageType field on stat effects (primarily damage_rolls /
+ * spell_damage effects). Exported so the loot tracker UI and
+ * any other page can build selects from the same canonical list.
+ */
+const DAMAGE_TYPES = [
+  'acid', 'bludgeoning', 'cold', 'fire', 'force',
+  'lightning', 'necrotic', 'piercing', 'poison',
+  'psychic', 'radiant', 'slashing', 'thunder',
+];
+
+/**
  * computeNetEffects(memberName, items)
  * Aggregates all stat effects from items held by a party member
  * (or tagged as 'Party') into a net effects map.
  *
  * Returns: { net, relevant }
- *   net      — { statKey: { bonus, penalty, advantage, disadvantage, sources[] } }
+ *   net — {
+ *     statKey: {
+ *       bonus:        number,   // total across ALL types (untyped + all damage types)
+ *       penalty:      number,   // total across ALL types
+ *       advantage:    number,   // count
+ *       disadvantage: number,   // count
+ *       sources:      array,
+ *       byType: {              // only present when any bonus/penalty effect exists
+ *         'acid':    { bonus: N, penalty: N },
+ *         'fire':    { bonus: N, penalty: N },
+ *         'untyped': { bonus: N, penalty: N },  // effects with no damageType
+ *       }
+ *     }
+ *   }
  *   relevant — the filtered array of items that apply to this member
  *
  * Matching is case-insensitive. Items held by 'Party' apply to all members.
+ * The top-level bonus/penalty totals always reflect the grand total so
+ * existing code that reads net[stat].bonus continues to work unchanged.
  */
 function computeNetEffects(memberName, items) {
   const relevant = items.filter(it => {
@@ -122,11 +150,29 @@ function computeNetEffects(memberName, items) {
     for (const fx of (item.statEffects || [])) {
       if (!fx.stat) continue;
       if (!net[fx.stat]) net[fx.stat] = { bonus: 0, penalty: 0, advantage: 0, disadvantage: 0, sources: [] };
-      if (fx.type === 'bonus')       net[fx.stat].bonus      += (fx.value || 0);
-      if (fx.type === 'penalty')     net[fx.stat].penalty    += (fx.value || 0);
-      if (fx.type === 'advantage')   net[fx.stat].advantage++;
+
+      // ── Top-level totals (unchanged behaviour) ──
+      if (fx.type === 'bonus')        net[fx.stat].bonus       += (fx.value || 0);
+      if (fx.type === 'penalty')      net[fx.stat].penalty     += (fx.value || 0);
+      if (fx.type === 'advantage')    net[fx.stat].advantage++;
       if (fx.type === 'disadvantage') net[fx.stat].disadvantage++;
       net[fx.stat].sources.push({ itemName: item.name, itemRarity: item.rarity, fx });
+
+      // ── Per-damage-type breakdown (new) ──
+      // Track bonus/penalty in byType buckets keyed by damageType (or 'untyped').
+      // byType is always built for bonus/penalty effects so the display layer
+      // can show typed breakdowns when relevant.
+      if (fx.type === 'bonus' || fx.type === 'penalty') {
+        if (!net[fx.stat].byType) net[fx.stat].byType = {};
+        const bucket = fx.damageType
+          ? fx.damageType.toLowerCase()
+          : 'untyped';
+        if (!net[fx.stat].byType[bucket]) {
+          net[fx.stat].byType[bucket] = { bonus: 0, penalty: 0 };
+        }
+        if (fx.type === 'bonus')   net[fx.stat].byType[bucket].bonus   += (fx.value || 0);
+        if (fx.type === 'penalty') net[fx.stat].byType[bucket].penalty += (fx.value || 0);
+      }
     }
   }
   return { net, relevant };
@@ -289,6 +335,7 @@ if (typeof module !== 'undefined') {
     calcSplitShares,
     getMemberNetWorth,
     LOOT_GROUP_EMOJI,
+    DAMAGE_TYPES,
     lootTypeEmoji,
   };
 }
