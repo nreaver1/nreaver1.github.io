@@ -365,6 +365,7 @@ async function prefetchLootItems(){
       type:        r.type,
       attunement:  r.attunement,
       holder:      r.holder,
+      desc:        r.description || '',   // needed by lt_openModal — avoids fallback DB fetch
       statEffects: r.stat_effects || [],
     }));
   }catch(e){ console.error('Could not load loot effects:', e); _cachedLootItems = []; }
@@ -551,6 +552,59 @@ function render(){
   grid.innerHTML=members.map((m,idx)=>buildCard(m,idx)).join('')+`<div class="add-card" onclick="openModal()"><div class="add-card-icon">+</div><div class="add-card-label">Recruit Member</div></div>`;
 }
 
+// ── buildEffectsPanel(m, net, relevant) ──────────────────────
+// Builds the inner HTML for the effects tab panel of a member
+// card. Extracted so it can be called both by buildCard (full
+// render) and by lt_refreshEffectsPanel (surgical in-place
+// update after saving a loot item edit).
+function buildEffectsPanel(m, net, relevant){
+  const fxByItem=relevant.map(item=>{
+    if(!(item.statEffects||[]).length) return '';
+    const pills=(item.statEffects||[]).map(fx=>`<span class="fx-pill ${fxClass(fx.type)}">${esc(fxShort(fx))}</span>`).join('');
+    return `<div class="fx-item-group">
+      <div class="fx-item-name" style="justify-content:space-between">
+        <span>⚙ ${esc(item.name)} <span class="fx-item-rarity">[${esc(item.rarity)}]</span></span>
+        <button class="btn-icon" title="Edit item effects" style="font-size:0.7rem;opacity:0.7;padding:0 4px;" onclick="lt_openModal('${esc(item.id)}')">✎</button>
+      </div>
+      <div class="fx-effects-list">${pills}</div>
+    </div>`;
+  }).filter(Boolean).join('');
+
+  const netSummary=Object.entries(net).map(([stat,data])=>{
+    const parts=[];
+    const nb=(data.bonus||0)-(data.penalty||0);
+    if(nb!==0) parts.push(`<span class="net-total ${nb>0?'pos':'neg'}">${nb>=0?'+':''}${nb}</span>`);
+    if(data.advantage>0)    parts.push(`<span class="net-total adv">Adv</span>`);
+    if(data.disadvantage>0) parts.push(`<span class="net-total dis">Dis</span>`);
+    if(!parts.length) return '';
+    let typeRows='';
+    if(data.byType){
+      const buckets=Object.entries(data.byType);
+      const hasTyped=buckets.some(([k])=>k!=='untyped');
+      if(hasTyped){
+        typeRows=buckets.map(([dtype,d])=>{
+          const bv=(d.bonus||0)-(d.penalty||0);
+          if(bv===0) return '';
+          const label=dtype==='untyped'?'all others':dtype;
+          return `<div class="net-type-row"><span class="net-type-label">${esc(label)}</span><span class="net-total net-type-val ${bv>0?'pos':'neg'}">${bv>=0?'+':''}${bv}</span></div>`;
+        }).filter(Boolean).join('');
+      }
+    }
+    return `<div class="net-row net-row-has-types">
+      <span class="net-stat">${esc(statLabelShort(stat))}</span>
+      <span class="net-row-right">
+        <span style="display:flex;gap:4px;align-items:center">${parts.join('')}</span>
+        ${typeRows?`<div class="net-type-breakdown">${typeRows}</div>`:''}
+      </span>
+    </div>`;
+  }).filter(Boolean).join('');
+
+  return `<div class="tab-panel" id="tab-effects-${m.id}">
+      ${fxByItem||`<div class="fx-empty">No stat effects from equipped items.<br><span style="font-size:0.48rem;opacity:0.6">Items are matched by "Held By" name in the Loot Tracker.</span></div>`}
+      ${netSummary?`<div class="net-effects"><div class="checks-section-label" style="font-family:'Share Tech Mono',monospace;font-size:0.55rem;letter-spacing:0.2em;text-transform:uppercase;color:var(--cyan-dim);margin-bottom:0.4rem;display:flex;align-items:center;gap:0.5rem;">Net Totals<span style="flex:1;height:1px;background:var(--border);display:block;"></span></div>${netSummary}</div>`:''}
+    </div>`;
+}
+
 function buildCard(m,idx){
   const color=m.color||COLORS[idx%COLORS.length];
   const initials=(m.name||'?').split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase();
@@ -646,57 +700,7 @@ function buildCard(m,idx){
     </div>`;
 
   // ── EFFECTS TAB ──
-  const fxByItem=relevant.map(item=>{
-    if(!(item.statEffects||[]).length) return '';
-    const pills=(item.statEffects||[]).map(fx=>`<span class="fx-pill ${fxClass(fx.type)}">${esc(fxShort(fx))}</span>`).join('');
-    return `<div class="fx-item-group">
-      <div class="fx-item-name" style="justify-content:space-between">
-        <span>⚙ ${esc(item.name)} <span class="fx-item-rarity">[${esc(item.rarity)}]</span></span>
-        <button class="btn-icon" title="Edit item effects" style="font-size:0.7rem;opacity:0.7;padding:0 4px;" onclick="lt_openModal('${esc(item.id)}')">✎</button>
-      </div>
-      <div class="fx-effects-list">${pills}</div>
-    </div>`;
-  }).filter(Boolean).join('');
-
-  // net summary — shows grand total + per-damage-type breakdown when relevant
-  const netSummary=Object.entries(net).map(([stat,data])=>{
-    const parts=[];
-    const nb=(data.bonus||0)-(data.penalty||0);
-    if(nb!==0) parts.push(`<span class="net-total ${nb>0?'pos':'neg'}">${nb>=0?'+':''}${nb}</span>`);
-    if(data.advantage>0)    parts.push(`<span class="net-total adv">Adv</span>`);
-    if(data.disadvantage>0) parts.push(`<span class="net-total dis">Dis</span>`);
-    if(!parts.length) return '';
-
-    // Build per-damage-type sub-rows when more than one bucket exists,
-    // or when the only bucket is a named damage type (not just 'untyped').
-    let typeRows='';
-    if(data.byType){
-      const buckets=Object.entries(data.byType);
-      const hasTyped=buckets.some(([k])=>k!=='untyped');
-      if(hasTyped){
-        typeRows=buckets.map(([dtype,d])=>{
-          const bv=(d.bonus||0)-(d.penalty||0);
-          if(bv===0) return '';
-          const label=dtype==='untyped'?'all others':dtype;
-          return `<div class="net-type-row"><span class="net-type-label">${esc(label)}</span><span class="net-total net-type-val ${bv>0?'pos':'neg'}">${bv>=0?'+':''}${bv}</span></div>`;
-        }).filter(Boolean).join('');
-      }
-    }
-
-    return `<div class="net-row net-row-has-types">
-      <span class="net-stat">${esc(statLabelShort(stat))}</span>
-      <span class="net-row-right">
-        <span style="display:flex;gap:4px;align-items:center">${parts.join('')}</span>
-        ${typeRows?`<div class="net-type-breakdown">${typeRows}</div>`:''}
-      </span>
-    </div>`;
-  }).filter(Boolean).join('');
-
-  const effectsTab=`
-    <div class="tab-panel" id="tab-effects-${m.id}">
-      ${fxByItem||`<div class="fx-empty">No stat effects from equipped items.<br><span style="font-size:0.48rem;opacity:0.6">Items are matched by "Held By" name in the Loot Tracker.</span></div>`}
-      ${netSummary?`<div class="net-effects"><div class="checks-section-label" style="font-family:'Share Tech Mono',monospace;font-size:0.55rem;letter-spacing:0.2em;text-transform:uppercase;color:var(--cyan-dim);margin-bottom:0.4rem;display:flex;align-items:center;gap:0.5rem;">Net Totals<span style="flex:1;height:1px;background:var(--border);display:block;"></span></div>${netSummary}</div>`:''}
-    </div>`;
+  const effectsTab=buildEffectsPanel(m, net, relevant);
 
   // ── LOOT TAB ──
   const memberItems = (getItemEffects()).filter(it => {
@@ -808,7 +812,7 @@ function buildCard(m,idx){
 
   const tags=(m.tags||[]).map(t=>`<span class="tag">${esc(t)}</span>`).join('');
 
-  return `<div class="member-card" style="--member-color:${color}">
+  return `<div class="member-card" style="--member-color:${color}" data-member-id="${m.id}">
     <div class="card-portrait-area">
       <div class="portrait-ring" style="border-color:${color};box-shadow:0 0 14px ${color}40" onclick="triggerPhotoUpload('${m.id}')" title="Click to change portrait">
         ${portrait}
@@ -821,7 +825,7 @@ function buildCard(m,idx){
         <div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:0.3rem;">
           ${m.level?`<span class="member-level" style="background:${color}">LVL ${m.level}</span>`:''}
           <span class="status-tag" style="color:${statusColor};border-color:${statusColor}40">${STATUS_LABELS[m.status]||'Active'}</span>
-          ${Object.keys(net).length?`<span class="status-tag" style="color:var(--amber);border-color:rgba(212,134,10,0.3)">⚙ ${Object.keys(net).length} effects</span>`:''}
+          ${Object.keys(net).length?`<span class="status-tag effects-badge" style="color:var(--amber);border-color:rgba(212,134,10,0.3)">⚙ ${Object.keys(net).length} effects</span>`:''}
         </div>
       </div>
     </div>
@@ -1126,6 +1130,72 @@ document.addEventListener('keydown',e=>{if(e.key==='Escape')closeModal();if(e.ke
 //  immediately without a full page reload.
 // ══════════════════════════════════════════════════════════════
 
+
+// ── lt_refreshEffectsForItem(item) ──────────────────────────
+// After saving a loot item edit, surgically re-renders only the
+// Effects tab panels (and their tab button labels + header badge)
+// for members who are affected by this item.
+//
+// "Affected" means:
+//   • The item's holder matches the member's name (case-insensitive)
+//   • OR the item's holder is "Party" or "Party Inventory"
+//     (party items apply to all members)
+//
+// Each member's other tabs (Bio, Stats, Loot) and the active-tab
+// state are completely untouched.
+function lt_refreshEffectsForItem(item){
+  const holderLc = (item.holder||'').toLowerCase().trim();
+  const isParty  = holderLc === 'party' || holderLc === 'party inventory';
+
+  members.forEach(m => {
+    const nameLc = (m.name||'').toLowerCase().trim();
+    if(!isParty && holderLc !== nameLc) return;  // not affected
+    lt_refreshEffectsPanel(m);
+  });
+}
+
+// ── lt_refreshEffectsPanel(m) ─────────────────────────────────
+// Re-computes effects for member m and swaps in the new panel
+// HTML without touching any other part of the card.
+function lt_refreshEffectsPanel(m){
+  const panel = document.getElementById(`tab-effects-${m.id}`);
+  if(!panel) return;  // card not currently in the DOM
+
+  const {net, relevant} = computeNetEffects(m.name);
+  const newPanel = buildEffectsPanel(m, net, relevant);
+
+  // Preserve the active class so the tab stays visible if it was open
+  const wasActive = panel.classList.contains('active');
+
+  // Replace panel content — swap the whole element to get the new id attrs
+  panel.outerHTML = newPanel;
+
+  // If it was active, re-apply the class (outerHTML replacement drops it
+  // because the new element from buildEffectsPanel starts without 'active')
+  if(wasActive){
+    const refreshed = document.getElementById(`tab-effects-${m.id}`);
+    if(refreshed) refreshed.classList.add('active');
+  }
+
+  // Update the "Effects (N)" tab button label
+  const effectCount = Object.keys(net).length;
+  const card = document.querySelector(`[data-member-id="${m.id}"]`);
+  if(card){
+    const tabBtns = card.querySelectorAll('.card-tab');
+    tabBtns.forEach(btn => {
+      if(btn.textContent.startsWith('Effects')){
+        btn.textContent = effectCount ? `Effects (${effectCount})` : 'Effects';
+      }
+    });
+    // Update the "N effects" badge in the card header
+    const badge = card.querySelector('.effects-badge');
+    if(badge){
+      badge.style.display = effectCount ? '' : 'none';
+      badge.textContent   = `⚙ ${effectCount} effects`;
+    }
+  }
+}
+
 let lt_editingId   = null;
 let lt_pendingFx   = [];
 // DAMAGE_STATS mirrors the same set used in loot-tracker.html
@@ -1222,42 +1292,30 @@ function lt_collectFx(){
 }
 
 // Populate the Held By <select> with current party members + special options
-async function lt_populateHolderSelect(currentValue){
+// Synchronous — uses the members[] array already loaded at page start.
+// No DB call needed; party members are fetched once by loadData().
+function lt_populateHolderSelect(currentValue){
   const sel=document.getElementById('lt_fieldHolder');
   // keep the first two static options (Unassigned, Party Inventory)
   while(sel.options.length>2) sel.remove(2);
-  try{
-    const members=await db.select('party_members',{order:'created_at.asc'});
-    members.forEach(m=>{
-      const opt=document.createElement('option');
-      opt.value=m.name; opt.textContent=m.name;
-      sel.appendChild(opt);
-    });
-  }catch(e){ console.error('lt holder list failed',e); }
+  members.forEach(m=>{
+    const opt=document.createElement('option');
+    opt.value=m.name; opt.textContent=m.name;
+    sel.appendChild(opt);
+  });
   sel.value=currentValue||'';
 }
 
-async function lt_openModal(id){
+function lt_openModal(id){
   lt_editingId=id||null;
   document.getElementById('lt_modalTitle').textContent=id?'⚙ EDIT ITEM':'⚙ ADD LOOT ITEM';
   lt_pendingFx=[];
   document.getElementById('lt_fxRows').innerHTML='';
 
   if(id){
-    // Pull from cache first; fall back to a fresh DB fetch if not found
-    let it=(_cachedLootItems||[]).find(i=>i.id===id);
-    if(!it){
-      try{
-        const rows=await db.select('loot_items',{filter:`id=eq.${id}`});
-        if(rows.length){
-          it={
-            id:rows[0].id,name:rows[0].name,type:rows[0].type,rarity:rows[0].rarity,
-            holder:rows[0].holder,attunement:rows[0].attunement,
-            desc:rows[0].desc,statEffects:rows[0].stat_effects||[],
-          };
-        }
-      }catch(e){ console.error(e); showToast('Could not load item.'); return; }
-    }
+    // Items are always in _cachedLootItems — prefetchLootItems (called at page
+    // load) includes desc, so no fallback DB fetch is ever needed.
+    const it=(_cachedLootItems||[]).find(i=>i.id===id);
     if(!it){ showToast('Item not found.'); return; }
 
     document.getElementById('lt_fieldName').value=it.name||'';
@@ -1265,7 +1323,7 @@ async function lt_openModal(id){
     document.getElementById('lt_fieldRarity').value=it.rarity||'rare';
     document.getElementById('lt_fieldAttunement').value=it.attunement||'none';
     document.getElementById('lt_fieldDesc').value=it.desc||'';
-    await lt_populateHolderSelect(it.holder||'');
+    lt_populateHolderSelect(it.holder||'');
     (it.statEffects||[]).forEach(fx=>lt_addFxRow({...fx}));
   } else {
     document.getElementById('lt_fieldName').value='';
@@ -1273,9 +1331,11 @@ async function lt_openModal(id){
     document.getElementById('lt_fieldType').value='Wondrous Item';
     document.getElementById('lt_fieldRarity').value='rare';
     document.getElementById('lt_fieldAttunement').value='none';
-    await lt_populateHolderSelect('');
+    lt_populateHolderSelect('');
   }
 
+  // Open immediately — all population above is synchronous so the modal
+  // renders fully populated with zero perceived delay.
   document.getElementById('lt_modalBackdrop').classList.add('open');
   setTimeout(()=>document.getElementById('lt_fieldName').focus(),150);
 }
@@ -1331,9 +1391,10 @@ async function lt_saveItem(){
     showToast(lt_editingId ? 'Item updated.' : 'Item added.');
     lt_closeModal();
 
-    // Re-render only the cards that display this item's holder
-    // (or all cards if holder changed). Cheapest path: full render.
-    render();
+    // Surgically refresh only the Effects panels of members affected
+    // by this item (the holder, or all members for Party items).
+    // This preserves the active tab on every card.
+    lt_refreshEffectsForItem(item);
 
   }catch(e){ console.error(e); showToast('Save failed — check your Supabase config.');
   }finally{ setLoading(btn,false); setModalLoading(modal,false); }

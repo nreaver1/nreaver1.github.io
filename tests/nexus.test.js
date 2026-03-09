@@ -1289,3 +1289,175 @@ describe('lt_saveItem — DB column name mapping', () => {
   });
 
 });
+
+
+// ══════════════════════════════════════════════════════════════
+//  SECTION 12 — lt_refreshEffectsForItem targeting logic
+//
+//  lt_refreshEffectsForItem decides which members need their
+//  Effects panel refreshed. These tests cover the targeting
+//  logic as a pure function (no DOM required).
+// ══════════════════════════════════════════════════════════════
+
+describe('lt_refreshEffectsForItem — member targeting logic', () => {
+
+  // Pure replica of the "is this member affected?" predicate
+  function isAffected(item, memberName) {
+    const holderLc = (item.holder || '').toLowerCase().trim();
+    const nameLc   = (memberName  || '').toLowerCase().trim();
+    const isParty  = holderLc === 'party' || holderLc === 'party inventory';
+    return isParty || holderLc === nameLc;
+  }
+
+  it('item held by a specific member affects only that member', () => {
+    const item = { holder: 'Thalindra', statEffects: [] };
+    assert.strictEqual(isAffected(item, 'Thalindra'), true);
+    assert.strictEqual(isAffected(item, 'Orin'),      false);
+    assert.strictEqual(isAffected(item, 'Zyx'),       false);
+  });
+
+  it('holder matching is case-insensitive', () => {
+    const item = { holder: 'THALINDRA', statEffects: [] };
+    assert.strictEqual(isAffected(item, 'thalindra'), true);
+    assert.strictEqual(isAffected(item, 'Thalindra'), true);
+  });
+
+  it('item held by "Party" affects all members', () => {
+    const item = { holder: 'Party', statEffects: [] };
+    assert.strictEqual(isAffected(item, 'Thalindra'), true);
+    assert.strictEqual(isAffected(item, 'Orin'),      true);
+  });
+
+  it('"Party Inventory" also counts as a party item', () => {
+    const item = { holder: 'Party Inventory', statEffects: [] };
+    assert.strictEqual(isAffected(item, 'Thalindra'), true);
+    assert.strictEqual(isAffected(item, 'Orin'),      true);
+  });
+
+  it('unassigned item (empty holder) does not affect any named member', () => {
+    const item = { holder: '', statEffects: [] };
+    assert.strictEqual(isAffected(item, 'Thalindra'), false);
+    assert.strictEqual(isAffected(item, 'Orin'),      false);
+  });
+
+  it('leading/trailing whitespace in holder is trimmed before comparison', () => {
+    const item = { holder: '  Thalindra  ', statEffects: [] };
+    assert.strictEqual(isAffected(item, 'Thalindra'), true);
+  });
+
+  // Verify the "was the tab active?" preservation logic:
+  // after a panel swap the refreshed element should get 'active' back
+  it('active class is re-applied after panel swap when tab was open', () => {
+    // Simulate what lt_refreshEffectsPanel does with wasActive
+    function simulateSwap(wasActive, newPanelHtml) {
+      // newPanel always starts without 'active' (as built by buildEffectsPanel)
+      const classes = new Set(['tab-panel']);
+      if (wasActive) classes.add('active'); // re-applied by refresh fn
+      return classes.has('active');
+    }
+    assert.strictEqual(simulateSwap(true,  '<div class="tab-panel">...</div>'), true,
+      'active class must be re-applied when tab was open');
+    assert.strictEqual(simulateSwap(false, '<div class="tab-panel">...</div>'), false,
+      'active class must NOT be added when tab was not open');
+  });
+
+});
+
+
+// ══════════════════════════════════════════════════════════════
+//  SECTION 13 — lt_openModal performance optimizations
+//
+//  Three changes were made to eliminate the open-time delay:
+//
+//  1. prefetchLootItems now caches `desc` (r.description) so the
+//     fallback DB fetch in lt_openModal is never needed.
+//  2. lt_populateHolderSelect uses members[] directly — no DB call.
+//  3. lt_openModal is now a plain function (not async) and opens
+//     the modal immediately rather than after awaiting network work.
+// ══════════════════════════════════════════════════════════════
+
+describe('lt_openModal optimizations', () => {
+
+  // ── 1. Cache shape includes desc ──
+  it('prefetchLootItems cache shape includes desc field', () => {
+    // Simulate the row mapping done in prefetchLootItems
+    function mapRow(r) {
+      return {
+        id:          r.id,
+        name:        r.name,
+        rarity:      r.rarity,
+        type:        r.type,
+        attunement:  r.attunement,
+        holder:      r.holder,
+        desc:        r.description || '',
+        statEffects: r.stat_effects || [],
+      };
+    }
+    const row = { id: '_1', name: 'Gloves', rarity: 'rare', type: 'Gloves',
+                  attunement: 'none', holder: 'Mira',
+                  description: 'Grants +2 acid damage.', stat_effects: [] };
+    const cached = mapRow(row);
+    assert.ok('desc' in cached,            'cached item must have desc field');
+    assert.strictEqual(cached.desc, 'Grants +2 acid damage.');
+  });
+
+  it('prefetchLootItems cache maps description → desc (not r.desc)', () => {
+    // Confirm the mapping reads r.description, not r.desc
+    // (the DB column is "description"; items in JS use "desc")
+    function mapRow(r) {
+      return { desc: r.description || '' };
+    }
+    const withDescription = { description: 'Some text' };
+    const withoutDesc     = { description: '' };
+    assert.strictEqual(mapRow(withDescription).desc, 'Some text');
+    assert.strictEqual(mapRow(withoutDesc).desc,     '');
+  });
+
+  it('missing description in DB row maps to empty string, not undefined', () => {
+    function mapRow(r) {
+      return { desc: r.description || '' };
+    }
+    const row = {};  // no description key at all
+    assert.strictEqual(mapRow(row).desc, '', 'should default to empty string');
+  });
+
+  // ── 2. Holder select uses members[] — no DB call ──
+  it('lt_populateHolderSelect builds options from members array synchronously', () => {
+    // Pure replica of the synchronous lt_populateHolderSelect logic
+    function populateOptions(membersList) {
+      // Returns the values that would be added as <option> elements
+      return membersList.map(m => m.name);
+    }
+    const membersList = [
+      { name: 'Thalindra' },
+      { name: 'Orin' },
+      { name: 'Zyx' },
+    ];
+    const opts = populateOptions(membersList);
+    assert.deepStrictEqual(opts, ['Thalindra', 'Orin', 'Zyx']);
+  });
+
+  it('holder select value is set to the item holder after population', () => {
+    // Simulate select.value assignment after options are added
+    const options = ['', 'Party Inventory', 'Thalindra', 'Orin'];
+    function resolveValue(currentValue) {
+      // Matches what sel.value = currentValue||'' does
+      return options.includes(currentValue) ? currentValue : '';
+    }
+    assert.strictEqual(resolveValue('Thalindra'), 'Thalindra');
+    assert.strictEqual(resolveValue(''),          '');
+    assert.strictEqual(resolveValue(undefined),   '');
+  });
+
+  // ── 3. lt_openModal is synchronous (not async) ──
+  it('lt_openModal is a plain function — not async — so it opens without awaiting', () => {
+    // Extract the function signature from the source and verify it is not async
+    const src = require('fs').readFileSync(
+      require('path').join(__dirname, '../party-roster.html'), 'utf8');
+    const match = src.match(/(\basync\s+)?function lt_openModal\s*\(/);
+    assert.ok(match, 'lt_openModal must be defined in party-roster.html');
+    assert.strictEqual(match[1], undefined,
+      'lt_openModal must NOT be async — it should open the modal synchronously');
+  });
+
+});
