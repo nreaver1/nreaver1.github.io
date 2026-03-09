@@ -307,11 +307,6 @@
             document.head.appendChild(styleEl);
           }
           styleEl.textContent = `
-            @keyframes indexWealthFlow {
-              0%   { background-position: 0% 50%; }
-              50%  { background-position: 100% 50%; }
-              100% { background-position: 0% 50%; }
-            }
             #statTotalWealth {
               background: linear-gradient(90deg, ${stops.join(', ')});
               background-size: 200% auto;
@@ -358,6 +353,7 @@
   // Data caches populated when modal first opens
   let _idxCurrencies = null;
   let _idxLedger     = null;
+  let _idxMembers    = null;
 
   function closeIdxMemberModal() {
     document.getElementById('idxMemberModal').classList.remove('open');
@@ -367,15 +363,16 @@
 
   async function openMemberModal(memberName) {
     // Load currencies + ledger if not yet cached this session
-    if (!_idxCurrencies || !_idxLedger) {
+    if (!_idxCurrencies || !_idxLedger || !_idxMembers) {
       try {
-        [_idxCurrencies, _idxLedger] = await Promise.all([
+        [_idxCurrencies, _idxLedger, _idxMembers] = await Promise.all([
           db.select('treasury_currencies', { order: 'sort_order.asc,created_at.asc' }),
           db.select('treasury_ledger'),
+          db.select('party_members'),
         ]);
       } catch(e) {
         console.error('Could not load treasury data for modal:', e);
-        _idxCurrencies = []; _idxLedger = [];
+        _idxCurrencies = []; _idxLedger = []; _idxMembers = [];
       }
     }
 
@@ -384,8 +381,7 @@
     const base       = currencies.find(c => c.id === 'cr') || currencies[0];
 
     // Find member record for color/photo
-    const allMembers = await db.select('party_members').catch(() => []);
-    const m = allMembers.find(x => x.name === memberName);
+    const m = (_idxMembers || []).find(x => x.name === memberName);
 
     // ── Title ──
     document.getElementById('idxMemberTitle').textContent = '⚙ ' + memberName.toUpperCase();
@@ -473,13 +469,7 @@
         gradStyleEl.id = gradStyleId;
         document.head.appendChild(gradStyleEl);
       }
-      gradStyleEl.textContent = `
-        @keyframes idxMmFlow {
-          0%   { background-position: 0% 50%; }
-          50%  { background-position: 100% 50%; }
-          100% { background-position: 0% 50%; }
-        }
-      `;
+      gradStyleEl.textContent = ''; // keyframe is in nexus.css
       totalBarEl.style.background     = `linear-gradient(135deg, ${stops})`;
       totalBarEl.style.backgroundSize = '200% 200%';
       totalBarEl.style.animation      = 'idxMmFlow 6s ease infinite';

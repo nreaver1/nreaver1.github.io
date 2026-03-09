@@ -489,20 +489,7 @@ function renderTotal() {
         return `${cur.color}22 ${pct}%`;
       });
       // Inject the keyframe + style via a dynamic <style> tag keyed to this render
-      const styleId = 'nexus-wealth-gradient-style';
-      let styleEl = document.getElementById(styleId);
-      if (!styleEl) {
-        styleEl = document.createElement('style');
-        styleEl.id = styleId;
-        document.head.appendChild(styleEl);
-      }
-      styleEl.textContent = `
-        @keyframes wealthFlow {
-          0%   { background-position: 0% 50%; }
-          50%  { background-position: 100% 50%; }
-          100% { background-position: 0% 50%; }
-        }
-      `;
+      // keyframe wealthFlow is in nexus.css — just set the gradient
       totalBarEl.style.background = `linear-gradient(135deg, ${stops.join(', ')})`;
       totalBarEl.style.backgroundSize = '200% 200%';
       totalBarEl.style.animation = 'wealthFlow 6s ease infinite';
@@ -1152,9 +1139,7 @@ function onSplitCountChange() {
 }
 
 async function openSplitModal() {
-  // Load members fresh
-  _cachedTxMembers = null;
-  await loadTxMembers();
+  await loadTxMembers(); // uses cache if available; only fetches when null
 
   const members = (_cachedTxMembers || []).filter(m => (m.status || 'active') === 'active');
 
@@ -1602,13 +1587,7 @@ function openMemberModal(memberName) {
       gradStyleEl.id = gradStyleId;
       document.head.appendChild(gradStyleEl);
     }
-    gradStyleEl.textContent = `
-      @keyframes mmWealthFlow {
-        0%   { background-position: 0% 50%; }
-        50%  { background-position: 100% 50%; }
-        100% { background-position: 0% 50%; }
-      }
-    `;
+    gradStyleEl.textContent = ''; // keyframe is in nexus.css
     totalBarEl.style.background    = `linear-gradient(135deg, ${stops})`;
     totalBarEl.style.backgroundSize = '200% 200%';
     totalBarEl.style.animation     = 'mmWealthFlow 6s ease infinite';

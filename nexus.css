@@ -101,6 +101,26 @@ body.page-treasury::before {
 /* ─────────────────────────────────────────────
    5. ANIMATIONS
    ───────────────────────────────────────────── */
+@keyframes wealthFlow {
+  0%   { background-position: 0% 50%; }
+  50%  { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+@keyframes mmWealthFlow {
+  0%   { background-position: 0% 50%; }
+  50%  { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+@keyframes idxMmFlow {
+  0%   { background-position: 0% 50%; }
+  50%  { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+@keyframes indexWealthFlow {
+  0%   { background-position: 0% 50%; }
+  50%  { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
 @keyframes fadeUp {
   from { opacity: 0; transform: translateY(14px); }
   to   { opacity: 1; transform: translateY(0); }
@@ -1775,10 +1795,6 @@ td { padding: 0.7rem 1rem; }
   border-color: rgba(14,240,208,0.4);
 }
 /* Make sure coin-panel has position:relative for the absolute actions */
-.coin-panel {
-  position: relative;
-}
-
 /* ═══════════════════════════════════════════════════════════════
    TREASURY — SPLIT MODAL MEMBER CARDS
    ═══════════════════════════════════════════════════════════════ */

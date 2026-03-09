@@ -584,36 +584,33 @@ function buildCard(m,idx){
       const stops   = doubled.map(({ cur: wc }, i) =>
         `${wc.color} ${(i / (doubled.length - 1) * 100).toFixed(1)}%`
       ).join(', ');
-      // Inject / update style tag after render tick
-      requestAnimationFrame(() => {
-        let styleEl = document.getElementById(gradStyleId);
-        if (!styleEl) {
-          styleEl = document.createElement('style');
-          styleEl.id = gradStyleId;
-          document.head.appendChild(styleEl);
+      // Inject / update style tag synchronously during render
+      let styleEl = document.getElementById(gradStyleId);
+      if (!styleEl) {
+        styleEl = document.createElement('style');
+        styleEl.id = gradStyleId;
+        document.head.appendChild(styleEl);
+      }
+      // keyframe mwFlow_<id> is reused from a shared pattern; only stops change per member
+      styleEl.textContent = `
+        @keyframes mwFlow_${m.id} {
+          0%   { background-position: 0% 50%; }
+          50%  { background-position: 100% 50%; }
+          100% { background-position: 0% 50%; }
         }
-        styleEl.textContent = `
-          @keyframes mwFlow_${m.id} {
-            0%   { background-position: 0% 50%; }
-            50%  { background-position: 100% 50%; }
-            100% { background-position: 0% 50%; }
-          }
-          .${gradClass} {
-            background: linear-gradient(90deg, ${stops});
-            background-size: 200% auto;
-            -webkit-background-clip: text;
-            background-clip: text;
-            -webkit-text-fill-color: transparent;
-            animation: mwFlow_${m.id} 6s ease infinite;
-          }
-        `;
-      });
+        .${gradClass} {
+          background: linear-gradient(90deg, ${stops});
+          background-size: 200% auto;
+          -webkit-background-clip: text;
+          background-clip: text;
+          -webkit-text-fill-color: transparent;
+          animation: mwFlow_${m.id} 6s ease infinite;
+        }
+      `;
     } else {
-      // Clean up if no longer needed
-      requestAnimationFrame(() => {
-        const old = document.getElementById(gradStyleId);
-        if (old) old.remove();
-      });
+      // Clean up immediately during render pass
+      const old = document.getElementById(gradStyleId);
+      if (old) old.remove();
     }
 
     const totalStr = allHaveRates && baseCur
