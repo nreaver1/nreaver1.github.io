@@ -347,6 +347,36 @@ function abilityMod(score){return Math.floor(((score||10)-10)/2);}
 function modStr(n){return n>=0?`+${n}`:String(n);}
 // Cache loot items for stat effect display on cards
 let _cachedLootItems = null;
+
+// ── fx-items collapsed state ─────────────────────────────────
+// Persisted in localStorage so the open/closed state of each
+// member's "Items" group in the Effects tab survives renders,
+// saves, deletes, and page reloads.
+// Shape: { memberId: true (collapsed) | false/absent (expanded) }
+const _FX_COLLAPSE_KEY = 'nexus_fxItemsCollapsed';
+function _fxCollapseLoad(){
+  try{ return JSON.parse(localStorage.getItem(_FX_COLLAPSE_KEY)||'{}'); }
+  catch{ return {}; }
+}
+function _fxCollapseIsCollapsed(memberId){
+  return !!_fxCollapseLoad()[memberId];
+}
+function fxItemsToggle(memberId){
+  const state = _fxCollapseLoad();
+  state[memberId] = !state[memberId];
+  try{ localStorage.setItem(_FX_COLLAPSE_KEY, JSON.stringify(state)); }catch{}
+  // Surgical DOM update — flip chevron, show/hide body, no full re-render
+  const card = document.querySelector(`.member-card[data-member-id="${memberId}"]`);
+  if(!card) return;
+  const body    = card.querySelector('.fx-items-body');
+  const chevron = card.querySelector('.fx-items-chevron');
+  const header  = card.querySelector('.fx-items-header');
+  if(!body||!chevron) return;
+  const collapsed = state[memberId];
+  body.style.display   = collapsed ? 'none' : '';
+  chevron.textContent  = collapsed ? '▶' : '▼';
+  header.setAttribute('aria-expanded', String(!collapsed));
+}
 let _cachedVaultSummary = null;        // { total, breakdown, hasData }
 let _cachedMemberWallet = {};           // { memberName: { cid: amount } }
 let _cachedTreasuryCurrencies = [];     // currency rows from DB
@@ -592,22 +622,11 @@ function render(){
 // render) and by lt_refreshEffectsPanel (surgical in-place
 // update after saving a loot item edit).
 function buildEffectsPanel(m, net, relevant){
-  const fxByItem=relevant.map(item=>{
-    if(!(item.statEffects||[]).length) return '';
-    const pills=(item.statEffects||[]).map(fx=>`<span class="fx-pill ${fxClass(fx.type)}">${esc(fxShort(fx))}</span>`).join('');
-    return `<div class="fx-item-group">
-      <div class="fx-item-name" style="justify-content:space-between">
-        <span>⚙ ${esc(item.name)} <span class="fx-item-rarity">[${esc(item.rarity)}]</span></span>
-        <button class="btn-icon" title="Edit item effects" style="font-size:0.7rem;opacity:0.7;padding:0 4px;" onclick="lt_openModal('${esc(item.id)}')">✎</button>
-      </div>
-      <div class="fx-effects-list">${pills}</div>
-    </div>`;
-  }).filter(Boolean).join('');
-
+  // ── Net Totals ──────────────────────────────────────────────
   const netSummary=Object.entries(net).map(([stat,data])=>{
     const parts=[];
     const nb=(data.bonus||0)-(data.penalty||0);
-    if(nb!==0) parts.push(`<span class="net-total ${nb>0?'pos':'neg'}">${nb>=0?'+':''}${nb}</span>`);
+    if(nb!==0) parts.push(`<span class="net-total ${nb>0?'pos':'neg'}">${nb>=0?'+':''  }${nb}</span>`);
     if(data.advantage>0)    parts.push(`<span class="net-total adv">Adv</span>`);
     if(data.disadvantage>0) parts.push(`<span class="net-total dis">Dis</span>`);
     if(!parts.length) return '';
@@ -633,10 +652,46 @@ function buildEffectsPanel(m, net, relevant){
     </div>`;
   }).filter(Boolean).join('');
 
-  return `<div class="tab-panel" id="tab-effects-${m.id}">
-      ${fxByItem||`<div class="fx-empty">No stat effects from equipped items.<br><span style="font-size:0.48rem;opacity:0.6">Items are matched by "Held By" name in the Loot Tracker.</span></div>`}
-      ${netSummary?`<div class="net-effects"><div class="checks-section-label" style="font-family:'Share Tech Mono',monospace;font-size:0.55rem;letter-spacing:0.2em;text-transform:uppercase;color:var(--cyan-dim);margin-bottom:0.4rem;display:flex;align-items:center;gap:0.5rem;">Net Totals<span style="flex:1;height:1px;background:var(--border);display:block;"></span></div>${netSummary}</div>`:''}
+  // ── Items group (collapsible) ───────────────────────────────
+  const itemsWithFx = relevant.filter(item=>(item.statEffects||[]).length>0);
+  const collapsed   = _fxCollapseIsCollapsed(m.id);
+  const chevron     = collapsed ? '▶' : '▼';
+  const bodyDisplay = collapsed ? 'display:none' : '';
+  const itemCount   = itemsWithFx.length;
+
+  const fxRows = itemsWithFx.map(item=>{
+    const pills=(item.statEffects||[]).map(fx=>`<span class="fx-pill ${fxClass(fx.type)}">${esc(fxShort(fx))}</span>`).join('');
+    return `<div class="fx-item-group">
+      <div class="fx-item-name" style="justify-content:space-between">
+        <span>⚙ ${esc(item.name)} <span class="fx-item-rarity">[${esc(item.rarity)}]</span></span>
+        <button class="btn-icon" title="Edit item effects" style="font-size:0.7rem;opacity:0.7;padding:0 4px;" onclick="lt_openModal('${esc(item.id)}')">✎</button>
+      </div>
+      <div class="fx-effects-list">${pills}</div>
     </div>`;
+  }).join('');
+
+  const itemsSection = `<div class="fx-items-section">
+    <div class="fx-items-header checks-section-label"
+         style="cursor:pointer;user-select:none;margin-top:0.8rem;"
+         onclick="fxItemsToggle('${m.id}')"
+         aria-expanded="${!collapsed}"
+         title="${collapsed?'Expand':'Collapse'} item list">
+      Items${itemCount?` <span class="fx-items-count">(${itemCount})</span>`:''}
+      <span style="flex:1;height:1px;background:var(--border);display:block;"></span>
+      <span class="fx-items-chevron" style="font-size:0.6rem;opacity:0.7;">${chevron}</span>
+    </div>
+    <div class="fx-items-body" style="${bodyDisplay}">
+      ${fxRows||`<div class="fx-empty" style="margin-top:0.3rem;">No items with stat effects.<br><span style="font-size:0.48rem;opacity:0.6">Items are matched by \"Held By\" name in the Loot Tracker.</span></div>`}
+    </div>
+  </div>`;
+
+  // ── Assemble: net totals first, then collapsible items ──────
+  const hasAnything = netSummary || itemCount;
+  return `<div class="tab-panel" id="tab-effects-${m.id}">
+    ${!hasAnything?`<div class="fx-empty">No stat effects from equipped items.<br><span style="font-size:0.48rem;opacity:0.6">Items are matched by "Held By" name in the Loot Tracker.</span></div>`:''}
+    ${netSummary?`<div class="net-effects"><div class="checks-section-label" style="font-family:'Share Tech Mono',monospace;font-size:0.55rem;letter-spacing:0.2em;text-transform:uppercase;color:var(--cyan-dim);margin-bottom:0.4rem;display:flex;align-items:center;gap:0.5rem;">Net Totals<span style="flex:1;height:1px;background:var(--border);display:block;"></span></div>${netSummary}</div>`:''}
+    ${hasAnything?itemsSection:''}
+  </div>`;
 }
 
 function buildCard(m,idx){

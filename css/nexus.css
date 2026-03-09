@@ -900,7 +900,7 @@ body.page-dashboard main { max-width: 1100px; padding: 2.5rem 2rem 5rem; }
 .check-prof { width: 8px; height: 8px; border-radius: 50%; border: 1px solid var(--text-dim); flex-shrink: 0; }
 .check-prof.prof { background: var(--member-color, var(--cyan)); border-color: var(--member-color, var(--cyan)); }
 .check-name { font-family: 'Share Tech Mono', monospace; font-size: 0.8rem; letter-spacing: 0.06em; color: var(--text-dim); flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.check-val  { font-family: 'Orbitron', sans-serif; font-size: 0.8rem; font-weight: 700; color: var(--text); white-space: nowrap; }
+.check-val  { font-family: 'Orbitron', sans-serif; font-size: 0.8rem; font-weight: 700; color: var(--text); white-space: nowrap; padding-right: 0.5rem; }
 .check-val.pos  { color: var(--green); }
 .check-val.neg  { color: var(--red); }
 .check-val.zero { color: var(--text-dim); opacity: 0.6; }
@@ -913,6 +913,13 @@ body.page-dashboard main { max-width: 1100px; padding: 2.5rem 2rem 5rem; }
 .fx-effects-list { display: flex; flex-wrap: wrap; gap: 4px; }
 .fx-empty { font-family: 'Share Tech Mono', monospace; font-size: 0.8rem; color: var(--text-dim); letter-spacing: 0.12em; padding: 0.5rem 0; text-align: center; }
 .net-effects { margin-top: 0.8rem; }
+/* Collapsible items group in Effects tab */
+.fx-items-section { margin-top: 0; }
+.fx-items-header  { margin-bottom: 0.4rem; }
+.fx-items-header:hover { color: var(--text); }
+.fx-items-header:hover .fx-items-chevron { opacity: 1; }
+.fx-items-count   { font-size: 0.75em; opacity: 0.65; }
+.fx-items-body    { display: flex; flex-direction: column; gap: 0.4rem; }
 .net-row { display: flex; align-items: center; justify-content: space-between; padding: 0.28rem 0; border-bottom: 1px solid rgba(30,45,69,0.4); }
 .net-row:last-child { border-bottom: none; }
 .net-stat  { font-family: 'Share Tech Mono', monospace; font-size: 0.8rem; letter-spacing: 0.1em; color: var(--text-dim); }

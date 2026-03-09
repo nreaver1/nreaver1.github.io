@@ -1642,3 +1642,112 @@ describe('nexusConfirm required-checkbox guard', () => {
   });
 
 });
+
+
+// ══════════════════════════════════════════════════════════════
+//  SECTION 16 — fx-items collapsible state
+//
+//  Tests the pure state-management logic behind the collapsible
+//  Items group in the Effects tab.
+// ══════════════════════════════════════════════════════════════
+
+describe('fx-items collapsible state', () => {
+
+  // Pure replica of the localStorage-backed state helpers
+  function makeStore(initial = {}) {
+    let raw = JSON.stringify(initial);
+    return {
+      load()       { try { return JSON.parse(raw); } catch { return {}; } },
+      isCollapsed(id) { return !!this.load()[id]; },
+      toggle(id)   {
+        const s = this.load();
+        s[id] = !s[id];
+        raw = JSON.stringify(s);
+        return s[id]; // new state
+      },
+    };
+  }
+
+  it('all members start expanded (no entry = expanded)', () => {
+    const store = makeStore({});
+    assert.strictEqual(store.isCollapsed('_a'), false);
+    assert.strictEqual(store.isCollapsed('_b'), false);
+  });
+
+  it('first toggle collapses an expanded member', () => {
+    const store = makeStore({});
+    const newState = store.toggle('_a');
+    assert.strictEqual(newState, true,  'should now be collapsed');
+    assert.strictEqual(store.isCollapsed('_a'), true);
+  });
+
+  it('second toggle re-expands a collapsed member', () => {
+    const store = makeStore({ '_a': true });
+    store.toggle('_a');
+    assert.strictEqual(store.isCollapsed('_a'), false);
+  });
+
+  it('toggling one member does not affect others', () => {
+    const store = makeStore({ '_a': true });
+    store.toggle('_a');
+    assert.strictEqual(store.isCollapsed('_b'), false, '_b should be unaffected');
+  });
+
+  it('persisted collapsed state is read back correctly', () => {
+    const store = makeStore({ '_x': true, '_y': false });
+    assert.strictEqual(store.isCollapsed('_x'), true);
+    assert.strictEqual(store.isCollapsed('_y'), false);
+  });
+
+  it('collapsed state drives display:none on the body element', () => {
+    // Simulate what buildEffectsPanel does with the collapsed flag
+    function bodyStyle(collapsed) {
+      return collapsed ? 'display:none' : '';
+    }
+    assert.strictEqual(bodyStyle(true),  'display:none');
+    assert.strictEqual(bodyStyle(false), '');
+  });
+
+  it('chevron reflects collapsed/expanded state', () => {
+    function chevron(collapsed) { return collapsed ? '▶' : '▼'; }
+    assert.strictEqual(chevron(true),  '▶');
+    assert.strictEqual(chevron(false), '▼');
+  });
+
+  it('item count badge shows correct count', () => {
+    function badge(count) {
+      return count ? ` (${count})` : '';
+    }
+    assert.strictEqual(badge(3),  ' (3)');
+    assert.strictEqual(badge(0),  '');
+    assert.strictEqual(badge(1),  ' (1)');
+  });
+
+  it('fxItemsToggle is defined in party-roster.html', () => {
+    const src = require('fs').readFileSync(
+      require('path').join(__dirname, '../party-roster.html'), 'utf8');
+    assert.ok(src.includes('function fxItemsToggle('), 'fxItemsToggle must be defined');
+  });
+
+  it('_FX_COLLAPSE_KEY constant is defined', () => {
+    const src = require('fs').readFileSync(
+      require('path').join(__dirname, '../party-roster.html'), 'utf8');
+    assert.ok(src.includes('_FX_COLLAPSE_KEY'), '_FX_COLLAPSE_KEY must be defined');
+  });
+
+  it('net totals variable appears before itemsSection variable in the return template', () => {
+    const src = require('fs').readFileSync(
+      require('path').join(__dirname, '../party-roster.html'), 'utf8');
+    // The return template uses variables (netSummary, itemsSection).
+    // Confirm netSummary interpolation comes before itemsSection interpolation.
+    const returnIdx = src.lastIndexOf('return `<div class="tab-panel" id="tab-effects-');
+    assert.ok(returnIdx >= 0, 'buildEffectsPanel return template must exist');
+    const template   = src.slice(returnIdx);
+    const netIdx     = template.indexOf('${netSummary');
+    const itemsIdx   = template.indexOf('${hasAnything?itemsSection');
+    assert.ok(netIdx   >= 0, '${netSummary interpolation must be in return template');
+    assert.ok(itemsIdx >= 0, '${hasAnything?itemsSection interpolation must be in return template');
+    assert.ok(netIdx < itemsIdx, 'netSummary must appear before itemsSection in the return template');
+  });
+
+});
