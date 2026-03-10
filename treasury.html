@@ -91,6 +91,38 @@
     <div class="section-title">Transaction Ledger</div>
     <span class="tx-count" id="txCount">0 entries</span>
   </div>
+
+  <!-- ── Ledger search / date-range filter toolbar ── -->
+  <div class="ledger-toolbar">
+    <div class="ledger-search-wrap">
+      <input
+        type="text"
+        id="ledgerSearch"
+        class="ledger-search"
+        placeholder="⌕  Search description, note, member…"
+        oninput="applyLedgerFilter()"
+        autocomplete="off"
+      />
+      <button class="ledger-search-clear" id="ledgerSearchClear" onclick="clearLedgerSearch()" title="Clear" style="display:none">✕</button>
+    </div>
+    <div class="ledger-filter-group">
+      <label class="ledger-date-label">From</label>
+      <input type="date" id="ledgerDateFrom" class="ledger-date-inp" onchange="applyLedgerFilter()" />
+      <label class="ledger-date-label">To</label>
+      <input type="date" id="ledgerDateTo"   class="ledger-date-inp" onchange="applyLedgerFilter()" />
+    </div>
+    <div class="ledger-filter-group">
+      <select id="ledgerTypeFilter" class="ledger-type-sel" onchange="applyLedgerFilter()">
+        <option value="">All Types</option>
+        <option value="gain">Gain</option>
+        <option value="spend">Spend</option>
+        <option value="convert">Convert</option>
+      </select>
+    </div>
+    <div id="ledgerFilterBadge" class="ledger-filter-badge" style="display:none"></div>
+    <button class="ledger-filter-clear-all" id="ledgerClearAll" onclick="clearAllLedgerFilters()" style="display:none" title="Clear all filters">✕ Clear</button>
+  </div>
+
   <div class="ledger-wrap">
     <table>
       <thead>
@@ -225,6 +257,18 @@
         <label>Amounts to Split</label>
         <div class="coin-inputs-dynamic" id="splitCoinInputs"></div>
       </div>
+
+      <!-- Split mode toggle -->
+      <div class="field">
+        <label>Split Method</label>
+        <div class="split-mode-row">
+          <button class="split-mode-btn active" data-mode="even"    onclick="setSplitMode('even')">⚖ Even</button>
+          <button class="split-mode-btn"        data-mode="percent" onclick="setSplitMode('percent')">% Percent</button>
+          <button class="split-mode-btn"        data-mode="flat"    onclick="setSplitMode('flat')">₵ Flat</button>
+        </div>
+        <div class="split-mode-hint" id="splitModeHint">Each recipient receives an equal share. Any indivisible remainder goes to the party vault.</div>
+      </div>
+
       <div class="field">
         <label>Number of Recipients</label>
         <div class="split-count-row">
@@ -564,15 +608,23 @@ function sortLedger(key) {
 
 function renderLedger() {
   const base = currencies.find(c => c.id === 'cr') || currencies[0];
-  document.getElementById('txCount').textContent = ledger.length + ' entr' + (ledger.length === 1 ? 'y' : 'ies');
+  const filtered = _getFilteredLedger();
+  const isFiltered = filtered.length !== ledger.length;
+  document.getElementById('txCount').textContent =
+    isFiltered
+      ? `${filtered.length} of ${ledger.length} entr${ledger.length === 1 ? 'y' : 'ies'}`
+      : `${ledger.length} entr${ledger.length === 1 ? 'y' : 'ies'}`;
+
   const tbody = document.getElementById('ledgerBody');
   if (!ledger.length) {
     tbody.innerHTML = `<tr><td colspan="7"><div class="empty-ledger"><span class="empty-icon">⚙</span><p>No transactions logged</p></div></td></tr>`;
     return;
   }
-  // Build sorted copy
-  const base2 = currencies.find(c => c.id === 'cr') || currencies[0];
-  const sorted = [...ledger].sort((a, b) => {
+  if (!filtered.length) {
+    tbody.innerHTML = `<tr><td colspan="7"><div class="empty-ledger"><span class="empty-icon">⌕</span><p>No transactions match the current filter</p><button class="btn btn-ghost" style="margin-top:0.5rem;font-size:0.75rem" onclick="clearAllLedgerFilters()">Clear Filters</button></div></td></tr>`;
+    return;
+  }
+  const sorted = [...filtered].sort((a, b) => {
     if (ledgerSortKey === 'id') {
       return (a.ts - b.ts) * ledgerSortDir;
     } else if (ledgerSortKey === 'desc') {
@@ -1031,10 +1083,91 @@ async function deleteCurrency(id) {
 }
 
 // ══════════════════════════════════
+//  LEDGER FILTER STATE
+// ══════════════════════════════════
+let _ledgerFilter = { search: '', dateFrom: '', dateTo: '', type: '' };
+
+function applyLedgerFilter() {
+  _ledgerFilter.search   = (document.getElementById('ledgerSearch')?.value || '').toLowerCase().trim();
+  _ledgerFilter.dateFrom = document.getElementById('ledgerDateFrom')?.value || '';
+  _ledgerFilter.dateTo   = document.getElementById('ledgerDateTo')?.value   || '';
+  _ledgerFilter.type     = document.getElementById('ledgerTypeFilter')?.value || '';
+
+  // Clear button on search input
+  const clearBtn = document.getElementById('ledgerSearchClear');
+  if (clearBtn) clearBtn.style.display = _ledgerFilter.search ? '' : 'none';
+
+  // Active-filter badge + clear-all button
+  const isFiltered = _ledgerFilter.search || _ledgerFilter.dateFrom || _ledgerFilter.dateTo || _ledgerFilter.type;
+  const badge   = document.getElementById('ledgerFilterBadge');
+  const clearAll= document.getElementById('ledgerClearAll');
+  if (badge)    { badge.style.display    = isFiltered ? '' : 'none'; }
+  if (clearAll) { clearAll.style.display = isFiltered ? '' : 'none'; }
+
+  renderLedger();
+}
+
+function clearLedgerSearch() {
+  const inp = document.getElementById('ledgerSearch');
+  if (inp) inp.value = '';
+  applyLedgerFilter();
+}
+
+function clearAllLedgerFilters() {
+  const ids = ['ledgerSearch','ledgerDateFrom','ledgerDateTo'];
+  ids.forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+  const sel = document.getElementById('ledgerTypeFilter');
+  if (sel) sel.value = '';
+  _ledgerFilter = { search: '', dateFrom: '', dateTo: '', type: '' };
+  const clearBtn = document.getElementById('ledgerSearchClear');
+  if (clearBtn) clearBtn.style.display = 'none';
+  const badge   = document.getElementById('ledgerFilterBadge');
+  const clearAll= document.getElementById('ledgerClearAll');
+  if (badge)    badge.style.display    = 'none';
+  if (clearAll) clearAll.style.display = 'none';
+  renderLedger();
+}
+
+// Returns a filtered subset of ledger[] according to _ledgerFilter.
+// Pure function — no side effects, no DOM writes.
+function _getFilteredLedger() {
+  const { search, dateFrom, dateTo, type } = _ledgerFilter;
+  let from = dateFrom ? new Date(dateFrom).setHours(0,0,0,0) : null;
+  let to   = dateTo   ? new Date(dateTo).setHours(23,59,59,999) : null;
+
+  return ledger.filter(tx => {
+    if (type && tx.type !== type) return false;
+    if (from && tx.ts < from) return false;
+    if (to   && tx.ts > to)   return false;
+    if (search) {
+      const hay = [tx.desc, tx.note, tx.member, tx.type].filter(Boolean).join(' ').toLowerCase();
+      if (!hay.includes(search)) return false;
+    }
+    return true;
+  });
+}
+
+// ══════════════════════════════════
 //  SPLIT
 // ══════════════════════════════════
 // ── Split modal state ──
-let splitRecipients = []; // array of {type:'member'|'vault', member: obj|null}
+let splitRecipients = []; // array of {type:'member'|'vault', member: obj|null, weight: number}
+let splitMode = 'even';   // 'even' | 'percent' | 'flat'
+
+const SPLIT_MODE_HINTS = {
+  even:    'Each recipient receives an equal share. Any indivisible remainder goes to the party vault.',
+  percent: 'Assign a percentage to each recipient — must total 100%. Remainder goes to the party vault.',
+  flat:    'Assign a fixed base-currency amount to each recipient. Excess or shortfall goes to the party vault.',
+};
+
+function setSplitMode(mode) {
+  splitMode = mode;
+  document.querySelectorAll('.split-mode-btn').forEach(b => b.classList.toggle('active', b.dataset.mode === mode));
+  const hint = document.getElementById('splitModeHint');
+  if (hint) hint.textContent = SPLIT_MODE_HINTS[mode] || '';
+  renderSplitCards();
+  calcSplit();
+}
 
 // Compute a member's net worth in base-currency units from memberVaultsCache
 function getMemberNetWorth(memberName) {
@@ -1050,6 +1183,21 @@ function getMemberNetWorth(memberName) {
 
 function buildSplitRecipientCard(recipient, index) {
   const base = currencies.find(c => c.id === 'cr') || currencies[0];
+  const weightVal = recipient.weight != null ? recipient.weight : (splitMode === 'percent' ? (100 / splitRecipients.length).toFixed(1) : '');
+  const weightPlaceholder = splitMode === 'percent' ? '%' : (base ? base.abbr : '');
+  const weightInput = splitMode !== 'even'
+    ? `<input
+         type="number"
+         class="split-weight-inp"
+         value="${weightVal}"
+         placeholder="${weightPlaceholder}"
+         min="0"
+         step="${splitMode === 'percent' ? '0.1' : '1'}"
+         oninput="setSplitWeight(${index}, parseFloat(this.value)||0)"
+         title="${splitMode === 'percent' ? 'Percentage of total' : 'Flat amount in ' + (base ? base.abbr : 'base currency')}"
+       />`
+    : '';
+
   if (recipient.type === 'vault') {
     return `<div class="split-member-card split-vault-card" data-idx="${index}">
       <div class="split-card-avatar split-card-vault-icon">🎒</div>
@@ -1057,6 +1205,7 @@ function buildSplitRecipientCard(recipient, index) {
         <div class="split-card-name">Party Vault</div>
         <div class="split-card-wealth split-card-wealth-dim">shared</div>
       </div>
+      ${weightInput}
       <button class="split-card-remove" onclick="removeSplitRecipient(${index})" title="Remove">✕</button>
     </div>`;
   }
@@ -1078,8 +1227,14 @@ function buildSplitRecipientCard(recipient, index) {
       <div class="split-card-name">${esc(m.name)}</div>
       <div class="split-card-wealth ${wealthClass}">${wealthStr}</div>
     </div>
+    ${weightInput}
     <button class="split-card-remove" onclick="removeSplitRecipient(${index})" title="Remove">✕</button>
   </div>`;
+}
+
+function setSplitWeight(index, val) {
+  if (splitRecipients[index]) splitRecipients[index].weight = val;
+  calcSplit();
 }
 
 function renderSplitCards() {
@@ -1094,8 +1249,7 @@ function renderSplitCards() {
 
 function removeSplitRecipient(index) {
   splitRecipients.splice(index, 1);
-  const countEl = document.getElementById('splitCount');
-  countEl.value = splitRecipients.length;
+  document.getElementById('splitCount').value = splitRecipients.length;
   updateSplitHint();
   renderSplitCards();
   calcSplit();
@@ -1112,24 +1266,30 @@ function updateSplitHint() {
     : `${n} of ${members.length} active member${members.length !== 1 ? 's' : ''}`;
 }
 
+function _defaultWeight(index) {
+  if (splitMode === 'percent') {
+    const n = splitRecipients.length || 1;
+    return parseFloat((100 / n).toFixed(4));
+  }
+  return 0;
+}
+
 function onSplitCountChange() {
   const members = (_cachedTxMembers || []).filter(m => (m.status || 'active') === 'active');
   const newN = Math.max(1, Math.min(20, parseInt(document.getElementById('splitCount').value) || 1));
   document.getElementById('splitCount').value = newN;
 
   if (newN > splitRecipients.length) {
-    // Add recipients: prefer remaining active members, then vault slots
     const usedNames = new Set(splitRecipients.filter(r => r.type === 'member').map(r => r.member.name));
     const available = members.filter(m => !usedNames.has(m.name));
     while (splitRecipients.length < newN) {
       if (available.length > 0) {
-        splitRecipients.push({ type: 'member', member: available.shift() });
+        splitRecipients.push({ type: 'member', member: available.shift(), weight: _defaultWeight(splitRecipients.length) });
       } else {
-        splitRecipients.push({ type: 'vault', member: null });
+        splitRecipients.push({ type: 'vault', member: null, weight: _defaultWeight(splitRecipients.length) });
       }
     }
   } else {
-    // Remove from the end
     splitRecipients = splitRecipients.slice(0, newN);
   }
 
@@ -1139,20 +1299,20 @@ function onSplitCountChange() {
 }
 
 async function openSplitModal() {
-  await loadTxMembers(); // uses cache if available; only fetches when null
-
+  await loadTxMembers();
   const members = (_cachedTxMembers || []).filter(m => (m.status || 'active') === 'active');
+  splitMode = 'even';
+  document.querySelectorAll('.split-mode-btn').forEach(b => b.classList.toggle('active', b.dataset.mode === 'even'));
+  const hint = document.getElementById('splitModeHint');
+  if (hint) hint.textContent = SPLIT_MODE_HINTS.even;
 
-  // Default: all active members
-  splitRecipients = members.map(m => ({ type: 'member', member: m }));
+  splitRecipients = members.map(m => ({ type: 'member', member: m, weight: 0 }));
+  if (!splitRecipients.length) splitRecipients = [{ type: 'vault', member: null, weight: 0 }];
 
-  const countEl = document.getElementById('splitCount');
-  countEl.value = splitRecipients.length || 1;
-  if (!splitRecipients.length) {
-    splitRecipients = [{ type: 'vault', member: null }];
-    countEl.value = 1;
-  }
+  // Auto-assign even percent weights
+  _rebalanceDefaultWeights();
 
+  document.getElementById('splitCount').value = splitRecipients.length;
   buildCoinInputs('splitCoinInputs', {}, 'calcSplit()');
   document.getElementById('splitResult').classList.remove('visible');
   updateSplitHint();
@@ -1161,159 +1321,288 @@ async function openSplitModal() {
   openModal('splitModal');
 }
 
+// Set default weights evenly across recipients (used when opening or adding members)
+function _rebalanceDefaultWeights() {
+  const n = splitRecipients.length;
+  if (!n) return;
+  if (splitMode === 'percent') {
+    const base = parseFloat((100 / n).toFixed(4));
+    splitRecipients.forEach((r, i) => { r.weight = base; });
+  }
+  // flat and even: leave weight as-is (flat = user-entered, even = ignored)
+}
+
+// ── calcSplit: preview the result before committing ──────────
 function calcSplit() {
-  const n = splitRecipients.length || Math.max(1, parseInt(document.getElementById('splitCount').value) || 1);
-  const coins = readCoinInputs('splitCoinInputs');
-  const base = currencies.find(c => c.id === 'cr') || currencies[0];
+  const coins  = readCoinInputs('splitCoinInputs');
+  const n      = splitRecipients.length || 1;
+  const base   = currencies.find(c => c.id === 'cr') || currencies[0];
+  const lines  = [];
 
-  let baseTotal = 0;
-  let allRates = true;
+  // Totals line
+  let baseTotal = 0; let allRates = true;
   const parts = [];
-
   for (const [cid, amt] of Object.entries(coins)) {
     const cur = currencies.find(x => x.id === cid);
     if (!cur) continue;
-    const sign = amt < 0 ? '−' : '+';
-    parts.push(`${sign}${fmt(Math.abs(amt))} ${cur.abbr}`);
+    parts.push(`${amt < 0 ? '−' : '+'}${fmt(Math.abs(amt))} ${cur.abbr}`);
     if (cur.rate != null) baseTotal += amt * cur.rate;
     else allRates = false;
   }
 
-  const lines = [];
-  lines.push(`TO ADD    : ${parts.length ? parts.join('  ') : 'nothing entered'}`);
-  lines.push(`RECIPIENTS: ${n}`);
-  lines.push('─────────────────────────────');
+  lines.push(`TO SPLIT  : ${parts.length ? parts.join('  ') : 'nothing entered'}`);
+  lines.push(`RECIPIENTS: ${n}  MODE: ${splitMode.toUpperCase()}`);
+  lines.push('─────────────────────────────────────────');
 
-  if (allRates && Object.keys(coins).length) {
-    const perShare = baseTotal / n;
-    const sign = baseTotal < 0 ? '−' : '';
-    lines.push(`TOTAL     : ${sign}${fmt(Math.abs(baseTotal))} ${base.abbr}`);
-    lines.push(`PER SHARE : ${perShare < 0 ? '−' : ''}${fmt(Math.abs(perShare))} ${base.abbr}`);
-  } else if (!allRates) {
-    lines.push('(some currencies have no rate — base total N/A)');
+  if (!Object.keys(coins).length) {
+    document.getElementById('splitResult').textContent = lines.join('\n');
+    document.getElementById('splitResult').classList.add('visible');
+    return;
   }
 
-  if (Object.keys(coins).length) {
+  // ── EVEN ────────────────────────────────────────────────────
+  if (splitMode === 'even') {
+    if (allRates) {
+      const perShare = baseTotal / n;
+      lines.push(`TOTAL     : ${baseTotal < 0 ? '−' : ''}${fmt(Math.abs(baseTotal))} ${base.abbr}`);
+      lines.push(`PER SHARE : ${perShare < 0 ? '−' : ''}${fmt(Math.abs(perShare))} ${base.abbr}`);
+    } else {
+      lines.push('(some currencies have no rate — base total N/A)');
+    }
     lines.push('');
     lines.push('PER-CURRENCY SHARE:');
     for (const [cid, amt] of Object.entries(coins)) {
       const cur = currencies.find(x => x.id === cid);
       if (!cur) continue;
-      // truncate toward zero so remainder has same sign as original
       const each = Math.trunc(amt / n);
-      const rem  = amt - each * n;  // always same sign as amt, or 0
-      const remStr = rem !== 0
-        ? `  (${rem > 0 ? '+' : ''}${rem} remainder → vault)`
-        : '';
+      const rem  = amt - each * n;
+      const remStr = rem !== 0 ? `  (${rem > 0 ? '+' : ''}${rem} → vault)` : '';
       lines.push(`  ${cur.abbr.padEnd(6)}: ${each >= 0 ? '+' : ''}${fmt(each)} each${remStr}`);
     }
 
-    if (splitRecipients.some(r => r.type === 'vault')) {
-      lines.push('');
-      lines.push('⚙ vault slots receive equal share as members');
+  // ── PERCENT ─────────────────────────────────────────────────
+  } else if (splitMode === 'percent') {
+    const weights = splitRecipients.map(r => Math.max(0, r.weight || 0));
+    const totalPct = weights.reduce((a, b) => a + b, 0);
+    const pctOk = Math.abs(totalPct - 100) < 0.01;
+
+    if (!pctOk) {
+      lines.push(`⚠ PERCENTAGES SUM TO ${totalPct.toFixed(1)}% — must equal 100%`);
+      document.getElementById('splitResult').textContent = lines.join('\n');
+      document.getElementById('splitResult').classList.add('visible');
+      return;
     }
+
+    if (allRates) lines.push(`TOTAL: ${baseTotal < 0 ? '−' : ''}${fmt(Math.abs(baseTotal))} ${base.abbr}`);
+    lines.push('');
+    splitRecipients.forEach((r, i) => {
+      const pct = weights[i];
+      const name = r.type === 'vault' ? 'Party Vault' : r.member.name;
+      const nameStr = name.padEnd(16).slice(0, 16);
+      if (allRates) {
+        const share = (baseTotal * pct / 100);
+        lines.push(`  ${nameStr}: ${share >= 0 ? '+' : ''}${fmt(share)} ${base.abbr}  (${pct.toFixed(1)}%)`);
+      } else {
+        lines.push(`  ${nameStr}: ${pct.toFixed(1)}%`);
+      }
+    });
+    lines.push('');
+    lines.push('(per-currency amounts rounded; remainder → vault)');
+
+  // ── FLAT ────────────────────────────────────────────────────
+  } else if (splitMode === 'flat') {
+    const weights = splitRecipients.map(r => Math.max(0, r.weight || 0));
+    const allocatedBase = weights.reduce((a, b) => a + b, 0);
+    const remainder = allRates ? (baseTotal - allocatedBase) : null;
+
+    if (allRates) {
+      lines.push(`TOTAL     : ${fmt(baseTotal)} ${base.abbr}`);
+      lines.push(`ALLOCATED : ${fmt(allocatedBase)} ${base.abbr}`);
+      lines.push(`REMAINDER : ${remainder !== null ? (remainder >= 0 ? '+' : '') + fmt(remainder) : '?'} ${base.abbr} → vault`);
+    }
+    lines.push('');
+    splitRecipients.forEach((r, i) => {
+      const flat = weights[i];
+      const name = r.type === 'vault' ? 'Party Vault' : r.member.name;
+      const nameStr = name.padEnd(16).slice(0, 16);
+      lines.push(`  ${nameStr}: +${fmt(flat)} ${base ? base.abbr : ''}`);
+    });
+  }
+
+  if (splitRecipients.some(r => r.type === 'vault')) {
+    lines.push('');
+    lines.push('⚙ vault slots receive their share as party vault');
   }
 
   document.getElementById('splitResult').textContent = lines.join('\n');
   document.getElementById('splitResult').classList.add('visible');
 }
 
+// ── applySplit: write transactions for each recipient ─────────
 async function applySplit() {
   const n = splitRecipients.length;
   if (!n) { showToast('Add at least one recipient.'); return; }
   const coins = readCoinInputs('splitCoinInputs');
   if (!Object.keys(coins).length) { showToast('Enter amounts to split.'); return; }
+  const base = currencies.find(c => c.id === 'cr') || currencies[0];
 
-  // ── Per-currency math (truncate toward zero so remainder matches sign) ──
-  // perShare[cid]: integer each recipient receives (may be negative = debt share)
-  // remainder[cid]: leftover after n * perShare, same sign as original or 0
-  const perShare  = {};
-  const remainder = {};
-  for (const [cid, amt] of Object.entries(coins)) {
-    perShare[cid]  = Math.trunc(amt / n);
-    remainder[cid] = amt - perShare[cid] * n;
-  }
-
-  // ── Verify math: perShare[cid] * n + remainder[cid] === coins[cid] ──
-  for (const [cid, amt] of Object.entries(coins)) {
-    const check = perShare[cid] * n + remainder[cid];
-    if (check !== amt) {
-      console.error(`Split math error for ${cid}: ${perShare[cid]}×${n} + ${remainder[cid]} = ${check}, expected ${amt}`);
-      showToast('Internal math error — split aborted.'); return;
+  // Validate percent mode
+  if (splitMode === 'percent') {
+    const totalPct = splitRecipients.reduce((a, r) => a + Math.max(0, r.weight || 0), 0);
+    if (Math.abs(totalPct - 100) >= 0.01) {
+      showToast(`Percentages sum to ${totalPct.toFixed(1)}% — must equal 100%.`); return;
     }
   }
 
-  const recipientNames = splitRecipients.map(r =>
-    r.type === 'member' ? r.member.name : 'Party Vault'
-  ).join(', ');
   const ts = Date.now();
-
-  // ── One GAIN per recipient for their per-share (currency comes from outside the vault) ──
-  // Positive perShare → GAIN tagged to member (they received it)
-  // Negative perShare → SPEND tagged to member (debt allocated to them)
   const recipientTxs = [];
-  for (const recipient of splitRecipients) {
-    const memberName = recipient.type === 'member' ? recipient.member.name : null;
-    const gainShare  = {};
-    const spendShare = {};
-    for (const [cid, each] of Object.entries(perShare)) {
-      if (each > 0) gainShare[cid]  = each;
-      else if (each < 0) spendShare[cid] = Math.abs(each);
-    }
-    if (Object.keys(gainShare).length) {
-      recipientTxs.push({
-        id: uid(), type: 'gain',
-        desc: `Loot share — split ${n} way${n !== 1 ? 's' : ''}`,
-        note: 'Auto-logged from split calculator',
-        ts: ts + 1, coins: gainShare, member: memberName,
-      });
-    }
-    if (Object.keys(spendShare).length) {
-      recipientTxs.push({
-        id: uid(), type: 'spend',
-        desc: `Debt share — split ${n} way${n !== 1 ? 's' : ''}`,
-        note: 'Auto-logged from split calculator',
-        ts: ts + 2, coins: spendShare, member: memberName,
-      });
-    }
-  }
 
-  // ── Transaction n+2: remainders returned to party vault (if any) ──
-  // Same sign logic: positive remainder → GAIN to vault, negative → SPEND from vault
-  const remGain  = {};
-  const remSpend = {};
-  for (const [cid, rem] of Object.entries(remainder)) {
-    if (rem > 0) remGain[cid]  = rem;
-    else if (rem < 0) remSpend[cid] = Math.abs(rem);
-  }
-  const remTxs = [];
-  if (Object.keys(remGain).length) {
-    remTxs.push({
-      id: uid(), type: 'gain',
-      desc: 'Split remainder — returned to party vault',
-      note: 'Auto-logged from split calculator',
-      ts: ts + 3, coins: remGain, member: null,
+  if (splitMode === 'even') {
+    // ── EVEN: integer truncation per-currency ──
+    const perShare = {}, remainder = {};
+    for (const [cid, amt] of Object.entries(coins)) {
+      perShare[cid]  = Math.trunc(amt / n);
+      remainder[cid] = amt - perShare[cid] * n;
+    }
+    // Verify math
+    for (const [cid, amt] of Object.entries(coins)) {
+      if (perShare[cid] * n + remainder[cid] !== amt) {
+        showToast('Internal math error — split aborted.'); return;
+      }
+    }
+    for (const recipient of splitRecipients) {
+      const memberName = recipient.type === 'member' ? recipient.member.name : null;
+      const gainShare = {}, spendShare = {};
+      for (const [cid, each] of Object.entries(perShare)) {
+        if (each > 0) gainShare[cid]  = each;
+        else if (each < 0) spendShare[cid] = Math.abs(each);
+      }
+      if (Object.keys(gainShare).length)
+        recipientTxs.push({ id: uid(), type: 'gain',  desc: `Loot share — split ${n} ways`, note: 'Auto-logged from split calculator', ts: ts + 1, coins: gainShare,  member: memberName });
+      if (Object.keys(spendShare).length)
+        recipientTxs.push({ id: uid(), type: 'spend', desc: `Debt share — split ${n} ways`,  note: 'Auto-logged from split calculator', ts: ts + 2, coins: spendShare, member: memberName });
+    }
+    // Remainder to vault
+    const remGain = {}, remSpend = {};
+    for (const [cid, rem] of Object.entries(remainder)) {
+      if (rem > 0) remGain[cid] = rem;
+      else if (rem < 0) remSpend[cid] = Math.abs(rem);
+    }
+    if (Object.keys(remGain).length)
+      recipientTxs.push({ id: uid(), type: 'gain',  desc: 'Split remainder — returned to party vault', note: 'Auto-logged', ts: ts + 3, coins: remGain,  member: null });
+    if (Object.keys(remSpend).length)
+      recipientTxs.push({ id: uid(), type: 'spend', desc: 'Split remainder (debt) — party vault',      note: 'Auto-logged', ts: ts + 4, coins: remSpend, member: null });
+
+  } else if (splitMode === 'percent') {
+    // ── PERCENT: allocate proportionally in base currency, convert back per-cur ──
+    let baseTotal = 0; let allRates = true;
+    for (const [cid, amt] of Object.entries(coins)) {
+      const cur = currencies.find(x => x.id === cid);
+      if (cur?.rate != null) baseTotal += amt * cur.rate;
+      else allRates = false;
+    }
+    if (!allRates) { showToast('Percent split requires all currencies to have exchange rates.'); return; }
+
+    const weights = splitRecipients.map(r => Math.max(0, r.weight || 0));
+    let allocated = 0;
+    splitRecipients.forEach((recipient, i) => {
+      const memberName = recipient.type === 'member' ? recipient.member.name : null;
+      const shareBase = baseTotal * weights[i] / 100;
+      allocated += shareBase;
+      // Convert back to per-currency proportionally
+      const shareCoins = {};
+      for (const [cid, amt] of Object.entries(coins)) {
+        const cur = currencies.find(x => x.id === cid);
+        if (!cur) continue;
+        const shareCur = Math.round(amt * weights[i] / 100);
+        if (shareCur > 0) shareCoins[cid] = shareCur;
+        else if (shareCur < 0) shareCoins[cid] = shareCur; // negative = debt
+      }
+      if (Object.keys(shareCoins).length) {
+        const hasPositive = Object.values(shareCoins).some(v => v > 0);
+        recipientTxs.push({
+          id: uid(), type: hasPositive ? 'gain' : 'spend',
+          desc: `Loot share — ${weights[i].toFixed(1)}% split`,
+          note: 'Auto-logged from split calculator', ts: ts + i + 1,
+          coins: Object.fromEntries(Object.entries(shareCoins).map(([k,v]) => [k, Math.abs(v)])),
+          member: memberName,
+        });
+      }
     });
-  }
-  if (Object.keys(remSpend).length) {
-    remTxs.push({
-      id: uid(), type: 'spend',
-      desc: 'Split remainder (debt) — charged to party vault',
-      note: 'Auto-logged from split calculator',
-      ts: ts + 4, coins: remSpend, member: null,
+    // Remainder = rounding dust → vault
+    const remCoins = {};
+    for (const [cid, amt] of Object.entries(coins)) {
+      const used = splitRecipients.reduce((a, r, i) => a + Math.round(amt * (r.weight || 0) / 100), 0);
+      const rem  = amt - used;
+      if (rem !== 0) remCoins[cid] = rem;
+    }
+    if (Object.keys(remCoins).length) {
+      const pos = Object.fromEntries(Object.entries(remCoins).filter(([,v]) => v > 0));
+      const neg = Object.fromEntries(Object.entries(remCoins).filter(([,v]) => v < 0).map(([k,v]) => [k, Math.abs(v)]));
+      if (Object.keys(pos).length) recipientTxs.push({ id: uid(), type: 'gain',  desc: 'Split remainder — vault', note: 'Auto-logged', ts: ts + n + 1, coins: pos, member: null });
+      if (Object.keys(neg).length) recipientTxs.push({ id: uid(), type: 'spend', desc: 'Split remainder — vault', note: 'Auto-logged', ts: ts + n + 2, coins: neg, member: null });
+    }
+
+  } else if (splitMode === 'flat') {
+    // ── FLAT: each recipient gets an exact base-currency amount ──
+    let baseTotal = 0; let allRates = true;
+    for (const [cid, amt] of Object.entries(coins)) {
+      const cur = currencies.find(x => x.id === cid);
+      if (cur?.rate != null) baseTotal += amt * cur.rate;
+      else allRates = false;
+    }
+    if (!allRates) { showToast('Flat split requires all currencies to have exchange rates.'); return; }
+
+    let allocated = 0;
+    splitRecipients.forEach((recipient, i) => {
+      const memberName = recipient.type === 'member' ? recipient.member.name : null;
+      const flatBase = Math.max(0, recipient.weight || 0);
+      allocated += flatBase;
+      // Convert flat base amount to per-currency proportionally
+      const shareCoins = {};
+      for (const [cid, amt] of Object.entries(coins)) {
+        const cur = currencies.find(x => x.id === cid);
+        if (!cur || !cur.rate || !baseTotal) continue;
+        const shareCur = Math.round((flatBase / baseTotal) * amt);
+        if (shareCur !== 0) shareCoins[cid] = Math.abs(shareCur);
+      }
+      if (Object.keys(shareCoins).length) {
+        recipientTxs.push({
+          id: uid(), type: 'gain',
+          desc: `Loot share — ${fmt(flatBase)} ${base.abbr} flat`,
+          note: 'Auto-logged from split calculator', ts: ts + i + 1,
+          coins: shareCoins, member: memberName,
+        });
+      }
     });
+    // Remainder to vault
+    const remBase = baseTotal - allocated;
+    if (Math.abs(remBase) > 0.01) {
+      const remCoins = {};
+      for (const [cid, amt] of Object.entries(coins)) {
+        const cur = currencies.find(x => x.id === cid);
+        if (!cur || !cur.rate || !baseTotal) continue;
+        const rem = Math.round((remBase / baseTotal) * amt);
+        if (rem !== 0) remCoins[cid] = Math.abs(rem);
+      }
+      if (Object.keys(remCoins).length) {
+        recipientTxs.push({
+          id: uid(), type: remBase > 0 ? 'gain' : 'spend',
+          desc: 'Split remainder — returned to party vault',
+          note: 'Auto-logged', ts: ts + n + 1,
+          coins: remCoins, member: null,
+        });
+      }
+    }
   }
 
   try {
-    const allTxs = [...recipientTxs, ...remTxs];
-    if (!allTxs.length) { showToast('Nothing to log.'); return; }
-    await Promise.all(allTxs.map(tx => saveTxToDB(tx)));
-    ledger.push(...allTxs);
+    if (!recipientTxs.length) { showToast('Nothing to log.'); return; }
+    await Promise.all(recipientTxs.map(tx => saveTxToDB(tx)));
+    ledger.push(...recipientTxs);
     recalcVault();
     await renderMemberWealth();
-    renderTotal();
-    renderGrid();
-    renderLedger();
+    renderTotal(); renderGrid(); renderLedger();
     closeModal('splitModal');
     showToast(`Split logged — ${n} recipient${n !== 1 ? 's' : ''}.`);
   } catch(e) {
@@ -1661,7 +1950,7 @@ async function renderMemberWealth() {
     if (!memberVaults[tx.member]) memberVaults[tx.member] = {};
     for (const [cid, amt] of Object.entries(tx.coins || {})) {
       memberVaults[tx.member][cid] =
-        (memberVaults[tx.member][cid] || 0) + sign * (amt || 0); // allow negatives
+        (memberVaults[tx.member][cid] || 0) + sign * (amt || 0);
     }
   }
 
@@ -1675,22 +1964,50 @@ async function renderMemberWealth() {
     return hasRate ? total : null;
   }
 
+  // Sort members by net worth descending (null wealth sorts to end)
+  const sorted = [...members].sort((a, b) => {
+    const av = memberWealthVal(a.name), bv = memberWealthVal(b.name);
+    if (av === null && bv === null) return 0;
+    if (av === null) return 1;
+    if (bv === null) return -1;
+    return bv - av;
+  });
+
+  // Medal config: [borderGlow, bgColor, boxShadow, rank label]
+  const MEDALS = [
+    { border: 'rgba(255,215,0,0.7)',   bg: 'rgba(255,215,0,0.07)',   shadow: '0 0 18px rgba(255,215,0,0.3), 0 0 40px rgba(255,215,0,0.12)', label: '🥇', cls: 'mw-medal-gold'   },
+    { border: 'rgba(192,192,192,0.6)', bg: 'rgba(192,192,192,0.06)', shadow: '0 0 14px rgba(192,192,192,0.25), 0 0 30px rgba(192,192,192,0.08)', label: '🥈', cls: 'mw-medal-silver' },
+    { border: 'rgba(205,127,50,0.6)',  bg: 'rgba(205,127,50,0.07)',  shadow: '0 0 14px rgba(205,127,50,0.28), 0 0 30px rgba(205,127,50,0.08)', label: '🥉', cls: 'mw-medal-bronze' },
+  ];
+
   row.innerHTML = `
     <div class="mw-label">⚙ Member Wealth</div>
     <div class="mw-cards">
-      ${members.map(m => {
+      ${sorted.map((m, i) => {
         const wv = memberWealthVal(m.name);
         const isNegMember = wv !== null && wv < 0;
         const wealthStr = wv === null ? '—'
           : Math.abs(wv).toLocaleString(undefined, { maximumFractionDigits: 1 }) + ' ' + base.abbr;
         const wealthClass = wv === null ? 'mw-empty' : isNegMember ? 'mw-neg' : '';
         const prefix = isNegMember ? '−' : '';
+
+        // Medal: only top 3 with actual positive wealth, not in debt
+        const medal = (!isNegMember && wv !== null && i < 3) ? MEDALS[i] : null;
+
+        const medalBadge = medal ? `<div class="mw-medal-badge">${medal.label}</div>` : '';
+        const medalClass = medal ? medal.cls : '';
+        const medalStyle = medal
+          ? `border-color:${medal.border};background:${medal.bg};box-shadow:${medal.shadow};`
+          : '';
+
         const avatar = m.photo
           ? `<img src="${m.photo}" alt="${esc(m.name)}" class="mw-avatar-img" />`
           : `<div class="mw-avatar-initial" style="color:${m.color||'var(--gold)'};border-color:${m.color||'var(--border)'}40;text-shadow:0 0 8px ${m.color||'var(--amber)'}">
                ${esc(m.name.charAt(0).toUpperCase())}
              </div>`;
-        return `<div class="mw-card ${isNegMember ? 'mw-card-neg' : ''}" onclick="openMemberModal('${esc(m.name)}')" style="cursor:pointer" title="View ${esc(m.name)}'s holdings">
+
+        return `<div class="mw-card ${medalClass} ${isNegMember ? 'mw-card-neg' : ''}" onclick="openMemberModal('${esc(m.name)}')" style="cursor:pointer;${medalStyle}" title="View ${esc(m.name)}'s holdings">
+          ${medalBadge}
           <div class="mw-avatar">${avatar}</div>
           <div class="mw-info">
             <div class="mw-name">${esc(m.name)}</div>
@@ -1701,7 +2018,6 @@ async function renderMemberWealth() {
       }).join('')}
     </div>`;
 }
-
 // ══════════════════════════════════
 //  MODAL HELPERS
 // ══════════════════════════════════
