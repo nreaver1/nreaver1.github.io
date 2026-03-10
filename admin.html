@@ -418,6 +418,7 @@
       const err = document.getElementById('gateError');
       err.textContent = 'Incorrect password.';
       document.getElementById('gatePassword').value = '';
+      document.getElementById('gatePassword').focus();
       setTimeout(() => err.textContent = '', 2500);
     }
   }
@@ -434,6 +435,15 @@
   if (adminUnlocked) {
     document.getElementById('adminGate').style.display = 'none';
     document.getElementById('adminContent').style.display = 'block';
+  } else {
+    // Gate is visible — focus the password field immediately
+    document.addEventListener('DOMContentLoaded', () => {
+      document.getElementById('gatePassword').focus();
+    });
+    // DOMContentLoaded may have already fired if scripts are at bottom
+    if (document.readyState !== 'loading') {
+      document.getElementById('gatePassword').focus();
+    }
   }
 
   // ══════════════════════════════════════════════════════════
