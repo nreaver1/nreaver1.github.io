@@ -150,26 +150,6 @@
     </div>
     <div class="modal-body">
       <div class="field">
-        <label>Transaction Type</label>
-        <div class="type-row">
-          <button class="type-btn gain active" data-type="gain"    onclick="setType('gain')">⬆ Gain</button>
-          <button class="type-btn spend"        data-type="spend"   onclick="setType('spend')">⬇ Spend</button>
-          <button class="type-btn convert"      data-type="convert" onclick="setType('convert')">⇄ Convert</button>
-        </div>
-      </div>
-      <div class="field">
-        <label>Description *</label>
-        <input type="text" id="txDesc" placeholder="e.g. Contract payout, Equipment purchase…" />
-      </div>
-      <div class="field">
-        <label>Amounts</label>
-        <div class="coin-inputs-dynamic" id="txCoinInputs"></div>
-      </div>
-      <div class="field">
-        <label>Notes <span class="optional">(optional)</span></label>
-        <textarea id="txNote" placeholder="Session notes, source, vendor…"></textarea>
-      </div>
-      <div class="field">
         <label>Assigned To <span class="optional">(optional)</span></label>
         <div class="holder-select-wrap" id="txHolderWrap">
           <div class="holder-selected" id="txHolderSelected" onclick="toggleTxHolderDropdown()">
@@ -181,7 +161,28 @@
         </div>
         <input type="hidden" id="txMember" />
       </div>
+      <div class="field">
+        <label>Transaction Type</label>
+        <div class="type-row">
+          <button class="type-btn gain active" data-type="gain"    onclick="setType('gain')">⬆ Gain</button>
+          <button class="type-btn spend"        data-type="spend"   onclick="setType('spend')">⬇ Spend</button>
+          <button class="type-btn convert"      data-type="convert" onclick="setType('convert')">⇄ Convert</button>
+        </div>
+      </div>
+      <div class="field">
+        <label>Description <span class="field-required">(required)</span></label>
+        <input type="text" id="txDesc" placeholder="e.g. Contract payout, Equipment purchase…" oninput="(function(){var e=document.getElementById('txDescError');if(e&&this.value.trim())e.textContent='';}).call(this)" />
+      </div>
+      <div class="field">
+        <label>Amounts</label>
+        <div class="coin-inputs-dynamic" id="txCoinInputs"></div>
+      </div>
+      <div class="field">
+        <label>Notes <span class="optional">(optional)</span></label>
+        <textarea id="txNote" placeholder="Session notes, source, vendor…"></textarea>
+      </div>
     </div>
+    <div class="tx-desc-error" id="txDescError" aria-live="polite"></div>
     <div class="modal-footer">
       <button class="btn btn-ghost" onclick="closeModal('txModal')">Cancel</button>
       <button class="btn btn-primary" id="btnSaveTx" onclick="saveTx()">Commit Entry</button>
@@ -709,12 +710,16 @@ function renderLedger() {
 // ══════════════════════════════════
 function buildCoinInputs(containerId, values = {}, oninput = '') {
   const inputHandler = oninput ? ` oninput="${oninput}"` : '';
-  document.getElementById(containerId).innerHTML = currencies.map(c => `
+  document.getElementById(containerId).innerHTML = currencies.map(c => {
+    const saved = values[c.id];
+    const valueAttr = (saved !== undefined && saved !== null && saved !== 0) ? ` value="${saved}"` : '';
+    return `
     <div class="coin-input-row">
       <span class="cir-symbol" style="color:${c.color};text-shadow:0 0 8px ${c.color}">${esc(c.symbol)}</span>
       <span class="cir-name">${esc(c.abbr)}</span>
-      <input type="number" class="cir-input" id="${containerId}-${c.id}" value="${values[c.id] || 0}" placeholder="0" step="1"${inputHandler} />
-    </div>`).join('');
+      <input type="number" class="cir-input" id="${containerId}-${c.id}"${valueAttr} placeholder="0" step="1"${inputHandler} />
+    </div>`;
+  }).join('');
 }
 
 function readCoinInputs(containerId) {
@@ -736,6 +741,9 @@ function readCoinInputs(containerId) {
 function openTxModal(id) {
   editId = id || null;
   document.getElementById('txModalTitle').textContent = id ? '⚙ EDIT TRANSACTION' : '⚙ LOG TRANSACTION';
+  // Always clear inline error on open
+  const descError = document.getElementById('txDescError');
+  if (descError) descError.textContent = '';
   let values = {};
   if (id) {
     const tx = ledger.find(t => t.id === id);
@@ -764,7 +772,13 @@ function setType(t) {
 
 async function saveTx() {
   const desc = document.getElementById('txDesc').value.trim();
-  if (!desc) { showToast('Description required.'); return; }
+  const descError = document.getElementById('txDescError');
+  if (!desc) {
+    if (descError) { descError.textContent = '⚠ Description is required before committing.'; }
+    document.getElementById('txDesc').focus();
+    return;
+  }
+  if (descError) descError.textContent = '';
   const coins = readCoinInputs('txCoinInputs');
   if (!Object.keys(coins).length) { showToast('Enter at least one amount.'); return; }
   const tx = { id: editId || uid(), type: currentType, desc,

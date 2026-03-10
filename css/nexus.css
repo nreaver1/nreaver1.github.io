@@ -529,6 +529,16 @@ label {
   color: var(--cyan-dim);
 }
 .optional { color: var(--text-dim); font-size: 0.8rem; margin-left: 4px; }
+.field-required { color: #ff4d4d; font-size: 0.8rem; margin-left: 4px; font-style: normal; }
+.tx-desc-error {
+  min-height: 1.2rem;
+  padding: 0 1.5rem 0.5rem;
+  font-size: 0.78rem;
+  color: #ff4d4d;
+  font-family: 'Rajdhani', sans-serif;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+}
 
 input[type="text"],
 input[type="number"],
