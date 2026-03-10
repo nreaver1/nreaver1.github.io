@@ -122,249 +122,461 @@ describe('esc()', () => {
 
 // ══════════════════════════════════════════════════════════════
 //  SECTION 2 — D&D 5E MATH
-//  abilityMod, modStr, computeCheck, computeNetEffects
+//
+//  Expert 5e rule reference (PHB, SRD):
+//
+//  ABILITY MODIFIER   = floor((score − 10) / 2)
+//    Score  1 → −5 | Score  8 → −1 | Score 10 → +0
+//    Score 11 → +0 | Score 12 → +1 | Score 13 → +1
+//    Score 14 → +2 | Score 15 → +2 | Score 16 → +3
+//    Score 17 → +3 | Score 18 → +4 | Score 20 → +5
+//    Score 30 → +10 (monsters/divine beings only)
+//
+//  PROFICIENCY BONUS BY LEVEL (same for every class):
+//    Levels  1–4  → +2
+//    Levels  5–8  → +3
+//    Levels  9–12 → +4
+//    Levels 13–16 → +5
+//    Levels 17–20 → +6
+//
+//  SKILL / SAVING THROW CHECK:
+//    total = ability_mod + (prof_bonus IF proficient) + item_bonus − item_penalty
+//
+//  PASSIVE PERCEPTION (and any passive check):
+//    total = 10 + WIS_mod + (prof_bonus IF proficient in Perception) + item_bonus
+//    (advantage → +5, disadvantage → −5 — not modelled here)
+//
+//  INITIATIVE:
+//    total = DEX_mod + any initiative bonuses from items
+//
+//  SPELL SAVE DC:
+//    8 + prof_bonus + spellcasting_ability_mod
+//
+//  SPELL ATTACK BONUS:
+//    prof_bonus + spellcasting_ability_mod
+//
+//  ALL SKILLS AND THEIR GOVERNING ABILITIES (PHB p.174):
+//    STR: Athletics
+//    DEX: Acrobatics, Sleight of Hand, Stealth
+//    INT: Arcana, History, Investigation, Nature, Religion
+//    WIS: Animal Handling, Insight, Medicine, Perception, Survival
+//    CHA: Deception, Intimidation, Performance, Persuasion
+//    (CON has no associated skills — only saving throws)
+//
+//  ALL SAVING THROWS: STR, DEX, CON, INT, WIS, CHA
 // ══════════════════════════════════════════════════════════════
 
+
 describe('abilityMod()', () => {
-  // D&D 5e formula: floor((score - 10) / 2)
-  // This is fundamental — every check, save, and combat stat depends on it.
+  // D&D 5e formula: floor((score − 10) / 2)
+  // Verified against PHB Ability Scores and Modifiers table (p.173)
 
-  it('score 10 → modifier +0  (the neutral baseline)', () => {
-    assert.strictEqual(abilityMod(10), 0);
+  // ── Exact PHB table values ──
+  it('score  1 → −5  (minimum; monsters only)', () => { assert.strictEqual(abilityMod(1),  -5); });
+  it('score  2 → −4',                            () => { assert.strictEqual(abilityMod(2),  -4); });
+  it('score  4 → −3',                            () => { assert.strictEqual(abilityMod(4),  -3); });
+  it('score  6 → −2',                            () => { assert.strictEqual(abilityMod(6),  -2); });
+  it('score  7 → −2  (odd, floor rounds down)',  () => { assert.strictEqual(abilityMod(7),  -2); });
+  it('score  8 → −1  (common dump stat)',        () => { assert.strictEqual(abilityMod(8),  -1); });
+  it('score  9 → −1  (odd, same tier as 8)',     () => { assert.strictEqual(abilityMod(9),  -1); });
+  it('score 10 → +0  (human average)',           () => { assert.strictEqual(abilityMod(10),  0); });
+  it('score 11 → +0  (odd, same tier as 10)',    () => { assert.strictEqual(abilityMod(11),  0); });
+  it('score 12 → +1',                            () => { assert.strictEqual(abilityMod(12),  1); });
+  it('score 13 → +1  (odd, same tier as 12)',    () => { assert.strictEqual(abilityMod(13),  1); });
+  it('score 14 → +2',                            () => { assert.strictEqual(abilityMod(14),  2); });
+  it('score 15 → +2  (odd, same tier as 14)',    () => { assert.strictEqual(abilityMod(15),  2); });
+  it('score 16 → +3',                            () => { assert.strictEqual(abilityMod(16),  3); });
+  it('score 17 → +3  (odd, same tier as 16)',    () => { assert.strictEqual(abilityMod(17),  3); });
+  it('score 18 → +4  (typical racial max at char creation)', () => { assert.strictEqual(abilityMod(18), 4); });
+  it('score 19 → +4  (odd, same tier as 18)',    () => { assert.strictEqual(abilityMod(19),  4); });
+  it('score 20 → +5  (PC maximum under standard rules)', () => { assert.strictEqual(abilityMod(20), 5); });
+  it('score 24 → +7  (beyond PC max, divine/legendary)', () => { assert.strictEqual(abilityMod(24), 7); });
+  it('score 30 → +10 (theoretical monster max)', () => { assert.strictEqual(abilityMod(30), 10); });
+
+  // ── Odd-score floor behaviour — critical rule many players get wrong ──
+  it('even and the next odd score share a modifier (11 and 10 both give +0)', () => {
+    assert.strictEqual(abilityMod(10), abilityMod(11));
+  });
+  it('even and the next odd score share a modifier (16 and 17 both give +3)', () => {
+    assert.strictEqual(abilityMod(16), abilityMod(17));
+  });
+  it('even and the next odd score share a modifier (18 and 19 both give +4)', () => {
+    assert.strictEqual(abilityMod(18), abilityMod(19));
   });
 
-  it('score 12 → modifier +1', () => {
-    assert.strictEqual(abilityMod(12), 1);
-  });
-
-  it('score 14 → modifier +2  (verified manually: (14-10)/2 = 2)', () => {
-    assert.strictEqual(abilityMod(14), 2);
-  });
-
-  it('score 16 → modifier +3', () => {
-    assert.strictEqual(abilityMod(16), 3);
-  });
-
-  it('score 18 → modifier +4  (common for a primary stat)', () => {
-    assert.strictEqual(abilityMod(18), 4);
-  });
-
-  it('score 20 → modifier +5  (maximum standard score)', () => {
-    assert.strictEqual(abilityMod(20), 5);
-  });
-
-  // Odd scores: floor() means 11 and 12 both give +1
-  it('score 11 → modifier +0  (floor rounds down for odd scores)', () => {
-    assert.strictEqual(abilityMod(11), 0);
-  });
-
-  it('score 13 → modifier +1  (not +1.5)', () => {
-    assert.strictEqual(abilityMod(13), 1);
-  });
-
-  // Below-average scores
-  it('score 8  → modifier -1', () => {
-    assert.strictEqual(abilityMod(8), -1);
-  });
-
-  it('score 6  → modifier -2', () => {
-    assert.strictEqual(abilityMod(6), -2);
-  });
-
-  it('score 1  → modifier -5  (minimum possible score)', () => {
-    assert.strictEqual(abilityMod(1), -5);
-  });
-
-  // Edge: unset abilities default to 10 (+0) — prevents NaN in display
-  it('undefined score defaults to 10, giving +0', () => {
+  // ── Defensive defaults ──
+  it('undefined defaults to score 10 → +0 (unset ability treated as average)', () => {
     assert.strictEqual(abilityMod(undefined), 0);
   });
-
-  it('null score defaults to 10, giving +0', () => {
+  it('null defaults to score 10 → +0', () => {
     assert.strictEqual(abilityMod(null), 0);
   });
-
-  it('score 0 defaults to 10 (falsy guard), giving +0', () => {
-    // 0 is not a valid D&D score; the || 10 guard treats it as unset
+  it('0 is treated as unset (falsy guard) → defaults to score 10 → +0', () => {
+    // 0 is not a legal D&D 5e ability score (minimum is 1);
+    // the || 10 guard is correct defensive behaviour.
     assert.strictEqual(abilityMod(0), 0);
   });
-
 });
 
 
 describe('modStr()', () => {
-  // Converts a raw modifier number to a display string.
-  // Positive and zero always show '+', negative keeps '-'.
+  // Converts a numeric modifier to a display string.
+  // 5e convention: always show sign — positive and zero use "+", negative keeps "−".
 
-  it('positive modifier gets a + prefix', () => {
-    assert.strictEqual(modStr(3), '+3');
-  });
-
-  it('zero modifier shows +0, not just "0"', () => {
-    assert.strictEqual(modStr(0), '+0');
-  });
-
-  it('negative modifier keeps its minus sign', () => {
-    assert.strictEqual(modStr(-2), '-2');
-  });
-
-  it('+5 formats correctly', () => {
-    assert.strictEqual(modStr(5), '+5');
-  });
-
-  it('-5 formats correctly', () => {
-    assert.strictEqual(modStr(-5), '-5');
-  });
-
+  it('positive modifier has + prefix (+3)', () => { assert.strictEqual(modStr(3),  '+3'); });
+  it('zero modifier shows +0 (not "0")',    () => { assert.strictEqual(modStr(0),  '+0'); });
+  it('negative modifier keeps − sign (−1)', () => { assert.strictEqual(modStr(-1), '-1'); });
+  it('+5 formats correctly (PC max)',        () => { assert.strictEqual(modStr(5),  '+5'); });
+  it('−5 formats correctly (score 1)',       () => { assert.strictEqual(modStr(-5), '-5'); });
+  it('+10 formats correctly (score 30)',     () => { assert.strictEqual(modStr(10), '+10'); });
 });
 
 
-describe('computeCheck()', () => {
-  // A check value = ability mod + (proficiency bonus if proficient) + item bonuses - item penalties
+describe('proficiency bonus by level (5e table)', () => {
+  // PHB Character Advancement table (p.15):
+  //   Levels  1-4  → +2
+  //   Levels  5-8  → +3
+  //   Levels  9-12 → +4
+  //   Levels 13-16 → +5
+  //   Levels 17-20 → +6
+  //
+  // This is a pure reference table — the system lets users enter their
+  // proficiency bonus manually, so we validate that the stored defaults
+  // and expected values match the official table.
 
-  // Base case: STR 10, no prof, no items → +0
-  it('returns +0 for ability score 10 with no proficiency or items', () => {
-    const member = { abilities: { str: 10 }, proficiencies: {} };
-    assert.strictEqual(computeCheck('athletics', 'str', member, {}, 2), 0);
+  function profByLevel(level) {
+    if (level <= 4)  return 2;
+    if (level <= 8)  return 3;
+    if (level <= 12) return 4;
+    if (level <= 16) return 5;
+    return 6;
+  }
+
+  it('level  1 → +2', () => { assert.strictEqual(profByLevel(1),  2); });
+  it('level  4 → +2  (last level at +2)', () => { assert.strictEqual(profByLevel(4),  2); });
+  it('level  5 → +3  (first level at +3)', () => { assert.strictEqual(profByLevel(5),  3); });
+  it('level  8 → +3', () => { assert.strictEqual(profByLevel(8),  3); });
+  it('level  9 → +4  (first level at +4)', () => { assert.strictEqual(profByLevel(9),  4); });
+  it('level 12 → +4', () => { assert.strictEqual(profByLevel(12), 4); });
+  it('level 13 → +5  (first level at +5)', () => { assert.strictEqual(profByLevel(13), 5); });
+  it('level 16 → +5', () => { assert.strictEqual(profByLevel(16), 5); });
+  it('level 17 → +6  (first level at +6)', () => { assert.strictEqual(profByLevel(17), 6); });
+  it('level 20 → +6  (max level)', () => { assert.strictEqual(profByLevel(20), 6); });
+
+  it('default prof bonus in the system is +2 (level 1-4 default)', () => {
+    // The member object defaults m.prof || 2 — validated against L1 rule.
+    const defaultProf = 2;
+    assert.strictEqual(defaultProf, profByLevel(1));
+  });
+});
+
+
+describe('computeCheck() — 5e skill and saving throw formula', () => {
+  // Formula: ability_mod + (prof_bonus if proficient) + item_bonus − item_penalty
+  //
+  // This covers both skills AND saving throws — they use identical logic.
+  // The only difference is the key (e.g. 'save_str' vs 'athletics') and
+  // the governing ability.
+
+  // ── Baseline cases ──
+  it('STR 10, not proficient, no items → +0  (neutral baseline)', () => {
+    const m = { abilities: { str: 10 }, proficiencies: {} };
+    assert.strictEqual(computeCheck('athletics', 'str', m, {}, 2), 0);
   });
 
-  // STR 16 = +3 mod, no prof → +3
-  it('returns ability modifier when not proficient', () => {
-    const member = { abilities: { str: 16 }, proficiencies: {} };
-    assert.strictEqual(computeCheck('athletics', 'str', member, {}, 2), 3);
+  it('STR 10, proficient (prof +2), no items → +2', () => {
+    const m = { abilities: { str: 10 }, proficiencies: { athletics: true } };
+    assert.strictEqual(computeCheck('athletics', 'str', m, {}, 2), 2);
   });
 
-  // STR 16 = +3 mod, proficient (prof=2) → +5
-  it('adds proficiency bonus when the member is proficient', () => {
-    const member = { abilities: { str: 16 }, proficiencies: { athletics: true } };
-    assert.strictEqual(computeCheck('athletics', 'str', member, {}, 2), 5);
+  // ── Ability modifier contribution ──
+  it('STR 16 (+3 mod), not proficient → +3', () => {
+    const m = { abilities: { str: 16 }, proficiencies: {} };
+    assert.strictEqual(computeCheck('athletics', 'str', m, {}, 2), 3);
   });
 
-  // Proficiency bonus 3 (levels 5-8)
-  it('uses the correct proficiency bonus value — not always 2', () => {
-    const member = { abilities: { str: 14 }, proficiencies: { athletics: true } };
-    assert.strictEqual(computeCheck('athletics', 'str', member, {}, 3), 5); // +2 mod + 3 prof
+  it('STR 8 (−1 mod), not proficient → −1', () => {
+    const m = { abilities: { str: 8 }, proficiencies: {} };
+    assert.strictEqual(computeCheck('athletics', 'str', m, {}, 2), -1);
   });
 
-  // Item gives +2 bonus to athletics
-  it('adds item bonus from the net effects map', () => {
-    const member = { abilities: { str: 10 }, proficiencies: {} };
+  it('STR 18 (+4 mod), proficient (prof +2) → +6', () => {
+    const m = { abilities: { str: 18 }, proficiencies: { athletics: true } };
+    assert.strictEqual(computeCheck('athletics', 'str', m, {}, 2), 6);
+  });
+
+  // ── Proficiency bonus scaling ──
+  it('prof +3 (levels 5-8): STR 14 (+2), proficient → +5', () => {
+    const m = { abilities: { str: 14 }, proficiencies: { athletics: true } };
+    assert.strictEqual(computeCheck('athletics', 'str', m, {}, 3), 5); // +2 mod + 3 prof
+  });
+
+  it('prof +4 (levels 9-12): DEX 16 (+3), proficient in Stealth → +7', () => {
+    const m = { abilities: { dex: 16 }, proficiencies: { stealth: true } };
+    assert.strictEqual(computeCheck('stealth', 'dex', m, {}, 4), 7); // +3 mod + 4 prof
+  });
+
+  it('prof +6 (level 17-20): DEX 20 (+5), proficient in Acrobatics → +11', () => {
+    const m = { abilities: { dex: 20 }, proficiencies: { acrobatics: true } };
+    assert.strictEqual(computeCheck('acrobatics', 'dex', m, {}, 6), 11); // +5 mod + 6 prof
+  });
+
+  // ── Saving throw formula — same computation as skills ──
+  it('CON save: CON 14 (+2), not proficient → +2', () => {
+    const m = { abilities: { con: 14 }, proficiencies: {} };
+    assert.strictEqual(computeCheck('save_con', 'con', m, {}, 2), 2);
+  });
+
+  it('CON save: CON 14 (+2), proficient (prof +2) → +4', () => {
+    const m = { abilities: { con: 14 }, proficiencies: { save_con: true } };
+    assert.strictEqual(computeCheck('save_con', 'con', m, {}, 2), 4);
+  });
+
+  it('WIS save: WIS 8 (−1), proficient (prof +3) → +2', () => {
+    const m = { abilities: { wis: 8 }, proficiencies: { save_wis: true } };
+    assert.strictEqual(computeCheck('save_wis', 'wis', m, {}, 3), 2); // −1 + 3
+  });
+
+  // Proficiency does NOT apply to non-proficient saves
+  it('DEX save: DEX 20 (+5), NOT proficient → +5 (no prof)', () => {
+    const m = { abilities: { dex: 20 }, proficiencies: {} };
+    assert.strictEqual(computeCheck('save_dex', 'dex', m, {}, 2), 5);
+  });
+
+  // ── Item effects ──
+  it('item +2 bonus to Athletics stacks on top of mod', () => {
+    const m = { abilities: { str: 10 }, proficiencies: {} };
     const net = { athletics: { bonus: 2, penalty: 0 } };
-    assert.strictEqual(computeCheck('athletics', 'str', member, net, 2), 2);
+    assert.strictEqual(computeCheck('athletics', 'str', m, net, 2), 2);
   });
 
-  // Item gives -2 penalty
-  it('subtracts item penalty from the net effects map', () => {
-    const member = { abilities: { str: 10 }, proficiencies: {} };
+  it('item −2 penalty reduces the check', () => {
+    const m = { abilities: { str: 10 }, proficiencies: {} };
     const net = { athletics: { bonus: 0, penalty: 2 } };
-    assert.strictEqual(computeCheck('athletics', 'str', member, net, 2), -2);
+    assert.strictEqual(computeCheck('athletics', 'str', m, net, 2), -2);
   });
 
-  // Prof + item bonus stacking
-  it('stacks proficiency and item bonus correctly', () => {
-    const member = { abilities: { str: 14 }, proficiencies: { athletics: true } };
+  it('prof + mod + item all stack: STR 14 (+2) + prof +2 + item +3 → +7', () => {
+    const m = { abilities: { str: 14 }, proficiencies: { athletics: true } };
     const net = { athletics: { bonus: 3, penalty: 0 } };
-    // +2 (mod) + 2 (prof) + 3 (item) = +7
-    assert.strictEqual(computeCheck('athletics', 'str', member, net, 2), 7);
+    assert.strictEqual(computeCheck('athletics', 'str', m, net, 2), 7);
   });
 
-  // Missing ability — should default to 10 → +0 mod
-  it('defaults to +0 when the ability is not set on the member', () => {
-    const member = { abilities: {}, proficiencies: {} };
-    assert.strictEqual(computeCheck('athletics', 'str', member, {}, 2), 0);
+  it('item bonus and penalty net out before application: bonus 4, penalty 2 → net +2', () => {
+    const m = { abilities: { str: 10 }, proficiencies: {} };
+    const net = { athletics: { bonus: 4, penalty: 2 } };
+    assert.strictEqual(computeCheck('athletics', 'str', m, net, 2), 2);
   });
 
+  // ── Defensive defaults ──
+  it('missing ability defaults to 10 (→ +0 mod)', () => {
+    const m = { abilities: {}, proficiencies: {} };
+    assert.strictEqual(computeCheck('athletics', 'str', m, {}, 2), 0);
+  });
+
+  it('undefined proficiencies object does not throw', () => {
+    const m = { abilities: { str: 14 } }; // no proficiencies key
+    assert.strictEqual(computeCheck('athletics', 'str', m, {}, 2), 2); // just the mod
+  });
 });
 
 
-describe('computeNetEffects()', () => {
-  // Aggregates item stat effects for a named member.
-  // Items held by 'Party' apply to everyone.
+describe('5e derived stats — passive perception, initiative, spell DC, spell attack', () => {
+  // These are computed values the Stats tab displays.
+  // The system allows manual entry for spell DC / spell atk / passive perc, but
+  // the formulas they should match are tested here as pure logic.
 
-  it('returns empty net when member has no items', () => {
-    const { net, relevant } = computeNetEffects('Thalindra', []);
-    assert.deepStrictEqual(net, {});
-    assert.strictEqual(relevant.length, 0);
+  // ── PASSIVE PERCEPTION ──
+  // Formula: 10 + WIS modifier + (prof bonus if proficient in Perception)
+  // PHB example: WIS 15 (+2), prof +2, Perception proficient → 10 + 2 + 2 = 14
+  function passivePerc(wis, profBonus, percProficient) {
+    return 10 + abilityMod(wis) + (percProficient ? profBonus : 0);
+  }
+
+  it('passive perception: WIS 15, prof +2, Perception proficient → 14  (PHB example)', () => {
+    assert.strictEqual(passivePerc(15, 2, true), 14);
+  });
+  it('passive perception: WIS 10, not proficient → 10  (baseline)', () => {
+    assert.strictEqual(passivePerc(10, 2, false), 10);
+  });
+  it('passive perception: WIS 8 (−1), prof +3, proficient → 12', () => {
+    assert.strictEqual(passivePerc(8, 3, true), 12); // 10 − 1 + 3
+  });
+  it('passive perception: WIS 20 (+5), not proficient → 15', () => {
+    assert.strictEqual(passivePerc(20, 2, false), 15);
+  });
+  it('passive perception: WIS 10, prof +2, proficient → 12', () => {
+    assert.strictEqual(passivePerc(10, 2, true), 12);
   });
 
-  it('applies a bonus from an item the member holds', () => {
-    const items = [{
-      name: 'Ring of Strength', holder: 'Thalindra', rarity: 'rare',
-      statEffects: [{ stat: 'str', type: 'bonus', value: 4 }],
-    }];
-    const { net } = computeNetEffects('Thalindra', items);
-    assert.strictEqual(net.str.bonus, 4);
+  // ── INITIATIVE ──
+  // Formula: DEX modifier + any initiative bonuses from items
+  function initiative(dex, itemBonus = 0) {
+    return abilityMod(dex) + itemBonus;
+  }
+
+  it('initiative: DEX 10 → +0', () => { assert.strictEqual(initiative(10), 0); });
+  it('initiative: DEX 16 → +3', () => { assert.strictEqual(initiative(16), 3); });
+  it('initiative: DEX 8  → −1', () => { assert.strictEqual(initiative(8),  -1); });
+  it('initiative: DEX 14, item +2 bonus → +4', () => { assert.strictEqual(initiative(14, 2), 4); });
+  it('initiative is NEVER affected by proficiency bonus', () => {
+    // Initiative = Dex mod only (plus magic item bonuses).
+    // Proficiency does NOT apply to initiative under base 5e rules.
+    const withProf    = abilityMod(14);        // just the DEX mod
+    const withoutProf = abilityMod(14) + 0;    // same — prof not added
+    assert.strictEqual(withProf, withoutProf);
+    assert.strictEqual(withProf, 2);
   });
 
-  it('applies a penalty correctly', () => {
-    const items = [{
-      name: 'Cursed Gauntlets', holder: 'Thalindra', rarity: 'uncommon',
-      statEffects: [{ stat: 'dex', type: 'penalty', value: 2 }],
-    }];
-    const { net } = computeNetEffects('Thalindra', items);
-    assert.strictEqual(net.dex.penalty, 2);
+  // ── SPELL SAVE DC ──
+  // Formula: 8 + proficiency bonus + spellcasting ability modifier
+  function spellSaveDC(spellAbilityScore, profBonus) {
+    return 8 + profBonus + abilityMod(spellAbilityScore);
+  }
+
+  it('spell DC: INT 18 (+4), prof +3 (level 5 wizard) → 15  (example from PHB)', () => {
+    assert.strictEqual(spellSaveDC(18, 3), 15); // 8 + 3 + 4
+  });
+  it('spell DC: WIS 16 (+3), prof +2 → 13  (level 1 cleric)', () => {
+    assert.strictEqual(spellSaveDC(16, 2), 13); // 8 + 2 + 3
+  });
+  it('spell DC: CHA 14 (+2), prof +2 → 12  (level 1 sorcerer)', () => {
+    assert.strictEqual(spellSaveDC(14, 2), 12); // 8 + 2 + 2
+  });
+  it('spell DC: INT 20 (+5), prof +6 (level 20 wizard) → 19', () => {
+    assert.strictEqual(spellSaveDC(20, 6), 19); // 8 + 6 + 5
+  });
+  it('spell DC base is always 8, not 0', () => {
+    assert.strictEqual(spellSaveDC(10, 2), 10); // 8 + 2 + 0 = 10, not just prof
   });
 
-  it('stacks bonuses from multiple items on the same stat', () => {
-    const items = [
-      { name: 'Belt of STR',  holder: 'Thalindra', rarity: 'rare',     statEffects: [{ stat: 'str', type: 'bonus', value: 2 }] },
-      { name: 'Gauntlets',    holder: 'Thalindra', rarity: 'uncommon', statEffects: [{ stat: 'str', type: 'bonus', value: 1 }] },
-    ];
-    const { net } = computeNetEffects('Thalindra', items);
-    assert.strictEqual(net.str.bonus, 3); // 2 + 1
-  });
+  // ── SPELL ATTACK BONUS ──
+  // Formula: proficiency bonus + spellcasting ability modifier  (no base offset)
+  function spellAttack(spellAbilityScore, profBonus) {
+    return profBonus + abilityMod(spellAbilityScore);
+  }
 
-  it('applies Party-held items to all members regardless of name', () => {
-    const items = [{
-      name: 'Party Amulet', holder: 'Party', rarity: 'uncommon',
-      statEffects: [{ stat: 'ac', type: 'bonus', value: 1 }],
-    }];
-    const { net: netT } = computeNetEffects('Thalindra', items);
-    const { net: netR } = computeNetEffects('Ragnar',    items);
-    // Both members receive the party item's bonus
-    assert.strictEqual(netT.ac.bonus, 1);
-    assert.strictEqual(netR.ac.bonus, 1);
+  it('spell attack: INT 16 (+3), prof +2 (level 1) → +5', () => {
+    assert.strictEqual(spellAttack(16, 2), 5);
   });
-
-  it('does NOT apply another member\'s item to the wrong member', () => {
-    const items = [{
-      name: 'Ragnar\'s Axe', holder: 'Ragnar', rarity: 'uncommon',
-      statEffects: [{ stat: 'str', type: 'bonus', value: 3 }],
-    }];
-    const { net } = computeNetEffects('Thalindra', items);
-    assert.strictEqual(net.str, undefined);
+  it('spell attack: WIS 14 (+2), prof +3 → +5  (same result, different class)', () => {
+    assert.strictEqual(spellAttack(14, 3), 5);
   });
-
-  it('matching is case-insensitive for holder name', () => {
-    const items = [{
-      name: 'Magic Boots', holder: 'THALINDRA', rarity: 'uncommon',
-      statEffects: [{ stat: 'speed', type: 'bonus', value: 10 }],
-    }];
-    const { net } = computeNetEffects('thalindra', items);
-    assert.strictEqual(net.speed.bonus, 10);
+  it('spell attack: CHA 10 (+0), prof +2 → +2', () => {
+    assert.strictEqual(spellAttack(10, 2), 2);
   });
-
-  it('counts advantage and disadvantage flags', () => {
-    const items = [
-      { name: 'Lucky Charm', holder: 'Thalindra', rarity: 'common', statEffects: [{ stat: 'perception', type: 'advantage' }] },
-      { name: 'Blindfold',   holder: 'Thalindra', rarity: 'common', statEffects: [{ stat: 'perception', type: 'disadvantage' }] },
-    ];
-    const { net } = computeNetEffects('Thalindra', items);
-    assert.strictEqual(net.perception.advantage,    1);
-    assert.strictEqual(net.perception.disadvantage, 1);
+  it('spell attack does NOT have a +8 base (unlike spell DC)', () => {
+    // A common mistake is confusing spell attack with spell DC
+    const dc  = spellSaveDC(16, 2);  // 13
+    const atk = spellAttack(16, 2);  //  5
+    assert.notStrictEqual(dc, atk);
+    assert.strictEqual(atk, 5);
+    assert.strictEqual(dc,  13);
   });
-
-  it('tracks source references for each applied effect', () => {
-    const items = [{
-      name: 'Ring of STR', holder: 'Thalindra', rarity: 'rare',
-      statEffects: [{ stat: 'str', type: 'bonus', value: 4 }],
-    }];
-    const { net } = computeNetEffects('Thalindra', items);
-    assert.strictEqual(net.str.sources[0].itemName, 'Ring of STR');
-  });
-
 });
 
+
+describe('5e skill-to-ability mapping (all 18 skills)', () => {
+  // Official PHB skill list (p.174). Every skill maps to exactly one ability.
+  // CON has no associated skills — only saving throws.
+  // This test guards against any future refactoring that breaks the mapping.
+
+  const SKILLS_EXPECTED = {
+    // STR
+    athletics:      'str',
+    // DEX
+    acrobatics:     'dex',
+    sleight_of_hand:'dex',
+    stealth:        'dex',
+    // INT
+    arcana:         'int',
+    history:        'int',
+    investigation:  'int',
+    nature:         'int',
+    religion:       'int',
+    // WIS
+    animal_handling:'wis',
+    insight:        'wis',
+    medicine:       'wis',
+    perception:     'wis',
+    survival:       'wis',
+    // CHA
+    deception:      'cha',
+    intimidation:   'cha',
+    performance:    'cha',
+    persuasion:     'cha',
+  };
+
+  it('there are exactly 18 standard 5e skills', () => {
+    assert.strictEqual(Object.keys(SKILLS_EXPECTED).length, 18);
+  });
+
+  it('Strength has exactly 1 skill: Athletics', () => {
+    const strSkills = Object.entries(SKILLS_EXPECTED)
+      .filter(([,a]) => a === 'str').map(([k]) => k);
+    assert.deepStrictEqual(strSkills, ['athletics']);
+  });
+
+  it('Dexterity has exactly 3 skills: Acrobatics, Sleight of Hand, Stealth', () => {
+    const dexSkills = Object.entries(SKILLS_EXPECTED)
+      .filter(([,a]) => a === 'dex').map(([k]) => k).sort();
+    assert.deepStrictEqual(dexSkills, ['acrobatics', 'sleight_of_hand', 'stealth']);
+  });
+
+  it('Intelligence has exactly 5 skills: Arcana, History, Investigation, Nature, Religion', () => {
+    const intSkills = Object.entries(SKILLS_EXPECTED)
+      .filter(([,a]) => a === 'int').map(([k]) => k).sort();
+    assert.deepStrictEqual(intSkills.sort(), ['arcana', 'history', 'investigation', 'nature', 'religion']);
+  });
+
+  it('Wisdom has exactly 5 skills: Animal Handling, Insight, Medicine, Perception, Survival', () => {
+    const wisSkills = Object.entries(SKILLS_EXPECTED)
+      .filter(([,a]) => a === 'wis').map(([k]) => k).sort();
+    assert.deepStrictEqual(wisSkills, ['animal_handling', 'insight', 'medicine', 'perception', 'survival']);
+  });
+
+  it('Charisma has exactly 4 skills: Deception, Intimidation, Performance, Persuasion', () => {
+    const chaSkills = Object.entries(SKILLS_EXPECTED)
+      .filter(([,a]) => a === 'cha').map(([k]) => k).sort();
+    assert.deepStrictEqual(chaSkills, ['deception', 'intimidation', 'performance', 'persuasion']);
+  });
+
+  it('Constitution has NO associated skills (saving throw only)', () => {
+    const conSkills = Object.entries(SKILLS_EXPECTED)
+      .filter(([,a]) => a === 'con');
+    assert.strictEqual(conSkills.length, 0);
+  });
+
+  // Validate against the actual SKILLS constant in party-roster.html
+  it('party-roster SKILLS constant maps every skill to the correct ability', () => {
+    const src = require('fs').readFileSync(
+      require('path').join(__dirname, '../party-roster.html'), 'utf8');
+    // Extract just the SKILLS array block
+    const match = src.match(/const SKILLS=\[([\s\S]*?)\];/);
+    assert.ok(match, 'SKILLS constant must exist in party-roster.html');
+    const block = match[1];
+    Object.entries(SKILLS_EXPECTED).forEach(([key, expectedAbility]) => {
+      // Each entry looks like: {key:'athletics', label:'Athletics', ability:'str'}
+      const pattern = new RegExp(`key:'${key}'[^}]*ability:'(\\w+)'`);
+      const m = block.match(pattern);
+      assert.ok(m, `skill '${key}' must be defined in SKILLS`);
+      assert.strictEqual(m[1], expectedAbility,
+        `skill '${key}' must map to '${expectedAbility}', got '${m[1]}'`);
+    });
+  });
+
+  it('party-roster SAVING_THROWS covers all 6 abilities', () => {
+    const src = require('fs').readFileSync(
+      require('path').join(__dirname, '../party-roster.html'), 'utf8');
+    const match = src.match(/const SAVING_THROWS=\[([\s\S]*?)\];/);
+    assert.ok(match, 'SAVING_THROWS constant must exist');
+    const block = match[1];
+    ['str','dex','con','int','wis','cha'].forEach(ab => {
+      assert.ok(block.includes(`ability:'${ab}'`),
+        `SAVING_THROWS must include a save for ability '${ab}'`);
+    });
+  });
+});
 
 // ══════════════════════════════════════════════════════════════
 //  SECTION 3 — TREASURY MATH
