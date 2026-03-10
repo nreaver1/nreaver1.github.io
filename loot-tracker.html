@@ -546,7 +546,7 @@ function renderTable(){
       <td class="hide-mobile"><span class="${it.attunement==='none'?'attunement no-attune':'attunement'}">${attuneLabel(it.attunement)}</span></td>
       <td class="td-actions">
         <button class="btn-icon" title="Edit" onclick="openModal('${it.id}')">✎</button>
-        <button class="btn-transfer" title="Quick Transfer" onclick="openTransferPopover('${it.id}',this)">⇄</button>
+        <button class="btn-transfer" title="Quick Transfer" onclick="openTransferPopover('${it.id}',this,event)">⇄</button>
         <button class="btn-icon delete" title="Delete" onclick="deleteItem('${it.id}')">🗑</button>
       </td>
     </tr>`;
@@ -970,7 +970,10 @@ function checkAttuneWarn(){
 let _transferItemId = null;
 let _transferPopoverEl = null;
 
-async function openTransferPopover(itemId, anchorEl){
+async function openTransferPopover(itemId, anchorEl, triggerEvent){
+  // Stop the triggering click from bubbling to the document-level close handler,
+  // which would immediately destroy the popover we're about to create.
+  if(triggerEvent) triggerEvent.stopPropagation();
   // Close any existing popover first
   closeTransferPopover();
   _transferItemId = itemId;
@@ -1001,6 +1004,8 @@ async function openTransferPopover(itemId, anchorEl){
     </div>`;
   document.body.appendChild(pop);
   _transferPopoverEl = pop;
+  // Prevent clicks inside the popover from bubbling to the document close handler
+  pop.addEventListener('click', e => e.stopPropagation());
 
   // Position near the anchor button
   const rect = anchorEl.getBoundingClientRect();
@@ -1015,9 +1020,6 @@ async function openTransferPopover(itemId, anchorEl){
 
   // Build the holder dropdown inside the popover
   await buildTxHolderDropdown(it.holder||'');
-
-  // Stop clicks inside popover from propagating to the document close handler
-  pop.addEventListener('click', e=>e.stopPropagation());
 }
 
 function closeTransferPopover(){

@@ -3358,14 +3358,14 @@ describe('Loot Tracker — quick transfer popover', () => {
 
   it('openTransferPopover closes any existing popover before opening a new one', () => {
     const idx = src.indexOf('async function openTransferPopover(');
-    const block = src.slice(idx, idx + 300);
+    const block = src.slice(idx, idx + 600);
     assert.ok(block.includes('closeTransferPopover()'),
       'openTransferPopover must close any existing popover before opening a new one');
   });
 
   it('popover is positioned with fixed positioning for viewport-relative placement', () => {
     const idx = src.indexOf('async function openTransferPopover(');
-    const block = src.slice(idx, idx + 2000);
+    const block = src.slice(idx, idx + 3000);
     assert.ok(block.includes('pop.style.left') && block.includes('pop.style.top'),
       'openTransferPopover must set left and top on the popover element');
   });
@@ -3385,6 +3385,36 @@ describe('Loot Tracker — quick transfer popover', () => {
     const clickHandlers = src.match(/document\.addEventListener\('click'/g) || [];
     assert.ok(clickHandlers.length >= 2,
       'Must have at least 2 document click handlers (main holder dropdown + transfer popover close)');
+  });
+
+  it('openTransferPopover accepts a triggerEvent parameter', () => {
+    // Bug fix: the triggering click must be stopped before the document handler fires,
+    // otherwise the popover is created and immediately destroyed in the same event.
+    const idx = src.indexOf('async function openTransferPopover(');
+    const sig = src.slice(idx, idx + 100);
+    assert.ok(sig.includes('triggerEvent'),
+      'openTransferPopover must accept a triggerEvent parameter to stop click propagation');
+  });
+
+  it('openTransferPopover calls stopPropagation on triggerEvent', () => {
+    const idx = src.indexOf('async function openTransferPopover(');
+    const block = src.slice(idx, idx + 600);
+    assert.ok(block.includes('triggerEvent.stopPropagation()'),
+      'openTransferPopover must call triggerEvent.stopPropagation() to prevent the document-level close handler from immediately destroying the new popover');
+  });
+
+  it('transfer button passes event to openTransferPopover', () => {
+    assert.ok(src.includes(',this,event)'),
+      'transfer button onclick must pass event as the third argument to openTransferPopover');
+  });
+
+  it('popover element itself stops internal click propagation', () => {
+    const idx = src.indexOf('async function openTransferPopover(');
+    const block = src.slice(idx, idx + 3000);
+    assert.ok(
+      block.includes("addEventListener('click'") && block.includes('stopPropagation'),
+      'The popover element must have a click listener that calls stopPropagation to prevent internal clicks from triggering the outside-click close handler'
+    );
   });
 });
 
@@ -3863,7 +3893,7 @@ describe('Loot Tracker — quick transfer deep coverage', () => {
 
   it('popover flips above anchor when near bottom of viewport', () => {
     const idx = src.indexOf('async function openTransferPopover(');
-    const block = src.slice(idx, idx + 2000);
+    const block = src.slice(idx, idx + 3000);
     assert.ok(block.includes('window.innerHeight') && block.includes('rect.top'),
       'openTransferPopover must check window.innerHeight to flip the popover upward near bottom of screen');
   });
