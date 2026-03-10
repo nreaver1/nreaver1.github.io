@@ -831,12 +831,8 @@ body.page-dashboard main { max-width: 1100px; padding: 2.5rem 2rem 5rem; }
   position: relative; display: flex; align-items: center;
   flex: 1; min-width: 180px;
 }
-.roster-search-icon {
-  position: absolute; left: 0.6rem;
-  font-size: 1rem; color: var(--text-dim); pointer-events: none; line-height: 1;
-}
 .roster-search {
-  width: 100%; padding: 0.42rem 2rem 0.42rem 1.8rem;
+  width: 100%; padding: 0.42rem 2rem 0.42rem 0.7rem;
   font-family: 'Share Tech Mono', monospace; font-size: 0.78rem;
   letter-spacing: 0.06em; background: var(--bg2);
   border: 1px solid var(--border); border-radius: 3px; color: var(--text);
@@ -930,7 +926,7 @@ body.page-dashboard main { max-width: 1100px; padding: 2.5rem 2rem 5rem; }
 }
 .card-tab:hover { color: var(--text); }
 .card-tab.active { color: var(--member-color, var(--cyan)); border-bottom-color: var(--member-color, var(--cyan)); }
-.tab-panel { display: none; padding: 1rem 1.2rem; }
+.tab-panel { display: none; padding: 1rem 1.2rem; overflow: hidden; min-width: 0; max-width: 100%; box-sizing: border-box; }
 .tab-panel.active { display: block; }
 
 /* bio tab */
@@ -939,12 +935,12 @@ body.page-dashboard main { max-width: 1100px; padding: 2.5rem 2rem 5rem; }
 .tag { font-family: 'Share Tech Mono', monospace; font-size: 0.8rem; letter-spacing: 0.12em; text-transform: uppercase; padding: 0.18rem 0.5rem; border-radius: 2px; border: 1px solid var(--border); color: var(--text-dim); }
 
 /* stats tab */
-.ability-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 0.5rem; margin-bottom: 1rem; }
-.ability-box { background: rgba(14,240,208,0.04); border: 1px solid var(--border); border-radius: 4px; padding: 0.5rem 0.3rem; text-align: center; transition: border-color 0.2s; }
+.ability-grid { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 0.5rem; margin-bottom: 1rem; min-width: 0; }
+.ability-box { background: rgba(14,240,208,0.04); border: 1px solid var(--border); border-radius: 4px; padding: 0.5rem 0.3rem; text-align: center; transition: border-color 0.2s; min-width: 0; overflow: hidden; }
 .ability-box:hover { border-color: rgba(14,240,208,0.25); }
-.ability-abbr  { font-family: 'Share Tech Mono', monospace; font-size: 0.8rem; letter-spacing: 0.15em; text-transform: uppercase; color: var(--text-dim); }
+.ability-abbr  { font-family: 'Share Tech Mono', monospace; font-size: 0.68rem; letter-spacing: 0.1em; text-transform: uppercase; color: var(--text-dim); }
 .ability-score { font-family: 'Orbitron', sans-serif; font-size: 0.92rem; font-weight: 700; color: var(--text); line-height: 1.1; margin: 2px 0; }
-.ability-mod   { font-family: 'Share Tech Mono', monospace; font-size: 0.8rem; color: var(--member-color, var(--cyan)); font-weight: 700; }
+.ability-mod   { font-family: 'Share Tech Mono', monospace; font-size: 0.72rem; color: var(--member-color, var(--cyan)); font-weight: 700; }
 .combat-row { display: flex; gap: 0.6rem; flex-wrap: wrap; margin-bottom: 1rem; }
 .combat-box { background: rgba(14,240,208,0.04); border: 1px solid var(--border); border-radius: 4px; padding: 0.45rem 0.7rem; flex: 1; min-width: 60px; text-align: center; }
 .combat-val   { font-family: 'Orbitron', sans-serif; font-size: 0.8rem; font-weight: 700; color: var(--gold); line-height: 1; }
@@ -952,7 +948,7 @@ body.page-dashboard main { max-width: 1100px; padding: 2.5rem 2rem 5rem; }
 .checks-section { margin-bottom: 0.8rem; }
 .checks-section-label { font-family: 'Share Tech Mono', monospace; font-size: 0.8rem; letter-spacing: 0.2em; text-transform: uppercase; color: var(--cyan-dim); margin-bottom: 0.5rem; display: flex; align-items: center; gap: 0.5rem; }
 .checks-section-label::after { content: ''; flex: 1; height: 1px; background: var(--border); }
-.checks-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.25rem 1rem; }
+.checks-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.25rem 1rem; }
 .check-row  { display: flex; align-items: center; justify-content: space-between; gap: 0.4rem; }
 .check-prof { width: 8px; height: 8px; border-radius: 50%; border: 1px solid var(--text-dim); flex-shrink: 0; }
 .check-prof.prof { background: var(--member-color, var(--cyan)); border-color: var(--member-color, var(--cyan)); }
