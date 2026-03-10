@@ -1832,6 +1832,7 @@ td { padding: 0.7rem 1rem; }
   min-width: 150px;
   flex: 1;
   max-width: 220px;
+  position: relative;
   transition: border-color 0.15s;
 }
 .mw-card:hover { border-color: rgba(14,240,208,0.2); }
@@ -1981,7 +1982,6 @@ td { padding: 0.7rem 1rem; }
 }
 
 /* ── Member wealth medal ranks ── */
-.mw-card { position: relative; }
 .mw-medal-badge {
   position: absolute;
   top: -8px; right: -6px;
@@ -2131,19 +2131,42 @@ td { padding: 0.7rem 1rem; }
   line-height: 1.4;
   letter-spacing: 0.04em;
 }
-.split-weight-inp {
-  width: 70px;
+.split-weight-wrap {
+  display: flex;
+  align-items: center;
+  gap: 0;
   flex-shrink: 0;
-  font-family: 'Share Tech Mono', monospace;
-  font-size: 0.8rem;
-  padding: 0.3rem 0.5rem;
-  background: var(--bg);
   border: 1px solid var(--border);
   border-radius: 3px;
+  overflow: hidden;
+  transition: border-color 0.15s;
+}
+.split-weight-wrap:focus-within { border-color: var(--cyan-dim); }
+.split-weight-inp {
+  width: 62px;
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 0.8rem;
+  padding: 0.3rem 0.4rem;
+  background: var(--bg);
+  border: none;
   color: var(--text);
   text-align: right;
+  -moz-appearance: textfield;
 }
-.split-weight-inp:focus { outline: none; border-color: var(--cyan-dim); }
+.split-weight-inp::-webkit-outer-spin-button,
+.split-weight-inp::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+.split-weight-inp:focus { outline: none; }
+.split-weight-unit {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 0.72rem;
+  letter-spacing: 0.06em;
+  color: var(--text-dim);
+  background: rgba(255,255,255,0.03);
+  border-left: 1px solid var(--border);
+  padding: 0.3rem 0.45rem;
+  white-space: nowrap;
+  user-select: none;
+}
 
 .split-count-row {
   display: flex;

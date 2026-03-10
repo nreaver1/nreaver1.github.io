@@ -266,7 +266,7 @@
           <button class="split-mode-btn"        data-mode="percent" onclick="setSplitMode('percent')">% Percent</button>
           <button class="split-mode-btn"        data-mode="flat"    onclick="setSplitMode('flat')">₵ Flat</button>
         </div>
-        <div class="split-mode-hint" id="splitModeHint">Each recipient receives an equal share. Any indivisible remainder goes to the party vault.</div>
+        <div class="split-mode-hint" id="splitModeHint"></div>
       </div>
 
       <div class="field">
@@ -1155,9 +1155,9 @@ let splitRecipients = []; // array of {type:'member'|'vault', member: obj|null, 
 let splitMode = 'even';   // 'even' | 'percent' | 'flat'
 
 const SPLIT_MODE_HINTS = {
-  even:    'Each recipient receives an equal share. Any indivisible remainder goes to the party vault.',
-  percent: 'Assign a percentage to each recipient — must total 100%. Remainder goes to the party vault.',
-  flat:    'Assign a fixed base-currency amount to each recipient. Excess or shortfall goes to the party vault.',
+  even:    `Each recipient receives an equal share. Any indivisible remainder goes to the ${t('partyVault').toLowerCase()}.`,
+  percent: `Assign a percentage to each recipient — must total 100%. Remainder goes to the ${t('partyVault').toLowerCase()}.`,
+  flat:    `Assign a fixed base-currency amount to each recipient. Excess or shortfall goes to the ${t('partyVault').toLowerCase()}.`,
 };
 
 function setSplitMode(mode) {
@@ -1184,25 +1184,27 @@ function getMemberNetWorth(memberName) {
 function buildSplitRecipientCard(recipient, index) {
   const base = currencies.find(c => c.id === 'cr') || currencies[0];
   const weightVal = recipient.weight != null ? recipient.weight : (splitMode === 'percent' ? (100 / splitRecipients.length).toFixed(1) : '');
-  const weightPlaceholder = splitMode === 'percent' ? '%' : (base ? base.abbr : '');
+  const unitLabel = splitMode === 'percent' ? '%' : (base ? base.abbr : '');
   const weightInput = splitMode !== 'even'
-    ? `<input
-         type="number"
-         class="split-weight-inp"
-         value="${weightVal}"
-         placeholder="${weightPlaceholder}"
-         min="0"
-         step="${splitMode === 'percent' ? '0.1' : '1'}"
-         oninput="setSplitWeight(${index}, parseFloat(this.value)||0)"
-         title="${splitMode === 'percent' ? 'Percentage of total' : 'Flat amount in ' + (base ? base.abbr : 'base currency')}"
-       />`
+    ? `<div class="split-weight-wrap">
+         <input
+           type="number"
+           class="split-weight-inp"
+           value="${weightVal}"
+           placeholder="0"
+           min="0"
+           step="${splitMode === 'percent' ? '0.1' : '1'}"
+           oninput="setSplitWeight(${index}, parseFloat(this.value)||0)"
+         />
+         <span class="split-weight-unit">${unitLabel}</span>
+       </div>`
     : '';
 
   if (recipient.type === 'vault') {
     return `<div class="split-member-card split-vault-card" data-idx="${index}">
       <div class="split-card-avatar split-card-vault-icon">🎒</div>
       <div class="split-card-info">
-        <div class="split-card-name">Party Vault</div>
+        <div class="split-card-name">${t('partyVault')}</div>
         <div class="split-card-wealth split-card-wealth-dim">shared</div>
       </div>
       ${weightInput}
@@ -1397,7 +1399,7 @@ function calcSplit() {
     lines.push('');
     splitRecipients.forEach((r, i) => {
       const pct = weights[i];
-      const name = r.type === 'vault' ? 'Party Vault' : r.member.name;
+      const name = r.type === 'vault' ? t('partyVault') : r.member.name;
       const nameStr = name.padEnd(16).slice(0, 16);
       if (allRates) {
         const share = (baseTotal * pct / 100);
@@ -1423,7 +1425,7 @@ function calcSplit() {
     lines.push('');
     splitRecipients.forEach((r, i) => {
       const flat = weights[i];
-      const name = r.type === 'vault' ? 'Party Vault' : r.member.name;
+      const name = r.type === 'vault' ? t('partyVault') : r.member.name;
       const nameStr = name.padEnd(16).slice(0, 16);
       lines.push(`  ${nameStr}: +${fmt(flat)} ${base ? base.abbr : ''}`);
     });
@@ -1431,7 +1433,7 @@ function calcSplit() {
 
   if (splitRecipients.some(r => r.type === 'vault')) {
     lines.push('');
-    lines.push('⚙ vault slots receive their share as party vault');
+    lines.push(`⚙ vault slots receive their share as ${t('partyVault').toLowerCase()}`);
   }
 
   document.getElementById('splitResult').textContent = lines.join('\n');
@@ -1489,9 +1491,9 @@ async function applySplit() {
       else if (rem < 0) remSpend[cid] = Math.abs(rem);
     }
     if (Object.keys(remGain).length)
-      recipientTxs.push({ id: uid(), type: 'gain',  desc: 'Split remainder — returned to party vault', note: 'Auto-logged', ts: ts + 3, coins: remGain,  member: null });
+      recipientTxs.push({ id: uid(), type: 'gain',  desc: `Split remainder — returned to ${t('partyVault')}`, note: 'Auto-logged', ts: ts + 3, coins: remGain,  member: null });
     if (Object.keys(remSpend).length)
-      recipientTxs.push({ id: uid(), type: 'spend', desc: 'Split remainder (debt) — party vault',      note: 'Auto-logged', ts: ts + 4, coins: remSpend, member: null });
+      recipientTxs.push({ id: uid(), type: 'spend', desc: `Split remainder (debt) — ${t('partyVault')}`, note: 'Auto-logged', ts: ts + 4, coins: remSpend, member: null });
 
   } else if (splitMode === 'percent') {
     // ── PERCENT: allocate proportionally in base currency, convert back per-cur ──
@@ -1539,8 +1541,8 @@ async function applySplit() {
     if (Object.keys(remCoins).length) {
       const pos = Object.fromEntries(Object.entries(remCoins).filter(([,v]) => v > 0));
       const neg = Object.fromEntries(Object.entries(remCoins).filter(([,v]) => v < 0).map(([k,v]) => [k, Math.abs(v)]));
-      if (Object.keys(pos).length) recipientTxs.push({ id: uid(), type: 'gain',  desc: 'Split remainder — vault', note: 'Auto-logged', ts: ts + n + 1, coins: pos, member: null });
-      if (Object.keys(neg).length) recipientTxs.push({ id: uid(), type: 'spend', desc: 'Split remainder — vault', note: 'Auto-logged', ts: ts + n + 2, coins: neg, member: null });
+      if (Object.keys(pos).length) recipientTxs.push({ id: uid(), type: 'gain',  desc: `Split remainder — ${t('partyVault')}`, note: 'Auto-logged', ts: ts + n + 1, coins: pos, member: null });
+      if (Object.keys(neg).length) recipientTxs.push({ id: uid(), type: 'spend', desc: `Split remainder — ${t('partyVault')}`, note: 'Auto-logged', ts: ts + n + 2, coins: neg, member: null });
     }
 
   } else if (splitMode === 'flat') {
@@ -1588,7 +1590,7 @@ async function applySplit() {
       if (Object.keys(remCoins).length) {
         recipientTxs.push({
           id: uid(), type: remBase > 0 ? 'gain' : 'spend',
-          desc: 'Split remainder — returned to party vault',
+          desc: `Split remainder — returned to ${t('partyVault')}`,
           note: 'Auto-logged', ts: ts + n + 1,
           coins: remCoins, member: null,
         });
@@ -1662,7 +1664,7 @@ async function buildTxHolderDropdown(currentValue) {
   const dropdown = document.getElementById('txHolderDropdown');
 
   const options = [
-    { value: '', name: '— Party Shared —', photo: null, sub: 'goes to party vault', isBlank: true },
+    { value: '', name: '— Party Shared —', photo: null, sub: `goes to ${t('partyVault').toLowerCase()}`, isBlank: true },
     ...members.map(m => ({
       value: m.name,
       name:  m.name,
@@ -1980,8 +1982,39 @@ async function renderMemberWealth() {
     { border: 'rgba(205,127,50,0.6)',  bg: 'rgba(205,127,50,0.07)',  shadow: '0 0 14px rgba(205,127,50,0.28), 0 0 30px rgba(205,127,50,0.08)', label: '🥉', cls: 'mw-medal-bronze' },
   ];
 
+  // ── Compute Olympic-style dense ranks for medal assignment ─────────────────
+  // Rules: ties share the same rank. Next rank after a tie group is skipped by
+  // the size of the group (e.g. two-way tie for 1st → both get rank 1, next is rank 3).
+  // Members with null or negative wealth are never ranked.
+  const rankMap = {}; // name → 0-based MEDALS index (0=gold,1=silver,2=bronze), or null
+  {
+    let rank = 0; // 0-based position in MEDALS array
+    let i    = 0;
+    while (i < sorted.length && rank < MEDALS.length) {
+      const wv = memberWealthVal(sorted[i].name);
+      // Skip members with no ratable wealth or in debt
+      if (wv === null || wv <= 0) { i++; continue; }
+      // Find the end of the tie group that shares this wv
+      let j = i;
+      while (j < sorted.length) {
+        const wvj = memberWealthVal(sorted[j].name);
+        if (wvj === null || Math.abs(wvj - wv) > 0.001) break;
+        j++;
+      }
+      // sorted[i..j-1] all tie → assign same medal rank to each
+      const tieSize = j - i;
+      if (rank < MEDALS.length) {
+        for (let k = i; k < j; k++) {
+          rankMap[sorted[k].name] = rank; // all tie-members share this medal
+        }
+      }
+      rank += tieSize; // skip past the entire tie group for the next rank
+      i = j;
+    }
+  }
+
   row.innerHTML = `
-    <div class="mw-label">⚙ Member Wealth</div>
+    <div class="mw-label">⚙ ${t('members')} Wealth</div>
     <div class="mw-cards">
       ${sorted.map((m, i) => {
         const wv = memberWealthVal(m.name);
@@ -1991,8 +2024,9 @@ async function renderMemberWealth() {
         const wealthClass = wv === null ? 'mw-empty' : isNegMember ? 'mw-neg' : '';
         const prefix = isNegMember ? '−' : '';
 
-        // Medal: only top 3 with actual positive wealth, not in debt
-        const medal = (!isNegMember && wv !== null && i < 3) ? MEDALS[i] : null;
+        // Medal: use pre-computed dense rank (handles ties correctly)
+        const medalIdx = rankMap[m.name] ?? null;
+        const medal = (medalIdx !== null && medalIdx < MEDALS.length) ? MEDALS[medalIdx] : null;
 
         const medalBadge = medal ? `<div class="mw-medal-badge">${medal.label}</div>` : '';
         const medalClass = medal ? medal.cls : '';

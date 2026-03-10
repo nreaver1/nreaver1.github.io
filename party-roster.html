@@ -1577,6 +1577,8 @@ function lt_collectFx(){
 // Synchronous — uses members[] already loaded at page start, no DB call needed
 function lt_populateHolderSelect(currentValue){
   const sel=document.getElementById('lt_fieldHolder');
+  // Update display label for the static special option using current term mappings
+  if(sel.options[1]) sel.options[1].textContent=t('partyInventory');
   while(sel.options.length>2)sel.remove(2);
   members.forEach(m=>{const opt=document.createElement('option');opt.value=m.name;opt.textContent=m.name;sel.appendChild(opt);});
   sel.value=currentValue||'';

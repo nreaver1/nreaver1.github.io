@@ -555,7 +555,7 @@ function renderHolderCell(holder){
   const m=members.find(x=>x.name===holder);
   const avatarStyle='width:20px;height:20px;border-radius:50%;object-fit:cover;vertical-align:middle;margin-right:5px;border:1px solid rgba(14,240,208,0.2);flex-shrink:0;';
   if(holder==='Party Inventory'){
-    return `<span style="display:inline-flex;align-items:center;gap:5px;font-size:0.9rem"><span style="font-size:0.85rem">🎒</span>${esc(holder)}</span>`;
+    return `<span style="display:inline-flex;align-items:center;gap:5px;font-size:0.9rem"><span style="font-size:0.85rem">🎒</span>${esc(t('partyInventory'))}</span>`;
   }
   if(m&&m.photo){
     return `<span style="display:inline-flex;align-items:center;gap:0;font-size:0.9rem"><img src="${m.photo}" style="${avatarStyle}" alt="${esc(holder)}" />${esc(holder)}</span>`;
@@ -609,7 +609,7 @@ async function buildHolderDropdown(currentValue){
   // Group 3: party members (from roster)
   const options=[
     { value:'', name:'— Unassigned —', photo:null, sub:'', isBlank:true },
-    { value:'Party Inventory', name:'Party Inventory', photo:null, sub:'shared loot', isSpecial:true },
+    { value:'Party Inventory', name:t('partyInventory'), photo:null, sub:'shared loot', isSpecial:true },
   ];
   members.forEach(m=>{
     options.push({
@@ -847,7 +847,7 @@ async function initHolderDisplay(value){
   const members=await loadPartyMembersAsync();
   const specialOpts=[
     {value:'',name:'— Unassigned —',photo:null,isBlank:true},
-    {value:'Party Inventory',name:'Party Inventory',photo:null,isSpecial:true},
+    {value:'Party Inventory',name:t('partyInventory'),photo:null,isSpecial:true},
   ];
   const memberOpts=members.map(m=>({value:m.name,name:m.name,photo:m.photo||null,color:m.color||null}));
   const allOpts=[...specialOpts,...memberOpts];
@@ -960,6 +960,8 @@ document.addEventListener('keydown',e=>{ if(e.key==='Escape') closeModal(); if(e
 
 async function populateHolderFilter(){
   const sel=document.getElementById('filterHolder');
+  // Update display labels for the static special options using current term mappings
+  if(sel.options[1]) sel.options[1].textContent='🎒 '+t('partyInventory');
   const current=sel.value;
   while(sel.options.length>2) sel.remove(2);
   const members=await loadPartyMembersAsync();

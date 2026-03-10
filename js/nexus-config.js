@@ -231,6 +231,9 @@ const TERM_DEFAULTS = {
   items:          'Items',
   session:        'Session',
   creature:       'Creature',
+  // Shared holder labels (display only — DB/logic still uses canonical strings)
+  partyInventory: 'Party Inventory',
+  partyVault:     'Party Vault',
   // Campaign identity
   campaignName:   'NEXUS',
   campaignSub:    'campaign system',

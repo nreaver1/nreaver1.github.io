@@ -2388,3 +2388,725 @@ describe('updateStats() — statActive counter', () => {
     );
   });
 });
+
+// ══════════════════════════════════════════════════════════════
+// Section 34 — Term system: partyInventory & partyVault keys
+// ══════════════════════════════════════════════════════════════
+describe('Term system — partyInventory and partyVault keys', () => {
+  const fs   = require('fs'), path = require('path');
+  const cfg  = fs.readFileSync(path.join(__dirname,'../js/nexus-config.js'), 'utf8');
+  const lt   = fs.readFileSync(path.join(__dirname,'../loot-tracker.html'), 'utf8');
+  const pr   = fs.readFileSync(path.join(__dirname,'../party-roster.html'), 'utf8');
+  const tr   = fs.readFileSync(path.join(__dirname,'../treasury.html'), 'utf8');
+  const adm  = fs.readFileSync(path.join(__dirname,'../admin.html'), 'utf8');
+
+  // ── nexus-config.js ──
+  it('TERM_DEFAULTS contains partyInventory key', () => {
+    assert.ok(cfg.includes("partyInventory: 'Party Inventory'"),
+      'partyInventory must be in TERM_DEFAULTS with default "Party Inventory"');
+  });
+
+  it('TERM_DEFAULTS contains partyVault key', () => {
+    assert.ok(cfg.includes("partyVault:     'Party Vault'"),
+      'partyVault must be in TERM_DEFAULTS with default "Party Vault"');
+  });
+
+  // ── loot-tracker.html ──
+  it('loot-tracker holder dropdown uses t("partyInventory") for display name', () => {
+    assert.ok(lt.includes("name:t('partyInventory')"),
+      "Holder dropdown option name must use t('partyInventory') not hardcoded string");
+  });
+
+  it('loot-tracker initHolderDisplay uses t("partyInventory")', () => {
+    // The specialOpts array in initHolderDisplay
+    assert.ok(lt.includes("name:t('partyInventory'),photo:null,isSpecial:true"),
+      "initHolderDisplay specialOpts must use t('partyInventory')");
+  });
+
+  it('loot-tracker renderHolderCell identity check uses canonical "Party Inventory"', () => {
+    assert.ok(lt.includes("if(holder==='Party Inventory'){"),
+      'renderHolderCell must compare holder to canonical "Party Inventory" string (DB value, not display)');
+  });
+
+  it('loot-tracker renderHolderCell display uses t("partyInventory")', () => {
+    assert.ok(lt.includes("esc(t('partyInventory'))"),
+      "renderHolderCell must display t('partyInventory'), not the raw holder value");
+  });
+
+  it('loot-tracker populateHolderFilter updates static option label with t()', () => {
+    assert.ok(lt.includes("sel.options[1].textContent='🎒 '+t('partyInventory')"),
+      "populateHolderFilter must update the Party Inventory option label using t()");
+  });
+
+  it('loot-tracker filterHolder identity comparison still uses canonical "Party Inventory"', () => {
+    // The filter value attr never changes — comparison must match DB value
+    assert.ok(lt.includes('value="Party Inventory"') || lt.includes("value:'Party Inventory'"),
+      'The value attribute/property for Party Inventory must stay canonical for filter logic');
+  });
+
+  // ── party-roster.html ──
+  it('party-roster lt_populateHolderSelect updates static option with t()', () => {
+    assert.ok(pr.includes("sel.options[1].textContent=t('partyInventory')"),
+      "lt_populateHolderSelect must update Party Inventory label using t()");
+  });
+
+  it('party-roster loot tab option value stays canonical "Party Inventory"', () => {
+    assert.ok(pr.includes('value="Party Inventory"'),
+      'The HTML option value must stay "Party Inventory" — only display label changes');
+  });
+
+  // ── treasury.html ──
+  it('treasury SPLIT_MODE_HINTS use t("partyVault")', () => {
+    assert.ok(tr.includes("t('partyVault').toLowerCase()"),
+      "SPLIT_MODE_HINTS must use t('partyVault').toLowerCase() not hardcoded 'party vault'");
+  });
+
+  it('treasury calcSplit vault recipient name uses t("partyVault")', () => {
+    assert.ok(tr.includes("r.type === 'vault' ? t('partyVault') : r.member.name"),
+      "calcSplit vault name must use t('partyVault')");
+  });
+
+  it('treasury vault slot footnote uses t("partyVault")', () => {
+    assert.ok(tr.includes("t('partyVault').toLowerCase()") && tr.includes('vault slots receive'),
+      "calcSplit vault slot footnote must use t('partyVault').toLowerCase()");
+  });
+
+  it('treasury applySplit even remainder txs use t("partyVault")', () => {
+    assert.ok(tr.includes('`Split remainder — returned to ${t(\'partyVault\')}`') ||
+              tr.includes("Split remainder — returned to ${t('partyVault')}"),
+      "applySplit even remainder description must use t('partyVault')");
+  });
+
+  it('treasury TX holder dropdown sub-label uses t("partyVault")', () => {
+    assert.ok(tr.includes("goes to ${t('partyVault').toLowerCase()}"),
+      "TX holder dropdown sub must use t('partyVault').toLowerCase()");
+  });
+
+  it('treasury Member Wealth label uses t("members")', () => {
+    assert.ok(tr.includes("${t('members')} Wealth"),
+      "Member Wealth label must use t('members')");
+  });
+
+  // ── admin.html ──
+  it('admin TERM_DEFS includes partyInventory key', () => {
+    assert.ok(adm.includes("key: 'partyInventory'"),
+      "TERM_DEFS must include partyInventory entry");
+  });
+
+  it('admin TERM_DEFS includes partyVault key', () => {
+    assert.ok(adm.includes("key: 'partyVault'"),
+      "TERM_DEFS must include partyVault entry");
+  });
+
+  it('admin partyInventory hint mentions Loot Tracker', () => {
+    assert.ok(adm.includes("hint: 'Shared loot holder label in Loot Tracker'"),
+      'partyInventory term entry must have an accurate hint');
+  });
+
+  it('admin partyVault hint mentions Treasury', () => {
+    assert.ok(adm.includes("hint: 'Split remainder destination in Treasury'"),
+      'partyVault term entry must have an accurate hint');
+  });
+});
+
+// ══════════════════════════════════════════════════════════════
+// Section 35 — Terminology: canonical DB values preserved
+// ══════════════════════════════════════════════════════════════
+describe('Term system — canonical DB values unchanged', () => {
+  const fs  = require('fs'), path = require('path');
+  const lt  = fs.readFileSync(path.join(__dirname,'../loot-tracker.html'), 'utf8');
+  const pr  = fs.readFileSync(path.join(__dirname,'../party-roster.html'), 'utf8');
+
+  it('loot-tracker holder comparison uses canonical "Party Inventory" not t()', () => {
+    // Logic branches must compare against the stable DB value
+    assert.ok(lt.includes("holder==='Party Inventory'"),
+      'Holder identity check must use canonical "Party Inventory" string');
+    // And must NOT compare against t() call
+    assert.ok(!lt.includes("holder===t('partyInventory')"),
+      'Holder identity check must NOT use t() — would break if term is renamed');
+  });
+
+  it('loot-tracker value==="Party Inventory" identity in setHolderDisplay uses canonical', () => {
+    assert.ok(lt.includes("value==='Party Inventory'"),
+      'setHolderDisplay value check must use canonical "Party Inventory"');
+  });
+
+  it('party-roster option value attr stays canonical "Party Inventory"', () => {
+    // value attr is what gets saved to DB and compared in logic
+    assert.ok(pr.includes('value="Party Inventory"'),
+      'lt_fieldHolder option value must be canonical "Party Inventory"');
+  });
+
+  it('loot-tracker option value attr stays canonical "Party Inventory"', () => {
+    assert.ok(lt.includes('value="Party Inventory"'),
+      'filterHolder option value must be canonical "Party Inventory"');
+  });
+
+  it('no page compares holder to t("partyInventory") in a logic branch', () => {
+    // t() calls are display-only — no logic should depend on the translated string
+    assert.ok(!lt.includes("holder===t('partyInventory')"),
+      'No logic branch should compare holder to a t() result');
+  });
+});
+
+// ══════════════════════════════════════════════════════════════
+// Section 36 — Campaign Snapshot: export function structure
+// ══════════════════════════════════════════════════════════════
+describe('Campaign Snapshot — exportSnapshot function', () => {
+  const fs  = require('fs'), path = require('path');
+  const src = fs.readFileSync(path.join(__dirname,'../admin.html'), 'utf8');
+
+  it('exportSnapshot function is defined', () => {
+    assert.ok(src.includes('async function exportSnapshot()'),
+      'exportSnapshot must be an async function');
+  });
+
+  it('SNAPSHOT_TABLES constant lists all 5 tables', () => {
+    assert.ok(src.includes("const SNAPSHOT_TABLES = ["), 'SNAPSHOT_TABLES must be defined');
+    assert.ok(src.includes("'party_members'"),        'must include party_members');
+    assert.ok(src.includes("'treasury_currencies'"),  'must include treasury_currencies');
+    assert.ok(src.includes("'treasury_ledger'"),      'must include treasury_ledger');
+    assert.ok(src.includes("'loot_items'"),           'must include loot_items');
+    assert.ok(src.includes("'nexus_settings'"),       'must include nexus_settings');
+  });
+
+  it('exportSnapshot fetches all tables in parallel with Promise.all', () => {
+    assert.ok(src.includes('Promise.all(\n        SNAPSHOT_TABLES.map') ||
+              src.includes('Promise.all(SNAPSHOT_TABLES.map') ||
+              src.includes("Promise.all(\n        SNAPSHOT_TABLES"),
+      'exportSnapshot must use Promise.all to fetch tables in parallel');
+  });
+
+  it('snapshot object includes version, exported_at, campaign, and tables fields', () => {
+    assert.ok(src.includes('version:     1'),     'snapshot must have version: 1');
+    assert.ok(src.includes('exported_at:'),       'snapshot must have exported_at timestamp');
+    assert.ok(src.includes("campaign:"),          'snapshot must have campaign field');
+    assert.ok(src.includes('tables,'),            'snapshot must include tables object');
+  });
+
+  it('exportSnapshot downloads file with nexus-snapshot prefix', () => {
+    assert.ok(src.includes('`nexus-snapshot-${date}.json`') ||
+              src.includes("'nexus-snapshot-' + date + '.json'") ||
+              src.includes('nexus-snapshot-'),
+      'exported filename must have nexus-snapshot prefix');
+  });
+
+  it('exportSnapshot revokes the object URL after download', () => {
+    assert.ok(src.includes('URL.revokeObjectURL(a.href)'),
+      'exportSnapshot must revoke the object URL to avoid memory leaks');
+  });
+
+  it('exportSnapshot has a loading state on the button', () => {
+    assert.ok(src.includes("btn.dataset.loadingText = 'Fetching…'") ||
+              src.includes("loadingText = 'Fetching"),
+      'exportSnapshot must set loadingText on the button');
+  });
+
+  it('exportSnapshot shows total row count in status message', () => {
+    assert.ok(src.includes('totalRows'),
+      'exportSnapshot must track and display total row count');
+  });
+
+  it('export button has id btnExportSnapshot', () => {
+    assert.ok(src.includes('id="btnExportSnapshot"'),
+      'Export button must have id btnExportSnapshot');
+  });
+
+  it('snapshotStatus helper function is defined', () => {
+    assert.ok(src.includes('function snapshotStatus('),
+      'snapshotStatus helper must be defined');
+  });
+});
+
+// ══════════════════════════════════════════════════════════════
+// Section 37 — Campaign Snapshot: restore function structure
+// ══════════════════════════════════════════════════════════════
+describe('Campaign Snapshot — restoreSnapshot function', () => {
+  const fs  = require('fs'), path = require('path');
+  const src = fs.readFileSync(path.join(__dirname,'../admin.html'), 'utf8');
+
+  it('restoreSnapshot function is defined', () => {
+    assert.ok(src.includes('async function restoreSnapshot('),
+      'restoreSnapshot must be an async function');
+  });
+
+  it('hidden file input exists for snapshot restore', () => {
+    assert.ok(src.includes('id="snapshotFileInput"'),
+      'snapshotFileInput hidden file input must exist');
+    assert.ok(src.includes('onchange="restoreSnapshot(event)"'),
+      'snapshotFileInput must call restoreSnapshot on change');
+  });
+
+  it('restoreSnapshot resets file input value after selection', () => {
+    assert.ok(src.includes("event.target.value = ''"),
+      'restoreSnapshot must reset event.target.value so same file can be reselected');
+  });
+
+  it('restoreSnapshot validates presence of tables key', () => {
+    assert.ok(src.includes('!snapshot.tables') || src.includes("snapshot.tables"),
+      'restoreSnapshot must validate the tables key exists');
+  });
+
+  it('restoreSnapshot warns about unexpected version', () => {
+    assert.ok(src.includes('snapshot.version !== 1'),
+      'restoreSnapshot must check snapshot version and warn if not 1');
+  });
+
+  it('restoreSnapshot uses dangerConfirm before proceeding', () => {
+    assert.ok(src.includes('const confirmed = await dangerConfirm('),
+      'restoreSnapshot must gate behind dangerConfirm');
+  });
+
+  it('restoreSnapshot confirm message includes table names and counts', () => {
+    assert.ok(src.includes('SNAPSHOT_TABLES.map(tbl =>'),
+      'restoreSnapshot must build per-table counts for confirm message');
+  });
+
+  it('restoreSnapshot deletes existing rows before re-seeding (except nexus_settings)', () => {
+    assert.ok(src.includes("db.deleteWhere(tbl, 'id=gt.')"),
+      "restoreSnapshot must call deleteWhere with 'id=gt.' to clear existing rows");
+  });
+
+  it('restoreSnapshot treats nexus_settings as upsert-only (no delete)', () => {
+    assert.ok(src.includes("tbl === 'nexus_settings'"),
+      'restoreSnapshot must handle nexus_settings separately (upsert, no delete)');
+  });
+
+  it('restoreSnapshot uses upsertMany to re-seed tables', () => {
+    assert.ok(src.includes('await db.upsertMany(tbl, rows)'),
+      'restoreSnapshot must use db.upsertMany to restore each table');
+  });
+
+  it('restoreSnapshot tracks and reports errors per table', () => {
+    assert.ok(src.includes('const errors = []') || src.includes('const errors=[]'),
+      'restoreSnapshot must collect per-table errors');
+    assert.ok(src.includes('errors.push('),
+      'restoreSnapshot must push to errors array on failure');
+  });
+
+  it('restoreSnapshot reports total records restored', () => {
+    assert.ok(src.includes('totalRestored'),
+      'restoreSnapshot must track totalRestored count');
+  });
+
+  it('restoreSnapshot shows partial failure message if errors exist', () => {
+    assert.ok(src.includes('Restore partially') || src.includes('partially completed'),
+      'restoreSnapshot must report partial failure distinctly from full failure');
+  });
+
+  it('restoreSnapshot shows export date from snapshot metadata on success', () => {
+    assert.ok(src.includes('snapshot.exported_at'),
+      'restoreSnapshot must read exported_at from snapshot for success message');
+  });
+
+  it('restore button has id btnRestoreSnapshot', () => {
+    assert.ok(src.includes('id="btnRestoreSnapshot"'),
+      'Restore button must have id btnRestoreSnapshot');
+  });
+
+  it('snapshotStatus is called with isError=true on failure', () => {
+    assert.ok(src.includes('snapshotStatus(') && src.includes(', true)'),
+      'snapshotStatus must be called with true on error paths');
+  });
+});
+
+// ══════════════════════════════════════════════════════════════
+// Section 38 — Terminology: missed hardcoded strings (regression)
+// ══════════════════════════════════════════════════════════════
+describe('Term system — no raw hardcoded display strings remain', () => {
+  const fs = require('fs'), path = require('path');
+  const tr = fs.readFileSync(path.join(__dirname,'../treasury.html'), 'utf8');
+  const lt = fs.readFileSync(path.join(__dirname,'../loot-tracker.html'), 'utf8');
+  const pr = fs.readFileSync(path.join(__dirname,'../party-roster.html'), 'utf8');
+
+  // ── treasury: split card vault name in template literal ──
+  it('treasury split vault card name uses t("partyVault")', () => {
+    assert.ok(tr.includes("class=\"split-card-name\">${t('partyVault')}<"),
+      'Split vault card name must use t("partyVault") — not hardcoded "Party Vault"');
+  });
+
+  it('treasury split-mode-hint div is initially empty (populated by JS)', () => {
+    // The static HTML hint must be empty; JS fills it from SPLIT_MODE_HINTS on modal open
+    assert.ok(tr.includes('id="splitModeHint"></div>') ||
+              tr.includes("id=\"splitModeHint\"></div>"),
+      'splitModeHint div must be initially empty so JS can fill it with t() template literals');
+  });
+
+  it('treasury SPLIT_MODE_HINTS all three modes converted to template literals', () => {
+    // All three must use template literals (backticks) not single-quoted strings
+    const evenMatch    = tr.match(/even:\s*`[^`]*t\('partyVault'\)/);
+    const percentMatch = tr.match(/percent:\s*`[^`]*t\('partyVault'\)/);
+    const flatMatch    = tr.match(/flat:\s*`[^`]*t\('partyVault'\)/);
+    assert.ok(evenMatch,    'SPLIT_MODE_HINTS.even must be a template literal using t("partyVault")');
+    assert.ok(percentMatch, 'SPLIT_MODE_HINTS.percent must be a template literal using t("partyVault")');
+    assert.ok(flatMatch,    'SPLIT_MODE_HINTS.flat must be a template literal using t("partyVault")');
+  });
+
+  it('treasury SPLIT_MODE_HINTS has no raw "party vault" lowercase strings', () => {
+    // After conversion, no hardcoded 'party vault' should remain in SPLIT_MODE_HINTS block
+    const hintsBlock = tr.slice(tr.indexOf('SPLIT_MODE_HINTS'), tr.indexOf('SPLIT_MODE_HINTS') + 400);
+    assert.ok(!hintsBlock.includes("party vault'") && !hintsBlock.includes('party vault.'),
+      'SPLIT_MODE_HINTS must not contain any raw "party vault" string literals');
+  });
+
+  it('treasury no hardcoded "Party Vault" outside t() calls or canonical logic', () => {
+    // Find any 'Party Vault' string not inside a t() call and not in a nav/href context
+    const lines = tr.split('\n');
+    const violations = lines.filter((line, i) => {
+      const l = line.toLowerCase();
+      if (!l.includes('party vault')) return false;
+      const stripped = line.trim();
+      // Allow: t('partyVault'), href=, sidenav, nav-label, comments
+      if (stripped.includes("t('partyVault')")) return false;
+      if (stripped.startsWith('//') || stripped.startsWith('*')) return false;
+      if (stripped.includes('href=') || stripped.includes('nav-label')) return false;
+      if (stripped.includes('partyVault')) return false;
+      return true;
+    });
+    assert.strictEqual(violations.length, 0,
+      `treasury.html has ${violations.length} hardcoded "Party Vault" display strings not using t(): ` +
+      violations.map((l,i) => `\n  ${l.trim()}`).join(''));
+  });
+
+  it('party-roster lt_refreshEffectsForItem keeps canonical "party inventory" for logic', () => {
+    // This is a DB-value comparison in party-roster, must NOT use t()
+    assert.ok(pr.includes("holderLc==='party inventory'") || pr.includes("holderLc === 'party inventory'"),
+      'lt_refreshEffectsForItem must compare holder to canonical "party inventory" string (DB value)');
+    assert.ok(!pr.includes("holderLc===t('partyInventory')") && !pr.includes("holderLc === t('partyInventory')"),
+      'lt_refreshEffectsForItem must NOT use t() for logic comparison — would break on rename');
+  });
+
+  it('party-roster isParty check uses canonical "party inventory" string', () => {
+    // This logic check matches stored DB holder values
+    assert.ok(pr.includes("holderLc==='party inventory'") || pr.includes("holderLc === 'party inventory'"),
+      'isParty check must use canonical "party inventory" string not a t() call');
+  });
+});
+
+// ══════════════════════════════════════════════════════════════
+// Section 39 — Term system: TERM_DEFAULTS ↔ TERM_DEFS key sync
+// ══════════════════════════════════════════════════════════════
+describe('Term system — TERM_DEFAULTS and TERM_DEFS key sync', () => {
+  const fs  = require('fs'), path = require('path');
+  const cfg = fs.readFileSync(path.join(__dirname,'../js/nexus-config.js'), 'utf8');
+  const adm = fs.readFileSync(path.join(__dirname,'../admin.html'), 'utf8');
+
+  // Extract TERM_DEFAULTS keys from nexus-config.js
+  function extractDefaultKeys(src) {
+    const match = src.match(/const TERM_DEFAULTS\s*=\s*\{([\s\S]*?)\};/);
+    if (!match) return [];
+    return [...match[1].matchAll(/^\s{2}(\w+):/gm)].map(m => m[1]);
+  }
+
+  // Extract TERM_DEFS keys from admin.html
+  function extractDefsKeys(src) {
+    const match = src.match(/const TERM_DEFS\s*=\s*\[([\s\S]*?)\];\s*\n\s*function buildTermGrid/);
+    if (!match) return [];
+    return [...match[1].matchAll(/key:\s*'(\w+)'/g)].map(m => m[1]);
+  }
+
+  it('TERM_DEFAULTS contains at least 16 keys (baseline + 2 new)', () => {
+    const keys = extractDefaultKeys(cfg);
+    assert.ok(keys.length >= 16,
+      `TERM_DEFAULTS must have at least 16 keys, found ${keys.length}: [${keys.join(', ')}]`);
+  });
+
+  it('TERM_DEFS contains at least 16 keys matching TERM_DEFAULTS', () => {
+    const defsKeys = extractDefsKeys(adm);
+    assert.ok(defsKeys.length >= 16,
+      `TERM_DEFS must have at least 16 keys, found ${defsKeys.length}`);
+  });
+
+  it('every TERM_DEFS key exists in TERM_DEFAULTS', () => {
+    const defaultKeys = extractDefaultKeys(cfg);
+    const defsKeys    = extractDefsKeys(adm);
+    const missing = defsKeys.filter(k => !defaultKeys.includes(k));
+    assert.strictEqual(missing.length, 0,
+      `TERM_DEFS keys missing from TERM_DEFAULTS: [${missing.join(', ')}]`);
+  });
+
+  it('partyInventory and partyVault both appear in TERM_DEFAULTS', () => {
+    const keys = extractDefaultKeys(cfg);
+    assert.ok(keys.includes('partyInventory'), 'TERM_DEFAULTS must have partyInventory');
+    assert.ok(keys.includes('partyVault'),     'TERM_DEFAULTS must have partyVault');
+  });
+
+  it('partyInventory and partyVault both appear in TERM_DEFS', () => {
+    const keys = extractDefsKeys(adm);
+    assert.ok(keys.includes('partyInventory'), 'TERM_DEFS must have partyInventory');
+    assert.ok(keys.includes('partyVault'),     'TERM_DEFS must have partyVault');
+  });
+
+  it('t() function falls back to TERM_DEFAULTS then the key itself', () => {
+    assert.ok(cfg.includes('TERMS[key] ?? TERM_DEFAULTS[key] ?? key'),
+      't() must fall back: TERMS[key] → TERM_DEFAULTS[key] → key');
+  });
+
+  it('loadTerms merges saved settings over TERM_DEFAULTS (spread order correct)', () => {
+    // { ...TERM_DEFAULTS, ...saved } — saved wins, but TERM_DEFAULTS fills gaps
+    assert.ok(cfg.includes('{ ...TERM_DEFAULTS, ...saved }') ||
+              cfg.includes('{...TERM_DEFAULTS,...saved}'),
+      'loadTerms must spread: { ...TERM_DEFAULTS, ...saved } so saved wins on conflict');
+  });
+
+  it('saveTerms merges new terms over TERM_DEFAULTS before persisting', () => {
+    assert.ok(cfg.includes('{ ...TERM_DEFAULTS, ...newTerms }') ||
+              cfg.includes('{...TERM_DEFAULTS,...newTerms}'),
+      'saveTerms must merge with TERM_DEFAULTS so no key is ever left undefined');
+  });
+});
+
+// ══════════════════════════════════════════════════════════════
+// Section 40 — db.upsertMany: method correctness
+// ══════════════════════════════════════════════════════════════
+describe('db.upsertMany — batch upsert method', () => {
+  const fs  = require('fs'), path = require('path');
+  const cfg = fs.readFileSync(path.join(__dirname,'../js/nexus-config.js'), 'utf8');
+
+  it('upsertMany is defined on the db object', () => {
+    assert.ok(cfg.includes('async upsertMany(table, rows)'),
+      'db must have async upsertMany(table, rows) method');
+  });
+
+  it('upsertMany uses resolution=merge-duplicates Prefer header', () => {
+    // Must match the upsertMany block specifically
+    const idx = cfg.indexOf('async upsertMany(');
+    const block = cfg.slice(idx, idx + 400);
+    assert.ok(block.includes('resolution=merge-duplicates'),
+      'upsertMany Prefer header must include resolution=merge-duplicates');
+  });
+
+  it('upsertMany serialises the rows array as JSON body', () => {
+    const idx = cfg.indexOf('async upsertMany(');
+    const block = cfg.slice(idx, idx + 400);
+    assert.ok(block.includes('JSON.stringify(rows)'),
+      'upsertMany must send rows array as JSON.stringify(rows)');
+  });
+
+  it('upsertMany guards against empty array before fetching', () => {
+    const idx = cfg.indexOf('async upsertMany(');
+    const block = cfg.slice(idx, idx + 400);
+    assert.ok(block.includes('if (!rows.length) return []') ||
+              block.includes("if(!rows.length)return[]"),
+      'upsertMany must early-return for empty rows array');
+  });
+
+  it('upsertMany uses POST method (Supabase batch upsert)', () => {
+    const idx = cfg.indexOf('async upsertMany(');
+    const block = cfg.slice(idx, idx + 400);
+    assert.ok(block.includes("method:  'POST'") || block.includes("method:'POST'"),
+      'upsertMany must use POST method for Supabase batch upsert');
+  });
+
+  it('restoreSnapshot calls upsertMany with table name and rows array', () => {
+    const adm = fs.readFileSync(path.join(__dirname,'../admin.html'), 'utf8');
+    assert.ok(adm.includes('await db.upsertMany(tbl, rows)'),
+      'restoreSnapshot must call db.upsertMany(tbl, rows) not db.upsert()');
+  });
+});
+
+// ══════════════════════════════════════════════════════════════
+// Section 41 — Campaign Snapshot: logic correctness (pure)
+// ══════════════════════════════════════════════════════════════
+describe('Campaign Snapshot — logic correctness (pure JS)', () => {
+  const fs  = require('fs'), path = require('path');
+  const src = fs.readFileSync(path.join(__dirname,'../admin.html'), 'utf8');
+
+  it('snapshot version is exactly 1 (integer, not string)', () => {
+    // version: 1  not  version: '1'
+    assert.ok(src.includes('version:     1,') || src.includes('version: 1,'),
+      'snapshot version must be integer 1');
+    assert.ok(!src.includes("version:     '1'") && !src.includes("version: '1'"),
+      'snapshot version must not be a string');
+  });
+
+  it('exported_at uses Date.now() for millisecond timestamp', () => {
+    assert.ok(src.includes('exported_at: Date.now()') || src.includes('exported_at:Date.now()'),
+      'exported_at must use Date.now() for a reliable millisecond timestamp');
+  });
+
+  it('export filename includes ISO date (YYYY-MM-DD format)', () => {
+    // .toISOString().slice(0, 10) produces YYYY-MM-DD
+    assert.ok(src.includes(".toISOString().slice(0, 10)") || src.includes(".toISOString().slice(0,10)"),
+      'Export filename date must use .toISOString().slice(0,10) for YYYY-MM-DD format');
+  });
+
+  it('export catches errors per-table (individual .catch(() => []))', () => {
+    // Each table fetch should silently return [] on failure so other tables still export
+    assert.ok(src.includes('.catch(() => [])'),
+      'Per-table fetches must use .catch(() => []) so one bad table does not abort the export');
+  });
+
+  it('restore resets file input value immediately after selection', () => {
+    // Prevents same-file deselect/reselect issue
+    assert.ok(src.includes("event.target.value = '';"),
+      'restoreSnapshot must reset event.target.value immediately after reading the file');
+  });
+
+  it('restore validates snapshot.tables is an object not an array', () => {
+    assert.ok(src.includes("typeof snapshot.tables !== 'object'"),
+      'restoreSnapshot must validate tables is a typeof object');
+  });
+
+  it('restore only calls deleteWhere for non-settings tables', () => {
+    // nexus_settings is key-value store — wrong to bulk-delete it
+    const restoreIdx = src.indexOf('async function restoreSnapshot(');
+    const restoreBlock = src.slice(restoreIdx, restoreIdx + 2000);
+    assert.ok(restoreBlock.includes("tbl === 'nexus_settings'"),
+      'restoreSnapshot must check tbl === "nexus_settings" to skip bulk delete for settings');
+  });
+
+  it('restore increments totalRestored by rows.length for each table', () => {
+    const restoreIdx = src.indexOf('async function restoreSnapshot(');
+    const restoreBlock = src.slice(restoreIdx, restoreIdx + 3000);
+    assert.ok(restoreBlock.includes('totalRestored += rows.length'),
+      'restoreSnapshot must add rows.length to totalRestored for each table');
+  });
+
+  it('restore uses toLocaleDateString for human-readable export date on success', () => {
+    assert.ok(src.includes('toLocaleDateString(') ,
+      'Success message must use toLocaleDateString() for a readable date');
+  });
+
+  it('snapshotStatus sets display to block when showing a message', () => {
+    const idx = src.indexOf('function snapshotStatus(');
+    const block = src.slice(idx, idx + 400);
+    assert.ok(block.includes("el.style.display = 'block'") || block.includes("el.style.display='block'"),
+      'snapshotStatus must set display:block to show the element');
+  });
+
+  it('snapshotStatus uses var(--red) for error and var(--cyan) for success', () => {
+    const idx = src.indexOf('function snapshotStatus(');
+    const block = src.slice(idx, idx + 400);
+    assert.ok(block.includes("var(--red)"),   'snapshotStatus must use var(--red) for error state');
+    assert.ok(block.includes("var(--cyan)"),  'snapshotStatus must use var(--cyan) for success state');
+  });
+
+  it('exportSnapshot hides status div before starting new export', () => {
+    const idx = src.indexOf('async function exportSnapshot(');
+    const block = src.slice(idx, idx + 600);
+    assert.ok(block.includes("style.display = 'none'"),
+      'exportSnapshot must hide the status div before fetching');
+  });
+
+  it('SNAPSHOT_TABLES has exactly 5 entries', () => {
+    const match = src.match(/const SNAPSHOT_TABLES\s*=\s*\[([\s\S]*?)\];/);
+    assert.ok(match, 'SNAPSHOT_TABLES must be defined');
+    const entries = (match[1].match(/'\w+'/g) || []);
+    assert.strictEqual(entries.length, 5,
+      `SNAPSHOT_TABLES must have exactly 5 entries, found ${entries.length}: ${entries.join(', ')}`);
+  });
+
+  it('SNAPSHOT_TABLES order: data tables before nexus_settings', () => {
+    // nexus_settings should be last so table data is always exported first
+    const match = src.match(/const SNAPSHOT_TABLES\s*=\s*\[([\s\S]*?)\];/);
+    const entries = (match[1].match(/'\w+'/g) || []).map(s => s.replace(/'/g, ''));
+    const settingsIdx = entries.indexOf('nexus_settings');
+    assert.ok(settingsIdx === entries.length - 1,
+      `nexus_settings must be last in SNAPSHOT_TABLES (found at index ${settingsIdx})`);
+  });
+});
+
+// ══════════════════════════════════════════════════════════════
+// Section 42 — CSS: duplicate selectors and responsive overrides
+// ══════════════════════════════════════════════════════════════
+describe('CSS — duplicate selectors are responsive overrides only', () => {
+  const fs   = require('fs'), path = require('path');
+  const css  = fs.readFileSync(path.join(__dirname,'../css/nexus.css'), 'utf8');
+  const lines = css.split('\n');
+
+  // Find all bare class selectors and their line numbers
+  function findBareSelectors(src) {
+    const result = {};
+    src.split('\n').forEach((line, i) => {
+      const m = line.match(/^(\.[a-zA-Z][a-zA-Z0-9_-]*)\s*\{/);
+      if (m) {
+        if (!result[m[1]]) result[m[1]] = [];
+        result[m[1]].push(i + 1);
+      }
+    });
+    return result;
+  }
+
+  function isInsideMediaQuery(lineNo, src) {
+    const lines = src.split('\n');
+    let braceDepth = 0;
+    let inMedia = false;
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
+      if (/^\s*@media\b/.test(line)) inMedia = true;
+      braceDepth += (line.match(/\{/g) || []).length;
+      braceDepth -= (line.match(/\}/g) || []).length;
+      if (inMedia && braceDepth <= 0) inMedia = false;
+      if (i + 1 === lineNo) return inMedia;
+    }
+    return false;
+  }
+
+  it('all duplicate bare class selectors in nexus.css are responsive @media overrides', () => {
+    const selectors = findBareSelectors(css);
+    const trueTopLevelDupes = [];
+
+    for (const [cls, lineNos] of Object.entries(selectors)) {
+      if (lineNos.length < 2) continue;
+      // A duplicate is OK if and only if at most one occurrence is at top level
+      // and all others are inside @media queries
+      const topLevel = lineNos.filter(ln => !isInsideMediaQuery(ln, css));
+      if (topLevel.length > 1) {
+        trueTopLevelDupes.push(`${cls} at lines ${topLevel.join(', ')}`);
+      }
+    }
+    assert.strictEqual(trueTopLevelDupes.length, 0,
+      `nexus.css has top-level duplicate selectors (not in @media):\n  ${trueTopLevelDupes.join('\n  ')}`);
+  });
+
+  it('admin.html snapshot CSS classes do not conflict with nexus.css', () => {
+    const adm = fs.readFileSync(path.join(__dirname,'../admin.html'), 'utf8');
+    const styleMatch = adm.match(/<style>([\s\S]*?)<\/style>/);
+    const adminBlock = styleMatch ? styleMatch[1] : '';
+    const adminClasses = new Set([...adminBlock.matchAll(/(\.[a-zA-Z][a-zA-Z0-9_-]*)\s*\{/g)].map(m => m[1]));
+    const nexusClasses = new Set([...css.matchAll(/^(\.[a-zA-Z][a-zA-Z0-9_-]*)\s*\{/gm)].map(m => m[1]));
+    const snapshotClasses = ['.snapshot-row', '.snapshot-action', '.snapshot-action-title', '.snapshot-action-desc'];
+    for (const cls of snapshotClasses) {
+      assert.ok(!nexusClasses.has(cls),
+        `${cls} must not be defined in nexus.css — it belongs only in admin.html <style>`);
+      assert.ok(adminClasses.has(cls),
+        `${cls} must be defined in admin.html <style> block`);
+    }
+  });
+
+  it('.mw-card has no duplicate top-level definition in nexus.css', () => {
+    const sel = findBareSelectors(css);
+    const mwCardLines = sel['.mw-card'] || [];
+    const topLevel = mwCardLines.filter(ln => !isInsideMediaQuery(ln, css));
+    assert.strictEqual(topLevel.length, 1,
+      `.mw-card must have exactly one top-level definition (found ${topLevel.length} at lines ${topLevel.join(', ')})`);
+  });
+
+  it('.mw-card top-level definition includes position: relative', () => {
+    // Was merged in previous session — verify the merge persisted
+    const mwCardIdx = css.indexOf('.mw-card {');
+    const block = css.slice(mwCardIdx, mwCardIdx + 400);
+    assert.ok(block.includes('position: relative'),
+      '.mw-card must include position: relative in its single top-level definition');
+  });
+
+  it('admin.html .field override is qualified under .pw-row (scoped)', () => {
+    const adm = fs.readFileSync(path.join(__dirname,'../admin.html'), 'utf8');
+    // The bare .field override in admin should be scoped to .pw-row
+    assert.ok(adm.includes('.pw-row .field') || adm.includes('.pw-row .field {'),
+      '.field override in admin.html must be scoped as .pw-row .field to avoid clobbering global .field');
+  });
+
+  it('admin.html .save-status.show is qualified (scoped)', () => {
+    const adm = fs.readFileSync(path.join(__dirname,'../admin.html'), 'utf8');
+    // Must be .save-status.show not bare .show
+    assert.ok(adm.includes('.save-status.show'),
+      '.show in admin.html must be qualified as .save-status.show');
+    // And there must NOT be a bare .show { in admin
+    const styleMatch = adm.match(/<style>([\s\S]*?)<\/style>/);
+    const block = styleMatch ? styleMatch[1] : '';
+    assert.ok(!block.match(/^\s*\.show\s*\{/m),
+      'admin.html must not have a bare .show { rule — must always be .save-status.show');
+  });
+});

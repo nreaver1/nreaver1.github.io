@@ -129,6 +129,25 @@
       opacity: 0; transition: opacity 0.3s;
     }
     .save-status.show { opacity: 1; }
+    /* Snapshot section */
+    .snapshot-row {
+      display: flex; align-items: center; justify-content: space-between;
+      flex-wrap: wrap; gap: 0.7rem;
+      padding: 0.85rem 1rem;
+      background: rgba(14,240,208,0.03);
+      border: 1px solid rgba(14,240,208,0.12);
+      border-radius: 4px;
+    }
+    .snapshot-action { flex: 1; min-width: 0; }
+    .snapshot-action-title {
+      font-family: 'Orbitron', sans-serif; font-size: 0.7rem;
+      font-weight: 700; letter-spacing: 0.12em; color: var(--text);
+      margin-bottom: 0.2rem;
+    }
+    .snapshot-action-desc {
+      font-family: 'Share Tech Mono', monospace; font-size: 0.62rem;
+      color: var(--text-dim); letter-spacing: 0.04em;
+    }
   </style>
 </head>
 <body class="has-sidenav page-admin">
@@ -216,6 +235,39 @@
           <button class="btn btn-ghost" onclick="resetTerms()">Reset to Defaults</button>
           <button class="btn btn-primary" onclick="saveTermsAdmin()">Save Changes</button>
         </div>
+      </div>
+
+      <!-- ── CAMPAIGN SNAPSHOT ── -->
+      <div class="admin-section-card">
+        <div class="admin-section-head">Campaign Snapshot</div>
+        <div class="admin-section-desc">
+          Export a complete backup of all campaign data — party members, treasury ledger, currencies,
+          loot items, and settings — as a single JSON file. Restore from a snapshot to replace all
+          data in one operation. Restore requires confirmation and cannot be undone.
+        </div>
+
+        <div class="snapshot-row">
+          <div class="snapshot-action">
+            <div class="snapshot-action-title">Export Everything</div>
+            <div class="snapshot-action-desc">Downloads a full snapshot of all 5 tables as one JSON file.</div>
+          </div>
+          <button class="btn btn-cyan" id="btnExportSnapshot" onclick="exportSnapshot()">⬇ Export Snapshot</button>
+        </div>
+
+        <div class="snapshot-row" style="margin-top:0.6rem;">
+          <div class="snapshot-action">
+            <div class="snapshot-action-title">Restore from Snapshot</div>
+            <div class="snapshot-action-desc">Replaces all data from a previously exported snapshot file.</div>
+          </div>
+          <button class="btn" id="btnRestoreSnapshot"
+                  style="background:transparent;border:1px solid var(--amber);color:var(--amber);flex-shrink:0;opacity:0.85;transition:opacity 0.15s,box-shadow 0.15s;"
+                  onmouseover="this.style.opacity='1';this.style.boxShadow='0 0 12px rgba(240,168,50,0.3)'"
+                  onmouseout="this.style.opacity='0.85';this.style.boxShadow='none'"
+                  onclick="document.getElementById('snapshotFileInput').click()">⬆ Restore Snapshot</button>
+        </div>
+        <input type="file" id="snapshotFileInput" accept=".json" style="display:none" onchange="restoreSnapshot(event)" />
+
+        <div id="snapshotStatus" style="display:none;margin-top:0.9rem;font-family:'Share Tech Mono',monospace;font-size:0.65rem;letter-spacing:0.06em;line-height:1.7;padding:0.7rem 0.9rem;border-radius:4px;"></div>
       </div>
 
       <!-- ── CHANGE PASSWORD ── -->
@@ -412,6 +464,8 @@
         { key: 'items',    label: 'Items (plural)',     hint: 'Stats bar, empty states' },
         { key: 'session',  label: 'Session',            hint: 'Session Log labels' },
         { key: 'creature', label: 'Creature',           hint: 'Bestiary labels' },
+        { key: 'partyInventory', label: 'Party Inventory', hint: 'Shared loot holder label in Loot Tracker' },
+        { key: 'partyVault',     label: 'Party Vault',     hint: 'Split remainder destination in Treasury' },
       ]
     },
     {
@@ -599,6 +653,153 @@
       showToast('Delete failed — check Supabase config.');
     } finally {
       setLoading(btn, false);
+    }
+  }
+
+  // ══════════════════════════════════════════════════════════
+  //  CAMPAIGN SNAPSHOT — EXPORT / RESTORE
+  // ══════════════════════════════════════════════════════════
+
+  const SNAPSHOT_TABLES = [
+    'party_members',
+    'treasury_currencies',
+    'treasury_ledger',
+    'loot_items',
+    'nexus_settings',
+  ];
+
+  function snapshotStatus(msg, isError = false) {
+    const el = document.getElementById('snapshotStatus');
+    if (!el) return;
+    el.style.display = 'block';
+    el.style.color      = isError ? 'var(--red)'   : 'var(--cyan)';
+    el.style.background = isError ? 'rgba(224,60,60,0.06)' : 'rgba(14,240,208,0.04)';
+    el.style.border     = isError ? '1px solid rgba(224,60,60,0.25)' : '1px solid rgba(14,240,208,0.15)';
+    el.textContent = msg;
+  }
+
+  async function exportSnapshot() {
+    const btn = document.getElementById('btnExportSnapshot');
+    btn.dataset.loadingText = 'Fetching…';
+    setLoading(btn, true);
+    snapshotStatus('');
+    document.getElementById('snapshotStatus').style.display = 'none';
+
+    try {
+      // Fetch all tables in parallel
+      const results = await Promise.all(
+        SNAPSHOT_TABLES.map(tbl => db.select(tbl).catch(() => []))
+      );
+
+      const tables = {};
+      let totalRows = 0;
+      SNAPSHOT_TABLES.forEach((tbl, i) => {
+        tables[tbl] = results[i];
+        totalRows += results[i].length;
+      });
+
+      const snapshot = {
+        version:     1,
+        exported_at: Date.now(),
+        campaign:    (typeof t === 'function') ? t('campaignName') : 'NEXUS',
+        tables,
+      };
+
+      const blob = new Blob([JSON.stringify(snapshot, null, 2)], { type: 'application/json' });
+      const date = new Date().toISOString().slice(0, 10);
+      const a    = document.createElement('a');
+      a.href     = URL.createObjectURL(blob);
+      a.download = `nexus-snapshot-${date}.json`;
+      a.click();
+      URL.revokeObjectURL(a.href);
+
+      snapshotStatus(`✓ Snapshot exported — ${totalRows} records across ${SNAPSHOT_TABLES.length} tables.`);
+      showToast(`Snapshot exported — ${totalRows} records.`);
+    } catch (e) {
+      console.error(e);
+      snapshotStatus('✗ Export failed — check Supabase config.', true);
+      showToast('Export failed.');
+    } finally {
+      setLoading(btn, false);
+    }
+  }
+
+  async function restoreSnapshot(event) {
+    const file = event.target.files[0];
+    event.target.value = ''; // reset so same file can be chosen again
+    if (!file) return;
+
+    // ── Parse + validate ──
+    let snapshot;
+    try {
+      const text = await file.text();
+      snapshot = JSON.parse(text);
+    } catch {
+      snapshotStatus('✗ Invalid snapshot file — could not parse JSON.', true);
+      showToast('Invalid file.'); return;
+    }
+
+    if (!snapshot.tables || typeof snapshot.tables !== 'object') {
+      snapshotStatus('✗ Unrecognised snapshot format — missing "tables" key.', true);
+      showToast('Unrecognised snapshot format.'); return;
+    }
+
+    // ── Build summary for confirm dialog ──
+    const counts = SNAPSHOT_TABLES.map(tbl => {
+      const rows = snapshot.tables[tbl];
+      const n    = Array.isArray(rows) ? rows.length : 0;
+      return `${n} ${tbl.replace(/_/g,' ')}`;
+    });
+
+    const versionWarn = snapshot.version !== 1
+      ? `\n⚠ Snapshot version is ${snapshot.version} (expected 1) — data may not restore correctly.\n`
+      : '';
+
+    const confirmed = await dangerConfirm(
+      'Restore Campaign Snapshot',
+      file.name,
+      `${versionWarn}All existing data in ${SNAPSHOT_TABLES.length} tables will be deleted and replaced:\n${counts.join(' · ')}\n\nThis cannot be undone.`
+    );
+    if (!confirmed) return;
+
+    const btn = document.getElementById('btnRestoreSnapshot');
+    btn.dataset.loadingText = 'Restoring…';
+    setLoading(btn, true);
+
+    const errors = [];
+    let totalRestored = 0;
+
+    for (const tbl of SNAPSHOT_TABLES) {
+      const rows = snapshot.tables[tbl];
+      if (!Array.isArray(rows)) { errors.push(`${tbl}: not an array`); continue; }
+
+      try {
+        if (tbl === 'nexus_settings') {
+          // Key-value store — upsert by key, no blanket delete
+          if (rows.length) await db.upsertMany(tbl, rows);
+        } else {
+          // Delete all existing rows, then re-seed
+          await db.deleteWhere(tbl, 'id=gt.').catch(() => {}); // ignore if table is empty
+          if (rows.length) await db.upsertMany(tbl, rows);
+        }
+        totalRestored += rows.length;
+      } catch (e) {
+        console.error(`Restore failed for ${tbl}:`, e);
+        errors.push(`${tbl}: ${e.message || 'unknown error'}`);
+      }
+    }
+
+    setLoading(btn, false);
+
+    if (errors.length) {
+      snapshotStatus(`⚠ Restore partially completed — ${totalRestored} records written.\nErrors: ${errors.join('; ')}`, true);
+      showToast('Restore partially failed — check console.');
+    } else {
+      const exportDate = snapshot.exported_at
+        ? new Date(snapshot.exported_at).toLocaleDateString(undefined, { dateStyle: 'medium' })
+        : 'unknown date';
+      snapshotStatus(`✓ Restore complete — ${totalRestored} records across ${SNAPSHOT_TABLES.length} tables restored from snapshot dated ${exportDate}.`);
+      showToast(`Restore complete — ${totalRestored} records.`);
     }
   }
 
