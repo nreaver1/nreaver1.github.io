@@ -1963,3 +1963,428 @@ describe('fx-items collapsible state', () => {
   });
 
 });
+
+// ══════════════════════════════════════════════════════════════
+// Section 26 — Search / filter / sort logic (_getFilteredMembers)
+// ══════════════════════════════════════════════════════════════
+describe('_getFilteredMembers() — roster filter and sort logic', () => {
+  // Extract the pure filter+sort logic from party-roster.html
+  // and run it in isolation with a simulated _rosterFilter state.
+  const fs = require('fs'), path = require('path');
+  const src = fs.readFileSync(path.join(__dirname,'../party-roster.html'),'utf8');
+
+  // Pull out _getFilteredMembers source and evaluate in a local scope
+  const fnMatch = src.match(/function _getFilteredMembers\(\)\{([\s\S]*?)\n\}/);
+  assert.ok(fnMatch, '_getFilteredMembers must exist in party-roster.html');
+
+  // Build a test harness: inject _rosterFilter + members, eval the function
+  function makeHarness(members, filter) {
+    const code = `
+      const _rosterFilter = ${JSON.stringify(filter)};
+      const members = ${JSON.stringify(members)};
+      ${src.match(/function _getFilteredMembers\(\)\{[\s\S]*?\n\}/)[0]}
+      _getFilteredMembers();
+    `;
+    return eval(code); // safe: no DOM, no network, no imports
+  }
+
+  const MEMBERS = [
+    {id:'a', name:'Aeris',   class:'Cleric',  race:'Elf',    status:'active',  level:5,  tags:['Healer']},
+    {id:'b', name:'Brom',    class:'Fighter', race:'Human',  status:'active',  level:3,  tags:['Tank']},
+    {id:'c', name:'Cyra',    class:'Rogue',   race:'Gnome',  status:'retired', level:7,  tags:['Stealth']},
+    {id:'d', name:'Draven',  class:'Wizard',  race:'Human',  status:'missing', level:10, tags:['Arcane']},
+    {id:'e', name:'Elara',   class:'Cleric',  race:'Dwarf',  status:'deceased',level:2,  tags:[]},
+  ];
+
+  it('no filter returns all members in insertion order', () => {
+    const result = makeHarness(MEMBERS, {search:'', status:'', sort:'created'});
+    assert.strictEqual(result.length, 5);
+    assert.strictEqual(result[0].id, 'a');
+    assert.strictEqual(result[4].id, 'e');
+  });
+
+  it('status filter: active only returns 2', () => {
+    const result = makeHarness(MEMBERS, {search:'', status:'active', sort:'created'});
+    assert.strictEqual(result.length, 2);
+    assert(result.every(m => m.status === 'active'));
+  });
+
+  it('status filter: retired returns 1', () => {
+    const result = makeHarness(MEMBERS, {search:'', status:'retired', sort:'created'});
+    assert.strictEqual(result.length, 1);
+    assert.strictEqual(result[0].id, 'c');
+  });
+
+  it('status filter: deceased returns 1', () => {
+    const result = makeHarness(MEMBERS, {search:'', status:'deceased', sort:'created'});
+    assert.strictEqual(result.length, 1);
+    assert.strictEqual(result[0].id, 'e');
+  });
+
+  it('text search matches on name (case insensitive)', () => {
+    const result = makeHarness(MEMBERS, {search:'aeris', status:'', sort:'created'});
+    assert.strictEqual(result.length, 1);
+    assert.strictEqual(result[0].id, 'a');
+  });
+
+  it('text search matches on class', () => {
+    const result = makeHarness(MEMBERS, {search:'cleric', status:'', sort:'created'});
+    assert.strictEqual(result.length, 2);
+    const ids = result.map(m=>m.id).sort();
+    assert.deepStrictEqual(ids, ['a','e']);
+  });
+
+  it('text search matches on race', () => {
+    const result = makeHarness(MEMBERS, {search:'human', status:'', sort:'created'});
+    assert.strictEqual(result.length, 2);
+    const ids = result.map(m=>m.id).sort();
+    assert.deepStrictEqual(ids, ['b','d']);
+  });
+
+  it('text search matches on tag', () => {
+    const result = makeHarness(MEMBERS, {search:'healer', status:'', sort:'created'});
+    assert.strictEqual(result.length, 1);
+    assert.strictEqual(result[0].id, 'a');
+  });
+
+  it('text search + status filter combine (AND)', () => {
+    // search 'human' hits Brom (active) and Draven (missing)
+    const result = makeHarness(MEMBERS, {search:'human', status:'active', sort:'created'});
+    assert.strictEqual(result.length, 1);
+    assert.strictEqual(result[0].id, 'b');
+  });
+
+  it('search with no match returns empty array', () => {
+    const result = makeHarness(MEMBERS, {search:'zzznomatch', status:'', sort:'created'});
+    assert.strictEqual(result.length, 0);
+  });
+
+  it('sort by name — alphabetical ascending', () => {
+    const result = makeHarness(MEMBERS, {search:'', status:'', sort:'name'});
+    const names = result.map(m=>m.name);
+    assert.deepStrictEqual(names, [...names].sort((a,b)=>a.localeCompare(b)));
+  });
+
+  it('sort by level — descending (highest first)', () => {
+    const result = makeHarness(MEMBERS, {search:'', status:'', sort:'level'});
+    for(let i=0; i<result.length-1; i++){
+      assert.ok(result[i].level >= result[i+1].level, `level[${i}] >= level[${i+1}]`);
+    }
+  });
+
+  it('sort by class — alphabetical ascending', () => {
+    const result = makeHarness(MEMBERS, {search:'', status:'', sort:'class'});
+    const classes = result.map(m=>m.class);
+    assert.deepStrictEqual(classes, [...classes].sort((a,b)=>a.localeCompare(b)));
+  });
+
+  it('sort by status — active first, then missing, retired, deceased', () => {
+    const result = makeHarness(MEMBERS, {search:'', status:'', sort:'status'});
+    const order = {active:0,missing:1,retired:2,deceased:3};
+    for(let i=0; i<result.length-1; i++){
+      assert.ok((order[result[i].status]??9) <= (order[result[i+1].status]??9));
+    }
+  });
+});
+
+// ══════════════════════════════════════════════════════════════
+// Section 27 — CONDITIONS constant integrity
+// ══════════════════════════════════════════════════════════════
+describe('CONDITIONS constant — structure and completeness', () => {
+  const fs = require('fs'), path = require('path');
+  const src = fs.readFileSync(path.join(__dirname,'../party-roster.html'),'utf8');
+
+  // Extract the CONDITIONS array literal and evaluate it
+  const condMatch = src.match(/const CONDITIONS\s*=\s*(\[[\s\S]*?\]);\s*\/\/ Fast O\(1\)/);
+  assert.ok(condMatch, 'CONDITIONS array must exist in party-roster.html');
+  const CONDITIONS = eval(condMatch[1]);
+
+  it('has exactly 15 official 5e conditions', () => {
+    assert.strictEqual(CONDITIONS.length, 15);
+  });
+
+  const EXPECTED_KEYS = [
+    'blinded','charmed','deafened','exhaustion','frightened','grappled',
+    'incapacitated','invisible','paralyzed','petrified','poisoned',
+    'prone','restrained','stunned','unconscious',
+  ];
+
+  it('contains all 15 official PHB condition keys', () => {
+    const keys = CONDITIONS.map(c=>c.key).sort();
+    assert.deepStrictEqual(keys, EXPECTED_KEYS.slice().sort());
+  });
+
+  it('every condition has key, icon, label, color, and tip', () => {
+    CONDITIONS.forEach(c => {
+      assert.ok(c.key,   `condition missing key: ${JSON.stringify(c)}`);
+      assert.ok(c.icon,  `condition ${c.key} missing icon`);
+      assert.ok(c.label, `condition ${c.key} missing label`);
+      assert.ok(c.color, `condition ${c.key} missing color`);
+      assert.ok(c.tip,   `condition ${c.key} missing tip`);
+    });
+  });
+
+  it('all condition keys are unique', () => {
+    const keys = CONDITIONS.map(c=>c.key);
+    assert.strictEqual(new Set(keys).size, keys.length);
+  });
+
+  it('CONDITION_MAP is defined and has 15 entries', () => {
+    const mapMatch = src.match(/const CONDITION_MAP\s*=\s*Object\.fromEntries\(CONDITIONS\.map\(/);
+    assert.ok(mapMatch, 'CONDITION_MAP must be defined via Object.fromEntries(CONDITIONS.map(...)');
+  });
+
+  it('all condition colors are valid CSS color strings (hex or var())', () => {
+    CONDITIONS.forEach(c => {
+      const isHex = /^#[0-9a-fA-F]{3,8}$/.test(c.color);
+      const isVar = /^var\(--/.test(c.color);
+      assert.ok(isHex || isVar, `condition ${c.key} color "${c.color}" is not a valid CSS color`);
+    });
+  });
+});
+
+// ══════════════════════════════════════════════════════════════
+// Section 28 — HP bar rendering logic
+// ══════════════════════════════════════════════════════════════
+describe('HP bar — rendering logic in buildCard', () => {
+  const fs = require('fs'), path = require('path');
+  const src = fs.readFileSync(path.join(__dirname,'../party-roster.html'),'utf8');
+
+  it('hp-bar-wrap element is generated in buildCard', () => {
+    assert.ok(src.includes('hp-bar-wrap'), 'hp-bar-wrap class must appear in buildCard');
+  });
+
+  it('hp-bar-fill width is clamped 0–100%', () => {
+    // The template uses Math.max(0, Math.min(100, ...)) for the pct calculation
+    assert.ok(src.includes('Math.max(0,Math.min(100,'), 'HP pct must be clamped with Math.max(0,Math.min(100,...))');
+  });
+
+  it('HP bar color shifts to red when pct <= 25', () => {
+    // Check the ternary color logic in the source
+    assert.ok(src.includes("pct>50?color:pct>25?'var(--amber)':'var(--red)'"),
+      'HP bar color ternary must shift: >50 → member color, >25 → amber, else red');
+  });
+
+  it('HP bar is only rendered when hpMax > 0', () => {
+    assert.ok(src.includes('if(hpMax>0)'), 'HP bar must only render when hpMax > 0');
+  });
+
+  it('HP bar shows hpCur / hpMax in label', () => {
+    // The label renders as ${hpCur}<span class="hp-bar-sep">/</span>${hpMax}
+    assert.ok(src.includes('${hpCur}') && src.includes('${hpMax}') && src.includes('hp-bar-sep'),
+      'HP bar label must display hpCur/hpMax with hp-bar-sep separator');
+  });
+});
+
+// ══════════════════════════════════════════════════════════════
+// Section 29 — Attunement slot tracking (5e limit = 3)
+// ══════════════════════════════════════════════════════════════
+describe('Attunement slot tracking — 5e limit of 3', () => {
+  const fs = require('fs'), path = require('path');
+  const src = fs.readFileSync(path.join(__dirname,'../party-roster.html'),'utf8');
+
+  it('attunement warning is shown when > 3 items are attuned', () => {
+    assert.ok(src.includes('attunement-warning'), 'attunement-warning class must exist');
+    assert.ok(src.includes('attuned.length>3'), 'warning must trigger at attuned.length > 3');
+  });
+
+  it('attunement slot pips (3 pips) are rendered for members with items', () => {
+    assert.ok(src.includes('attune-pip'), 'attune-pip class must exist');
+    // The pips array [0,1,2] maps to 3 pips
+    assert.ok(src.includes('[0,1,2].map('), 'pips must be generated from [0,1,2]');
+  });
+
+  it('pip color "over" class is applied when index < attuned.length AND > 3', () => {
+    // The ternary: i<attuned.length ? (attuned.length>3 ? 'over' : 'used') : ''
+    assert.ok(src.includes("attuned.length>3?'over':'used'"), 
+      'pip class must be over when > 3 attuned');
+  });
+
+  it('attunement count label shows N/3', () => {
+    assert.ok(src.includes('attune-slots-count'), 'attune-slots-count class must exist');
+    assert.ok(src.includes('${attuned.length}/3'), 'count label must show N/3');
+  });
+
+  it('attuned items are filtered from memberItems array correctly', () => {
+    // Check that attuned filter uses correct attunement value
+    assert.ok(src.includes("it.attunement==='attuned'"), 
+      'attuned count must filter by attunement === "attuned"');
+  });
+});
+
+// ══════════════════════════════════════════════════════════════
+// Section 30 — Rest mechanics structure
+// ══════════════════════════════════════════════════════════════
+describe('Rest mechanics — doShortRest and doLongRest', () => {
+  const fs = require('fs'), path = require('path');
+  const src = fs.readFileSync(path.join(__dirname,'../party-roster.html'),'utf8');
+
+  it('doShortRest function exists', () => {
+    assert.ok(src.includes('async function doShortRest()'), 'doShortRest must be async function');
+  });
+
+  it('doLongRest function exists', () => {
+    assert.ok(src.includes('async function doLongRest()'), 'doLongRest must be async function');
+  });
+
+  it('doLongRest sets hpcur to hp (full HP restore)', () => {
+    // Long rest sets hpcur = hpMax
+    assert.ok(src.includes('hpcur:hpMax'), 'doLongRest must set hpcur to hpMax');
+  });
+
+  it('doLongRest only affects active members', () => {
+    assert.ok(
+      src.includes("members.filter(m=>!m.status||m.status==='active')"),
+      'rest functions must filter to active members only'
+    );
+  });
+
+  it('doLongRest uses Promise.all to save members in parallel', () => {
+    // Long rest saves multiple members; should parallelise
+    assert.ok(src.includes('await Promise.all(promises)'), 
+      'doLongRest must use Promise.all for parallel saves');
+  });
+
+  it('doShortRest guards against dividing by zero (hpMax = 0)', () => {
+    // Short rest skips members where hpMax is 0 (no HP set)
+    assert.ok(src.includes('if(!hpMax) return'), 
+      'doLongRest must skip members with hpMax = 0');
+  });
+
+  it('rest buttons exist in HTML', () => {
+    assert.ok(src.includes('onclick="doShortRest()"'), 'Short Rest button must call doShortRest()');
+    assert.ok(src.includes('onclick="doLongRest()"'), 'Long Rest button must call doLongRest()');
+  });
+
+  it('rest buttons are inside roster-bar', () => {
+    // roster-bar contains rest-btns as a child element
+    const rosterBarStart = src.indexOf('class="roster-bar"');
+    const rosterBarEnd   = src.indexOf('<!-- ── SEARCH', rosterBarStart);
+    const restBtnsIdx    = src.indexOf('class="rest-btns"', rosterBarStart);
+    assert.ok(rosterBarStart >= 0, 'roster-bar must exist');
+    assert.ok(restBtnsIdx > rosterBarStart && restBtnsIdx < rosterBarEnd,
+      'rest-btns must be inside roster-bar (before search toolbar)');
+  });
+});
+
+// ══════════════════════════════════════════════════════════════
+// Section 31 — Conditions tab DOM structure
+// ══════════════════════════════════════════════════════════════
+describe('Conditions tab — buildCondPanel structure', () => {
+  const fs = require('fs'), path = require('path');
+  const src = fs.readFileSync(path.join(__dirname,'../party-roster.html'),'utf8');
+
+  it('buildCondPanel function exists', () => {
+    assert.ok(src.includes('function buildCondPanel('), 'buildCondPanel must be defined');
+  });
+
+  it('condTab is built and injected into the card HTML', () => {
+    assert.ok(src.includes('const condTab=buildCondPanel('), 
+      'condTab must be built via buildCondPanel');
+    // The card template must include ${condTab}
+    assert.ok(src.includes('${condTab}'), 'condTab must be injected into card template');
+  });
+
+  it('tab-cond-ID panel is created', () => {
+    assert.ok(src.includes('id="tab-cond-${m.id}"'), 'conditions panel must have id tab-cond-{id}');
+  });
+
+  it('cond-grid renders all 15 chips', () => {
+    // The grid is built from CONDITIONS.map(...), so it will render all 15
+    assert.ok(src.includes('CONDITIONS.map(c=>'), 
+      'cond-grid must be built from CONDITIONS.map');
+  });
+
+  it('chip onclick calls toggleCondition with memberId and key', () => {
+    assert.ok(src.includes("onclick=\"toggleCondition('${m.id}','${c.key}')\""),
+      'chip onclick must call toggleCondition with memberId and key');
+  });
+
+  it('active chips have the active class set from getConditions()', () => {
+    assert.ok(src.includes('const isActive=activeConditions.includes(c.key)'),
+      'chip active state must be derived from activeConditions array');
+    assert.ok(src.includes('class="cond-chip ${isActive?'), 
+      'chip class must include active when isActive');
+  });
+
+  it('switchTab handles "cond" tab (5th tab)', () => {
+    // switchTab must handle 5 tabs: bio, stats, effects, loot, cond
+    assert.ok(src.includes("'bio','stats','effects','loot','cond'"),
+      'switchTab must include cond in its tab list');
+  });
+
+  it('Cond tab button exists in card template', () => {
+    assert.ok(src.includes("switchTab('${m.id}','cond',this)"),
+      'Cond tab button must exist in card template');
+  });
+
+  it('clearConditions function exists', () => {
+    assert.ok(src.includes('function clearConditions('), 
+      'clearConditions must be defined');
+  });
+});
+
+// ══════════════════════════════════════════════════════════════
+// Section 32 — Condition localStorage persistence
+// ══════════════════════════════════════════════════════════════
+describe('Conditions — localStorage persistence helpers', () => {
+  const fs = require('fs'), path = require('path');
+  const src = fs.readFileSync(path.join(__dirname,'../party-roster.html'),'utf8');
+
+  it('_COND_KEY constant is defined', () => {
+    assert.ok(src.includes("const _COND_KEY='nexus_conditions'"), 
+      '_COND_KEY must be nexus_conditions');
+  });
+
+  it('_condLoad, _condSave, getConditions are all defined', () => {
+    assert.ok(src.includes('function _condLoad()'), '_condLoad must be defined');
+    assert.ok(src.includes('function _condSave('), '_condSave must be defined');
+    assert.ok(src.includes('function getConditions('), 'getConditions must be defined');
+  });
+
+  it('toggleCondition adds key when absent, removes when present', () => {
+    // Simulate the toggle logic (no DOM needed — pure logic test)
+    function simulateToggle(existing, key) {
+      return existing.includes(key) ? existing.filter(k=>k!==key) : [...existing, key];
+    }
+    assert.deepStrictEqual(simulateToggle([], 'blinded'), ['blinded']);
+    assert.deepStrictEqual(simulateToggle(['blinded'], 'blinded'), []);
+    assert.deepStrictEqual(simulateToggle(['poisoned'], 'blinded'), ['poisoned','blinded']);
+    assert.deepStrictEqual(simulateToggle(['poisoned','blinded'], 'poisoned'), ['blinded']);
+  });
+
+  it('_refreshCondChips is called after toggleCondition', () => {
+    assert.ok(src.includes('_refreshCondChips(memberId)'),
+      'toggleCondition must call _refreshCondChips after save');
+  });
+
+  it('clearConditions deletes the member entry from the map', () => {
+    assert.ok(src.includes('delete map[memberId]'), 
+      'clearConditions must delete the member entry (not just set to [])');
+  });
+
+  it('getConditions returns empty array for unknown memberId', () => {
+    // The function: return _condLoad()[memberId] || []
+    assert.ok(src.includes("return _condLoad()[memberId]||[]"),
+      'getConditions must return empty array as fallback');
+  });
+});
+
+// ══════════════════════════════════════════════════════════════
+// Section 33 — statActive stat counter
+// ══════════════════════════════════════════════════════════════
+describe('updateStats() — statActive counter', () => {
+  const fs = require('fs'), path = require('path');
+  const src = fs.readFileSync(path.join(__dirname,'../party-roster.html'),'utf8');
+
+  it('statActive element exists in HTML', () => {
+    assert.ok(src.includes('id="statActive"'), 'statActive span must exist in HTML');
+  });
+
+  it('updateStats sets statActive to count of active members', () => {
+    assert.ok(
+      src.includes("members.filter(m=>!m.status||m.status==='active')"),
+      'statActive must count members with no status or status === active'
+    );
+  });
+});

@@ -797,9 +797,11 @@ body.page-dashboard main { max-width: 1100px; padding: 2.5rem 2rem 5rem; }
 /* ═══════════════════════════════════════════
    PAGE: PARTY ROSTER  (party-roster.html)
    ═══════════════════════════════════════════ */
+
+/* ── Stats bar + rest buttons ── */
 .roster-bar {
   display: flex; align-items: center; justify-content: space-between;
-  flex-wrap: wrap; gap: 1rem; margin-bottom: 1.8rem;
+  flex-wrap: wrap; gap: 1rem; margin-bottom: 1rem;
   padding: 0.9rem 1.3rem;
   background: rgba(14,240,208,0.03); border: 1px solid rgba(14,240,208,0.12);
   border-radius: 4px;
@@ -808,6 +810,60 @@ body.page-dashboard main { max-width: 1100px; padding: 2.5rem 2rem 5rem; }
 .rstat { display: flex; flex-direction: column; gap: 2px; }
 .rstat-val   { font-family: 'Orbitron', sans-serif; font-size: 0.96rem; font-weight: 700; color: var(--cyan); }
 .rstat-label { font-family: 'Share Tech Mono', monospace; font-size: 0.8rem; letter-spacing: 0.18em; text-transform: uppercase; color: var(--text-dim); }
+
+/* Rest buttons */
+.rest-btns { display: flex; gap: 0.5rem; }
+.rest-btn {
+  font-size: 0.65rem; letter-spacing: 0.12em; padding: 0.4rem 0.9rem;
+  color: var(--text-dim); border-color: var(--border);
+  transition: color 0.2s, border-color 0.2s, box-shadow 0.2s;
+}
+.rest-btn:hover { color: var(--cyan); border-color: var(--cyan-dim); box-shadow: 0 0 10px rgba(14,240,208,0.15); }
+.long-rest-btn:hover { color: var(--gold); border-color: rgba(240,168,50,0.5); box-shadow: 0 0 10px rgba(240,168,50,0.15); }
+
+/* ── Search / filter / sort toolbar ── */
+.roster-toolbar {
+  display: flex; align-items: center; gap: 0.7rem; flex-wrap: wrap;
+  margin-bottom: 1.5rem; padding: 0.6rem 1rem;
+  background: rgba(0,0,0,0.2); border: 1px solid var(--border); border-radius: 4px;
+}
+.roster-search-wrap {
+  position: relative; display: flex; align-items: center;
+  flex: 1; min-width: 180px;
+}
+.roster-search-icon {
+  position: absolute; left: 0.6rem;
+  font-size: 1rem; color: var(--text-dim); pointer-events: none; line-height: 1;
+}
+.roster-search {
+  width: 100%; padding: 0.42rem 2rem 0.42rem 1.8rem;
+  font-family: 'Share Tech Mono', monospace; font-size: 0.78rem;
+  letter-spacing: 0.06em; background: var(--bg2);
+  border: 1px solid var(--border); border-radius: 3px; color: var(--text);
+  transition: border-color 0.2s;
+}
+.roster-search:focus { outline: none; border-color: var(--cyan-dim); }
+.roster-search::placeholder { color: var(--text-dim); opacity: 0.6; }
+.roster-search-clear {
+  position: absolute; right: 0.5rem; background: none; border: none;
+  color: var(--text-dim); font-size: 0.7rem; cursor: pointer; padding: 0.2rem;
+  line-height: 1; transition: color 0.15s;
+}
+.roster-search-clear:hover { color: var(--red); }
+.roster-filters { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+.roster-filter-sel {
+  font-family: 'Share Tech Mono', monospace; font-size: 0.72rem;
+  letter-spacing: 0.06em; padding: 0.42rem 0.7rem;
+  background: var(--bg2); border: 1px solid var(--border); border-radius: 3px;
+  color: var(--text-dim); cursor: pointer; transition: border-color 0.2s, color 0.2s;
+}
+.roster-filter-sel:focus, .roster-filter-sel:hover { outline: none; border-color: var(--cyan-dim); color: var(--text); }
+.roster-filter-count {
+  font-family: 'Share Tech Mono', monospace; font-size: 0.68rem;
+  letter-spacing: 0.1em; color: var(--amber); padding: 0.2rem 0.5rem;
+  border: 1px solid rgba(240,168,50,0.3); border-radius: 3px;
+  background: rgba(240,168,50,0.05);
+}
 
 .roster-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 1.4rem; }
 
@@ -859,7 +915,8 @@ body.page-dashboard main { max-width: 1100px; padding: 2.5rem 2rem 5rem; }
 .member-class { font-family: 'Share Tech Mono', monospace; font-size: 0.8rem; letter-spacing: 0.18em; text-transform: uppercase; color: var(--member-color, var(--cyan-dim)); margin-bottom: 0.12rem; }
 .member-race  { font-family: 'Share Tech Mono', monospace; font-size: 0.8rem; letter-spacing: 0.12em; text-transform: uppercase; color: var(--text-dim); }
 .member-level { display: inline-block; margin-top: 0.35rem; font-family: 'Orbitron', sans-serif; font-size: 0.8rem; font-weight: 700; color: var(--bg); background: var(--member-color, var(--cyan)); padding: 0.14rem 0.45rem; border-radius: 2px; }
-.status-tag   { display: inline-block; margin-top: 0.3rem; margin-left: 4px; font-family: 'Share Tech Mono', monospace; font-size: 0.8rem; letter-spacing: 0.12em; padding: 0.14rem 0.4rem; border-radius: 2px; border: 1px solid currentColor; }
+.status-tag   { display: inline-block; font-family: 'Share Tech Mono', monospace; font-size: 0.63rem; letter-spacing: 0.12em; padding: 0.14rem 0.4rem; border-radius: 2px; border: 1px solid currentColor; }
+.card-badges  { display: flex; gap: 4px; flex-wrap: wrap; margin-top: 0.3rem; align-items: center; }
 
 /* tabs */
 .card-tabs { display: flex; border-bottom: 1px solid var(--border); background: rgba(0,0,0,0.2); }
@@ -941,6 +998,89 @@ body.page-dashboard main { max-width: 1100px; padding: 2.5rem 2rem 5rem; }
 .member-player { font-family: 'Share Tech Mono', monospace; font-size: 0.8rem; color: var(--text-dim); letter-spacing: 0.1em; }
 .member-player span { color: var(--gold); }
 .card-actions { display: flex; gap: 0; }
+
+/* ── HP Bar (card face) ─────────────────────────────────────── */
+/* Displayed in the card header between badges and tabs — always  */
+/* visible without switching tabs. Color shifts green→amber→red.  */
+.hp-bar-wrap {
+  display: flex; align-items: center; gap: 0.5rem;
+  margin-top: 0.45rem; margin-bottom: 0.05rem;
+}
+.hp-bar-track {
+  flex: 1; height: 5px; background: rgba(255,255,255,0.07);
+  border-radius: 3px; overflow: hidden; min-width: 50px;
+}
+.hp-bar-fill {
+  height: 100%; border-radius: 3px;
+  transition: width 0.4s ease, background 0.4s ease;
+}
+.hp-bar-label {
+  font-family: 'Orbitron', sans-serif; font-size: 0.62rem; font-weight: 700;
+  letter-spacing: 0.04em; white-space: nowrap; flex-shrink: 0;
+}
+.hp-bar-sep { opacity: 0.4; margin: 0 1px; }
+
+/* ── Attunement slot pips (Loot tab) ────────────────────────── */
+.attune-slots {
+  display: flex; align-items: center; gap: 0.5rem;
+  padding: 0.45rem 1rem 0; margin-bottom: 0.2rem;
+}
+.attune-slots-label {
+  font-family: 'Share Tech Mono', monospace; font-size: 0.62rem;
+  letter-spacing: 0.14em; text-transform: uppercase; color: var(--text-dim);
+}
+.attune-slots-pips { display: flex; gap: 4px; }
+.attune-pip {
+  width: 10px; height: 10px; border-radius: 50%;
+  border: 1px solid var(--border); background: transparent;
+  transition: background 0.2s, border-color 0.2s;
+}
+.attune-pip.used  { background: var(--cyan); border-color: var(--cyan); box-shadow: 0 0 5px var(--cyan); }
+.attune-pip.over  { background: var(--red);  border-color: var(--red);  box-shadow: 0 0 5px var(--red); }
+.attune-slots-count {
+  font-family: 'Orbitron', sans-serif; font-size: 0.62rem; font-weight: 700;
+  margin-left: auto;
+}
+.attunement-warning {
+  margin: 0.5rem 1rem 0; padding: 0.4rem 0.7rem;
+  background: rgba(224,60,60,0.08); border: 1px solid rgba(224,60,60,0.35);
+  border-radius: 3px; font-family: 'Share Tech Mono', monospace;
+  font-size: 0.68rem; letter-spacing: 0.06em; color: var(--red); line-height: 1.5;
+}
+
+/* ── Conditions tab ─────────────────────────────────────────── */
+.cond-hint {
+  font-family: 'Share Tech Mono', monospace; font-size: 0.62rem;
+  letter-spacing: 0.08em; color: var(--text-dim); padding: 0.7rem 1rem 0.4rem;
+  line-height: 1.5;
+}
+.cond-grid {
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.35rem;
+  padding: 0 0.8rem 0.5rem;
+}
+.cond-chip {
+  display: flex; align-items: center; gap: 0.3rem;
+  padding: 0.35rem 0.5rem; border-radius: 3px;
+  border: 1px solid var(--border); background: transparent; cursor: pointer;
+  font-family: 'Share Tech Mono', monospace; font-size: 0.62rem;
+  letter-spacing: 0.06em; color: var(--text-dim);
+  transition: border-color 0.15s, color 0.15s, box-shadow 0.15s, background 0.15s;
+  text-align: left; line-height: 1.2;
+}
+.cond-chip:hover { border-color: var(--text-dim); color: var(--text); background: rgba(255,255,255,0.03); }
+/* Active state: color + glow injected via inline --cond-color (set in buildCondPanel) */
+.cond-chip.active { background: rgba(255,255,255,0.04); }
+.cond-chip-label { font-size: 0.6rem; }
+
+/* Active conditions detail list */
+.cond-active-section { padding: 0.3rem 1rem 0; }
+.cond-active-row {
+  display: flex; flex-direction: column; gap: 0.15rem;
+  padding: 0.35rem 0; border-bottom: 1px solid var(--border);
+  font-family: 'Share Tech Mono', monospace; font-size: 0.7rem;
+}
+.cond-active-row:last-child { border-bottom: none; }
+.cond-active-tip { font-size: 0.6rem; color: var(--text-dim); letter-spacing: 0.04em; line-height: 1.4; }
 
 /* add card */
 .add-card { background: transparent; border: 1px dashed rgba(14,240,208,0.2); border-radius: 6px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0.6rem; cursor: pointer; padding: 2.5rem 1rem; transition: border-color 0.2s, background 0.2s; min-height: 220px; }
