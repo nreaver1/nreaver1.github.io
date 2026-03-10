@@ -959,7 +959,7 @@ body.page-dashboard main { max-width: 1100px; padding: 2.5rem 2rem 5rem; }
 .ability-inp-wrap input { text-align: center; padding: 0.4rem 0.3rem; font-family: 'Orbitron', sans-serif; font-size: 0.8rem; font-weight: 700; }
 .combat-inputs { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.5rem; }
 .combat-inp-wrap { display: flex; flex-direction: column; gap: 0.25rem; }
-.combat-inp-wrap label { font-size: 0.8rem; }
+.combat-inp-wrap label { font-size: 0.75rem; min-height: 2em; display: flex; align-items: flex-end; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-dim); }
 /* ── PROFICIENCY GROUPED LAYOUT ── */
 .prof-hint {
   font-family: 'Share Tech Mono', monospace;
