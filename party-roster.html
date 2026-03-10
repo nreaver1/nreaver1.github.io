@@ -1091,8 +1091,10 @@ function openModal(id){
     else{ const ini=(m.name||'?').split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase(); preview.innerHTML=`<span class="photo-initials">${ini}</span>`; }
   } else {
     ['f-name','f-player','f-class','f-race','f-level','f-bio','f-tags'].forEach(i=>{const el=document.getElementById(i);if(el)el.value='';});
-    ABILITIES.forEach(a=>document.getElementById(`f-${a}`).value='');
+    ABILITIES.forEach(a=>document.getElementById(`f-${a}`).value=10);
     ['ac','hp','hpcur','speed','init','spelldc','spellatk','passperc'].forEach(k=>document.getElementById(`f-${k}`).value='');
+    document.getElementById('f-ac').value=10;
+    document.getElementById('f-speed').value=30;
     document.getElementById('f-status').value='active';
     document.getElementById('f-prof').value=2;
     buildProfGrid({});
