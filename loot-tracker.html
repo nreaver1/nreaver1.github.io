@@ -72,6 +72,10 @@
     <div class="stat"><span class="stat-val" id="statWithFx">0</span><span class="stat-label">Has Stat Effects</span></div>
     <div class="stat"><span class="stat-val" id="statLegendary">0</span><span class="stat-label">Legendary+</span></div>
   </div>
+  <div class="attune-warning-bar" id="attuneWarningBar">
+    <div class="attune-warn-label">⚠ Attunement Over Limit</div>
+    <div id="attuneWarnRows"></div>
+  </div>
   <div class="toolbar">
     <div class="toolbar-left">
       <input class="search-input" type="text" id="searchInput" placeholder="Search items, holders…" oninput="renderTable()" />
@@ -175,6 +179,7 @@
       <thead>
         <tr>
           <th onclick="sortBy('name')">Item <span class="sort-arrow" id="sort-name"></span></th>
+          <th onclick="sortBy('qty')" class="hide-mobile" title="Quantity">Qty <span class="sort-arrow" id="sort-qty"></span></th>
           <th onclick="sortBy('type')" class="hide-mobile">Type <span class="sort-arrow" id="sort-type"></span></th>
           <th onclick="sortBy('rarity')">Rarity <span class="sort-arrow" id="sort-rarity"></span></th>
           <th onclick="sortBy('holder')" class="hide-mobile">Held By <span class="sort-arrow" id="sort-holder"></span></th>
@@ -276,6 +281,10 @@
         <option value="Other">Other</option>
           </select>
         </div>
+        <div class="field" style="max-width:80px;">
+          <label>Qty</label>
+          <input type="number" class="mi" id="fieldQty" min="1" max="999" value="1" />
+        </div>
         <div class="field">
           <label>Rarity</label>
           <select class="mi" id="fieldRarity">
@@ -301,11 +310,12 @@
         </div>
         <div class="field">
           <label>Attunement</label>
-          <select class="mi" id="fieldAttunement">
+          <select class="mi" id="fieldAttunement" onchange="checkAttuneWarn()">
             <option value="none">Not required</option>
             <option value="required">Required</option>
             <option value="attuned">Attuned</option>
           </select>
+          <div class="field-attune-warn" id="fieldAttuneWarn"></div>
         </div>
       </div>
       <div class="field">
@@ -421,12 +431,12 @@ let pendingFx = [];   // effects being edited in modal
 const RARITY_ORDER = { common:0,uncommon:1,rare:2,'very-rare':3,legendary:4,artifact:5 };
 
 const seedItems = [
-  { id:uid(), name:"Shadow Cloak",      type:"Wondrous", rarity:"rare",     holder:"Zyx",        attunement:"attuned",  desc:"Advantage on Stealth, disadvantage on Perception.", statEffects:[{stat:'stealth',type:'advantage',value:null},{stat:'perception',type:'disadvantage',value:null}] },
-  { id:uid(), name:"Aegis Mk-II Armor", type:"Armor",    rarity:"rare",     holder:"Mira",       attunement:"none",     desc:"+2 AC. Disadvantage on Stealth checks.",              statEffects:[{stat:'ac',type:'bonus',value:2},{stat:'stealth',type:'disadvantage',value:null}] },
-  { id:uid(), name:"Neural Spike +2",   type:"Weapon",   rarity:"uncommon", holder:"Mira",       attunement:"none",     desc:"+2 to attack and damage rolls.",                      statEffects:[{stat:'attack_rolls',type:'bonus',value:2},{stat:'damage_rolls',type:'bonus',value:2}] },
-  { id:uid(), name:"Gauntlet of STR",   type:"Wondrous", rarity:"rare",     holder:"Theron",     attunement:"attuned",  desc:"Sets STR to 19.",                                    statEffects:[{stat:'str',type:'bonus',value:4}] },
-  { id:uid(), name:"Ring of Data",      type:"Ring",     rarity:"rare",     holder:"Party",      attunement:"required", desc:"Stores up to 3 spells.",                             statEffects:[] },
-  { id:uid(), name:"Orb of Old Code",   type:"Wondrous", rarity:"artifact", holder:"Party Vault",attunement:"required", desc:"Do NOT activate.",                                   statEffects:[] },
+  { id:uid(), name:"Shadow Cloak",      type:"Wondrous", rarity:"rare",     holder:"Zyx",        attunement:"attuned",  desc:"Advantage on Stealth, disadvantage on Perception.", statEffects:[{stat:'stealth',type:'advantage',value:null},{stat:'perception',type:'disadvantage',value:null}] , qty:1},
+  { id:uid(), name:"Aegis Mk-II Armor", type:"Armor",    rarity:"rare",     holder:"Mira",       attunement:"none",     desc:"+2 AC. Disadvantage on Stealth checks.",              statEffects:[{stat:'ac',type:'bonus',value:2},{stat:'stealth',type:'disadvantage',value:null}] , qty:1},
+  { id:uid(), name:"Neural Spike +2",   type:"Weapon",   rarity:"uncommon", holder:"Mira",       attunement:"none",     desc:"+2 to attack and damage rolls.",                      statEffects:[{stat:'attack_rolls',type:'bonus',value:2},{stat:'damage_rolls',type:'bonus',value:2}] , qty:1},
+  { id:uid(), name:"Gauntlet of STR",   type:"Wondrous", rarity:"rare",     holder:"Theron",     attunement:"attuned",  desc:"Sets STR to 19.",                                    statEffects:[{stat:'str',type:'bonus',value:4}] , qty:1},
+  { id:uid(), name:"Ring of Data",      type:"Ring",     rarity:"rare",     holder:"Party",      attunement:"required", desc:"Stores up to 3 spells.",                             statEffects:[] , qty:1},
+  { id:uid(), name:"Orb of Old Code",   type:"Wondrous", rarity:"artifact", holder:"Party Vault",attunement:"required", desc:"Do NOT activate.",                                   statEffects:[] , qty:1},
 ];
 
 // LOOT_GROUP_EMOJI, lootTypeEmoji, uid — defined in js/nexus-utils.js
@@ -445,6 +455,7 @@ async function loadData(){
         attunement:  r.attunement,
         desc:        r.description,
         statEffects: r.stat_effects || [],
+        qty:         r.quantity ?? 1,
       }));
     } else {
       // seed data on first load
@@ -468,6 +479,7 @@ function itemToRow(it){
     attunement:  it.attunement  || 'none',
     description: it.desc        || null,
     stat_effects: it.statEffects || [],
+    quantity:    it.qty         ?? 1,
   };
 }
 
@@ -515,16 +527,18 @@ function renderTable(){
   const rows=getFiltered();
   updateStats();
   if(!rows.length){
-    tbody.innerHTML=`<tr><td colspan="7"><div class="empty-state"><span class="empty-icon">⚔️</span><p>No items found in registry</p></div></td></tr>`;
+    tbody.innerHTML=`<tr><td colspan="8"><div class="empty-state"><span class="empty-icon">⚔️</span><p>No items found in registry</p></div></td></tr>`;
     return;
   }
   tbody.innerHTML=rows.map(it=>{
     const fxHtml=(it.statEffects||[]).map(fx=>`<span class="fx-pill ${fxClass(fx.type)}">${esc(fxShort(fx))}</span>`).join('');
+    const qtyBadge = (it.qty??1)>1 ? `<span class="qty-badge">×${it.qty}</span>` : '';
     return `<tr>
       <td>
-        <div class="item-name">${esc(it.name)}</div>
+        <div class="item-name">${esc(it.name)}${qtyBadge}</div>
         ${it.desc?`<div class="item-desc">${esc(it.desc)}</div>`:''}
       </td>
+      <td class="hide-mobile" style="text-align:center;font-family:'Share Tech Mono',monospace;font-size:0.8rem;color:${(it.qty??1)>1?'var(--cyan)':'var(--text-dim)'};">${it.qty??1}</td>
       <td class="hide-mobile"><span class="loot-type-cell"><span class="loot-type-emoji">${lootTypeEmoji(it.type)}</span><span class="loot-type-label">${esc(it.type)}</span></span></td>
       <td><span class="rarity-badge rarity-${it.rarity}">${rarityLabel(it.rarity)}</span></td>
       <td class="hide-mobile">${renderHolderCell(it.holder)}</td>
@@ -532,6 +546,7 @@ function renderTable(){
       <td class="hide-mobile"><span class="${it.attunement==='none'?'attunement no-attune':'attunement'}">${attuneLabel(it.attunement)}</span></td>
       <td class="td-actions">
         <button class="btn-icon" title="Edit" onclick="openModal('${it.id}')">✎</button>
+        <button class="btn-transfer" title="Quick Transfer" onclick="openTransferPopover('${it.id}',this)">⇄</button>
         <button class="btn-icon delete" title="Delete" onclick="deleteItem('${it.id}')">🗑</button>
       </td>
     </tr>`;
@@ -543,6 +558,40 @@ function updateStats(){
   document.getElementById('statAttuned').textContent=items.filter(i=>i.attunement==='attuned').length;
   document.getElementById('statWithFx').textContent=items.filter(i=>i.statEffects?.length>0).length;
   document.getElementById('statLegendary').textContent=items.filter(i=>i.rarity==='legendary'||i.rarity==='artifact').length;
+  renderAttuneWarnings();
+}
+
+// ── ATTUNEMENT SLOT TRACKER ──────────────────────────────────
+// Returns a Map<holderName, count> of attuned items per holder.
+// Party Inventory and blank/null holders are excluded (not individuals).
+function getAttuneCounts(){
+  const counts = new Map();
+  for(const it of items){
+    if(it.attunement !== 'attuned') continue;
+    const h = (it.holder||'').trim();
+    // Only count named individuals — not party-wide holders
+    if(!h || h==='Party Inventory' || h.toLowerCase()==='party vault') continue;
+    counts.set(h, (counts.get(h)||0) + 1);
+  }
+  return counts;
+}
+
+function renderAttuneWarnings(){
+  const bar  = document.getElementById('attuneWarningBar');
+  const rows = document.getElementById('attuneWarnRows');
+  if(!bar||!rows) return;
+  const counts = getAttuneCounts();
+  const violations = [...counts.entries()].filter(([,n])=>n>3);
+  if(!violations.length){
+    bar.classList.remove('has-warnings');
+    rows.innerHTML='';
+    return;
+  }
+  bar.classList.add('has-warnings');
+  rows.innerHTML = violations
+    .sort((a,b)=>b[1]-a[1])
+    .map(([name,n])=>`<div class="attune-warn-row">⚠ ${esc(name)}: ${n} items attuned — 5e limit is 3. Remove attunement from ${n-3} item${n-3>1?'s':''}.</div>`)
+    .join('');
 }
 
 function rarityLabel(r){ return{common:'Common',uncommon:'Uncommon',rare:'Rare','very-rare':'Very Rare',legendary:'Legendary',artifact:'Artifact'}[r]||r; }
@@ -868,15 +917,20 @@ async function openModal(id){
     document.getElementById('fieldType').value=it.type;
     document.getElementById('fieldRarity').value=it.rarity;
     document.getElementById('fieldAttunement').value=it.attunement;
+    document.getElementById('fieldQty').value=it.qty??1;
     document.getElementById('fieldDesc').value=it.desc||'';
+    document.getElementById('fieldAttuneWarn').textContent='';
     (it.statEffects||[]).forEach(fx=>addFxRow({...fx}));
     // init holder dropdown with saved value
     await initHolderDisplay(it.holder||'');
+    checkAttuneWarn();
   } else {
     ['fieldName','fieldDesc'].forEach(fid=>document.getElementById(fid).value='');
     document.getElementById('fieldType').value='Wondrous Item';
     document.getElementById('fieldRarity').value='rare';
     document.getElementById('fieldAttunement').value='none';
+    document.getElementById('fieldQty').value='1';
+    document.getElementById('fieldAttuneWarn').textContent='';
     await initHolderDisplay('');
   }
   document.getElementById('modalBackdrop').classList.add('open');
@@ -886,15 +940,223 @@ async function openModal(id){
 function closeModal(){ document.getElementById('modalBackdrop').classList.remove('open'); editingId=null; pendingFx=[]; }
 function backdropClose(e){ if(e.target===document.getElementById('modalBackdrop')) closeModal(); }
 
+// ── INLINE ATTUNEMENT WARNING (modal) ───────────────────────
+// Called when attunement select changes or when editing an existing item.
+// Warns if the selected holder already has 3 attuned items AND
+// the user is setting this item to 'attuned' (and it isn't the item being edited).
+function checkAttuneWarn(){
+  const warn  = document.getElementById('fieldAttuneWarn');
+  if(!warn) return;
+  const val   = document.getElementById('fieldAttunement').value;
+  const holder= document.getElementById('fieldHolder').value.trim();
+  if(val !== 'attuned' || !holder || holder==='Party Inventory'){
+    warn.textContent=''; return;
+  }
+  const counts = getAttuneCounts();
+  // Count attuned items for this holder, excluding the item being edited
+  const existing = items.filter(it=>
+    it.attunement==='attuned' &&
+    it.holder===holder &&
+    it.id !== editingId
+  ).length;
+  if(existing >= 3){
+    warn.textContent=`⚠ ${holder} already has ${existing} attuned item${existing!==1?'s':''} — 5e limit is 3.`;
+  } else {
+    warn.textContent='';
+  }
+}
+
+// ── QUICK TRANSFER POPOVER ───────────────────────────────────
+let _transferItemId = null;
+let _transferPopoverEl = null;
+
+async function openTransferPopover(itemId, anchorEl){
+  // Close any existing popover first
+  closeTransferPopover();
+  _transferItemId = itemId;
+  const it = items.find(i=>i.id===itemId);
+  if(!it){ showToast('Item not found.'); return; }
+
+  // Build popover element
+  const pop = document.createElement('div');
+  pop.className = 'transfer-popover';
+  pop.id = 'transferPopover';
+  pop.innerHTML = `
+    <div class="transfer-popover-header">⇄ Quick Transfer</div>
+    <div class="transfer-popover-title">${esc(it.name)}</div>
+    <div id="transferHolderWrap">
+      <div class="holder-select-wrap" id="txHolderSelectWrap">
+        <div class="holder-selected" id="txHolderSelected" onclick="toggleTxHolderDropdown()">
+          <span class="holder-sel-avatar" id="txHolderSelAvatar"></span>
+          <span class="holder-sel-name"   id="txHolderSelName">— Unassigned —</span>
+          <span class="holder-sel-arrow">▾</span>
+        </div>
+        <div class="holder-dropdown" id="txHolderDropdown"></div>
+      </div>
+      <input type="hidden" id="txHolderValue" value="${esc(it.holder||'')}" />
+    </div>
+    <div class="transfer-popover-actions">
+      <button class="btn btn-ghost" style="font-size:0.72rem;padding:0.3rem 0.8rem;" onclick="closeTransferPopover()">Cancel</button>
+      <button class="btn btn-primary" id="btnConfirmTransfer" style="font-size:0.72rem;padding:0.3rem 0.8rem;" onclick="confirmTransfer()">Transfer</button>
+    </div>`;
+  document.body.appendChild(pop);
+  _transferPopoverEl = pop;
+
+  // Position near the anchor button
+  const rect = anchorEl.getBoundingClientRect();
+  const popW = 280;
+  let left = rect.right - popW;
+  if(left < 8) left = 8;
+  let top = rect.bottom + 6;
+  // Flip up if near bottom of viewport
+  if(top + 220 > window.innerHeight) top = rect.top - 220;
+  pop.style.left = `${left}px`;
+  pop.style.top  = `${top}px`;
+
+  // Build the holder dropdown inside the popover
+  await buildTxHolderDropdown(it.holder||'');
+
+  // Stop clicks inside popover from propagating to the document close handler
+  pop.addEventListener('click', e=>e.stopPropagation());
+}
+
+function closeTransferPopover(){
+  if(_transferPopoverEl){ _transferPopoverEl.remove(); _transferPopoverEl=null; }
+  _transferItemId=null;
+}
+
+// Shared holder dropdown for transfer popover (mirrors buildHolderDropdown but targets tx* elements)
+async function buildTxHolderDropdown(currentValue){
+  const members = await loadPartyMembersAsync();
+  const options = [
+    { value:'', name:'— Unassigned —', photo:null, sub:'', isBlank:true },
+    { value:'Party Inventory', name:t('partyInventory'), photo:null, sub:'shared loot', isSpecial:true },
+    ...members.map(m=>({ value:m.name, name:m.name, photo:m.photo||null, color:m.color||null, sub:[m.class,m.race].filter(Boolean).join(' · ')||'' })),
+  ];
+
+  const wrap     = document.getElementById('txHolderSelectWrap');
+  const dropdown = document.getElementById('txHolderDropdown');
+  if(!wrap||!dropdown) return;
+  wrap._holderOptions = options;
+
+  dropdown.innerHTML = options.map((opt,i)=>{
+    const divider=(i===2&&members.length)?`<div class="holder-opt-divider">Party Members</div>`:'';
+    const avatarContent = opt.photo
+      ? `<img src="${esc(opt.photo)}" alt="${esc(opt.name)}" />`
+      : opt.isBlank  ? `<span style="color:var(--text-dim);font-size:0.7rem">—</span>`
+      : opt.isSpecial? `<span style="font-size:0.75rem">🎒</span>`
+      : `<span style="color:${opt.color||'var(--gold)'}"> ${esc(opt.name.charAt(0).toUpperCase())}</span>`;
+    const isSelected = opt.value===currentValue;
+    return `${divider}<div class="holder-opt ${isSelected?'selected':''}" data-tx-idx="${i}">
+      <div class="holder-opt-avatar" style="${opt.color&&!opt.photo?`border-color:${opt.color}40`:''}">${avatarContent}</div>
+      <div class="holder-opt-info">
+        <div class="holder-opt-name">${esc(opt.name)}</div>
+        ${opt.sub?`<div class="holder-opt-sub">${esc(opt.sub)}</div>`:''}
+      </div>
+    </div>`;
+  }).join('');
+
+  dropdown.querySelectorAll('.holder-opt').forEach(el=>{
+    el.addEventListener('click', function(e){
+      e.stopPropagation();
+      const idx=parseInt(this.getAttribute('data-tx-idx'));
+      const opt=wrap._holderOptions[idx];
+      if(opt) selectTxHolder(opt.value, opt.name, opt.photo||'', opt.color||'');
+    });
+  });
+
+  // Set the display
+  const current = options.find(o=>o.value===currentValue);
+  const selName  = document.getElementById('txHolderSelName');
+  const selAvatar= document.getElementById('txHolderSelAvatar');
+  if(selName) selName.textContent = current ? current.name : '— Unassigned —';
+  document.getElementById('txHolderValue').value = currentValue;
+  _updateTxAvatar(selAvatar, current);
+}
+
+function _updateTxAvatar(selAvatar, opt){
+  if(!selAvatar) return;
+  if(!opt||opt.isBlank){ selAvatar.className='holder-sel-avatar hidden'; selAvatar.innerHTML=''; return; }
+  selAvatar.className='holder-sel-avatar';
+  if(opt.photo)       selAvatar.innerHTML=`<img src="${esc(opt.photo)}" alt="${esc(opt.name)}" />`;
+  else if(opt.isSpecial) selAvatar.innerHTML=`<span style="font-size:0.75rem">🎒</span>`;
+  else { selAvatar.style.borderColor=(opt.color||'var(--border)'); selAvatar.innerHTML=`<span style="color:${opt.color||'var(--gold)'}">${esc((opt.name||'?').charAt(0).toUpperCase())}</span>`; }
+}
+
+function selectTxHolder(value, name, photo, color){
+  document.getElementById('txHolderValue').value=value;
+  const selName  = document.getElementById('txHolderSelName');
+  const selAvatar= document.getElementById('txHolderSelAvatar');
+  if(selName){ selName.textContent=value?name:'— Unassigned —'; selName.className='holder-sel-name'+(value?'':' placeholder'); }
+  _updateTxAvatar(selAvatar, {value,name,photo,color,isBlank:!value,isSpecial:value==='Party Inventory'});
+  document.querySelectorAll('#txHolderDropdown .holder-opt').forEach(el=>el.classList.remove('selected'));
+  document.querySelectorAll('#txHolderDropdown .holder-opt').forEach(el=>{
+    if(el.querySelector('.holder-opt-name')?.textContent===(value||'— Unassigned —')) el.classList.add('selected');
+  });
+  closeTxHolderDropdown();
+}
+
+async function toggleTxHolderDropdown(){
+  const wrap=document.getElementById('txHolderSelectWrap');
+  if(!wrap) return;
+  if(wrap.classList.contains('open')){ closeTxHolderDropdown(); return; }
+  wrap.classList.add('open');
+}
+function closeTxHolderDropdown(){
+  const wrap=document.getElementById('txHolderSelectWrap');
+  if(wrap) wrap.classList.remove('open');
+}
+
+async function confirmTransfer(){
+  if(!_transferItemId) return;
+  const newHolder = (document.getElementById('txHolderValue')?.value||'').trim();
+  const it = items.find(i=>i.id===_transferItemId);
+  if(!it){ closeTransferPopover(); return; }
+  if(newHolder===it.holder){ closeTransferPopover(); return; } // no change
+
+  const btn=document.getElementById('btnConfirmTransfer');
+  if(btn){ btn.disabled=true; btn.textContent='Saving…'; }
+  try{
+    const updated={...it, holder:newHolder};
+    await saveItemToDB(updated);
+    const idx=items.findIndex(i=>i.id===_transferItemId);
+    if(idx>=0) items[idx]=updated;
+    renderTable();
+    const toName=newHolder||'Unassigned';
+    showToast(`${it.name} → ${toName}`);
+  }catch(e){
+    console.error(e); showToast('Transfer failed — check your Supabase config.');
+  }finally{
+    closeTransferPopover();
+  }
+}
+
+// Close transfer popover when clicking outside;
+// also close the tx holder dropdown on outside clicks within popover
+document.addEventListener('click', function(e){
+  if(_transferPopoverEl){
+    if(!_transferPopoverEl.contains(e.target)){
+      closeTransferPopover();
+    } else {
+      const txWrap=document.getElementById('txHolderSelectWrap');
+      if(txWrap && txWrap.classList.contains('open') && !txWrap.contains(e.target)){
+        closeTxHolderDropdown();
+      }
+    }
+  }
+});
+
 async function saveItem(){
   const name=document.getElementById('fieldName').value.trim();
   if(!name){ showToast('Item name is required.'); return; }
+  const rawQty = parseInt(document.getElementById('fieldQty').value, 10);
   const item={
     id:editingId||uid(), name,
     type:document.getElementById('fieldType').value,
     rarity:document.getElementById('fieldRarity').value,
     holder:document.getElementById('fieldHolder').value.trim(),
     attunement:document.getElementById('fieldAttunement').value,
+    qty:Math.max(1, Number.isFinite(rawQty) ? rawQty : 1),
     desc:document.getElementById('fieldDesc').value.trim(),
     statEffects:collectFx(),
   };
@@ -943,13 +1205,26 @@ function handleImport(e){
       const data=JSON.parse(ev.target.result);
       const imported=data.items||data;
       if(!Array.isArray(imported)) throw new Error();
-      if(confirm(`Import ${imported.length} items? This replaces your current registry.`)){
-        items=imported.map(it=>({...it,id:it.id||uid(),statEffects:it.statEffects||[]}));
-        try{
-          await db.upsertMany('loot_items', items.map(itemToRow));
-          renderTable(); showToast(`Imported ${items.length} items.`);
-        }catch(err){console.error(err);showToast('Import failed — check your Supabase config.');}
-      }
+      const ok = await nexusConfirm({
+        title:        'Import Loot Registry',
+        name:         `${imported.length} items from ${file.name}`,
+        message:      `All ${items.length} items currently in the registry will be replaced. This cannot be undone.`,
+        danger:       true,
+        confirmLabel: 'Replace Registry',
+        cancelLabel:  'Cancel',
+        checkboxes: [{
+          id:       'ack',
+          label:    'I understand the current registry will be replaced',
+          checked:  false,
+          required: true,
+        }],
+      });
+      if(!ok || !ok.confirmed || !ok.checks?.ack) return;
+      items=imported.map(it=>({...it,id:it.id||uid(),statEffects:it.statEffects||[],qty:it.qty??1}));
+      try{
+        await db.upsertMany('loot_items', items.map(itemToRow));
+        renderTable(); showToast(`Imported ${items.length} items.`);
+      }catch(err){console.error(err);showToast('Import failed — check your Supabase config.');}
     }catch{ showToast('Invalid file.'); }
   };
   reader.readAsText(file); e.target.value='';

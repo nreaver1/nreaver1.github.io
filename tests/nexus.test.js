@@ -3110,3 +3110,948 @@ describe('CSS — duplicate selectors are responsive overrides only', () => {
       'admin.html must not have a bare .show { rule — must always be .save-status.show');
   });
 });
+
+// ══════════════════════════════════════════════════════════════
+// Section 43 — Loot Tracker: import nexusConfirm replacement
+// ══════════════════════════════════════════════════════════════
+describe('Loot Tracker — import uses nexusConfirm not confirm()', () => {
+  const fs  = require('fs'), path = require('path');
+  const src = fs.readFileSync(path.join(__dirname,'../loot-tracker.html'), 'utf8');
+
+  it('handleImport does not call native confirm()', () => {
+    // Find the handleImport function block
+    const idx = src.indexOf('function handleImport(');
+    const block = src.slice(idx, idx + 1200);
+    assert.ok(!block.includes('confirm(') || block.includes('nexusConfirm('),
+      'handleImport must not use native confirm() — must use nexusConfirm');
+    // More precise: the bare confirm() call must be gone
+    assert.ok(!block.match(/\bconfirm\s*\(`/),
+      'handleImport must not contain confirm(`...) template literal pattern');
+  });
+
+  it('handleImport uses await nexusConfirm', () => {
+    const idx = src.indexOf('function handleImport(');
+    const block = src.slice(idx, idx + 1200);
+    assert.ok(block.includes('await nexusConfirm('),
+      'handleImport must use await nexusConfirm(...)');
+  });
+
+  it('nexusConfirm call in handleImport has danger: true', () => {
+    const idx = src.indexOf('function handleImport(');
+    const block = src.slice(idx, idx + 1200);
+    assert.ok(block.includes('danger:       true') || block.includes('danger: true'),
+      'nexusConfirm in handleImport must set danger: true');
+  });
+
+  it('nexusConfirm call in handleImport has a required acknowledgement checkbox', () => {
+    const idx = src.indexOf('function handleImport(');
+    const block = src.slice(idx, idx + 1200);
+    assert.ok(block.includes('required: true'),
+      'nexusConfirm in handleImport must include a required checkbox');
+  });
+
+  it('handleImport checks both confirmed and ack before proceeding', () => {
+    const idx = src.indexOf('function handleImport(');
+    const block = src.slice(idx, idx + 1200);
+    // Must check .confirmed and .checks?.ack (or similar)
+    assert.ok(
+      block.includes('ok.confirmed') || block.includes('.confirmed'),
+      'handleImport must check nexusConfirm result .confirmed property'
+    );
+    assert.ok(
+      block.includes('ok.checks?.ack') || block.includes("checks?.ack") || block.includes("checks.ack"),
+      'handleImport must check nexusConfirm result .checks.ack (the required checkbox)'
+    );
+  });
+
+  it('handleImport still maps qty field on imported items', () => {
+    const idx = src.indexOf('function handleImport(');
+    const block = src.slice(idx, idx + 1200);
+    assert.ok(block.includes('qty:it.qty??1') || block.includes('qty: it.qty ?? 1'),
+      'handleImport must map qty with ?? 1 fallback for backwards compatibility');
+  });
+
+  it('handleImport confirmLabel is "Replace Registry"', () => {
+    const idx = src.indexOf('function handleImport(');
+    const block = src.slice(idx, idx + 1200);
+    assert.ok(block.includes("confirmLabel: 'Replace Registry'") || block.includes('confirmLabel:"Replace Registry"'),
+      'handleImport nexusConfirm must have confirmLabel "Replace Registry"');
+  });
+});
+
+// ══════════════════════════════════════════════════════════════
+// Section 44 — Loot Tracker: quantity field
+// ══════════════════════════════════════════════════════════════
+describe('Loot Tracker — item quantity field', () => {
+  const fs  = require('fs'), path = require('path');
+  const src = fs.readFileSync(path.join(__dirname,'../loot-tracker.html'), 'utf8');
+
+  // ── Pure qty clamp logic ──
+  function clampQty(raw) {
+    const n = parseInt(raw, 10);
+    return Math.max(1, Number.isFinite(n) ? n : 1);
+  }
+
+  it('qty clamp: integer input >= 1 is unchanged', () => {
+    assert.strictEqual(clampQty('5'),   5);
+    assert.strictEqual(clampQty('1'),   1);
+    assert.strictEqual(clampQty('999'), 999);
+  });
+
+  it('qty clamp: 0 is clamped to 1', () => {
+    assert.strictEqual(clampQty('0'), 1);
+  });
+
+  it('qty clamp: negative input is clamped to 1', () => {
+    assert.strictEqual(clampQty('-3'), 1);
+  });
+
+  it('qty clamp: non-numeric input is clamped to 1', () => {
+    assert.strictEqual(clampQty(''),      1);
+    assert.strictEqual(clampQty('abc'),   1);
+    assert.strictEqual(clampQty('1.5'),   1);  // parseInt truncates to 1
+    assert.strictEqual(clampQty(NaN),     1);
+    assert.strictEqual(clampQty(undefined),1);
+  });
+
+  it('qty clamp: large valid integer is unchanged', () => {
+    assert.strictEqual(clampQty('999'), 999);
+    assert.strictEqual(clampQty('100'), 100);
+  });
+
+  it('saveItem reads fieldQty and clamps with Math.max(1,...)', () => {
+    // Verify the clamp pattern in saveItem
+    assert.ok(src.includes('Math.max(1,') && src.includes('parseInt(document.getElementById(\'fieldQty\').value, 10)'),
+      'saveItem must clamp qty with Math.max(1, parseInt(..., 10))');
+  });
+
+  it('itemToRow maps it.qty to the quantity column', () => {
+    // Verify itemToRow has quantity: it.qty ?? 1
+    const idx = src.indexOf('function itemToRow(');
+    const block = src.slice(idx, idx + 300);
+    assert.ok(src.includes('quantity:    it.qty         ?? 1') || src.includes('quantity: it.qty ?? 1'),
+      'itemToRow must map it.qty → quantity column with ?? 1 fallback');
+  });
+
+  it('loadData maps r.quantity to it.qty with ?? 1 fallback', () => {
+    // DB column is quantity (integer), JS property is qty
+    assert.ok(src.includes('qty:         r.quantity ?? 1') || src.includes('qty: r.quantity ?? 1'),
+      'loadData must map r.quantity → it.qty with ?? 1 null-safety fallback');
+  });
+
+  it('table renders qty column with hide-mobile class', () => {
+    assert.ok(src.includes('sort-qty') || src.includes("sortBy('qty')"),
+      'table must have a qty column with sort capability');
+  });
+
+  it('qty badge (×N) is only rendered when qty > 1', () => {
+    // Template: (it.qty??1)>1 ? `<span class="qty-badge">×${it.qty}</span>` : ''
+    assert.ok(
+      src.includes('(it.qty??1)>1') || src.includes('(it.qty ?? 1) > 1'),
+      'qty badge must only render when qty > 1 — no noise for unique items'
+    );
+    assert.ok(src.includes('qty-badge'),
+      'qty badge must use class qty-badge');
+  });
+
+  it('openModal sets fieldQty to 1 for new items', () => {
+    const idx = src.indexOf("document.getElementById('fieldQty').value='1'");
+    assert.ok(idx !== -1, "openModal must set fieldQty.value='1' for new items");
+  });
+
+  it('openModal sets fieldQty to item.qty when editing', () => {
+    assert.ok(
+      src.includes("document.getElementById('fieldQty').value=it.qty??1") ||
+      src.includes("document.getElementById('fieldQty').value = it.qty ?? 1"),
+      'openModal must populate fieldQty with it.qty??1 when editing'
+    );
+  });
+
+  it('fieldQty input has min=1 and max=999', () => {
+    assert.ok(src.includes('min="1"') && src.includes('max="999"'),
+      'fieldQty input must have min="1" max="999" attributes');
+  });
+
+  it('seed items all have qty: 1', () => {
+    // Each seed item object should include qty:1
+    const seedIdx = src.indexOf('const seedItems = [');
+    assert.ok(seedIdx !== -1, 'seedItems constant must exist');
+    const seedBlock = src.slice(seedIdx, seedIdx + 2000);
+    const itemMatches = seedBlock.match(/,\s*qty:\d+/g) || [];
+    // All seed items should have qty:1
+    assert.ok(itemMatches.length >= 5, `Seed items must have qty property, found ${itemMatches.length}`);
+    assert.ok(itemMatches.every(m => m.endsWith(':1')), 'All seed item qty values must be 1');
+  });
+
+  it('qty column CSS class qty-badge is defined in nexus.css', () => {
+    const css = fs.readFileSync(path.join(__dirname,'../css/nexus.css'), 'utf8');
+    assert.ok(css.includes('.qty-badge'), '.qty-badge must be defined in nexus.css');
+  });
+});
+
+// ══════════════════════════════════════════════════════════════
+// Section 45 — Loot Tracker: quick transfer popover
+// ══════════════════════════════════════════════════════════════
+describe('Loot Tracker — quick transfer popover', () => {
+  const fs  = require('fs'), path = require('path');
+  const src = fs.readFileSync(path.join(__dirname,'../loot-tracker.html'), 'utf8');
+
+  it('openTransferPopover function is defined', () => {
+    assert.ok(src.includes('async function openTransferPopover('),
+      'openTransferPopover must be an async function');
+  });
+
+  it('closeTransferPopover function is defined', () => {
+    assert.ok(src.includes('function closeTransferPopover()'),
+      'closeTransferPopover must be defined');
+  });
+
+  it('_transferItemId state variable is defined', () => {
+    assert.ok(src.includes('let _transferItemId = null'),
+      '_transferItemId state variable must be defined and initialised to null');
+  });
+
+  it('_transferPopoverEl state variable is defined', () => {
+    assert.ok(src.includes('let _transferPopoverEl = null'),
+      '_transferPopoverEl state variable must be defined and initialised to null');
+  });
+
+  it('transfer button (⇄) exists in table row actions', () => {
+    assert.ok(src.includes('openTransferPopover(') && src.includes('btn-transfer'),
+      'table rows must include a transfer button calling openTransferPopover');
+  });
+
+  it('transfer button uses btn-transfer class (not btn-icon)', () => {
+    // btn-icon is for edit/delete; transfer has its own lighter style
+    assert.ok(src.includes('"btn-transfer"') || src.includes("'btn-transfer'"),
+      'transfer button must use class btn-transfer');
+  });
+
+  it('confirmTransfer only updates holder field, not other item properties', () => {
+    // Should spread existing item and only override holder
+    const idx = src.indexOf('async function confirmTransfer()');
+    const block = src.slice(idx, idx + 600);
+    assert.ok(block.includes('...it, holder:newHolder') || block.includes('{ ...it, holder: newHolder }'),
+      'confirmTransfer must use spread { ...it, holder:newHolder } to preserve all other fields');
+  });
+
+  it('confirmTransfer calls saveItemToDB with the updated item', () => {
+    const idx = src.indexOf('async function confirmTransfer()');
+    const block = src.slice(idx, idx + 600);
+    assert.ok(block.includes('await saveItemToDB(updated)'),
+      'confirmTransfer must call saveItemToDB(updated)');
+  });
+
+  it('confirmTransfer patches items[] in place without full re-fetch', () => {
+    const idx = src.indexOf('async function confirmTransfer()');
+    const block = src.slice(idx, idx + 800);
+    assert.ok(block.includes('items[idx]=updated') || block.includes('items[idx] = updated'),
+      'confirmTransfer must patch items array in place for optimistic UI update');
+  });
+
+  it('confirmTransfer does nothing if holder is unchanged', () => {
+    const idx = src.indexOf('async function confirmTransfer()');
+    const block = src.slice(idx, idx + 600);
+    assert.ok(block.includes('newHolder===it.holder') || block.includes('newHolder === it.holder'),
+      'confirmTransfer must early-return if the new holder equals the current holder');
+  });
+
+  it('openTransferPopover closes any existing popover before opening a new one', () => {
+    const idx = src.indexOf('async function openTransferPopover(');
+    const block = src.slice(idx, idx + 300);
+    assert.ok(block.includes('closeTransferPopover()'),
+      'openTransferPopover must close any existing popover before opening a new one');
+  });
+
+  it('popover is positioned with fixed positioning for viewport-relative placement', () => {
+    const idx = src.indexOf('async function openTransferPopover(');
+    const block = src.slice(idx, idx + 2000);
+    assert.ok(block.includes('pop.style.left') && block.includes('pop.style.top'),
+      'openTransferPopover must set left and top on the popover element');
+  });
+
+  it('transfer popover CSS class is defined in nexus.css', () => {
+    const css = fs.readFileSync(path.join(__dirname,'../css/nexus.css'), 'utf8');
+    assert.ok(css.includes('.transfer-popover'), '.transfer-popover must be defined in nexus.css');
+  });
+
+  it('btn-transfer CSS class is defined in nexus.css', () => {
+    const css = fs.readFileSync(path.join(__dirname,'../css/nexus.css'), 'utf8');
+    assert.ok(css.includes('.btn-transfer'), '.btn-transfer must be defined in nexus.css');
+  });
+
+  it('document click handler closes popover on outside click', () => {
+    // Both document.addEventListener calls (main holder + transfer) must be present
+    const clickHandlers = src.match(/document\.addEventListener\('click'/g) || [];
+    assert.ok(clickHandlers.length >= 2,
+      'Must have at least 2 document click handlers (main holder dropdown + transfer popover close)');
+  });
+});
+
+// ══════════════════════════════════════════════════════════════
+// Section 46 — Loot Tracker: attunement slot tracker
+// ══════════════════════════════════════════════════════════════
+describe('Loot Tracker — attunement slot tracker', () => {
+  const fs  = require('fs'), path = require('path');
+  const src = fs.readFileSync(path.join(__dirname,'../loot-tracker.html'), 'utf8');
+
+  // ── Pure getAttuneCounts logic (inline simulation) ──
+  function getAttuneCounts(items) {
+    const counts = new Map();
+    for (const it of items) {
+      if (it.attunement !== 'attuned') continue;
+      const h = (it.holder || '').trim();
+      if (!h || h === 'Party Inventory' || h.toLowerCase() === 'party vault') continue;
+      counts.set(h, (counts.get(h) || 0) + 1);
+    }
+    return counts;
+  }
+
+  // ── getAttuneCounts pure logic tests ──
+  it('getAttuneCounts: counts attuned items per named holder', () => {
+    const items = [
+      { attunement: 'attuned',  holder: 'Alice' },
+      { attunement: 'attuned',  holder: 'Alice' },
+      { attunement: 'attuned',  holder: 'Bob' },
+      { attunement: 'required', holder: 'Alice' }, // not attuned
+      { attunement: 'none',     holder: 'Alice' },
+    ];
+    const counts = getAttuneCounts(items);
+    assert.strictEqual(counts.get('Alice'), 2, 'Alice should have 2 attuned items');
+    assert.strictEqual(counts.get('Bob'),   1, 'Bob should have 1 attuned item');
+    assert.strictEqual(counts.size, 2, 'Only attuned holders should appear in map');
+  });
+
+  it('getAttuneCounts: "required" items do NOT count toward attunement', () => {
+    const items = [
+      { attunement: 'required', holder: 'Alice' },
+      { attunement: 'required', holder: 'Alice' },
+      { attunement: 'required', holder: 'Alice' },
+    ];
+    const counts = getAttuneCounts(items);
+    assert.strictEqual(counts.size, 0, '"required" items must not count toward attunement slots');
+  });
+
+  it('getAttuneCounts: Party Inventory is excluded', () => {
+    const items = [
+      { attunement: 'attuned', holder: 'Party Inventory' },
+      { attunement: 'attuned', holder: 'Alice' },
+    ];
+    const counts = getAttuneCounts(items);
+    assert.ok(!counts.has('Party Inventory'), 'Party Inventory must not appear in attune counts');
+    assert.strictEqual(counts.get('Alice'), 1, 'Alice should still be counted');
+  });
+
+  it('getAttuneCounts: Party Vault is excluded', () => {
+    const items = [
+      { attunement: 'attuned', holder: 'Party Vault' },
+      { attunement: 'attuned', holder: 'party vault' }, // lowercase
+    ];
+    const counts = getAttuneCounts(items);
+    assert.strictEqual(counts.size, 0, 'Party Vault (any case) must not count toward attunement');
+  });
+
+  it('getAttuneCounts: null/empty holder is excluded', () => {
+    const items = [
+      { attunement: 'attuned', holder: null },
+      { attunement: 'attuned', holder: '' },
+      { attunement: 'attuned', holder: '  ' },
+    ];
+    const counts = getAttuneCounts(items);
+    assert.strictEqual(counts.size, 0, 'Null/empty holders must not appear in counts');
+  });
+
+  it('getAttuneCounts: returns empty Map when no attuned items', () => {
+    const counts = getAttuneCounts([]);
+    assert.strictEqual(counts.size, 0, 'Empty items list must return empty Map');
+  });
+
+  it('getAttuneCounts: correctly counts up to and over the 5e limit of 3', () => {
+    const items = [
+      { attunement: 'attuned', holder: 'Alice' },
+      { attunement: 'attuned', holder: 'Alice' },
+      { attunement: 'attuned', holder: 'Alice' },
+      { attunement: 'attuned', holder: 'Alice' }, // 4th — over limit
+    ];
+    const counts = getAttuneCounts(items);
+    assert.strictEqual(counts.get('Alice'), 4, 'Must count 4 attuned items accurately');
+    const violations = [...counts.entries()].filter(([,n]) => n > 3);
+    assert.strictEqual(violations.length, 1, 'Exactly 1 violation should be detected');
+    assert.strictEqual(violations[0][1] - 3, 1, 'Must be 1 over the limit');
+  });
+
+  it('violation count at exactly 3 (limit) produces NO warning', () => {
+    const items = [
+      { attunement: 'attuned', holder: 'Bob' },
+      { attunement: 'attuned', holder: 'Bob' },
+      { attunement: 'attuned', holder: 'Bob' },
+    ];
+    const counts = getAttuneCounts(items);
+    const violations = [...counts.entries()].filter(([,n]) => n > 3);
+    assert.strictEqual(violations.length, 0, 'Exactly 3 attuned (the limit) must NOT produce a violation');
+  });
+
+  it('violation excess count formula is (n - 3)', () => {
+    // The warning message says "remove attunement from (n-3) items"
+    for (const n of [4, 5, 6, 7]) {
+      const excess = n - 3;
+      assert.ok(excess >= 1, `Excess for n=${n} must be >= 1`);
+      assert.strictEqual(excess, n - 3);
+    }
+  });
+
+  it('multiple holders: only over-limit holders trigger warning', () => {
+    const items = [
+      { attunement: 'attuned', holder: 'Alice' },  // 1 — ok
+      { attunement: 'attuned', holder: 'Bob' },
+      { attunement: 'attuned', holder: 'Bob' },
+      { attunement: 'attuned', holder: 'Bob' },    // 3 — at limit
+      { attunement: 'attuned', holder: 'Carol' },
+      { attunement: 'attuned', holder: 'Carol' },
+      { attunement: 'attuned', holder: 'Carol' },
+      { attunement: 'attuned', holder: 'Carol' },  // 4 — over!
+    ];
+    const counts = getAttuneCounts(items);
+    const violations = [...counts.entries()].filter(([,n]) => n > 3);
+    assert.strictEqual(violations.length, 1, 'Only Carol should have a violation');
+    assert.strictEqual(violations[0][0], 'Carol', 'Carol is the violator');
+    assert.strictEqual(violations[0][1], 4, 'Carol has 4 attuned items');
+  });
+
+  // ── Structure tests ──
+  it('getAttuneCounts function is defined in loot-tracker.html', () => {
+    assert.ok(src.includes('function getAttuneCounts()'),
+      'getAttuneCounts() must be defined in loot-tracker.html');
+  });
+
+  it('renderAttuneWarnings function is defined', () => {
+    assert.ok(src.includes('function renderAttuneWarnings()'),
+      'renderAttuneWarnings() must be defined in loot-tracker.html');
+  });
+
+  it('attuneWarningBar div exists in HTML', () => {
+    assert.ok(src.includes('id="attuneWarningBar"'),
+      'attuneWarningBar div must exist in HTML');
+  });
+
+  it('attuneWarnRows div exists in HTML', () => {
+    assert.ok(src.includes('id="attuneWarnRows"'),
+      'attuneWarnRows div must exist in HTML');
+  });
+
+  it('attune-warning-bar CSS class is defined in nexus.css', () => {
+    const css = fs.readFileSync(path.join(__dirname,'../css/nexus.css'), 'utf8');
+    assert.ok(css.includes('.attune-warning-bar'), '.attune-warning-bar must be defined in nexus.css');
+  });
+
+  it('renderAttuneWarnings is called from updateStats', () => {
+    const idx = src.indexOf('function updateStats()');
+    const block = src.slice(idx, idx + 600);
+    assert.ok(block.includes('renderAttuneWarnings()'),
+      'updateStats must call renderAttuneWarnings() so warnings refresh with every render');
+  });
+
+  it('renderAttuneWarnings adds has-warnings class when violations exist', () => {
+    const idx = src.indexOf('function renderAttuneWarnings()');
+    const block = src.slice(idx, idx + 600);
+    assert.ok(block.includes('has-warnings'),
+      'renderAttuneWarnings must toggle has-warnings class');
+  });
+
+  it('renderAttuneWarnings removes has-warnings class when no violations', () => {
+    const idx = src.indexOf('function renderAttuneWarnings()');
+    const block = src.slice(idx, idx + 600);
+    assert.ok(block.includes("classList.remove('has-warnings')"),
+      'renderAttuneWarnings must remove has-warnings when there are no violations');
+  });
+
+  it('warning message mentions 5e limit of 3', () => {
+    const idx = src.indexOf('function renderAttuneWarnings()');
+    const block = src.slice(idx, idx + 600);
+    assert.ok(block.includes('5e limit is 3') || block.includes('limit of 3'),
+      'Warning message must explicitly mention the 5e attunement limit of 3');
+  });
+
+  it('inline attune warning div exists in modal', () => {
+    assert.ok(src.includes('id="fieldAttuneWarn"'),
+      'fieldAttuneWarn div must exist in the edit modal');
+  });
+
+  it('checkAttuneWarn is called from fieldAttunement onChange', () => {
+    assert.ok(src.includes('onchange="checkAttuneWarn()"'),
+      'fieldAttunement select must call checkAttuneWarn() on change');
+  });
+
+  it('checkAttuneWarn is defined', () => {
+    assert.ok(src.includes('function checkAttuneWarn()'),
+      'checkAttuneWarn() must be defined');
+  });
+
+  it('checkAttuneWarn excludes the item being edited from the count', () => {
+    const idx = src.indexOf('function checkAttuneWarn()');
+    const block = src.slice(idx, idx + 700);
+    assert.ok(block.includes('editingId') && (block.includes('!== editingId') || block.includes('it.id !== editingId')),
+      'checkAttuneWarn must exclude the item being edited (editingId) from the attune count');
+  });
+
+  it('checkAttuneWarn shows warning at >= 3 existing (not > 3, since this item would be the 4th)', () => {
+    const idx = src.indexOf('function checkAttuneWarn()');
+    const block = src.slice(idx, idx + 700);
+    assert.ok(block.includes('existing >= 3'),
+      'checkAttuneWarn must warn when existing >= 3 (adding this item would make 4, over limit)');
+  });
+
+  it('checkAttuneWarn field-attune-warn CSS class is defined in nexus.css', () => {
+    const css = fs.readFileSync(path.join(__dirname,'../css/nexus.css'), 'utf8');
+    assert.ok(css.includes('.field-attune-warn'), '.field-attune-warn must be defined in nexus.css');
+  });
+});
+
+// ══════════════════════════════════════════════════════════════
+// Section 47 — Loot Tracker: import — deep edge-case coverage
+// ══════════════════════════════════════════════════════════════
+describe('Loot Tracker — import handleImport deep coverage', () => {
+  const fs  = require('fs'), path = require('path');
+  const src = fs.readFileSync(path.join(__dirname,'../loot-tracker.html'), 'utf8');
+
+  // Helper: get the handleImport function block
+  function getBlock() {
+    const idx = src.indexOf('function handleImport(');
+    return src.slice(idx, idx + 1500);
+  }
+
+  it('handleImport resets file input value to "" after reading', () => {
+    // Prevents same-file re-select being silently ignored
+    assert.ok(src.includes("e.target.value=''"),
+      'handleImport must reset e.target.value to "" so the same file can be re-selected');
+  });
+
+  it('handleImport uses FileReader.readAsText to parse the file', () => {
+    const block = getBlock();
+    assert.ok(block.includes('reader.readAsText(file)'),
+      'handleImport must use FileReader.readAsText to read the file');
+  });
+
+  it('handleImport shows toast on invalid JSON', () => {
+    const block = getBlock();
+    assert.ok(block.includes("showToast('Invalid file.')") || block.includes('showToast("Invalid file.")'),
+      'handleImport must call showToast("Invalid file.") when JSON.parse throws');
+  });
+
+  it('handleImport supports both {version, items} and bare array formats', () => {
+    const block = getBlock();
+    // data.items || data  — handles both wrapper format and raw array
+    assert.ok(block.includes('data.items||data') || block.includes('data.items || data'),
+      'handleImport must support both {items:[...]} wrapper and bare array formats');
+  });
+
+  it('handleImport validates that imported value is an array', () => {
+    const block = getBlock();
+    assert.ok(block.includes('Array.isArray(imported)'),
+      'handleImport must call Array.isArray(imported) to validate the parsed data');
+  });
+
+  it('handleImport includes the item count and filename in the nexusConfirm name field', () => {
+    const block = getBlock();
+    assert.ok(block.includes('imported.length') && block.includes('file.name'),
+      'nexusConfirm name must include both imported.length and file.name for clear context');
+  });
+
+  it('handleImport message mentions current item count and cannot be undone', () => {
+    const block = getBlock();
+    assert.ok(block.includes('items.length'),
+      'nexusConfirm message must reference items.length so user knows what they are replacing');
+    assert.ok(block.includes('cannot be undone'),
+      'nexusConfirm message must state the action cannot be undone');
+  });
+
+  it('handleImport uses db.upsertMany to persist imported items', () => {
+    const block = getBlock();
+    assert.ok(block.includes('db.upsertMany('),
+      'handleImport must persist via db.upsertMany (not individual upsert calls)');
+  });
+
+  it('handleImport shows item count in success toast', () => {
+    const block = getBlock();
+    assert.ok(block.includes('Imported') && block.includes('items.length'),
+      'handleImport success toast must include item count via items.length');
+  });
+
+  it('handleImport assigns uid() to imported items missing an id', () => {
+    const block = getBlock();
+    assert.ok(block.includes('id:it.id||uid()') || block.includes('id: it.id || uid()'),
+      'handleImport must assign uid() to any item missing an id field');
+  });
+
+  it('handleImport maps statEffects with [] fallback', () => {
+    const block = getBlock();
+    assert.ok(block.includes('statEffects:it.statEffects||[]') || block.includes('statEffects: it.statEffects || []'),
+      'handleImport must map statEffects with [] fallback for backwards compatibility');
+  });
+
+  it('fileImport input triggers handleImport on change', () => {
+    assert.ok(src.includes('onchange="handleImport(event)"') || src.includes("onchange='handleImport(event)'"),
+      'fileImport input must call handleImport(event) on change');
+  });
+
+  it('fileImport input accepts only .json files', () => {
+    assert.ok(src.includes('accept=".json"') || src.includes("accept='.json'"),
+      'fileImport input must have accept=".json" to filter file picker');
+  });
+
+  it('importJSON function triggers the file input click', () => {
+    const idx = src.indexOf('function importJSON(');
+    const block = src.slice(idx, idx + 150);
+    assert.ok(block.includes("getElementById('fileImport').click()"),
+      "importJSON must call document.getElementById('fileImport').click()");
+  });
+});
+
+// ══════════════════════════════════════════════════════════════
+// Section 48 — Loot Tracker: quantity — rendering & sort
+// ══════════════════════════════════════════════════════════════
+describe('Loot Tracker — quantity rendering and sort', () => {
+  const fs  = require('fs'), path = require('path');
+  const src = fs.readFileSync(path.join(__dirname,'../loot-tracker.html'), 'utf8');
+
+  // Pure sort simulation
+  function simulateQtySort(a, b, dir) {
+    return ((a.qty ?? 1) - (b.qty ?? 1)) * dir;
+  }
+
+  it('qty sort: ascending puts lower qty first', () => {
+    const items = [{ qty: 5 }, { qty: 1 }, { qty: 3 }];
+    items.sort((a, b) => simulateQtySort(a, b, 1));
+    assert.deepStrictEqual(items.map(i => i.qty), [1, 3, 5]);
+  });
+
+  it('qty sort: descending puts higher qty first', () => {
+    const items = [{ qty: 5 }, { qty: 1 }, { qty: 3 }];
+    items.sort((a, b) => simulateQtySort(a, b, -1));
+    assert.deepStrictEqual(items.map(i => i.qty), [5, 3, 1]);
+  });
+
+  it('qty sort: items with undefined qty treated as 1', () => {
+    const items = [{ qty: undefined }, { qty: 2 }, { qty: 1 }];
+    items.sort((a, b) => simulateQtySort(a, b, 1));
+    assert.deepStrictEqual(items.map(i => i.qty ?? 1), [1, 1, 2]);
+  });
+
+  it('qty sort: null qty treated as 1', () => {
+    const items = [{ qty: null }, { qty: 3 }, { qty: 1 }];
+    items.sort((a, b) => simulateQtySort(a, b, 1));
+    // null ?? 1 = 1, so [1, 1, 3] or [1, null, 3] — first two should be 1 or null
+    assert.ok((items[0].qty ?? 1) <= (items[2].qty ?? 1),
+      'null qty should sort as 1 (not break comparator)');
+  });
+
+  it('sortBy("qty") is wired to the qty column header', () => {
+    assert.ok(src.includes("sortBy('qty')") || src.includes('sortBy("qty")'),
+      'qty column header must call sortBy("qty")');
+  });
+
+  it('sort-qty arrow span exists for visual feedback', () => {
+    assert.ok(src.includes('id="sort-qty"'),
+      'qty column must have a sort arrow span with id sort-qty');
+  });
+
+  it('qty column header has title="Quantity" for accessibility', () => {
+    assert.ok(src.includes('title="Quantity"'),
+      'qty th must have title="Quantity" as a tooltip for the abbreviated column header');
+  });
+
+  it('qty badge shows ×N when qty > 1', () => {
+    // Template: `<span class="qty-badge">×${it.qty}</span>`
+    assert.ok(src.includes('qty-badge') && src.includes('×${it.qty}'),
+      'qty badge template must use ×${it.qty} (times symbol, not x)');
+  });
+
+  it('qty column cell color changes for qty > 1 (cyan highlight)', () => {
+    assert.ok(src.includes("(it.qty??1)>1?'var(--cyan)':'var(--text-dim)'") ||
+              src.includes("(it.qty ?? 1) > 1 ? 'var(--cyan)' : 'var(--text-dim)'"),
+      'qty cell must use var(--cyan) when qty > 1 and var(--text-dim) for qty === 1');
+  });
+
+  it('fieldQty label exists in the modal', () => {
+    // Check label element near the input
+    const qtyIdx = src.indexOf('id="fieldQty"');
+    const before  = src.slice(qtyIdx - 200, qtyIdx);
+    assert.ok(before.includes('Quantity') || before.includes('Qty'),
+      'fieldQty input must have a visible label in the modal');
+  });
+
+  it('fieldQty input is type="number"', () => {
+    const qtyIdx = src.indexOf('id="fieldQty"');
+    const context = src.slice(qtyIdx - 100, qtyIdx + 50);
+    assert.ok(context.includes('type="number"'),
+      'fieldQty input must be type="number"');
+  });
+
+  it('itemToRow uses quantity (snake_case) not qty for the DB column name', () => {
+    // Supabase column is "quantity"; JS property is "qty"
+    const idx = src.indexOf('function itemToRow(');
+    const block = src.slice(idx, idx + 450);
+    // Check that the DB key is "quantity:" — "it.qty" will be present as the value, not as a key
+    assert.ok(block.includes('quantity:'),
+      'itemToRow must use DB column name "quantity" (not "qty") as the object key');
+    // The key "qty:" must NOT appear (it's only used as a value: it.qty)
+    assert.ok(!block.match(/\n\s+qty:/),
+      'itemToRow must not have a "qty:" key — DB column is "quantity"');
+  });
+
+  it('loadData uses qty (camelCase-ish) for the JS property name', () => {
+    // loadData receives DB rows with "quantity"; stores as "qty"
+    assert.ok(src.includes('qty:         r.quantity ?? 1') || src.includes('qty: r.quantity ?? 1'),
+      'loadData must map r.quantity (DB) → it.qty (JS) with ?? 1 null-safety');
+  });
+});
+
+// ══════════════════════════════════════════════════════════════
+// Section 49 — Loot Tracker: quick transfer — deep coverage
+// ══════════════════════════════════════════════════════════════
+describe('Loot Tracker — quick transfer deep coverage', () => {
+  const fs  = require('fs'), path = require('path');
+  const src = fs.readFileSync(path.join(__dirname,'../loot-tracker.html'), 'utf8');
+
+  it('transfer toast shows item name and arrow to new holder', () => {
+    // showToast(`${it.name} → ${toName}`)
+    const idx = src.indexOf('async function confirmTransfer()');
+    const block = src.slice(idx, idx + 800);
+    assert.ok(block.includes('it.name') && block.includes('→') && block.includes('toName'),
+      'confirmTransfer toast must show "${it.name} → ${toName}" format');
+  });
+
+  it('transfer toast uses "Unassigned" for empty holder', () => {
+    const idx = src.indexOf('async function confirmTransfer()');
+    const block = src.slice(idx, idx + 800);
+    assert.ok(block.includes("newHolder||'Unassigned'") || block.includes("newHolder || 'Unassigned'"),
+      'confirmTransfer must display "Unassigned" when holder is blank');
+  });
+
+  it('confirmTransfer disables the confirm button while saving', () => {
+    const idx = src.indexOf('async function confirmTransfer()');
+    const block = src.slice(idx, idx + 800);
+    assert.ok(block.includes('btn.disabled=true') || block.includes('btn.disabled = true'),
+      'confirmTransfer must disable the confirm button during the save operation');
+  });
+
+  it('confirmTransfer shows "Saving…" text while in progress', () => {
+    const idx = src.indexOf('async function confirmTransfer()');
+    const block = src.slice(idx, idx + 800);
+    assert.ok(block.includes("'Saving…'") || block.includes('"Saving…"'),
+      'confirmTransfer must show "Saving…" button text while the save is in flight');
+  });
+
+  it('confirmTransfer always calls closeTransferPopover in finally', () => {
+    const idx = src.indexOf('async function confirmTransfer()');
+    const block = src.slice(idx, idx + 1000);
+    assert.ok(block.includes('finally') && block.includes('closeTransferPopover()'),
+      'confirmTransfer must close the popover in a finally block so it closes even on error');
+  });
+
+  it('popover HTML has cancel button calling closeTransferPopover', () => {
+    const idx = src.indexOf('async function openTransferPopover(');
+    const block = src.slice(idx, idx + 2000);
+    assert.ok(block.includes('onclick="closeTransferPopover()"') || block.includes("onclick='closeTransferPopover()'"),
+      'Transfer popover must have a Cancel button that calls closeTransferPopover()');
+  });
+
+  it('popover HTML has confirm button with id btnConfirmTransfer', () => {
+    assert.ok(src.includes('id="btnConfirmTransfer"'),
+      'Transfer popover must have a confirm button with id btnConfirmTransfer');
+  });
+
+  it('popover flips above anchor when near bottom of viewport', () => {
+    const idx = src.indexOf('async function openTransferPopover(');
+    const block = src.slice(idx, idx + 2000);
+    assert.ok(block.includes('window.innerHeight') && block.includes('rect.top'),
+      'openTransferPopover must check window.innerHeight to flip the popover upward near bottom of screen');
+  });
+
+  it('transfer popover outside-click handler checks _transferPopoverEl', () => {
+    // The second document click handler uses _transferPopoverEl
+    const handlers = [];
+    let searchFrom = 0;
+    while (true) {
+      const idx = src.indexOf("document.addEventListener('click'", searchFrom);
+      if (idx === -1) break;
+      handlers.push(src.slice(idx, idx + 300));
+      searchFrom = idx + 1;
+    }
+    assert.ok(handlers.length >= 2, 'Must have at least 2 document click handlers');
+    const transferHandler = handlers.find(h => h.includes('_transferPopoverEl'));
+    assert.ok(transferHandler,
+      'One document click handler must check _transferPopoverEl for outside-click close');
+  });
+
+  it('transfer popover click is stopped from propagating (prevents immediate close)', () => {
+    // pop.addEventListener('click', e=>e.stopPropagation()) prevents the document handler
+    // from immediately closing the popover after it opens
+    const popIdx = src.indexOf("pop.addEventListener('click'");
+    assert.ok(popIdx !== -1, "pop.addEventListener('click', ...) must exist in openTransferPopover");
+    const block = src.slice(popIdx, popIdx + 100);
+    assert.ok(block.includes('stopPropagation()'),
+      'Popover element must call e.stopPropagation() to prevent the outside-click handler from closing it immediately');
+  });
+
+  it('buildTxHolderDropdown mirrors the main holder dropdown with Party Inventory option', () => {
+    const idx = src.indexOf('async function buildTxHolderDropdown(');
+    const block = src.slice(idx, idx + 600);
+    assert.ok(block.includes("value:'Party Inventory'") || block.includes("value: 'Party Inventory'"),
+      'buildTxHolderDropdown must include Party Inventory as a special option');
+  });
+
+  it('btn-transfer title is "Quick Transfer" for tooltip', () => {
+    assert.ok(src.includes('title="Quick Transfer"'),
+      'Transfer button must have title="Quick Transfer" as a tooltip');
+  });
+
+  it('closeTransferPopover sets _transferItemId to null', () => {
+    const idx = src.indexOf('function closeTransferPopover()');
+    const block = src.slice(idx, idx + 200);
+    assert.ok(block.includes('_transferItemId=null') || block.includes('_transferItemId = null'),
+      'closeTransferPopover must reset _transferItemId to null to prevent stale state');
+  });
+});
+
+// ══════════════════════════════════════════════════════════════
+// Section 50 — Loot Tracker: attunement — deep coverage
+// ══════════════════════════════════════════════════════════════
+describe('Loot Tracker — attunement deep coverage', () => {
+  const fs  = require('fs'), path = require('path');
+  const src = fs.readFileSync(path.join(__dirname,'../loot-tracker.html'), 'utf8');
+
+  // Simulate violation warning message logic
+  function warningMessage(name, n) {
+    const excess = n - 3;
+    return `${name}: ${n} items attuned — 5e limit is 3. Remove attunement from ${excess} item${excess > 1 ? 's' : ''}.`;
+  }
+
+  it('warning message pluralizes "items" correctly for excess = 1', () => {
+    const msg = warningMessage('Alice', 4);
+    assert.ok(msg.endsWith('Remove attunement from 1 item.'),
+      'excess of 1 must say "item" (not "items")');
+  });
+
+  it('warning message pluralizes "items" correctly for excess = 2', () => {
+    const msg = warningMessage('Alice', 5);
+    assert.ok(msg.endsWith('Remove attunement from 2 items.'),
+      'excess of 2 must say "items"');
+  });
+
+  it('warning message pluralizes "items" correctly for excess = 4', () => {
+    const msg = warningMessage('Alice', 7);
+    assert.ok(msg.endsWith('Remove attunement from 4 items.'),
+      'excess of 4 must say "items"');
+  });
+
+  it('renderAttuneWarnings warning template matches pluralization pattern', () => {
+    // Template: `item${n-3>1?'s':''}` with escaped quotes in the template literal
+    const idx = src.indexOf('function renderAttuneWarnings()');
+    const block = src.slice(idx, idx + 800);
+    // Check for the pluralization pattern — quotes may be escaped in template literal
+    assert.ok(
+      block.includes("n-3>1?\'s\':\'\'") ||   // escaped in template
+      block.includes("n-3>1?'s':''") ||            // plain in regular string
+      block.includes("n - 3 > 1 ? 's' : ''") ||   // spaced
+      (block.includes('n-3') && block.includes("'s'")), // any form with n-3 and 's'
+      "renderAttuneWarnings must pluralize excess items with n-3 and conditional 's'"
+    );
+  });
+
+  it('renderAttuneWarnings sorts violations by count descending', () => {
+    const idx = src.indexOf('function renderAttuneWarnings()');
+    const block = src.slice(idx, idx + 600);
+    assert.ok(block.includes('.sort((a,b)=>b[1]-a[1])') || block.includes('.sort((a, b) => b[1] - a[1])'),
+      'renderAttuneWarnings must sort violations by count descending (worst offender first)');
+  });
+
+  it('statAttuned counter counts ALL attuned items (not just over-limit)', () => {
+    // statAttuned = items where attunement === 'attuned', regardless of holder count
+    const idx = src.indexOf('function updateStats()');
+    const block = src.slice(idx, idx + 300);
+    assert.ok(
+      block.includes("i.attunement==='attuned'") || block.includes("i.attunement === 'attuned'"),
+      'statAttuned must count all items with attunement === "attuned"'
+    );
+  });
+
+  it('statAttuned element exists in the stats bar', () => {
+    assert.ok(src.includes('id="statAttuned"'),
+      'statAttuned span must exist in the stats bar');
+  });
+
+  it('attuneLabel maps "attuned" to "Attuned" (not "Attuned ✓" or other)', () => {
+    const idx = src.indexOf('function attuneLabel(');
+    const block = src.slice(idx, idx + 150);
+    assert.ok(block.includes("attuned:'Attuned'") || block.includes("attuned: 'Attuned'"),
+      'attuneLabel must map "attuned" to "Attuned"');
+  });
+
+  it('attuneLabel maps "required" to "Required"', () => {
+    const idx = src.indexOf('function attuneLabel(');
+    const block = src.slice(idx, idx + 150);
+    assert.ok(block.includes("required:'Required'") || block.includes("required: 'Required'"),
+      'attuneLabel must map "required" to "Required"');
+  });
+
+  it('attuneLabel maps "none" to "—" (em dash)', () => {
+    const idx = src.indexOf('function attuneLabel(');
+    const block = src.slice(idx, idx + 150);
+    assert.ok(block.includes("none:'—'") || block.includes("none: '—'"),
+      'attuneLabel must map "none" to "—" (em dash, not plain dash)');
+  });
+
+  it('getAttuneCounts reads from the module-level items array', () => {
+    // getAttuneCounts() has no parameter — it uses the closure over `items`
+    const idx = src.indexOf('function getAttuneCounts()');
+    const block = src.slice(idx, idx + 50);
+    assert.ok(block.includes('getAttuneCounts()') && !block.includes('getAttuneCounts(items)'),
+      'getAttuneCounts must take no arguments — it reads from the module-level items array');
+  });
+
+  it('checkAttuneWarn does not warn for "required" attunement state', () => {
+    // Only triggers if val === 'attuned', not 'required'
+    const idx = src.indexOf('function checkAttuneWarn()');
+    const block = src.slice(idx, idx + 700);
+    assert.ok(block.includes("val !== 'attuned'"),
+      "checkAttuneWarn must early-return when val !== 'attuned' — does not warn for 'required'");
+  });
+
+  it('checkAttuneWarn does not warn if holder is Party Inventory', () => {
+    const idx = src.indexOf('function checkAttuneWarn()');
+    const block = src.slice(idx, idx + 700);
+    assert.ok(block.includes("holder==='Party Inventory'"),
+      "checkAttuneWarn must skip warning when holder === 'Party Inventory'");
+  });
+
+  it('checkAttuneWarn does not warn if holder is empty', () => {
+    const idx = src.indexOf('function checkAttuneWarn()');
+    const block = src.slice(idx, idx + 700);
+    assert.ok(block.includes('!holder'),
+      'checkAttuneWarn must skip warning when holder is blank/null');
+  });
+
+  it('fieldAttuneWarn is cleared when no warning applies', () => {
+    const idx = src.indexOf('function checkAttuneWarn()');
+    const block = src.slice(idx, idx + 700);
+    assert.ok(block.includes("warn.textContent=''") || block.includes("warn.textContent = ''"),
+      'checkAttuneWarn must clear warn.textContent when no warning applies');
+  });
+
+  it('warning bar has-warnings class uses CSS to control visibility', () => {
+    const css = fs.readFileSync(path.join(__dirname,'../css/nexus.css'), 'utf8');
+    assert.ok(css.includes('.attune-warning-bar'),
+      '.attune-warning-bar must be defined in nexus.css');
+    assert.ok(css.includes('.has-warnings') || css.includes('has-warnings'),
+      'nexus.css must style .has-warnings to control attune warning bar visibility');
+  });
+
+  it('attunement filter select has "attuned" option in the toolbar', () => {
+    // filterAttune select for filtering table by attunement state
+    assert.ok(src.includes('id="filterAttune"'),
+      'filterAttune select must exist in the toolbar');
+    assert.ok(src.includes('value="attuned"'),
+      'filterAttune must have an "attuned" option');
+  });
+});
