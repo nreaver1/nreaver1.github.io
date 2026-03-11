@@ -45,6 +45,11 @@
       <span class="nav-label">Loot Tracker</span>
       <span class="nav-pip"></span>
     </a>
+    <a class="sidenav-link" href="session-log.html">
+      <span class="nav-icon">📋</span>
+      <span class="nav-label">Session Log</span>
+      <span class="nav-pip"></span>
+    </a>
     <a class="sidenav-link" href="admin.html">
       <span class="nav-icon">⚙</span>
       <span class="nav-label">Admin</span>
@@ -125,21 +130,26 @@
       <span class="card-arrow">OPEN →</span>
     </a>
 
-    <!-- Session Log placeholder -->
-    <div class="module-card coming-soon"
-         style="--card-accent:#4a6080; --card-glow:rgba(74,96,128,0.05)">
+    <!-- Session Log -->
+    <a class="module-card active-module" href="session-log.html"
+       style="--card-accent:#a78bfa; --card-glow:rgba(167,139,250,0.1)">
       <div class="card-head">
-        <div class="card-icon" style="filter:none;opacity:0.3">📋</div>
-        <span class="card-status status-planned">PLANNED</span>
+        <div class="card-icon">📋</div>
+        <span class="card-status status-live">LIVE</span>
       </div>
       <div>
-        <div class="card-title" style="color:var(--text-dim)">SESSION LOG</div>
-        <div class="card-desc">Record session recaps, XP milestones, and key story moments.</div>
+        <div class="card-title">SESSION LOG</div>
+        <div class="card-desc">Chronicle sessions, track quests, and build your NPC index.</div>
       </div>
       <div class="card-stats">
-        <div class="cstat"><span class="cstat-val" style="color:var(--text-dim)">—</span><span class="cstat-label">Sessions</span></div>
+        <div class="cstat"><span class="cstat-val" id="statSessionCount">—</span><span class="cstat-label">Sessions</span></div>
+        <div class="cstat"><span class="cstat-val" id="statSessionComplete">—</span><span class="cstat-label">Complete</span></div>
+        <div class="cstat"><span class="cstat-val" id="statSessionQuests">—</span><span class="cstat-label">Active Quests</span></div>
+        <div class="cstat"><span class="cstat-val" id="statNpcCount">—</span><span class="cstat-label">NPCs</span></div>
       </div>
-    </div>
+      <div id="statLatestSession" style="font-family:'Share Tech Mono',monospace;font-size:0.6rem;color:rgba(167,139,250,0.5);margin-top:0.4rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis"></div>
+      <span class="card-arrow">OPEN →</span>
+    </a>
 
   </div>
 
@@ -331,6 +341,35 @@
       const items = await db.select('loot_items');
       document.getElementById('statItems').textContent = items.length;
       document.getElementById('statAttuned').textContent = items.filter(i => i.attunement === 'attuned').length;
+    } catch(e) {
+      console.error(e);
+    }
+  }
+
+  async function loadSessionStats() {
+    try {
+      const [sessions, npcs] = await Promise.all([
+        db.select('session_log', { order: 'number.desc' }),
+        db.select('npcs'),
+      ]);
+      // Counts
+      const completeCount = sessions.filter(s => s.status === 'complete').length;
+      let activeQuests = 0;
+      for (const s of sessions) {
+        activeQuests += (s.quests || []).filter(q => q.status === 'active').length;
+      }
+      document.getElementById('statSessionCount').textContent    = sessions.length;
+      document.getElementById('statSessionComplete').textContent = completeCount;
+      document.getElementById('statSessionQuests').textContent   = activeQuests;
+      document.getElementById('statNpcCount').textContent        = npcs.length;
+      // Latest session label
+      const latest = sessions[0]; // already ordered number desc
+      const latestEl = document.getElementById('statLatestSession');
+      if (latestEl) {
+        latestEl.textContent = latest
+          ? `Latest: #${latest.number} — ${latest.title}`
+          : '';
+      }
     } catch(e) {
       console.error(e);
     }
@@ -530,10 +569,14 @@
   document.addEventListener('keydown', e => {
     if (e.key === 'Escape') closeIdxMemberModal();
   });
-  loadTerms().then(() => applyTerms());
+  loadModuleSettings().then(() => {
+    applyModuleVisibility();
+    loadTerms().then(() => applyTerms());
+  });
   loadPartyStats();
   loadTreasuryStats();
   loadLootStats();
+  loadSessionStats();
 </script>
 
 

@@ -318,6 +318,35 @@ function lootTypeEmoji(type) {
 
 
 // ──────────────────────────────────────────────────────────────
+//  SESSION LOG
+// ──────────────────────────────────────────────────────────────
+
+/**
+ * slugify(name)
+ * Converts a display name into a URL/citation-safe slug.
+ *
+ * Steps:
+ *   1. Lowercase
+ *   2. Replace any run of non-alphanumeric characters with a single hyphen
+ *   3. Strip leading/trailing hyphens
+ *
+ * Used to auto-generate the ^citation key for new NPCs.
+ *
+ * Examples:
+ *   slugify('Captain Draegar')  → 'captain-draegar'
+ *   slugify("Lord Kael'thas")   → 'lord-kael-thas'
+ *   slugify('  Baba Yaga  ')    → 'baba-yaga'
+ *   slugify('')                 → ''
+ */
+function slugify(name) {
+  return String(name || '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+}
+
+
+// ──────────────────────────────────────────────────────────────
 //  MODULE EXPORT (Node / test runner only)
 //  When loaded in a browser via <script>, module is undefined
 //  and this block is skipped safely.
@@ -337,5 +366,6 @@ if (typeof module !== 'undefined') {
     LOOT_GROUP_EMOJI,
     DAMAGE_TYPES,
     lootTypeEmoji,
+    slugify,
   };
 }

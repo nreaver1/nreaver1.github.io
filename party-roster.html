@@ -48,6 +48,11 @@
       <span class="nav-label">Loot Tracker</span>
       <span class="nav-pip"></span>
     </a>
+    <a class="sidenav-link" href="session-log.html">
+      <span class="nav-icon">📋</span>
+      <span class="nav-label">Session Log</span>
+      <span class="nav-pip"></span>
+    </a>
     <a class="sidenav-link" href="admin.html">
       <span class="nav-icon">⚙</span><span class="nav-label">Admin</span><span class="nav-pip"></span>
     </a>
@@ -1647,9 +1652,13 @@ async function lt_saveItem(){
 // ══════════════════════════════════════════════════════════════
 //  BOOT
 // ══════════════════════════════════════════════════════════════
-loadTerms().catch(()=>{});
-// Boot: load members + loot + treasury in parallel for fastest first render
-loadData().then(()=>Promise.all([prefetchLootItems(),prefetchTreasury()]).then(()=>render()));
+loadModuleSettings().then(() => {
+  applyModuleVisibility();
+  if (!enforceModuleGuard('partyRoster')) return;
+  loadTerms().catch(() => {});
+  // Boot: load members + loot + treasury in parallel for fastest first render
+  loadData().then(()=>Promise.all([prefetchLootItems(),prefetchTreasury()]).then(()=>render()));
+});
 </script>
 
 <script>

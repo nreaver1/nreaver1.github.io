@@ -46,6 +46,11 @@
       <span class="nav-label">Loot Tracker</span>
       <span class="nav-pip"></span>
     </a>
+    <a class="sidenav-link" href="session-log.html">
+      <span class="nav-icon">📋</span>
+      <span class="nav-label">Session Log</span>
+      <span class="nav-pip"></span>
+    </a>
     <a class="sidenav-link" href="admin.html">
       <span class="nav-icon">⚙</span><span class="nav-label">Admin</span><span class="nav-pip"></span>
     </a>
@@ -2094,16 +2099,21 @@ document.addEventListener('keydown', e => {
 // ══════════════════════════════════
 //  INIT
 // ══════════════════════════════════
-Promise.all([
-  loadData(),
-  loadTxMembers(),   // pre-warm cache so renderLedger shows member photos on first render
-]).then(() => {
-  render();
-  // Set default sort indicator (newest first)
-  const arrow = document.getElementById('sort-id');
-  if (arrow) { arrow.textContent = ' ▼'; }
-  const th = arrow ? arrow.closest('th') : null;
-  if (th) th.classList.add('sorted');
+loadModuleSettings().then(() => {
+  applyModuleVisibility();
+  if (!enforceModuleGuard('treasury')) return;
+  loadTerms().catch(() => {});
+  Promise.all([
+    loadData(),
+    loadTxMembers(),   // pre-warm cache so renderLedger shows member photos on first render
+  ]).then(() => {
+    render();
+    // Set default sort indicator (newest first)
+    const arrow = document.getElementById('sort-id');
+    if (arrow) { arrow.textContent = ' ▼'; }
+    const th = arrow ? arrow.closest('th') : null;
+    if (th) th.classList.add('sorted');
+  });
 });
 </script>
 

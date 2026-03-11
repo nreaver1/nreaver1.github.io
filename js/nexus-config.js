@@ -269,6 +269,117 @@ async function saveTerms(newTerms) {
   await db.upsert('nexus_settings', { key: 'term_mappings', value: JSON.stringify(TERMS) });
 }
 
+
+// ══════════════════════════════════════════════════════════════
+//  MODULE VISIBILITY SETTINGS
+//  Stored in nexus_settings under key 'module_enabled'.
+//  Controls which module pages are accessible to users.
+//
+//  Usage:
+//    await loadModuleSettings();          // call once at page boot
+//    isModuleEnabled('partyRoster')       // → true/false
+//    enforceModuleGuard('partyRoster')    // redirects if disabled
+// ══════════════════════════════════════════════════════════════
+
+// Which modules can be toggled. Key matches TERMS key; href is the page file.
+const MODULE_DEFS = [
+  { key: 'partyRoster', label: 'Party Roster',  href: 'party-roster.html',  icon: '👥' },
+  { key: 'treasury',    label: 'Treasury',       href: 'treasury.html',      icon: '💰' },
+  { key: 'lootTracker', label: 'Loot Tracker',   href: 'loot-tracker.html',  icon: '⚔️' },
+  { key: 'sessionLog',  label: 'Session Log',    href: 'session-log.html',   icon: '📋' },
+];
+
+// Defaults — all enabled
+const MODULE_ENABLED_DEFAULTS = {
+  partyRoster: true,
+  treasury:    true,
+  lootTracker: true,
+  sessionLog:  true,
+};
+
+// Mutable working copy
+let MODULE_ENABLED = { ...MODULE_ENABLED_DEFAULTS };
+
+// Load from Supabase
+async function loadModuleSettings() {
+  try {
+    const rows = await db.select('nexus_settings', { filter: 'key=eq.module_enabled' });
+    if (rows && rows.length && rows[0].value) {
+      const saved = typeof rows[0].value === 'string'
+        ? JSON.parse(rows[0].value)
+        : rows[0].value;
+      MODULE_ENABLED = { ...MODULE_ENABLED_DEFAULTS, ...saved };
+    }
+  } catch(e) {
+    console.info('[NEXUS] Module settings not loaded, using defaults:', e.message);
+  }
+}
+
+// Persist to Supabase
+async function saveModuleSettings(settings) {
+  MODULE_ENABLED = { ...MODULE_ENABLED_DEFAULTS, ...settings };
+  await db.upsert('nexus_settings', {
+    key:   'module_enabled',
+    value: JSON.stringify(MODULE_ENABLED),
+  });
+}
+
+// Returns true if a module is currently enabled
+function isModuleEnabled(key) {
+  // If the key is not in the map at all, default to enabled
+  return MODULE_ENABLED[key] !== false;
+}
+
+// Call this at the top of each module page's boot sequence.
+// If the module is disabled, replaces the page body with a
+// "module disabled" screen and stops execution.
+// Returns true if the module is enabled (caller should continue),
+// false if it is disabled (caller should stop).
+function enforceModuleGuard(moduleKey) {
+  if (isModuleEnabled(moduleKey)) return true;
+  // Replace body content with a friendly disabled screen
+  document.body.innerHTML = `
+    <style>
+      body { background:#060809; color:#8b949e; font-family:'Share Tech Mono',monospace;
+             display:flex; align-items:center; justify-content:center; min-height:100vh; margin:0; }
+      .guard-box { text-align:center; max-width:400px; padding:2rem; }
+      .guard-icon { font-size:2.5rem; margin-bottom:1rem; opacity:0.3; }
+      .guard-title { font-family:'Orbitron',sans-serif; font-size:0.8rem; font-weight:700;
+                     letter-spacing:0.2em; color:#4a5568; margin-bottom:0.8rem; }
+      .guard-msg { font-size:0.7rem; line-height:1.7; color:#4a5568; margin-bottom:1.5rem; }
+      .guard-link { display:inline-block; font-size:0.65rem; letter-spacing:0.12em;
+                    color:#a78bfa; text-decoration:none; border:1px solid rgba(167,139,250,0.3);
+                    padding:0.5rem 1.2rem; border-radius:3px;
+                    transition:opacity 0.15s; }
+      .guard-link:hover { opacity:0.7; }
+    </style>
+    <div class="guard-box">
+      <div class="guard-icon">🔒</div>
+      <div class="guard-title">Module Disabled</div>
+      <div class="guard-msg">
+        This module has been turned off by the campaign administrator.
+        Contact your GM if you think this is an error.
+      </div>
+      <a class="guard-link" href="index.html">← Return to Dashboard</a>
+    </div>`;
+  return false;
+}
+
+// Apply module visibility to the current page's sidenav and (on index) module cards.
+// Call after loadModuleSettings() on every page.
+function applyModuleVisibility() {
+  MODULE_DEFS.forEach(mod => {
+    const enabled = isModuleEnabled(mod.key);
+    // Sidenav links — hide the link entirely when disabled
+    document.querySelectorAll(`.sidenav-link[href="${mod.href}"]`).forEach(el => {
+      el.style.display = enabled ? '' : 'none';
+    });
+    // Dashboard module cards (index.html only)
+    const card = document.querySelector(`.module-card[href="${mod.href}"]`);
+    if (card) card.style.display = enabled ? '' : 'none';
+  });
+}
+
 // ══════════════════════════════════════════════════════════════
 //  BUTTON LOADING STATE  — shared across all modules
 //

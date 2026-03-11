@@ -46,6 +46,11 @@
       <span class="nav-label">Loot Tracker</span>
       <span class="nav-pip"></span>
     </a>
+    <a class="sidenav-link" href="session-log.html">
+      <span class="nav-icon">📋</span>
+      <span class="nav-label">Session Log</span>
+      <span class="nav-pip"></span>
+    </a>
     <a class="sidenav-link" href="admin.html">
       <span class="nav-icon">⚙</span><span class="nav-label">Admin</span><span class="nav-pip"></span>
     </a>
@@ -1255,11 +1260,15 @@ async function populateHolderFilter(){
   if(current) sel.value=current;
 }
 
-loadTerms().catch(()=>{});
-Promise.all([
-  loadData(),
-  loadPartyMembersAsync(),   // pre-warm cache so renderHolderCell shows photos on first render
-]).then(()=>{ renderTable(); populateHolderFilter(); });
+loadModuleSettings().then(() => {
+  applyModuleVisibility();
+  if (!enforceModuleGuard('lootTracker')) return;
+  loadTerms().catch(() => {});
+  Promise.all([
+    loadData(),
+    loadPartyMembersAsync(),   // pre-warm cache so renderHolderCell shows photos on first render
+  ]).then(()=>{ renderTable(); populateHolderFilter(); });
+});
 </script>
 
 <script>

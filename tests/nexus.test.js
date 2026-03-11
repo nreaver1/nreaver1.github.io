@@ -2989,21 +2989,24 @@ describe('Campaign Snapshot — logic correctness (pure JS)', () => {
       'exportSnapshot must hide the status div before fetching');
   });
 
-  it('SNAPSHOT_TABLES has exactly 5 entries', () => {
+  it('SNAPSHOT_TABLES has exactly 8 entries (Stage 8: session tables added)', () => {
     const match = src.match(/const SNAPSHOT_TABLES\s*=\s*\[([\s\S]*?)\];/);
     assert.ok(match, 'SNAPSHOT_TABLES must be defined');
     const entries = (match[1].match(/'\w+'/g) || []);
-    assert.strictEqual(entries.length, 5,
-      `SNAPSHOT_TABLES must have exactly 5 entries, found ${entries.length}: ${entries.join(', ')}`);
+    assert.strictEqual(entries.length, 8,
+      `SNAPSHOT_TABLES must have exactly 8 entries, found ${entries.length}: ${entries.join(', ')}`);
   });
 
-  it('SNAPSHOT_TABLES order: data tables before nexus_settings', () => {
-    // nexus_settings should be last so table data is always exported first
+  it('SNAPSHOT_TABLES order: nexus_settings last; session_log before session_events', () => {
     const match = src.match(/const SNAPSHOT_TABLES\s*=\s*\[([\s\S]*?)\];/);
     const entries = (match[1].match(/'\w+'/g) || []).map(s => s.replace(/'/g, ''));
-    const settingsIdx = entries.indexOf('nexus_settings');
+    const settingsIdx    = entries.indexOf('nexus_settings');
+    const sessionLogIdx  = entries.indexOf('session_log');
+    const sessionEvtIdx  = entries.indexOf('session_events');
     assert.ok(settingsIdx === entries.length - 1,
       `nexus_settings must be last in SNAPSHOT_TABLES (found at index ${settingsIdx})`);
+    assert.ok(sessionLogIdx < sessionEvtIdx,
+      'session_log must come before session_events (FK dependency)');
   });
 });
 
@@ -4083,5 +4086,3792 @@ describe('Loot Tracker — attunement deep coverage', () => {
       'filterAttune select must exist in the toolbar');
     assert.ok(src.includes('value="attuned"'),
       'filterAttune must have an "attuned" option');
+  });
+});
+
+// ══════════════════════════════════════════════════════════════
+// Section 50 — Stage 1 SQL: Session Log schema
+// ══════════════════════════════════════════════════════════════
+describe('SQL Stage 1 — Session Log schema (supabase_setup.sql)', () => {
+  const fs   = require('fs'), path = require('path');
+  const sql  = fs.readFileSync(path.join(__dirname, '../sql/supabase_setup.sql'), 'utf8');
+  const mig  = fs.readFileSync(path.join(__dirname, '../sql/supabase_session_log.sql'), 'utf8');
+
+  // ── Table existence ──────────────────────────────────────────
+  it('supabase_setup.sql defines session_log table', () => {
+    assert.ok(sql.includes('create table if not exists session_log'),
+      'session_log table must be defined in supabase_setup.sql');
+  });
+
+  it('supabase_setup.sql defines session_events table', () => {
+    assert.ok(sql.includes('create table if not exists session_events'),
+      'session_events table must be defined in supabase_setup.sql');
+  });
+
+  it('supabase_setup.sql defines npcs table', () => {
+    assert.ok(sql.includes('create table if not exists npcs'),
+      'npcs table must be defined in supabase_setup.sql');
+  });
+
+  // ── session_log columns ──────────────────────────────────────
+  it('session_log has id text primary key', () => {
+    const idx   = sql.indexOf('create table if not exists session_log');
+    const block = sql.slice(idx, idx + 800);
+    assert.ok(block.includes('id') && block.includes('primary key'),
+      'session_log must have an id text primary key');
+  });
+
+  it('session_log has number int not null', () => {
+    const idx   = sql.indexOf('create table if not exists session_log');
+    const block = sql.slice(idx, idx + 800);
+    assert.ok(block.includes('number') && block.includes('int') && block.includes('not null'),
+      'session_log must have a number int not null column');
+  });
+
+  it('session_log has title text not null', () => {
+    const idx   = sql.indexOf('create table if not exists session_log');
+    const block = sql.slice(idx, idx + 800);
+    assert.ok(block.includes('title') && block.includes('not null'),
+      'session_log must have a title text not null column');
+  });
+
+  it('session_log has status defaulting to draft', () => {
+    const idx   = sql.indexOf('create table if not exists session_log');
+    const block = sql.slice(idx, idx + 800);
+    assert.ok(block.includes('status') && block.includes("default 'draft'"),
+      "session_log status must default to 'draft'");
+  });
+
+  it('session_log has quests jsonb defaulting to empty array', () => {
+    const idx   = sql.indexOf('create table if not exists session_log');
+    const block = sql.slice(idx, idx + 800);
+    assert.ok(block.includes('quests') && block.includes('jsonb') && block.includes("default '[]'"),
+      "session_log quests must be jsonb defaulting to '[]'");
+  });
+
+  it('session_log has session_npcs jsonb defaulting to empty array', () => {
+    const idx   = sql.indexOf('create table if not exists session_log');
+    const block = sql.slice(idx, idx + 800);
+    assert.ok(block.includes('session_npcs') && block.includes('jsonb') && block.includes("default '[]'"),
+      "session_log session_npcs must be jsonb defaulting to '[]'");
+  });
+
+  it('session_log has created_at and updated_at timestamps', () => {
+    const idx   = sql.indexOf('create table if not exists session_log');
+    const block = sql.slice(idx, idx + 1000);
+    assert.ok(block.includes('created_at') && block.includes('updated_at'),
+      'session_log must have both created_at and updated_at columns');
+  });
+
+  // ── session_events columns ───────────────────────────────────
+  it('session_events has id text primary key', () => {
+    const idx   = sql.indexOf('create table if not exists session_events');
+    const block = sql.slice(idx, idx + 600);
+    assert.ok(block.includes('id') && block.includes('primary key'),
+      'session_events must have an id text primary key');
+  });
+
+  it('session_events has session_id foreign key with ON DELETE CASCADE', () => {
+    const idx   = sql.indexOf('create table if not exists session_events');
+    const block = sql.slice(idx, idx + 600);
+    assert.ok(
+      block.includes('session_id') &&
+      block.includes('references session_log(id)') &&
+      block.includes('on delete cascade'),
+      'session_events.session_id must reference session_log(id) with ON DELETE CASCADE'
+    );
+  });
+
+  it('session_events has text column not null', () => {
+    const idx   = sql.indexOf('create table if not exists session_events');
+    const block = sql.slice(idx, idx + 600);
+    assert.ok(block.includes('text') && block.includes('not null'),
+      'session_events must have a text not null column');
+  });
+
+  it('session_events has members jsonb defaulting to empty array', () => {
+    const idx   = sql.indexOf('create table if not exists session_events');
+    const block = sql.slice(idx, idx + 600);
+    assert.ok(
+      block.includes('members') && block.includes('jsonb') && block.includes("default '[]'"),
+      "session_events.members must be jsonb defaulting to '[]'"
+    );
+  });
+
+  it('session_events has sort_order int defaulting to 0', () => {
+    const idx   = sql.indexOf('create table if not exists session_events');
+    const block = sql.slice(idx, idx + 600);
+    assert.ok(
+      block.includes('sort_order') && block.includes('int') && block.includes('default 0'),
+      'session_events must have sort_order int default 0 for UI ordering'
+    );
+  });
+
+  it('session_events does NOT have updated_at (events are replaced, not patched)', () => {
+    const idx   = sql.indexOf('create table if not exists session_events');
+    const block = sql.slice(idx, idx + 600);
+    assert.ok(!block.includes('updated_at'),
+      'session_events must NOT have updated_at — events are deleted and re-inserted, not patched'
+    );
+  });
+
+  // ── npcs columns ────────────────────────────────────────────
+  it('npcs has id text primary key', () => {
+    const idx   = sql.indexOf('create table if not exists npcs');
+    const block = sql.slice(idx, idx + 700);
+    assert.ok(block.includes('id') && block.includes('primary key'),
+      'npcs must have an id text primary key');
+  });
+
+  it('npcs has slug text not null unique (citation key)', () => {
+    const idx   = sql.indexOf('create table if not exists npcs');
+    const block = sql.slice(idx, idx + 700);
+    assert.ok(
+      block.includes('slug') && block.includes('not null') && block.includes('unique'),
+      'npcs.slug must be text not null unique — it is the citation key for ^{slug} syntax'
+    );
+  });
+
+  it('npcs has name text not null', () => {
+    const idx   = sql.indexOf('create table if not exists npcs');
+    const block = sql.slice(idx, idx + 700);
+    assert.ok(block.includes('name') && block.includes('not null'),
+      'npcs must have a name text not null column');
+  });
+
+  it('npcs disposition defaults to unknown', () => {
+    const idx   = sql.indexOf('create table if not exists npcs');
+    const block = sql.slice(idx, idx + 700);
+    assert.ok(
+      block.includes('disposition') && block.includes("default 'unknown'"),
+      "npcs.disposition must default to 'unknown'"
+    );
+  });
+
+  it('npcs first_seen references session_log(id) ON DELETE SET NULL', () => {
+    const idx   = sql.indexOf('create table if not exists npcs');
+    const block = sql.slice(idx, idx + 700);
+    assert.ok(
+      block.includes('first_seen') &&
+      block.includes('references session_log(id)') &&
+      block.includes('on delete set null'),
+      'npcs.first_seen must reference session_log(id) with ON DELETE SET NULL — NPC survives session deletion'
+    );
+  });
+
+  it('npcs has created_at and updated_at', () => {
+    const idx   = sql.indexOf('create table if not exists npcs');
+    const block = sql.slice(idx, idx + 700);
+    assert.ok(block.includes('created_at') && block.includes('updated_at'),
+      'npcs must have both created_at and updated_at timestamps');
+  });
+
+  // ── RLS ──────────────────────────────────────────────────────
+  it('RLS is enabled on all three Session Log tables', () => {
+    assert.ok(sql.includes('alter table session_log    enable row level security'),
+      'RLS must be enabled on session_log');
+    assert.ok(sql.includes('alter table session_events enable row level security'),
+      'RLS must be enabled on session_events');
+    assert.ok(sql.includes('alter table npcs           enable row level security'),
+      'RLS must be enabled on npcs');
+  });
+
+  it('public_all policy exists for all three Session Log tables', () => {
+    assert.ok(
+      sql.includes('create policy "public_all" on session_log'),
+      'public_all policy must exist for session_log'
+    );
+    assert.ok(
+      sql.includes('create policy "public_all" on session_events'),
+      'public_all policy must exist for session_events'
+    );
+    assert.ok(
+      sql.includes('create policy "public_all" on npcs'),
+      'public_all policy must exist for npcs'
+    );
+  });
+
+  // ── Triggers ─────────────────────────────────────────────────
+  it('updated_at trigger exists for session_log', () => {
+    assert.ok(sql.includes('trg_session_log_updated'),
+      'trg_session_log_updated trigger must be defined');
+  });
+
+  it('updated_at trigger exists for npcs', () => {
+    assert.ok(sql.includes('trg_npcs_updated'),
+      'trg_npcs_updated trigger must be defined');
+  });
+
+  it('no updated_at trigger for session_events (by design)', () => {
+    assert.ok(!sql.includes('trg_session_events_updated'),
+      'session_events must NOT have an updated_at trigger — events are replaced not patched');
+  });
+
+  // ── Migration file mirrors master ────────────────────────────
+  it('migration file defines all three tables', () => {
+    assert.ok(mig.includes('create table if not exists session_log'),    'migration must define session_log');
+    assert.ok(mig.includes('create table if not exists session_events'), 'migration must define session_events');
+    assert.ok(mig.includes('create table if not exists npcs'),           'migration must define npcs');
+  });
+
+  it('migration file includes create or replace for set_updated_at function (safe re-run)', () => {
+    assert.ok(mig.includes('create or replace function set_updated_at()'),
+      'migration must use CREATE OR REPLACE for set_updated_at so it is safe on both fresh and existing installs');
+  });
+
+  it('migration file includes RLS and policies', () => {
+    assert.ok(mig.includes('enable row level security') && mig.includes('public_all'),
+      'migration file must include RLS setup matching the master setup file');
+  });
+
+  it('migration file uses IF NOT EXISTS on all CREATE TABLE statements', () => {
+    const tables = ['session_log', 'session_events', 'npcs'];
+    tables.forEach(t => {
+      assert.ok(
+        mig.includes(`create table if not exists ${t}`),
+        `migration must use CREATE TABLE IF NOT EXISTS for ${t} to be safe on re-run`
+      );
+    });
+  });
+
+  // ── Design intent comments ───────────────────────────────────
+  it('session_log.summary column comment mentions citation syntax', () => {
+    assert.ok(
+      sql.includes('^{npc-slug}') || sql.includes('citation'),
+      'session_log.summary must have a comment referencing the ^{npc-slug} citation syntax'
+    );
+  });
+
+  it('npcs.slug column comment describes its role as a citation key', () => {
+    const idx   = sql.indexOf('create table if not exists npcs');
+    const block = sql.slice(idx, idx + 700);
+    assert.ok(
+      block.includes('citation') || block.includes('URL-safe'),
+      'npcs.slug must have a comment explaining its role as the citation key'
+    );
+  });
+
+  it('session_events cascade comment or annotation is present', () => {
+    const idx   = sql.indexOf('create table if not exists session_events');
+    const block = sql.slice(idx, idx + 600);
+    assert.ok(
+      block.includes('cascade') || block.includes('CASCADE'),
+      'session_events FK must use ON DELETE CASCADE so events are cleaned up with their session'
+    );
+  });
+});
+
+// ══════════════════════════════════════════════════════════════
+// Section 51 — Stage 2 Scaffold: session-log.html structure
+// ══════════════════════════════════════════════════════════════
+describe('Stage 2 Scaffold — session-log.html DOM structure', () => {
+  const fs   = require('fs'), path = require('path');
+  const src  = fs.readFileSync(path.join(__dirname, '../session-log.html'), 'utf8');
+  const idx  = fs.readFileSync(path.join(__dirname, '../index.html'), 'utf8');
+
+  // ── Page identity ────────────────────────────────────────────
+  it('has correct page title', () => {
+    assert.ok(src.includes('<title>NEXUS // Session Log</title>'),
+      'page title must be "NEXUS // Session Log"');
+  });
+
+  it('uses body class page-session', () => {
+    assert.ok(src.includes('class="has-sidenav page-session"'),
+      'body must have "has-sidenav page-session" classes');
+  });
+
+  it('loads all required scripts and stylesheet', () => {
+    assert.ok(src.includes('js/nexus-config.js'), 'must load nexus-config.js');
+    assert.ok(src.includes('js/nexus-utils.js'),  'must load nexus-utils.js');
+    assert.ok(src.includes('css/nexus.css'),       'must load nexus.css');
+  });
+
+  // ── Nav ──────────────────────────────────────────────────────
+  it('sidenav has all 6 links including session-log.html', () => {
+    const links = ['index.html','party-roster.html','treasury.html','loot-tracker.html','session-log.html','admin.html'];
+    links.forEach(link => assert.ok(src.includes(`href="${link}"`), `sidenav must include link to ${link}`));
+  });
+
+  it('session-log.html nav link is marked active', () => {
+    assert.ok(
+      src.includes('sidenav-link active') && src.includes('href="session-log.html"'),
+      'the session-log.html sidenav link must have the "active" class'
+    );
+  });
+
+  it('has nav toggle button for mobile', () => {
+    assert.ok(src.includes('id="navToggle"'), 'nav toggle button must exist');
+    assert.ok(src.includes('id="navOverlay"'), 'nav overlay must exist');
+  });
+
+  // ── Header ───────────────────────────────────────────────────
+  it('header contains SESSION LOG brand name', () => {
+    assert.ok(src.includes('SESSION LOG'), 'header must show SESSION LOG brand name');
+  });
+
+  it('has view toggle with sessions and npc buttons', () => {
+    assert.ok(src.includes('id="btnViewSessions"'), 'view toggle must have sessions button');
+    assert.ok(src.includes('id="btnViewNpcs"'),     'view toggle must have NPC Index button');
+    assert.ok(src.includes("switchView('sessions')"), 'sessions button must call switchView');
+    assert.ok(src.includes("switchView('npcs')"),     'NPC button must call switchView');
+  });
+
+  it('sessions button is active by default', () => {
+    assert.ok(
+      src.includes('sl-view-btn active') && src.includes('id="btnViewSessions"'),
+      'sessions view button must start with "active" class'
+    );
+  });
+
+  it('has New Session button that calls openSessionModal', () => {
+    assert.ok(src.includes('id="btnNewSession"'), '+ New Session button must have id btnNewSession');
+    assert.ok(src.includes('onclick="openSessionModal()"'), 'button must call openSessionModal()');
+  });
+
+  it('has Add NPC button hidden by default', () => {
+    assert.ok(src.includes('id="btnNewNpc"'), '+ Add NPC button must exist with id btnNewNpc');
+    assert.ok(
+      src.includes('id="btnNewNpc"') && src.includes("style=\"display:none\""),
+      '+ Add NPC button must be hidden by default (sessions view is default)'
+    );
+  });
+
+  // ── Stats bar ────────────────────────────────────────────────
+  it('stats bar has statSessions element', () => {
+    assert.ok(src.includes('id="statSessions"'), 'stats bar must have statSessions element');
+  });
+
+  it('stats bar has statActiveQuests element', () => {
+    assert.ok(src.includes('id="statActiveQuests"'), 'stats bar must have statActiveQuests element');
+  });
+
+  it('stats bar has statNpcs element', () => {
+    assert.ok(src.includes('id="statNpcs"'), 'stats bar must have statNpcs element');
+  });
+
+  it('stats bar has statComplete element', () => {
+    assert.ok(src.includes('id="statComplete"'), 'stats bar must have statComplete element');
+  });
+
+  // ── Sessions view ────────────────────────────────────────────
+  it('has sessionsView container', () => {
+    assert.ok(src.includes('id="sessionsView"'), 'sessionsView div must exist');
+  });
+
+  it('has session search input', () => {
+    assert.ok(src.includes('id="sessionSearch"'), 'session search input must exist');
+    // oninput also manages the clear button visibility alongside renderSessions()
+    assert.ok(src.includes('renderSessions()'), 'search must call renderSessions() on input');
+  });
+
+  it('has filterStatus select with draft and complete options', () => {
+    assert.ok(src.includes('id="filterStatus"'), 'filterStatus select must exist');
+    assert.ok(src.includes('value="draft"'),    'filterStatus must have "draft" option');
+    assert.ok(src.includes('value="complete"'), 'filterStatus must have "complete" option');
+  });
+
+  it('has sessionGrid container for card rendering', () => {
+    assert.ok(src.includes('id="sessionGrid"'), 'sessionGrid container must exist');
+  });
+
+  // ── NPC Index view ───────────────────────────────────────────
+  it('has npcView container hidden by default', () => {
+    assert.ok(src.includes('id="npcView"'),        'npcView div must exist');
+    assert.ok(src.includes('id="npcView" style="display:none"'), 'npcView must be hidden by default');
+  });
+
+  it('has npc search input', () => {
+    assert.ok(src.includes('id="npcSearch"'), 'NPC search input must exist');
+    assert.ok(src.includes('oninput="renderNpcs()"'), 'NPC search must call renderNpcs() on input');
+  });
+
+  it('has filterDisposition select with all 5 dispositions', () => {
+    assert.ok(src.includes('id="filterDisposition"'),   'filterDisposition select must exist');
+    assert.ok(src.includes('value="allied"'),    'must have allied option');
+    assert.ok(src.includes('value="friendly"'),  'must have friendly option');
+    assert.ok(src.includes('value="neutral"'),   'must have neutral option');
+    assert.ok(src.includes('value="hostile"'),   'must have hostile option');
+    assert.ok(src.includes('value="unknown"'),   'must have unknown option');
+  });
+
+  it('has npcGrid container for NPC card rendering', () => {
+    assert.ok(src.includes('id="npcGrid"'), 'npcGrid container must exist');
+  });
+
+  // ── JS state and functions ───────────────────────────────────
+  it('declares sessions, events, npcs, npcMap state variables', () => {
+    assert.ok(src.includes('let sessions'), 'must declare sessions state array');
+    assert.ok(src.includes('let events'),   'must declare events state object');
+    assert.ok(src.includes('let npcs'),     'must declare npcs state array');
+    assert.ok(src.includes('let npcMap'),   'must declare npcMap');
+  });
+
+  it('declares currentView and expandedId state', () => {
+    assert.ok(src.includes("let currentView"), 'must declare currentView');
+    assert.ok(src.includes("let expandedId"),  'must declare expandedId');
+  });
+
+  it('defines boot() function that calls renderView()', () => {
+    assert.ok(src.includes('async function boot()'), 'boot() must be defined');
+    assert.ok(src.includes('renderView()'), 'boot() must call renderView()');
+  });
+
+  it('boot() loads all three tables in parallel via Promise.all', () => {
+    assert.ok(
+      src.includes('Promise.all') &&
+      src.includes('session_log') &&
+      src.includes('session_events') &&
+      src.includes("'npcs'"),
+      'boot() must load session_log, session_events, and npcs in parallel'
+    );
+  });
+
+  it('defines switchView() that toggles between sessions and npcs', () => {
+    assert.ok(src.includes('function switchView('), 'switchView() must be defined');
+    assert.ok(src.includes("sessionsView"), 'switchView must reference sessionsView');
+    assert.ok(src.includes("npcView"),      'switchView must reference npcView');
+  });
+
+  it('defines renderSessions() function', () => {
+    assert.ok(src.includes('function renderSessions()'), 'renderSessions() must be defined');
+  });
+
+  it('defines renderNpcs() function', () => {
+    assert.ok(src.includes('function renderNpcs()'), 'renderNpcs() must be defined');
+  });
+
+  it('defines renderCard() that renders a session card', () => {
+    assert.ok(src.includes('function renderCard('), 'renderCard() must be defined');
+  });
+
+  it('defines toggleCard() for expand/collapse', () => {
+    assert.ok(src.includes('function toggleCard('), 'toggleCard() must be defined');
+  });
+
+  it('defines switchTab() for card tab navigation', () => {
+    assert.ok(src.includes('function switchTab('), 'switchTab() must be defined');
+  });
+
+  it('defines buildNpcMap() that builds slug → npc lookup', () => {
+    assert.ok(src.includes('function buildNpcMap()'), 'buildNpcMap() must be defined');
+    assert.ok(src.includes('npc.slug'), 'buildNpcMap must use npc.slug as key');
+  });
+
+  it('defines getSessionAppearances() for NPC session badges', () => {
+    assert.ok(src.includes('function getSessionAppearances('), 'getSessionAppearances() must be defined');
+  });
+
+  it('defines jumpToSession() for NPC badge → session deep-link', () => {
+    assert.ok(src.includes('function jumpToSession('), 'jumpToSession() must be defined');
+    assert.ok(src.includes("switchView('sessions')"), 'jumpToSession must switch to sessions view');
+  });
+
+  it('defines updateStats() that updates all 4 stat elements', () => {
+    assert.ok(src.includes('function updateStats()'), 'updateStats() must be defined');
+    assert.ok(src.includes('statSessions'),     'updateStats must update statSessions');
+    assert.ok(src.includes('statNpcs'),         'updateStats must update statNpcs');
+    assert.ok(src.includes('statComplete'),     'updateStats must update statComplete');
+    assert.ok(src.includes('statActiveQuests'), 'updateStats must update statActiveQuests');
+  });
+
+  it('defines all four tab render functions', () => {
+    assert.ok(src.includes('function renderTabOverview('),  'renderTabOverview must be defined');
+    assert.ok(src.includes('function renderTabMoments('),   'renderTabMoments must be defined');
+    assert.ok(src.includes('function renderTabNpcs('),      'renderTabNpcs must be defined');
+    assert.ok(src.includes('function renderTabQuests('),    'renderTabQuests must be defined');
+  });
+
+  it('session cards have all 4 tab buttons', () => {
+    assert.ok(src.includes("switchTab") && src.includes("'overview'"), 'overview tab must exist');
+    assert.ok(src.includes("'moments'"), 'moments tab must exist');
+    assert.ok(src.includes("'quests'"),  'quests tab must exist');
+  });
+
+  it('defines esc() for XSS protection', () => {
+    assert.ok(src.includes('function esc('), 'esc() must be defined for XSS protection');
+    assert.ok(src.includes('&amp;'), 'esc() must escape ampersands');
+    assert.ok(src.includes('&lt;'),  'esc() must escape less-than');
+  });
+
+  it('defines showToast() for user feedback', () => {
+    assert.ok(src.includes('function showToast('), 'showToast() must be defined');
+    assert.ok(src.includes('id="toast"'), 'toast element must exist in DOM');
+  });
+
+  // ── CSS classes ──────────────────────────────────────────────
+  it('defines session card CSS classes', () => {
+    assert.ok(src.includes('session-card'),  'session-card class must be defined');
+    assert.ok(src.includes('sc-header'),     'sc-header class must be defined');
+    assert.ok(src.includes('sc-title'),      'sc-title class must be defined');
+    assert.ok(src.includes('sc-status'),     'sc-status class must be defined');
+    assert.ok(src.includes('sc-chevron'),    'sc-chevron class must be defined');
+    assert.ok(src.includes('sc-body'),       'sc-body class must be defined');
+    assert.ok(src.includes('sc-tabs'),       'sc-tabs class must be defined');
+    assert.ok(src.includes('sc-tab-panel'),  'sc-tab-panel class must be defined');
+  });
+
+  it('defines disposition badge CSS classes for all 5 values', () => {
+    assert.ok(src.includes('disp-allied'),   'disp-allied CSS class must exist');
+    assert.ok(src.includes('disp-friendly'), 'disp-friendly CSS class must exist');
+    assert.ok(src.includes('disp-neutral'),  'disp-neutral CSS class must exist');
+    assert.ok(src.includes('disp-hostile'),  'disp-hostile CSS class must exist');
+    assert.ok(src.includes('disp-unknown'),  'disp-unknown CSS class must exist');
+  });
+
+  it('defines quest status CSS classes for all 4 states', () => {
+    assert.ok(src.includes('qs-active'),    'qs-active CSS class must exist');
+    assert.ok(src.includes('qs-completed'), 'qs-completed CSS class must exist');
+    assert.ok(src.includes('qs-failed'),    'qs-failed CSS class must exist');
+    assert.ok(src.includes('qs-on-hold'),   'qs-on-hold CSS class must exist');
+  });
+
+  it('defines NPC card CSS classes', () => {
+    assert.ok(src.includes('npc-card'),              'npc-card class must exist');
+    assert.ok(src.includes('npc-card-name'),         'npc-card-name class must exist');
+    assert.ok(src.includes('npc-session-badge'),     'npc-session-badge class must exist');
+    assert.ok(src.includes('npc-appearances'),       'npc-appearances class must exist');
+  });
+
+  it('defines sl-view-toggle and sl-view-btn CSS classes', () => {
+    assert.ok(src.includes('sl-view-toggle'), 'sl-view-toggle class must be defined');
+    assert.ok(src.includes('sl-view-btn'),    'sl-view-btn class must be defined');
+  });
+
+  it('uses page-session brand accent color (violet)', () => {
+    assert.ok(src.includes('#a78bfa') || src.includes('a78bfa'),
+      'page must use the violet session-log accent color #a78bfa');
+  });
+
+  // ── index.html dashboard card ────────────────────────────────
+  it('index.html Session Log card is now an active-module link', () => {
+    assert.ok(idx.includes('href="session-log.html"'), 'index.html must link to session-log.html');
+    assert.ok(
+      idx.includes('active-module') && idx.includes('session-log.html'),
+      'Session Log card must be an active-module, not coming-soon'
+    );
+    // The old placeholder was a <div class="module-card coming-soon"> with no href.
+    // It is now an <a> tag — verify the <a> exists and no orphaned coming-soon div for session log remains.
+    assert.ok(
+      !idx.includes('<div class="module-card coming-soon"' + "\n" + '         style=\"--card-accent:#4a6080; --card-glow'),
+      'old coming-soon placeholder div must be replaced by an <a> active-module card');
+    // The old placeholder was a <div class="module-card coming-soon"> with no href.
+    // It is now an <a> tag — verify the <a> exists and no orphaned coming-soon div for session log remains.
+    assert.ok(
+      !idx.includes('<div class="module-card coming-soon"' + "\n" + '         style=\"--card-accent:#4a6080; --card-glow'),
+      'old coming-soon placeholder div must be replaced by an <a> active-module card');
+  });
+
+  it('index.html Session Log card shows LIVE status badge', () => {
+    assert.ok(
+      idx.includes('session-log.html') && idx.includes('status-live'),
+      'Session Log card must show status-live badge'
+    );
+  });
+
+  it('index.html has statSessionCount and statNpcCount elements', () => {
+    assert.ok(idx.includes('id="statSessionCount"'), 'statSessionCount must exist on dashboard');
+    assert.ok(idx.includes('id="statNpcCount"'),     'statNpcCount must exist on dashboard');
+  });
+
+  it('index.html calls loadSessionStats() at boot', () => {
+    assert.ok(idx.includes('loadSessionStats()'), 'index.html must call loadSessionStats() on boot');
+  });
+
+  it('index.html defines loadSessionStats() that queries both tables', () => {
+    assert.ok(idx.includes('async function loadSessionStats()'), 'loadSessionStats function must be defined');
+    assert.ok(idx.includes("'session_log'") || idx.includes('"session_log"'), 'must query session_log');
+    assert.ok(idx.includes("'npcs'")        || idx.includes('"npcs"'),        'must query npcs');
+  });
+
+  // ── Nav propagation ──────────────────────────────────────────
+  it('party-roster.html nav includes session-log.html', () => {
+    const pr = fs.readFileSync(path.join(__dirname, '../party-roster.html'), 'utf8');
+    assert.ok(pr.includes('href="session-log.html"'), 'party-roster.html nav must include Session Log link');
+  });
+
+  it('treasury.html nav includes session-log.html', () => {
+    const t = fs.readFileSync(path.join(__dirname, '../treasury.html'), 'utf8');
+    assert.ok(t.includes('href="session-log.html"'), 'treasury.html nav must include Session Log link');
+  });
+
+  it('loot-tracker.html nav includes session-log.html', () => {
+    const l = fs.readFileSync(path.join(__dirname, '../loot-tracker.html'), 'utf8');
+    assert.ok(l.includes('href="session-log.html"'), 'loot-tracker.html nav must include Session Log link');
+  });
+
+  it('admin.html nav includes session-log.html', () => {
+    const a = fs.readFileSync(path.join(__dirname, '../admin.html'), 'utf8');
+    assert.ok(a.includes('href="session-log.html"'), 'admin.html nav must include Session Log link');
+  });
+});
+
+// ══════════════════════════════════════════════════════════════
+// Section 52 — Stage 3: Session CRUD
+// ══════════════════════════════════════════════════════════════
+describe('Stage 3 — Session CRUD', () => {
+  const fs  = require('fs'), path = require('path');
+  const src = fs.readFileSync(path.join(__dirname, '../session-log.html'), 'utf8');
+
+  // ── Modal HTML structure ─────────────────────────────────────
+  it('session modal exists with id="sessionModal"', () => {
+    assert.ok(src.includes('id="sessionModal"'), 'sessionModal must exist in the DOM');
+  });
+
+  it('session modal has a modal-backdrop that closes on outside click', () => {
+    assert.ok(
+      src.includes('id="sessionModal"') && src.includes('closeSessionModal()'),
+      'sessionModal must call closeSessionModal on backdrop click'
+    );
+  });
+
+  it('session modal has 4 tab buttons (overview, moments, npcs, quests)', () => {
+    assert.ok(src.includes("data-tab=\"overview\""),  'modal must have overview tab');
+    assert.ok(src.includes("data-tab=\"moments\""),   'modal must have moments tab');
+    assert.ok(src.includes("data-tab=\"npcs\""),      'modal must have npcs tab');
+    assert.ok(src.includes("data-tab=\"quests\""),    'modal must have quests tab');
+  });
+
+  it('session modal has 4 corresponding panel divs', () => {
+    assert.ok(src.includes('data-panel="overview"'), 'modal must have overview panel');
+    assert.ok(src.includes('data-panel="moments"'),  'modal must have moments panel');
+    assert.ok(src.includes('data-panel="npcs"'),     'modal must have npcs panel');
+    assert.ok(src.includes('data-panel="quests"'),   'modal must have quests panel');
+  });
+
+  it('overview panel has session number input (smNumber)', () => {
+    assert.ok(src.includes('id="smNumber"'), 'smNumber input must exist');
+    assert.ok(src.includes('type="number"') && src.includes('id="smNumber"'),
+      'smNumber must be a number input');
+  });
+
+  it('overview panel has title input (smTitle) marked required', () => {
+    assert.ok(src.includes('id="smTitle"'), 'smTitle input must exist');
+    assert.ok(src.includes('field-required') && src.includes('smTitle'),
+      'title field must be marked required');
+  });
+
+  it('overview panel has real date input (smRealDate)', () => {
+    assert.ok(src.includes('id="smRealDate"'), 'smRealDate input must exist');
+    assert.ok(src.includes('type="date"') && src.includes('id="smRealDate"'),
+      'smRealDate must be a date input');
+  });
+
+  it('overview panel has world date text input (smWorldDate)', () => {
+    assert.ok(src.includes('id="smWorldDate"'), 'smWorldDate input must exist');
+  });
+
+  it('overview panel has status toggle buttons for draft and complete', () => {
+    assert.ok(src.includes('data-status="draft"'),    'status toggle must have draft button');
+    assert.ok(src.includes('data-status="complete"'), 'status toggle must have complete button');
+    assert.ok(src.includes('id="smStatusHidden"'),    'hidden status input must exist');
+  });
+
+  it('overview panel has summary textarea (smSummary)', () => {
+    assert.ok(src.includes('id="smSummary"'), 'smSummary textarea must exist');
+  });
+
+  it('overview panel has inline error divs for title and number', () => {
+    assert.ok(src.includes('id="smTitleError"'),  'smTitleError div must exist');
+    assert.ok(src.includes('id="smNumberError"'), 'smNumberError div must exist');
+  });
+
+  it('modal footer has Cancel and Save Session buttons', () => {
+    assert.ok(src.includes('onclick="closeSessionModal()"') && src.includes('Cancel'),
+      'modal must have a Cancel button calling closeSessionModal');
+    assert.ok(src.includes('id="btnSaveSession"'), 'btnSaveSession must exist');
+    assert.ok(src.includes('onclick="saveSession()"'), 'save button must call saveSession()');
+  });
+
+  // ── JS functions ─────────────────────────────────────────────
+  it('defines openSessionModal(id, startTab) — opens and pre-fills modal', () => {
+    assert.ok(
+      src.includes('function openSessionModal(id, startTab)') ||
+      src.includes('function openSessionModal(id)'),
+      'openSessionModal must be defined');
+    assert.ok(src.includes('smTitle'), 'openSessionModal must reference smTitle');
+    assert.ok(src.includes('smNumber'), 'openSessionModal must reference smNumber');
+    assert.ok(src.includes('smRealDate'), 'openSessionModal must reference smRealDate');
+    assert.ok(src.includes('smSummary'), 'openSessionModal must reference smSummary');
+  });
+
+  it('openSessionModal auto-increments session number for new sessions', () => {
+    assert.ok(
+      src.includes('nextNumber') || src.includes('max(') || src.includes('Math.max'),
+      'openSessionModal must compute next session number via Math.max'
+    );
+  });
+
+  it('openSessionModal defaults real_date to today for new sessions', () => {
+    assert.ok(
+      src.includes('new Date().toISOString().slice(0,10)') ||
+      src.includes('toISOString().slice'),
+      'openSessionModal must default real_date to today'
+    );
+  });
+
+  it('defines closeSessionModal()', () => {
+    assert.ok(src.includes('function closeSessionModal()'), 'closeSessionModal must be defined');
+    assert.ok(
+      src.includes("classList.remove('open')") || src.includes('.remove("open")'),
+      'closeSessionModal must remove the "open" class'
+    );
+  });
+
+  it('defines switchModalTab(tab) that updates sm-tab and sm-panel classes', () => {
+    assert.ok(src.includes('function switchModalTab('), 'switchModalTab must be defined');
+    assert.ok(src.includes('sm-tab'),   'switchModalTab must reference sm-tab');
+    assert.ok(src.includes('sm-panel'), 'switchModalTab must reference sm-panel');
+  });
+
+  it('defines setSessionStatus(status) that updates hidden input and buttons', () => {
+    assert.ok(src.includes('function setSessionStatus('), 'setSessionStatus must be defined');
+    assert.ok(src.includes('smStatusHidden'), 'setSessionStatus must write to smStatusHidden');
+    assert.ok(src.includes('sm-status-btn'), 'setSessionStatus must toggle sm-status-btn classes');
+  });
+
+  it('defines async saveSession() with validation', () => {
+    assert.ok(src.includes('async function saveSession()'), 'saveSession must be async');
+  });
+
+  it('saveSession() validates title is non-empty', () => {
+    assert.ok(
+      src.includes('smTitleError') &&
+      (src.includes('Title is required') || src.includes('required')),
+      'saveSession must validate title and show smTitleError'
+    );
+  });
+
+  it('saveSession() validates session number is a positive integer', () => {
+    assert.ok(
+      src.includes('smNumberError') && src.includes('number'),
+      'saveSession must validate the session number'
+    );
+  });
+
+  it('saveSession() calls db.upsert on session_log', () => {
+    assert.ok(
+      src.includes("db.upsert('session_log'") || src.includes('db.upsert("session_log"'),
+      'saveSession must call db.upsert on session_log'
+    );
+  });
+
+  it('saveSession() uses setLoading and setModalLoading during save', () => {
+    assert.ok(src.includes('setLoading(btn'), 'saveSession must use setLoading');
+    assert.ok(src.includes('setModalLoading'), 'saveSession must use setModalLoading');
+  });
+
+  it('saveSession() preserves existing quests and session_npcs when editing', () => {
+    assert.ok(
+      src.includes('quests:') && src.includes('session_npcs:'),
+      'saveSession row must include quests and session_npcs fields'
+    );
+    assert.ok(
+      src.includes("_editingSessionId") && src.includes('quests'),
+      'saveSession must preserve existing quests when editing'
+    );
+  });
+
+  it('saveSession() expands the saved card after save', () => {
+    assert.ok(
+      src.includes('expandedId = id'),
+      'saveSession must set expandedId to show the saved card'
+    );
+  });
+
+  it('saveSession() re-sorts sessions by number desc after save', () => {
+    assert.ok(
+      src.includes('sessions.sort') && src.includes('b.number - a.number'),
+      'saveSession must re-sort sessions by number descending'
+    );
+  });
+
+  it('saveSession() calls updateStats() and renderSessions() after save', () => {
+    assert.ok(src.includes('updateStats()'),    'saveSession must call updateStats()');
+    assert.ok(src.includes('renderSessions()'), 'saveSession must call renderSessions()');
+  });
+
+  it('saveSession() handles errors and restores button state in finally block', () => {
+    assert.ok(src.includes('} finally {'), 'saveSession must have a finally block');
+    assert.ok(
+      src.includes('setLoading(btn, false)'),
+      'saveSession finally block must restore button loading state'
+    );
+  });
+
+  it('defines async deleteSession(id) with nexusConfirm guard', () => {
+    assert.ok(src.includes('async function deleteSession(id)'), 'deleteSession must be async');
+    assert.ok(
+      src.includes('nexusConfirm') && src.includes('deleteSession'),
+      'deleteSession must use nexusConfirm before deleting'
+    );
+  });
+
+  it('deleteSession() calls db.delete on session_log', () => {
+    assert.ok(
+      src.includes("db.delete('session_log'") || src.includes('db.delete("session_log"'),
+      'deleteSession must call db.delete on session_log'
+    );
+  });
+
+  it('deleteSession() relies on CASCADE — does NOT call db.delete on session_events', () => {
+    // The schema has ON DELETE CASCADE, so we should NOT see a separate events delete
+    const deleteBlock = src.slice(src.indexOf('async function deleteSession'));
+    const nextFn = deleteBlock.indexOf('\nasync function', 10);
+    const fnBody = deleteBlock.slice(0, nextFn > 0 ? nextFn : 500);
+    assert.ok(
+      !fnBody.includes("db.delete('session_events'") &&
+      !fnBody.includes('db.delete("session_events"') &&
+      !fnBody.includes("db.deleteWhere('session_events"),
+      'deleteSession must NOT manually delete session_events — ON DELETE CASCADE handles it'
+    );
+  });
+
+  it('deleteSession() clears expandedId if the deleted session was expanded', () => {
+    assert.ok(
+      src.includes('expandedId === id') || src.includes("expandedId = null"),
+      'deleteSession must clear expandedId when deleting the expanded session'
+    );
+  });
+
+  it('deleteSession() calls updateStats() and renderSessions() after delete', () => {
+    const deleteBlock = src.slice(src.indexOf('async function deleteSession'));
+    assert.ok(deleteBlock.includes('updateStats()'),    'deleteSession must call updateStats()');
+    assert.ok(deleteBlock.includes('renderSessions()'), 'deleteSession must call renderSessions()');
+  });
+
+  it('deleteSession() mention NPCs not affected in confirm message', () => {
+    assert.ok(
+      src.includes('NPCs will not be affected') || src.includes('NPC') && src.includes('deleteSession'),
+      'deleteSession confirm message should reassure that NPCs are not deleted'
+    );
+  });
+
+  // ── CSS ──────────────────────────────────────────────────────
+  it('defines .sm-status-btn CSS class', () => {
+    assert.ok(src.includes('.sm-status-btn'), 'sm-status-btn CSS class must be defined');
+  });
+
+  it('sm-status-btn.active styles differ for draft (amber) and complete (green)', () => {
+    assert.ok(
+      src.includes('data-status="draft"') && src.includes('data-status="complete"'),
+      'status toggle buttons must use data-status attribute'
+    );
+    assert.ok(
+      src.includes('active[data-status="draft"]') || src.includes("active[data-status='draft']"),
+      'draft active style must be defined'
+    );
+    assert.ok(
+      src.includes('active[data-status="complete"]') || src.includes("active[data-status='complete']"),
+      'complete active style must be defined'
+    );
+  });
+
+  it('defines .sm-panel and .sm-panel.active CSS for tab visibility', () => {
+    assert.ok(src.includes('.sm-panel'), '.sm-panel CSS must be defined');
+    assert.ok(
+      src.includes('.sm-panel.active') || src.includes('.sm-panel .active'),
+      '.sm-panel.active must be defined'
+    );
+  });
+
+  it('defines .modal-label and .modal-input styles scoped to body.page-session', () => {
+    assert.ok(src.includes('.modal-label'), '.modal-label CSS must be defined');
+    assert.ok(src.includes('.modal-input'), '.modal-input CSS must be defined');
+  });
+
+  // ── Stub preservation ────────────────────────────────────────
+  it('openNpcModal and deleteNpc are real functions (implemented in Stage 5)', () => {
+    assert.ok(src.includes('function openNpcModal('), 'openNpcModal must be defined');
+    assert.ok(src.includes('function deleteNpc('),    'deleteNpc must be defined');
+    // Stubs replaced — these must NOT just show a toast
+    assert.ok(!src.includes("showToast('NPC modal coming in Stage 5.")
+           && !src.includes("showToast('NPC delete coming in Stage 5."),
+      'NPC functions must be real implementations, not Stage-5 stubs');
+  });
+});
+
+// ══════════════════════════════════════════════════════════════
+// Section 53 — Stage 4: Events (Moments tab)
+// ══════════════════════════════════════════════════════════════
+describe('Stage 4 — Events (Moments tab)', () => {
+  const fs  = require('fs'), path = require('path');
+  const src = fs.readFileSync(path.join(__dirname, '../session-log.html'), 'utf8');
+
+  // ── State variables ──────────────────────────────────────────
+  it('declares _draftMoments state variable', () => {
+    assert.ok(src.includes('let _draftMoments'), '_draftMoments state must be declared');
+  });
+
+  it('declares _partyMembers cache variable', () => {
+    assert.ok(src.includes('let _partyMembers'), '_partyMembers cache must be declared');
+  });
+
+  // ── Modal HTML panel ─────────────────────────────────────────
+  it('moments panel stub is replaced with real editor', () => {
+    assert.ok(!src.includes('Moments editor coming in Stage 4'),
+      'Stage 4 stub text must be removed');
+  });
+
+  it('moments panel has smMomentsList container', () => {
+    assert.ok(src.includes('id="smMomentsList"'),
+      'smMomentsList container must exist in the moments panel');
+  });
+
+  it('moments panel has + Add Moment button calling addMoment()', () => {
+    assert.ok(src.includes('onclick="addMoment()"'),
+      '+ Add Moment button must call addMoment()');
+  });
+
+  // ── Moment row structure ─────────────────────────────────────
+  it('moment rows have a text input with oninput="updateMomentText(...)"', () => {
+    assert.ok(src.includes('updateMomentText('),
+      'moment input must call updateMomentText on input');
+  });
+
+  it('moment rows have a member select calling updateMomentMember(...)', () => {
+    assert.ok(src.includes('updateMomentMember('),
+      'member select must call updateMomentMember on change');
+  });
+
+  it('moment rows have a remove button calling removeMoment(...)', () => {
+    assert.ok(src.includes('removeMoment('),
+      'moment row must have a remove button calling removeMoment');
+  });
+
+  it('moment rows have a drag handle with class sm-moment-drag', () => {
+    assert.ok(src.includes('sm-moment-drag'),
+      'moment rows must include a drag handle with class sm-moment-drag');
+  });
+
+  // ── Functions ────────────────────────────────────────────────
+  it('defines async loadMembersForModal() with caching guard', () => {
+    assert.ok(src.includes('async function loadMembersForModal()'),
+      'loadMembersForModal must be defined');
+    assert.ok(src.includes('_partyMembers.length') && src.includes('return'),
+      'loadMembersForModal must short-circuit if already loaded');
+    assert.ok(
+      src.includes("db.select('party_members'") || src.includes('db.select("party_members"'),
+      'loadMembersForModal must query party_members'
+    );
+  });
+
+  it('defines memberOptions(selectedMembers) that builds option HTML', () => {
+    assert.ok(src.includes('function memberOptions('),
+      'memberOptions must be defined');
+    assert.ok(src.includes('— untagged —') || src.includes('untagged'),
+      'memberOptions must include an "untagged" default option');
+    assert.ok(src.includes('_partyMembers.map'),
+      'memberOptions must map over _partyMembers');
+  });
+
+  it('defines buildMomentsEditor() that renders _draftMoments into smMomentsList', () => {
+    assert.ok(src.includes('function buildMomentsEditor()'),
+      'buildMomentsEditor must be defined');
+    assert.ok(src.includes('smMomentsList'),
+      'buildMomentsEditor must reference smMomentsList');
+    assert.ok(src.includes('_draftMoments.map') || src.includes('_draftMoments.length'),
+      'buildMomentsEditor must use _draftMoments');
+  });
+
+  it('buildMomentsEditor() shows empty state when _draftMoments is empty', () => {
+    assert.ok(
+      src.includes('No moments yet') || src.includes('Add Moment'),
+      'buildMomentsEditor must show an empty-state message when no moments'
+    );
+  });
+
+  it('defines addMoment() that pushes a new draft and calls buildMomentsEditor', () => {
+    assert.ok(src.includes('function addMoment()'),
+      'addMoment must be defined');
+    assert.ok(src.includes('_draftMoments.push('),
+      'addMoment must push a new entry to _draftMoments');
+    assert.ok(src.includes('buildMomentsEditor()'),
+      'addMoment must call buildMomentsEditor() to re-render');
+  });
+
+  it('addMoment() focuses the newly added input after render', () => {
+    const fnStart = src.indexOf('function addMoment()');
+    const fnEnd   = src.indexOf('\nfunction ', fnStart + 1);
+    const fnBody  = src.slice(fnStart, fnEnd > 0 ? fnEnd : fnStart + 400);
+    assert.ok(fnBody.includes('.focus()'),
+      'addMoment must focus the new input after adding');
+  });
+
+  it('defines removeMoment(idx) that splices _draftMoments and rebuilds editor', () => {
+    assert.ok(src.includes('function removeMoment('),
+      'removeMoment must be defined');
+    assert.ok(src.includes('_draftMoments.splice('),
+      'removeMoment must splice _draftMoments');
+    const fnStart = src.indexOf('function removeMoment(');
+    const fnEnd   = src.indexOf('\nfunction ', fnStart + 1);
+    const fnBody  = src.slice(fnStart, fnEnd > 0 ? fnEnd : fnStart + 200);
+    assert.ok(fnBody.includes('buildMomentsEditor()'),
+      'removeMoment must call buildMomentsEditor() after splicing');
+  });
+
+  it('defines updateMomentText(idx, value) that mutates _draftMoments in-place', () => {
+    assert.ok(src.includes('function updateMomentText('),
+      'updateMomentText must be defined');
+    assert.ok(
+      src.includes("_draftMoments[idx].text = value") ||
+      src.includes('_draftMoments[idx].text=value'),
+      'updateMomentText must set _draftMoments[idx].text'
+    );
+  });
+
+  it('defines updateMomentMember(idx, memberName) that updates members array', () => {
+    assert.ok(src.includes('function updateMomentMember('),
+      'updateMomentMember must be defined');
+    assert.ok(src.includes('_draftMoments[idx].members'),
+      'updateMomentMember must update _draftMoments[idx].members');
+    assert.ok(
+      src.includes('[memberName]') || src.includes('[member'),
+      'updateMomentMember must wrap memberName in an array'
+    );
+    assert.ok(
+      src.includes('[]') || src.includes('members = memberName ?'),
+      'updateMomentMember must set members to [] when memberName is empty'
+    );
+  });
+
+  it('defines momentKeydown(e, idx) that adds a moment on Enter on the last row', () => {
+    assert.ok(src.includes('function momentKeydown('),
+      'momentKeydown must be defined');
+    assert.ok(src.includes("e.key !== 'Enter'") || src.includes('e.key === \'Enter\''),
+      'momentKeydown must check for Enter key');
+    assert.ok(src.includes('addMoment()'),
+      'momentKeydown must call addMoment() when Enter is pressed on last row');
+  });
+
+  it('momentKeydown moves focus to the next input when not on the last row', () => {
+    const fnStart = src.indexOf('function momentKeydown(');
+    const fnEnd   = src.indexOf('\nfunction ', fnStart + 1);
+    const fnBody  = src.slice(fnStart, fnEnd > 0 ? fnEnd : fnStart + 500);
+    assert.ok(fnBody.includes('.focus()'),
+      'momentKeydown must focus the next input when not on the last row');
+  });
+
+  // ── openSessionModal integration ────────────────────────────
+  it('openSessionModal pre-fills _draftMoments from events[] when editing', () => {
+    assert.ok(
+      src.includes('_draftMoments = id') || src.includes('_draftMoments ='),
+      'openSessionModal must populate _draftMoments from events[id]'
+    );
+    assert.ok(
+      src.includes('events[id]'),
+      'openSessionModal must source draft moments from events[id]'
+    );
+  });
+
+  it('openSessionModal initialises _draftMoments to [] for new sessions', () => {
+    assert.ok(
+      src.includes(': []') || src.includes(': [];\n'),
+      'openSessionModal must set _draftMoments = [] for new sessions'
+    );
+  });
+
+  it('openSessionModal calls loadMembersForModal then buildMomentsEditor', () => {
+    assert.ok(src.includes('loadMembersForModal()'),
+      'openSessionModal must call loadMembersForModal');
+    assert.ok(
+      src.includes('loadMembersForModal().then(() => buildMomentsEditor())') ||
+      (src.includes('loadMembersForModal') && src.includes('buildMomentsEditor')),
+      'openSessionModal must chain buildMomentsEditor after member load'
+    );
+  });
+
+  // ── saveSession integration ──────────────────────────────────
+  it('saveSession deletes existing session_events before re-inserting', () => {
+    assert.ok(
+      src.includes("db.deleteWhere('session_events'") ||
+      src.includes('db.deleteWhere("session_events"'),
+      'saveSession must call db.deleteWhere on session_events'
+    );
+    assert.ok(
+      src.includes('session_id=eq.') || src.includes('session_id=eq'),
+      'deleteWhere must filter by session_id'
+    );
+  });
+
+  it('saveSession filters out blank moment texts before saving', () => {
+    assert.ok(
+      src.includes('.filter(m => m.text.trim())') ||
+      src.includes('filter(m =>') || src.includes('text.trim()'),
+      'saveSession must filter out empty moment texts before upserting'
+    );
+  });
+
+  it('saveSession batch-inserts event rows via db.upsertMany', () => {
+    assert.ok(
+      src.includes("db.upsertMany('session_events'") ||
+      src.includes('db.upsertMany("session_events"'),
+      'saveSession must call db.upsertMany on session_events'
+    );
+  });
+
+  it('saveSession assigns sort_order to each event row', () => {
+    assert.ok(
+      src.includes('sort_order: i') || src.includes('sort_order:i'),
+      'saveSession must assign sort_order: i to each event row'
+    );
+  });
+
+  it('saveSession updates local events cache after save', () => {
+    assert.ok(
+      src.includes('events[id] = eventRows') || src.includes('events[id]=eventRows'),
+      'saveSession must update the local events[id] cache after saving'
+    );
+  });
+
+  it('event rows include session_id, text, members, and sort_order fields', () => {
+    assert.ok(src.includes('session_id: id'),   'event rows must include session_id');
+    assert.ok(src.includes('text:'),             'event rows must include text');
+    assert.ok(src.includes('members:'),          'event rows must include members array');
+    assert.ok(src.includes('sort_order:'),       'event rows must include sort_order');
+  });
+
+  // ── CSS ──────────────────────────────────────────────────────
+  it('defines .sm-moment-row CSS class', () => {
+    assert.ok(src.includes('.sm-moment-row'), '.sm-moment-row CSS class must be defined');
+  });
+
+  it('defines .sm-moment-input CSS class (transparent background, no border)', () => {
+    assert.ok(src.includes('.sm-moment-input'), '.sm-moment-input CSS class must be defined');
+    assert.ok(
+      src.includes('background: transparent') || src.includes('background:transparent'),
+      '.sm-moment-input must use a transparent background to blend into the row'
+    );
+  });
+
+  it('defines .sm-moment-member-select CSS class', () => {
+    assert.ok(src.includes('.sm-moment-member-select'),
+      '.sm-moment-member-select CSS class must be defined');
+  });
+
+  it('defines .sm-moment-drag CSS class', () => {
+    assert.ok(src.includes('.sm-moment-drag'),
+      '.sm-moment-drag CSS class must be defined');
+  });
+});
+
+// ══════════════════════════════════════════════════════════════
+// Section 54 — Stage 5: NPCs
+// ══════════════════════════════════════════════════════════════
+describe('Stage 5 — NPCs', () => {
+  const fs   = require('fs'), path = require('path');
+  const src  = fs.readFileSync(path.join(__dirname, '../session-log.html'), 'utf8');
+  const util = require('../js/nexus-utils.js');
+
+  // ── slugify() in nexus-utils ─────────────────────────────────
+  it('slugify is exported from nexus-utils', () => {
+    assert.strictEqual(typeof util.slugify, 'function', 'slugify must be exported');
+  });
+
+  it('slugify lowercases and hyphenates spaces', () => {
+    assert.strictEqual(util.slugify('Captain Draegar'), 'captain-draegar');
+  });
+
+  it('slugify collapses multiple non-alphanum chars to one hyphen', () => {
+    assert.strictEqual(util.slugify("Lord Kael'thas"), 'lord-kael-thas');
+  });
+
+  it('slugify strips leading and trailing hyphens', () => {
+    assert.strictEqual(util.slugify('  Baba Yaga  '), 'baba-yaga');
+  });
+
+  it('slugify returns empty string for empty/falsy input', () => {
+    assert.strictEqual(util.slugify(''),    '');
+    assert.strictEqual(util.slugify(null),  '');
+    assert.strictEqual(util.slugify(undefined), '');
+  });
+
+  it('slugify handles names with numbers', () => {
+    assert.strictEqual(util.slugify('R2-D2'), 'r2-d2');
+  });
+
+  it('slugify handles all-special-char input gracefully', () => {
+    // Should produce empty string or a single safe segment, not throw
+    const result = util.slugify('!!!');
+    assert.ok(typeof result === 'string', 'slugify must return a string for all-special input');
+  });
+
+  // ── State ────────────────────────────────────────────────────
+  it('declares _draftSessionNpcs state variable', () => {
+    assert.ok(src.includes('let _draftSessionNpcs'), '_draftSessionNpcs must be declared');
+  });
+
+  it('declares _editingNpcId state variable', () => {
+    assert.ok(src.includes('let _editingNpcId'), '_editingNpcId must be declared');
+  });
+
+  // ── Session modal NPC panel ──────────────────────────────────
+  it('session modal NPC panel stub is replaced with real panel', () => {
+    assert.ok(!src.includes('NPC linking coming in Stage 5'),
+      'NPC panel stub text must be removed');
+  });
+
+  it('session modal NPC panel has smNpcList container', () => {
+    assert.ok(src.includes('id="smNpcList"'), 'smNpcList must exist in session modal');
+  });
+
+  it('session modal NPC panel has smNpcSearch input', () => {
+    assert.ok(src.includes('id="smNpcSearch"'), 'smNpcSearch must exist');
+    assert.ok(src.includes('filterNpcSuggestions'), 'smNpcSearch must call filterNpcSuggestions');
+  });
+
+  it('session modal NPC panel has smNpcSuggestions dropdown', () => {
+    assert.ok(src.includes('id="smNpcSuggestions"'), 'smNpcSuggestions dropdown must exist');
+    assert.ok(src.includes('npc-suggest-drop'),       'dropdown must use npc-suggest-drop class');
+  });
+
+  it('session modal NPC panel has + New NPC button calling openInlineNpcCreate()', () => {
+    assert.ok(src.includes('openInlineNpcCreate()'), '+ New NPC button must call openInlineNpcCreate');
+  });
+
+  it('inline NPC create form exists with id smInlineNpc', () => {
+    assert.ok(src.includes('id="smInlineNpc"'), 'smInlineNpc form must exist');
+    assert.ok(src.includes('inline-npc-form'),  'inline form must use inline-npc-form class');
+  });
+
+  it('inline NPC form has name, role, slug, disposition, notes inputs', () => {
+    assert.ok(src.includes('id="inNpcName"'),        'inNpcName must exist');
+    assert.ok(src.includes('id="inNpcRole"'),        'inNpcRole must exist');
+    assert.ok(src.includes('id="inNpcSlug"'),        'inNpcSlug must exist');
+    assert.ok(src.includes('id="inNpcDisposition"'), 'inNpcDisposition must exist');
+    assert.ok(src.includes('id="inNpcNotes"'),       'inNpcNotes must exist');
+  });
+
+  it('inline NPC form has Save & Link button calling saveInlineNpc()', () => {
+    assert.ok(src.includes('saveInlineNpc()'),         'Save & Link button must call saveInlineNpc');
+    assert.ok(src.includes('id="btnSaveInlineNpc"'),   'btnSaveInlineNpc must exist');
+  });
+
+  it('inline NPC form has inline error div inNpcError', () => {
+    assert.ok(src.includes('id="inNpcError"'), 'inNpcError div must exist');
+  });
+
+  // ── Global NPC modal ─────────────────────────────────────────
+  it('global NPC modal exists with id="npcModal"', () => {
+    assert.ok(src.includes('id="npcModal"'), 'npcModal must exist in DOM');
+  });
+
+  it('npcModal closes on backdrop click', () => {
+    assert.ok(
+      src.includes('id="npcModal"') && src.includes('closeNpcModal()'),
+      'npcModal must call closeNpcModal on backdrop click'
+    );
+  });
+
+  it('npcModal has name, role, slug, disposition, notes inputs', () => {
+    assert.ok(src.includes('id="nmName"'),        'nmName must exist');
+    assert.ok(src.includes('id="nmRole"'),        'nmRole must exist');
+    assert.ok(src.includes('id="nmSlug"'),        'nmSlug must exist');
+    assert.ok(src.includes('id="nmDisposition"'), 'nmDisposition must exist');
+    assert.ok(src.includes('id="nmNotes"'),       'nmNotes must exist');
+  });
+
+  it('npcModal has inline error divs for name and slug', () => {
+    assert.ok(src.includes('id="nmNameError"'), 'nmNameError must exist');
+    assert.ok(src.includes('id="nmSlugError"'), 'nmSlugError must exist');
+  });
+
+  it('npcModal name input calls onNpcNameInput for auto-slug', () => {
+    assert.ok(src.includes('onNpcNameInput(this.value)'), 'nmName must call onNpcNameInput');
+  });
+
+  it('npcModal slug input marks _manualEdit on user input', () => {
+    assert.ok(
+      src.includes('_manualEdit') && src.includes('nmSlug'),
+      'nmSlug must set _manualEdit flag to suppress auto-slug after manual edit'
+    );
+  });
+
+  it('npcModal has Save NPC button calling saveNpc()', () => {
+    assert.ok(src.includes('id="btnSaveNpc"'),   'btnSaveNpc must exist');
+    assert.ok(src.includes('onclick="saveNpc()"'), 'saveNpc must be wired to save button');
+  });
+
+  it('disposition select has all 5 options in both modals', () => {
+    const dispositions = ['unknown', 'allied', 'friendly', 'neutral', 'hostile'];
+    for (const d of dispositions) {
+      assert.ok(
+        src.includes(`value="${d}"`),
+        `disposition option "${d}" must exist`
+      );
+    }
+  });
+
+  // ── NPC panel functions ──────────────────────────────────────
+  it('defines buildNpcPanel() that renders _draftSessionNpcs into smNpcList', () => {
+    assert.ok(src.includes('function buildNpcPanel()'), 'buildNpcPanel must be defined');
+    assert.ok(src.includes('smNpcList'),                'buildNpcPanel must reference smNpcList');
+    assert.ok(src.includes('_draftSessionNpcs'),        'buildNpcPanel must use _draftSessionNpcs');
+  });
+
+  it('buildNpcPanel renders each NPC with its disposition badge', () => {
+    const fn = src.slice(src.indexOf('function buildNpcPanel()'));
+    const end = fn.indexOf('\nfunction ', 10);
+    const body = fn.slice(0, end > 0 ? end : 600);
+    assert.ok(body.includes('sc-npc-disp'), 'buildNpcPanel must render disposition badge');
+  });
+
+  it('buildNpcPanel renders an unlink button calling unlinkNpc()', () => {
+    const fn = src.slice(src.indexOf('function buildNpcPanel()'));
+    const end = fn.indexOf('\nfunction ', 10);
+    const body = fn.slice(0, end > 0 ? end : 600);
+    assert.ok(body.includes('unlinkNpc('), 'buildNpcPanel must include an unlink button');
+  });
+
+  it('buildNpcPanel shows empty state when no NPCs linked', () => {
+    assert.ok(
+      src.includes('No NPCs linked') || src.includes('No NPC'),
+      'buildNpcPanel must show empty state when _draftSessionNpcs is empty'
+    );
+  });
+
+  it('defines filterNpcSuggestions(q) that filters out already-linked NPCs', () => {
+    assert.ok(src.includes('function filterNpcSuggestions('), 'filterNpcSuggestions must be defined');
+    assert.ok(
+      src.includes('_draftSessionNpcs.includes(n.id)'),
+      'filterNpcSuggestions must exclude already-linked NPCs'
+    );
+  });
+
+  it('filterNpcSuggestions hides the dropdown when query is empty', () => {
+    const fn = src.slice(src.indexOf('function filterNpcSuggestions('));
+    const end = fn.indexOf('\nfunction ', 10);
+    const body = fn.slice(0, end > 0 ? end : 500);
+    assert.ok(
+      body.includes("display = 'none'") || body.includes("display='none'"),
+      'filterNpcSuggestions must hide dropdown when no query'
+    );
+  });
+
+  it('defines linkNpc(npcId) that adds to _draftSessionNpcs and rebuilds panel', () => {
+    assert.ok(src.includes('function linkNpc('), 'linkNpc must be defined');
+    assert.ok(src.includes('_draftSessionNpcs.push(npcId)'), 'linkNpc must push to _draftSessionNpcs');
+    const fn = src.slice(src.indexOf('function linkNpc('));
+    const end = fn.indexOf('\nfunction ', 10);
+    const body = fn.slice(0, end > 0 ? end : 300);
+    assert.ok(body.includes('buildNpcPanel()'), 'linkNpc must call buildNpcPanel after linking');
+  });
+
+  it('linkNpc clears the search input and hides the dropdown', () => {
+    const fn = src.slice(src.indexOf('function linkNpc('));
+    const end = fn.indexOf('\nfunction ', 10);
+    const body = fn.slice(0, end > 0 ? end : 300);
+    assert.ok(body.includes('smNpcSearch'),      'linkNpc must clear smNpcSearch input');
+    assert.ok(body.includes('smNpcSuggestions'), 'linkNpc must hide smNpcSuggestions dropdown');
+  });
+
+  it('defines unlinkNpc(npcId) that filters _draftSessionNpcs and rebuilds panel', () => {
+    assert.ok(src.includes('function unlinkNpc('), 'unlinkNpc must be defined');
+    assert.ok(
+      src.includes('_draftSessionNpcs = _draftSessionNpcs.filter'),
+      'unlinkNpc must filter _draftSessionNpcs'
+    );
+    const fn = src.slice(src.indexOf('function unlinkNpc('));
+    const end = fn.indexOf('\nfunction ', 10);
+    const body = fn.slice(0, end > 0 ? end : 200);
+    assert.ok(body.includes('buildNpcPanel()'), 'unlinkNpc must call buildNpcPanel');
+  });
+
+  it('linkNpc guards against duplicates', () => {
+    assert.ok(
+      src.includes('_draftSessionNpcs.includes(npcId)'),
+      'linkNpc must check for duplicates before pushing'
+    );
+  });
+
+  // ── Inline NPC create functions ──────────────────────────────
+  it('defines openInlineNpcCreate() that shows form and focuses name', () => {
+    assert.ok(src.includes('function openInlineNpcCreate()'), 'openInlineNpcCreate must be defined');
+    assert.ok(
+      src.includes("smInlineNpc") && src.includes("display = 'block'"),
+      'openInlineNpcCreate must show the inline form'
+    );
+    const fn = src.slice(src.indexOf('function openInlineNpcCreate()'));
+    const end = fn.indexOf('\nfunction ', 10);
+    const body = fn.slice(0, end > 0 ? end : 400);
+    assert.ok(body.includes('.focus()'), 'openInlineNpcCreate must focus the name input');
+  });
+
+  it('defines closeInlineNpcCreate() that hides the form', () => {
+    assert.ok(src.includes('function closeInlineNpcCreate()'), 'closeInlineNpcCreate must be defined');
+    assert.ok(
+      src.includes("smInlineNpc") && src.includes("display = 'none'"),
+      'closeInlineNpcCreate must hide the inline form'
+    );
+  });
+
+  it('defines onInlineNpcNameInput(name) that auto-fills slug via slugify', () => {
+    assert.ok(src.includes('function onInlineNpcNameInput('), 'onInlineNpcNameInput must be defined');
+    assert.ok(
+      src.includes('slugify(name)') && src.includes('inNpcSlug'),
+      'onInlineNpcNameInput must call slugify and write to inNpcSlug'
+    );
+    assert.ok(
+      src.includes('_manualEdit'),
+      'onInlineNpcNameInput must respect _manualEdit flag to avoid overwriting user edits'
+    );
+  });
+
+  it('defines async saveInlineNpc() that validates name and slug uniqueness', () => {
+    assert.ok(src.includes('async function saveInlineNpc()'), 'saveInlineNpc must be async');
+    assert.ok(
+      src.includes('inNpcName') && src.includes('Name is required'),
+      'saveInlineNpc must validate name'
+    );
+    assert.ok(
+      src.includes('slug') && src.includes('already in use'),
+      'saveInlineNpc must check slug uniqueness'
+    );
+  });
+
+  it('saveInlineNpc calls db.upsert on npcs table', () => {
+    assert.ok(
+      src.includes("db.upsert('npcs'") || src.includes('db.upsert("npcs"'),
+      'saveInlineNpc must call db.upsert on npcs'
+    );
+  });
+
+  it('saveInlineNpc pushes to npcs array and calls buildNpcMap', () => {
+    const fn = src.slice(src.indexOf('async function saveInlineNpc()'));
+    const end = fn.indexOf('\nasync function ', 10);
+    const body = fn.slice(0, end > 0 ? end : 600);
+    assert.ok(body.includes('npcs.push(npc)'), 'saveInlineNpc must push new NPC to npcs array');
+    assert.ok(body.includes('buildNpcMap()'),  'saveInlineNpc must call buildNpcMap after save');
+  });
+
+  it('saveInlineNpc links the new NPC to the session draft and calls buildNpcPanel', () => {
+    const fn = src.slice(src.indexOf('async function saveInlineNpc()'));
+    const end = fn.indexOf('\nasync function ', 10);
+    const body = fn.slice(0, end > 0 ? end : 600);
+    assert.ok(body.includes('_draftSessionNpcs.push(npc.id)'), 'saveInlineNpc must link NPC to session');
+    assert.ok(body.includes('buildNpcPanel()'),                'saveInlineNpc must rebuild NPC panel');
+    assert.ok(body.includes('closeInlineNpcCreate()'),         'saveInlineNpc must close inline form on success');
+  });
+
+  it('saveInlineNpc sets first_seen to the current editing session id', () => {
+    const fn = src.slice(src.indexOf('async function saveInlineNpc()'));
+    const end = fn.indexOf('\nasync function ', 10);
+    const body = fn.slice(0, end > 0 ? end : 600);
+    assert.ok(body.includes('first_seen'), 'saveInlineNpc must set first_seen on the NPC row');
+    assert.ok(body.includes('_editingSessionId'), 'saveInlineNpc must use _editingSessionId for first_seen');
+  });
+
+  // ── Global NPC modal functions ───────────────────────────────
+  it('defines openNpcModal(id) that pre-fills all fields when editing', () => {
+    assert.ok(src.includes('function openNpcModal(id)'), 'openNpcModal must be defined');
+    assert.ok(src.includes('nmName'),        'openNpcModal must fill nmName');
+    assert.ok(src.includes('nmSlug'),        'openNpcModal must fill nmSlug');
+    assert.ok(src.includes('nmDisposition'), 'openNpcModal must fill nmDisposition');
+  });
+
+  it('openNpcModal sets _manualEdit=true when editing so auto-slug does not fire', () => {
+    const fn = src.slice(src.indexOf('function openNpcModal(id)'));
+    const end = fn.indexOf('\nfunction ', 10);
+    const body = fn.slice(0, end > 0 ? end : 400);
+    assert.ok(body.includes('_manualEdit'), 'openNpcModal must set _manualEdit on nmSlug when editing');
+  });
+
+  it('defines closeNpcModal()', () => {
+    assert.ok(src.includes('function closeNpcModal()'), 'closeNpcModal must be defined');
+    assert.ok(
+      src.includes("classList.remove('open')"),
+      'closeNpcModal must remove the "open" class from npcModal'
+    );
+  });
+
+  it('defines onNpcNameInput(name) that auto-fills nmSlug via slugify', () => {
+    assert.ok(src.includes('function onNpcNameInput('), 'onNpcNameInput must be defined');
+    assert.ok(
+      src.includes('slugify(name)') && src.includes('nmSlug'),
+      'onNpcNameInput must call slugify and write to nmSlug'
+    );
+  });
+
+  it('defines async saveNpc() with name and slug validation', () => {
+    assert.ok(src.includes('async function saveNpc()'), 'saveNpc must be async');
+    assert.ok(src.includes('nmNameError'), 'saveNpc must use nmNameError for validation');
+    assert.ok(src.includes('nmSlugError'), 'saveNpc must use nmSlugError for validation');
+  });
+
+  it('saveNpc validates slug uniqueness against existing npcs', () => {
+    const fn = src.slice(src.indexOf('async function saveNpc()'));
+    const end = fn.indexOf('\nasync function ', 10);
+    const body = fn.slice(0, end > 0 ? end : 700);
+    assert.ok(
+      body.includes('dupSlug') || body.includes('slug === slug'),
+      'saveNpc must check for duplicate slugs'
+    );
+  });
+
+  it('saveNpc calls db.upsert on npcs', () => {
+    assert.ok(
+      src.includes("db.upsert('npcs'") || src.includes('db.upsert("npcs"'),
+      'saveNpc must call db.upsert on npcs'
+    );
+  });
+
+  it('saveNpc preserves first_seen when editing', () => {
+    const fn = src.slice(src.indexOf('async function saveNpc()'));
+    const end = fn.indexOf('\nasync function ', 10);
+    const body = fn.slice(0, end > 0 ? end : 700);
+    assert.ok(
+      body.includes('first_seen') && body.includes('_editingNpcId'),
+      'saveNpc must preserve first_seen from original NPC when editing'
+    );
+  });
+
+  it('saveNpc sorts npcs alphabetically after save', () => {
+    const fn = src.slice(src.indexOf('async function saveNpc()'));
+    const end = fn.indexOf('\nasync function ', 10);
+    const body = fn.slice(0, end > 0 ? end : 700);
+    assert.ok(
+      body.includes('npcs.sort') && body.includes('localeCompare'),
+      'saveNpc must sort npcs array alphabetically after save'
+    );
+  });
+
+  it('saveNpc calls buildNpcMap, updateStats, renderNpcs after save', () => {
+    const fn = src.slice(src.indexOf('async function saveNpc()'));
+    const end = fn.indexOf('\nasync function ', 10);
+    const body = fn.slice(0, end > 0 ? end : 700);
+    assert.ok(body.includes('buildNpcMap()'),  'saveNpc must call buildNpcMap');
+    assert.ok(body.includes('updateStats()'),  'saveNpc must call updateStats');
+    assert.ok(body.includes('renderNpcs()'),   'saveNpc must call renderNpcs');
+  });
+
+  it('saveNpc uses setLoading and setModalLoading', () => {
+    const fn = src.slice(src.indexOf('async function saveNpc()'));
+    const end = fn.indexOf('\nasync function ', 10);
+    const body = fn.slice(0, end > 0 ? end : 700);
+    assert.ok(body.includes('setLoading'),      'saveNpc must use setLoading');
+    assert.ok(body.includes('setModalLoading'), 'saveNpc must use setModalLoading');
+  });
+
+  it('defines async deleteNpc(id) with nexusConfirm guard', () => {
+    assert.ok(src.includes('async function deleteNpc(id)'), 'deleteNpc must be async');
+    assert.ok(
+      src.includes('nexusConfirm') && src.includes('deleteNpc'),
+      'deleteNpc must use nexusConfirm before deleting'
+    );
+  });
+
+  it('deleteNpc calls db.delete on npcs', () => {
+    const fn = src.slice(src.indexOf('async function deleteNpc(id)'));
+    // deleteNpc is the last async function — bound by next non-async function or 1000 chars
+    const end = fn.indexOf('\nfunction ', 10);
+    const body = fn.slice(0, end > 0 ? end : 1000);
+    assert.ok(
+      body.includes("db.delete('npcs'") || body.includes('db.delete("npcs"'),
+      'deleteNpc must call db.delete on npcs'
+    );
+  });
+
+  it('deleteNpc confirms with the slug citation in the message', () => {
+    const fn = src.slice(src.indexOf('async function deleteNpc(id)'));
+    const end = fn.indexOf('\nfunction ', 10);
+    const body = fn.slice(0, end > 0 ? end : 1000);
+    assert.ok(
+      body.includes('npc.slug') || body.includes('^'),
+      'deleteNpc confirm message must reference the NPC slug so user knows citation impact'
+    );
+  });
+
+  it('deleteNpc filters npcs array, calls buildNpcMap, updateStats, renderNpcs', () => {
+    const fn = src.slice(src.indexOf('async function deleteNpc(id)'));
+    const end = fn.indexOf('\nfunction ', 10);
+    const body = fn.slice(0, end > 0 ? end : 1000);
+    assert.ok(body.includes('npcs = npcs.filter'), 'deleteNpc must filter npcs array');
+    assert.ok(body.includes('buildNpcMap()'),       'deleteNpc must call buildNpcMap');
+    assert.ok(body.includes('updateStats()'),       'deleteNpc must call updateStats');
+    assert.ok(body.includes('renderNpcs()'),        'deleteNpc must call renderNpcs');
+  });
+
+  // ── openSessionModal integration ────────────────────────────
+  it('openSessionModal seeds _draftSessionNpcs from existing session_npcs', () => {
+    assert.ok(
+      src.includes('_draftSessionNpcs = existingSession') ||
+      src.includes('_draftSessionNpcs ='),
+      'openSessionModal must populate _draftSessionNpcs'
+    );
+    assert.ok(
+      src.includes('session_npcs'),
+      'openSessionModal must source from session_npcs field'
+    );
+  });
+
+  it('openSessionModal calls buildNpcPanel to render the linked NPCs', () => {
+    assert.ok(src.includes('buildNpcPanel()'),
+      'openSessionModal must call buildNpcPanel');
+  });
+
+  // ── saveSession integration ──────────────────────────────────
+  it('saveSession row uses _draftSessionNpcs for session_npcs field', () => {
+    assert.ok(
+      src.includes('session_npcs: _draftSessionNpcs'),
+      'saveSession must write _draftSessionNpcs into the session_npcs field'
+    );
+  });
+
+  // ── Global click handler ──────────────────────────────────────
+  it('global document click handler closes smNpcSuggestions on outside click', () => {
+    assert.ok(
+      src.includes('smNpcSuggestions') &&
+      src.includes("document.addEventListener('click'"),
+      'must have a document click handler that closes the NPC suggestion dropdown'
+    );
+  });
+
+  // ── CSS ──────────────────────────────────────────────────────
+  it('defines .sm-npc-row CSS class', () => {
+    assert.ok(src.includes('.sm-npc-row'), '.sm-npc-row CSS must be defined');
+  });
+
+  it('defines .npc-suggest-drop CSS class with z-index for layering', () => {
+    assert.ok(src.includes('.npc-suggest-drop'), '.npc-suggest-drop CSS must be defined');
+    assert.ok(
+      src.includes('z-index: 600') || src.includes('z-index:600'),
+      '.npc-suggest-drop must have a high z-index to layer over modal content'
+    );
+  });
+
+  it('defines .npc-suggest-item CSS class', () => {
+    assert.ok(src.includes('.npc-suggest-item'), '.npc-suggest-item CSS must be defined');
+  });
+
+  it('defines .inline-npc-form CSS class', () => {
+    assert.ok(src.includes('.inline-npc-form'), '.inline-npc-form CSS must be defined');
+  });
+
+  it('defines .inline-npc-title CSS class', () => {
+    assert.ok(src.includes('.inline-npc-title'), '.inline-npc-title CSS must be defined');
+  });
+});
+
+// ══════════════════════════════════════════════════════════════
+// Section 55 — Stage 6: Citations
+// ══════════════════════════════════════════════════════════════
+describe('Stage 6 — Citations', () => {
+  const fs   = require('fs'), path = require('path');
+  const src  = fs.readFileSync(path.join(__dirname, '../session-log.html'), 'utf8');
+  const util = require('../js/nexus-utils.js');
+
+  // ── renderWithCitations — unit-testable logic ────────────────
+  // Extract and test the core token-splitting logic directly
+  // (can't run browser DOM, but we can test the parsing branch logic)
+
+  it('renderWithCitations is defined as a function', () => {
+    assert.ok(src.includes('function renderWithCitations('), 'renderWithCitations must be defined');
+  });
+
+  it('renderWithCitations splits on ^slug tokens using a regex capture group', () => {
+    assert.ok(
+      src.includes('split(/(') && src.includes('^'),
+      'renderWithCitations must use split with a capture group to preserve token boundaries'
+    );
+  });
+
+  it('renderWithCitations uses npcMap.get(slug) to resolve chips', () => {
+    assert.ok(
+      src.includes('npcMap.get(slug)'),
+      'renderWithCitations must look up slugs in npcMap'
+    );
+  });
+
+  it('renderWithCitations renders resolved chips as .npc-chip', () => {
+    assert.ok(
+      src.includes('npc-chip"') || src.includes("npc-chip'"),
+      'renderWithCitations must apply npc-chip class to resolved citations'
+    );
+  });
+
+  it('renderWithCitations resolved chip calls jumpToNpc on click', () => {
+    assert.ok(
+      src.includes('jumpToNpc('),
+      'resolved npc-chip must call jumpToNpc on click'
+    );
+  });
+
+  it('renderWithCitations renders unresolved chips as .npc-chip-unresolved', () => {
+    assert.ok(
+      src.includes('npc-chip-unresolved'),
+      'renderWithCitations must apply npc-chip-unresolved class to unknown slugs'
+    );
+  });
+
+  it('renderWithCitations HTML-escapes plain text segments via esc()', () => {
+    assert.ok(
+      src.includes('esc(part)'),
+      'renderWithCitations must call esc() on plain text segments'
+    );
+  });
+
+  it('renderWithCitations returns empty string for falsy input', () => {
+    assert.ok(
+      src.includes("if (!text) return ''") || src.includes('if(!text)return'),
+      'renderWithCitations must return empty string for falsy input'
+    );
+  });
+
+  it('renderWithCitations chip has a title attribute with NPC name and role', () => {
+    assert.ok(
+      src.includes('title=') && src.includes('npc.name') && src.includes('npc-chip'),
+      'resolved npc-chip must have a title showing NPC name (and role if present)'
+    );
+  });
+
+  // ── jumpToNpc ────────────────────────────────────────────────
+  it('defines jumpToNpc(npcId) that switches to npcs view', () => {
+    assert.ok(src.includes('function jumpToNpc('), 'jumpToNpc must be defined');
+    assert.ok(
+      src.includes("switchView('npcs')"),
+      'jumpToNpc must call switchView("npcs")'
+    );
+  });
+
+  it('jumpToNpc calls renderNpcs after switching view', () => {
+    const fn  = src.slice(src.indexOf('function jumpToNpc('));
+    const end = fn.indexOf('\nfunction ', 10);
+    const body = fn.slice(0, end > 0 ? end : 600);
+    assert.ok(body.includes('renderNpcs()'), 'jumpToNpc must call renderNpcs');
+  });
+
+  it('jumpToNpc attempts to scroll to and highlight the target NPC card', () => {
+    const fn  = src.slice(src.indexOf('function jumpToNpc('));
+    const end = fn.indexOf('\nfunction ', 10);
+    const body = fn.slice(0, end > 0 ? end : 800);
+    assert.ok(
+      body.includes('scrollIntoView') || body.includes('scrollTop'),
+      'jumpToNpc must scroll to the NPC card'
+    );
+    assert.ok(
+      body.includes('boxShadow') || body.includes('box-shadow') || body.includes('highlight'),
+      'jumpToNpc must briefly highlight the target NPC card'
+    );
+  });
+
+  // ── Citation autocomplete internals ─────────────────────────
+  it('declares singleton state: _citeDropEl, _citeAnchor, _citeFocusIdx', () => {
+    assert.ok(src.includes('let _citeDropEl'),   '_citeDropEl must be declared');
+    assert.ok(src.includes('let _citeAnchor'),   '_citeAnchor must be declared');
+    assert.ok(src.includes('let _citeFocusIdx'), '_citeFocusIdx must be declared');
+  });
+
+  it('defines _ensureCiteDrop() that creates the singleton dropdown once', () => {
+    assert.ok(src.includes('function _ensureCiteDrop()'), '_ensureCiteDrop must be defined');
+    assert.ok(
+      src.includes('if (_citeDropEl) return'),
+      '_ensureCiteDrop must guard against double-creation'
+    );
+    assert.ok(
+      src.includes('document.body.appendChild(_citeDropEl)'),
+      '_ensureCiteDrop must append the dropdown to document.body'
+    );
+  });
+
+  it('_ensureCiteDrop registers a document click handler to dismiss on outside click', () => {
+    const fn  = src.slice(src.indexOf('function _ensureCiteDrop()'));
+    const end = fn.indexOf('\nfunction ', 10);
+    const body = fn.slice(0, end > 0 ? end : 600);
+    assert.ok(
+      body.includes("document.addEventListener('click'") ||
+      body.includes('document.addEventListener("click"'),
+      '_ensureCiteDrop must register an outside-click dismissal handler'
+    );
+  });
+
+  it('defines _hideCiteDrop() that hides the dropdown and resets state', () => {
+    assert.ok(src.includes('function _hideCiteDrop()'), '_hideCiteDrop must be defined');
+    assert.ok(
+      src.includes("_citeDropEl.style.display = 'none'"),
+      '_hideCiteDrop must set display:none'
+    );
+    assert.ok(
+      src.includes('_citeAnchor   = null') || src.includes('_citeAnchor=null') || src.includes('_citeAnchor = null'),
+      '_hideCiteDrop must reset _citeAnchor to null'
+    );
+    assert.ok(
+      src.includes('_citeFocusIdx = -1') || src.includes('_citeFocusIdx=-1'),
+      '_hideCiteDrop must reset _citeFocusIdx to -1'
+    );
+  });
+
+  it('defines _getCiteToken(el) that detects ^token at cursor position', () => {
+    assert.ok(src.includes('function _getCiteToken('), '_getCiteToken must be defined');
+    assert.ok(
+      src.includes('selectionStart'),
+      '_getCiteToken must read el.selectionStart to find cursor position'
+    );
+    assert.ok(
+      src.includes("val[i] !== '^'") || src.includes("val[i] !== \"^\"") || src.includes("!== '^'"),
+      '_getCiteToken must scan left to find the ^ character'
+    );
+  });
+
+  it('_getCiteToken returns null when cursor is not inside a ^token', () => {
+    assert.ok(
+      src.includes('return null'),
+      '_getCiteToken must return null when no citation token found at cursor'
+    );
+  });
+
+  it('defines _positionDrop(el) that positions the dropdown below the input', () => {
+    assert.ok(src.includes('function _positionDrop('), '_positionDrop must be defined');
+    assert.ok(
+      src.includes('getBoundingClientRect()'),
+      '_positionDrop must use getBoundingClientRect() to position the dropdown'
+    );
+    assert.ok(
+      src.includes('rect.bottom') || src.includes('.bottom'),
+      '_positionDrop must align to the bottom edge of the input'
+    );
+  });
+
+  it('defines _renderCiteDrop(matches, el, token) that populates and shows the dropdown', () => {
+    assert.ok(src.includes('function _renderCiteDrop('), '_renderCiteDrop must be defined');
+    assert.ok(
+      src.includes('cite-drop-item'),
+      '_renderCiteDrop must render items with cite-drop-item class'
+    );
+    assert.ok(
+      src.includes('_citeDropEl.style.display = \'block\'') ||
+      src.includes('display = "block"'),
+      '_renderCiteDrop must set display:block to show the dropdown'
+    );
+  });
+
+  it('_renderCiteDrop hides the dropdown when matches array is empty', () => {
+    const fn  = src.slice(src.indexOf('function _renderCiteDrop('));
+    const end = fn.indexOf('\nfunction ', 10);
+    const body = fn.slice(0, end > 0 ? end : 600);
+    assert.ok(
+      body.includes('!matches.length') || body.includes('matches.length === 0'),
+      '_renderCiteDrop must call _hideCiteDrop when matches is empty'
+    );
+  });
+
+  it('_renderCiteDrop uses mousedown (not click) to prevent blur before insert', () => {
+    assert.ok(
+      src.includes("addEventListener('mousedown'") || src.includes('addEventListener("mousedown"'),
+      '_renderCiteDrop must use mousedown listener so blur does not fire before insert'
+    );
+    assert.ok(
+      src.includes('e.preventDefault()'),
+      'mousedown handler must call e.preventDefault() to prevent focus loss'
+    );
+  });
+
+  it('defines _insertCitation(el, slug) that splices ^slug into the input value', () => {
+    assert.ok(src.includes('function _insertCitation('), '_insertCitation must be defined');
+    assert.ok(
+      src.includes("ctx.prefix + '^' + slug") || src.includes("prefix + '^'"),
+      '_insertCitation must reconstruct value as prefix + ^slug + rest'
+    );
+    assert.ok(
+      src.includes('setSelectionRange'),
+      '_insertCitation must restore cursor position after inserting'
+    );
+  });
+
+  it('_insertCitation dispatches an input event after inserting so oninput handlers fire', () => {
+    const fn  = src.slice(src.indexOf('function _insertCitation('));
+    const end = fn.indexOf('\nfunction ', 10);
+    const body = fn.slice(0, end > 0 ? end : 400);
+    assert.ok(
+      body.includes("new Event('input'") || body.includes('new Event("input"'),
+      '_insertCitation must dispatch a synthetic input event so state updates fire'
+    );
+  });
+
+  it('defines initCitationAutocomplete(el) that attaches input/keydown/blur listeners', () => {
+    assert.ok(src.includes('function initCitationAutocomplete('), 'initCitationAutocomplete must be defined');
+    assert.ok(
+      src.includes("addEventListener('input'") || src.includes('addEventListener("input"'),
+      'initCitationAutocomplete must attach an input listener'
+    );
+    assert.ok(
+      src.includes("addEventListener('keydown'") || src.includes('addEventListener("keydown"'),
+      'initCitationAutocomplete must attach a keydown listener'
+    );
+    assert.ok(
+      src.includes("addEventListener('blur'") || src.includes('addEventListener("blur"'),
+      'initCitationAutocomplete must attach a blur listener'
+    );
+  });
+
+  it('initCitationAutocomplete guards against double-initialisation via _citeInit flag', () => {
+    assert.ok(
+      src.includes('el._citeInit') || src.includes('_citeInit'),
+      'initCitationAutocomplete must set a _citeInit flag to prevent double-init'
+    );
+  });
+
+  it('keydown handler supports ArrowDown, ArrowUp, Enter and Escape navigation', () => {
+    assert.ok(src.includes("'ArrowDown'") || src.includes('"ArrowDown"'), 'must handle ArrowDown');
+    assert.ok(src.includes("'ArrowUp'")   || src.includes('"ArrowUp"'),   'must handle ArrowUp');
+    assert.ok(
+      src.includes("'Escape'") || src.includes('"Escape"'),
+      'must handle Escape to dismiss dropdown'
+    );
+  });
+
+  it('Enter in keydown handler inserts the focused citation', () => {
+    assert.ok(
+      src.includes('_citeFocusIdx') && src.includes('_insertCitation'),
+      'Enter key must call _insertCitation for the focused item'
+    );
+  });
+
+  it('blur listener defers hide by 150ms so mousedown on item fires first', () => {
+    assert.ok(
+      src.includes('150'),
+      'blur handler must use a 150ms setTimeout so mousedown fires before hide'
+    );
+  });
+
+  it('autocomplete filters npcs by both slug and name', () => {
+    assert.ok(
+      src.includes('n.slug.includes(term)') || src.includes('slug.includes'),
+      'autocomplete input handler must filter by slug'
+    );
+    assert.ok(
+      src.includes('n.name.toLowerCase().includes(term)') ||
+      src.includes('name.toLowerCase().includes'),
+      'autocomplete input handler must filter by name'
+    );
+  });
+
+  it('autocomplete limits results to 8 entries', () => {
+    assert.ok(src.includes('.slice(0, 8)'), 'autocomplete must limit suggestions to 8');
+  });
+
+  // ── Wire-up verification ─────────────────────────────────────
+  it('renderTabOverview uses renderWithCitations for summary text', () => {
+    assert.ok(
+      src.includes('renderWithCitations(s.summary)'),
+      'renderTabOverview must render summary through renderWithCitations'
+    );
+  });
+
+  it('renderTabMoments uses renderWithCitations for each moment text', () => {
+    assert.ok(
+      src.includes('renderWithCitations(ev.text)'),
+      'renderTabMoments must render moment text through renderWithCitations'
+    );
+  });
+
+  it('renderNpcs uses renderWithCitations for NPC notes', () => {
+    assert.ok(
+      src.includes('renderWithCitations(npc.notes)'),
+      'renderNpcs must render NPC notes through renderWithCitations'
+    );
+  });
+
+  it('openSessionModal wires citation autocomplete to smSummary textarea', () => {
+    assert.ok(
+      src.includes('initCitationAutocomplete(document.getElementById(\'smSummary\')') ||
+      src.includes('initCitationAutocomplete(document.getElementById("smSummary")'),
+      'openSessionModal must wire initCitationAutocomplete to smSummary'
+    );
+  });
+
+  it('buildMomentsEditor wires citation autocomplete to every moment input after render', () => {
+    assert.ok(
+      src.includes('.sm-moment-input') && src.includes('initCitationAutocomplete'),
+      'buildMomentsEditor must attach initCitationAutocomplete to each moment input'
+    );
+  });
+
+  // ── CSS ──────────────────────────────────────────────────────
+  it('defines .npc-chip CSS class with violet colour scheme', () => {
+    assert.ok(src.includes('.npc-chip {') || src.includes('.npc-chip{'),
+      '.npc-chip CSS class must be defined');
+    assert.ok(
+      src.includes('#a78bfa') || src.includes('167,139,250'),
+      '.npc-chip must use the violet colour scheme'
+    );
+  });
+
+  it('defines .npc-chip:hover CSS', () => {
+    assert.ok(src.includes('.npc-chip:hover'), '.npc-chip:hover CSS must be defined');
+  });
+
+  it('defines .npc-chip-unresolved CSS class with dimmed/dashed styling', () => {
+    assert.ok(src.includes('.npc-chip-unresolved'), '.npc-chip-unresolved CSS must be defined');
+    assert.ok(
+      src.includes('dashed'),
+      '.npc-chip-unresolved must use a dashed border to distinguish from resolved chips'
+    );
+  });
+
+  it('defines .cite-drop CSS class with a high z-index above the modal backdrop', () => {
+    assert.ok(src.includes('.cite-drop {') || src.includes('.cite-drop{'),
+      '.cite-drop CSS class must be defined');
+    // z-index must exceed the modal-backdrop z-index of 1000 so the dropdown
+    // appears above the open modal. We raised it to 1100 for this reason.
+    assert.ok(
+      src.includes('z-index: 1100') || src.includes('z-index:1100'),
+      '.cite-drop must have z-index 1100 to appear above the modal backdrop (z-index:1000)'
+    );
+  });
+
+  it('defines .cite-drop-item and .cite-focused CSS classes', () => {
+    assert.ok(src.includes('.cite-drop-item'), '.cite-drop-item CSS must be defined');
+    assert.ok(src.includes('.cite-focused'),   '.cite-focused CSS must be defined');
+  });
+
+  it('defines .cite-drop-name and .cite-drop-slug CSS', () => {
+    assert.ok(src.includes('.cite-drop-name'), '.cite-drop-name CSS must be defined');
+    assert.ok(src.includes('.cite-drop-slug'), '.cite-drop-slug CSS must be defined');
+  });
+});
+
+// ══════════════════════════════════════════════════════════════
+// Section 56 — Stage 7: Quests
+// ══════════════════════════════════════════════════════════════
+describe('Stage 7 — Quests', () => {
+  const fs  = require('fs'), path = require('path');
+  const src = fs.readFileSync(path.join(__dirname, '../session-log.html'), 'utf8');
+
+  // ── State ────────────────────────────────────────────────────
+  it('declares _draftQuests state variable', () => {
+    assert.ok(src.includes('let _draftQuests'), '_draftQuests must be declared');
+  });
+
+  // ── Constants ────────────────────────────────────────────────
+  it('declares QUEST_CYCLE array with 4 statuses in cycle order', () => {
+    assert.ok(src.includes("const QUEST_CYCLE"), 'QUEST_CYCLE must be declared');
+    assert.ok(
+      src.includes("'active'") && src.includes("'completed'") &&
+      src.includes("'failed'") && src.includes("'on-hold'"),
+      'QUEST_CYCLE must contain all 4 statuses'
+    );
+  });
+
+  it('declares QUEST_LABEL, QUEST_CLS, QUEST_ICON_MAP constants', () => {
+    assert.ok(src.includes('const QUEST_LABEL'),    'QUEST_LABEL must be declared');
+    assert.ok(src.includes('const QUEST_CLS'),      'QUEST_CLS must be declared');
+    assert.ok(src.includes('const QUEST_ICON_MAP'), 'QUEST_ICON_MAP must be declared');
+  });
+
+  it('QUEST_ICON_MAP maps all 4 statuses to distinct symbols', () => {
+    assert.ok(src.includes("active: '○'")    || src.includes("active:'○'"),    'active icon must be ○');
+    assert.ok(src.includes("completed: '✓'") || src.includes("completed:'✓'"), 'completed icon must be ✓');
+    assert.ok(src.includes("failed: '✗'")    || src.includes("failed:'✗'"),    'failed icon must be ✗');
+    assert.ok(src.includes("'on-hold': '◌'") || src.includes("'on-hold':'◌'"), 'on-hold icon must be ◌');
+  });
+
+  // ── Modal HTML panel ─────────────────────────────────────────
+  it('quests panel stub is replaced with real editor', () => {
+    assert.ok(!src.includes('Quests editor coming in Stage 7'),
+      'Stage 7 stub text must be removed');
+  });
+
+  it('quests panel has smQuestList container', () => {
+    assert.ok(src.includes('id="smQuestList"'), 'smQuestList must exist in the quests panel');
+  });
+
+  it('quests panel has + Add Quest button calling addQuest()', () => {
+    assert.ok(src.includes('onclick="addQuest()"'), '+ Add Quest button must call addQuest()');
+  });
+
+  it('quests panel has a hint about clicking status to cycle it', () => {
+    assert.ok(
+      src.includes('cycle') || src.includes('Click the status'),
+      'quests panel must hint that the status badge can be clicked to cycle'
+    );
+  });
+
+  // ── Quest row structure ───────────────────────────────────────
+  it('quest rows use sm-quest-row class with data-idx attribute', () => {
+    assert.ok(src.includes('sm-quest-row'), 'quest rows must use sm-quest-row class');
+    assert.ok(src.includes('data-idx='), 'quest rows must have data-idx attribute');
+  });
+
+  it('quest rows have a cycle button calling cycleQuestStatus(idx)', () => {
+    assert.ok(src.includes('cycleQuestStatus('), 'quest row must have a cycle button');
+    assert.ok(src.includes('sm-quest-cycle'), 'cycle button must use sm-quest-cycle class');
+  });
+
+  it('quest rows have a text input calling updateQuestText on input', () => {
+    assert.ok(src.includes('updateQuestText('), 'quest input must call updateQuestText');
+    assert.ok(src.includes('sm-quest-input'),   'quest input must use sm-quest-input class');
+  });
+
+  it('quest rows have a remove button calling removeQuest(idx)', () => {
+    assert.ok(src.includes('removeQuest('), 'quest row must have a remove button calling removeQuest');
+  });
+
+  it('quest input has onkeydown calling questKeydown', () => {
+    assert.ok(src.includes('questKeydown('), 'quest input must have a questKeydown handler');
+  });
+
+  // ── JS functions ─────────────────────────────────────────────
+  it('defines buildQuestEditor() that renders _draftQuests into smQuestList', () => {
+    assert.ok(src.includes('function buildQuestEditor()'), 'buildQuestEditor must be defined');
+    assert.ok(src.includes('smQuestList'),    'buildQuestEditor must reference smQuestList');
+    assert.ok(src.includes('_draftQuests'),   'buildQuestEditor must use _draftQuests');
+  });
+
+  it('buildQuestEditor shows empty state when _draftQuests is empty', () => {
+    const fn   = src.slice(src.indexOf('function buildQuestEditor()'));
+    const end  = fn.indexOf('\nfunction ', 10);
+    const body = fn.slice(0, end > 0 ? end : 600);
+    assert.ok(
+      body.includes('No quests yet') || body.includes('Add Quest'),
+      'buildQuestEditor must show empty state when no quests'
+    );
+  });
+
+  it('buildQuestEditor applies text decoration class for completed/failed quests', () => {
+    assert.ok(
+      src.includes('completed') && src.includes('failed') && src.includes('sm-quest-input'),
+      'buildQuestEditor must apply completed/failed styling classes to the input text'
+    );
+  });
+
+  it('defines addQuest() that pushes new active quest and focuses the new input', () => {
+    assert.ok(src.includes('function addQuest()'), 'addQuest must be defined');
+    assert.ok(
+      src.includes("status: 'active'"),
+      'addQuest must initialise new quests with status active'
+    );
+    assert.ok(src.includes('_draftQuests.push('), 'addQuest must push to _draftQuests');
+    const fn   = src.slice(src.indexOf('function addQuest()'));
+    const end  = fn.indexOf('\nfunction ', 10);
+    const body = fn.slice(0, end > 0 ? end : 400);
+    assert.ok(body.includes('.focus()'), 'addQuest must focus the new input after render');
+  });
+
+  it('defines removeQuest(idx) that splices _draftQuests and rebuilds editor', () => {
+    assert.ok(src.includes('function removeQuest('), 'removeQuest must be defined');
+    assert.ok(src.includes('_draftQuests.splice('),  'removeQuest must splice _draftQuests');
+    const fn   = src.slice(src.indexOf('function removeQuest('));
+    const end  = fn.indexOf('\nfunction ', 10);
+    const body = fn.slice(0, end > 0 ? end : 200);
+    assert.ok(body.includes('buildQuestEditor()'), 'removeQuest must call buildQuestEditor');
+  });
+
+  it('defines updateQuestText(idx, value) that mutates _draftQuests in-place', () => {
+    assert.ok(src.includes('function updateQuestText('), 'updateQuestText must be defined');
+    assert.ok(
+      src.includes('_draftQuests[idx].text = value') ||
+      src.includes('_draftQuests[idx].text=value'),
+      'updateQuestText must set _draftQuests[idx].text'
+    );
+  });
+
+  it('defines cycleQuestStatus(idx) that advances status through QUEST_CYCLE', () => {
+    assert.ok(src.includes('function cycleQuestStatus('), 'cycleQuestStatus must be defined');
+    assert.ok(
+      src.includes('QUEST_CYCLE.indexOf(current)'),
+      'cycleQuestStatus must use QUEST_CYCLE.indexOf to find current position'
+    );
+    assert.ok(
+      src.includes('% QUEST_CYCLE.length'),
+      'cycleQuestStatus must wrap around using modulo'
+    );
+    assert.ok(
+      src.includes('_draftQuests[idx].status = next'),
+      'cycleQuestStatus must update _draftQuests[idx].status'
+    );
+  });
+
+  it('cycleQuestStatus does a surgical DOM update without full re-render', () => {
+    const fn   = src.slice(src.indexOf('function cycleQuestStatus('));
+    const end  = fn.indexOf('\nfunction ', 10);
+    const body = fn.slice(0, end > 0 ? end : 700);
+    assert.ok(
+      !body.includes('buildQuestEditor()'),
+      'cycleQuestStatus must NOT call buildQuestEditor — it should do surgical DOM update'
+    );
+    assert.ok(
+      body.includes('querySelector(') || body.includes('querySelectorAll('),
+      'cycleQuestStatus must use querySelector for surgical DOM targeting'
+    );
+    assert.ok(
+      body.includes('btn.className') || body.includes('btn.textContent'),
+      'cycleQuestStatus must update the cycle button class and text directly'
+    );
+  });
+
+  it('defines questKeydown(e, idx) that adds quest on Enter on last row', () => {
+    assert.ok(src.includes('function questKeydown('), 'questKeydown must be defined');
+    assert.ok(
+      src.includes("e.key !== 'Enter'") || src.includes("e.key === 'Enter'"),
+      'questKeydown must check for Enter key'
+    );
+    assert.ok(src.includes('addQuest()'), 'questKeydown must call addQuest on last row Enter');
+  });
+
+  it('questKeydown moves focus to next input when not on last row', () => {
+    const fn   = src.slice(src.indexOf('function questKeydown('));
+    const end  = fn.indexOf('\nfunction ', 10);
+    const body = fn.slice(0, end > 0 ? end : 400);
+    assert.ok(body.includes('.focus()'), 'questKeydown must focus next input when not on last row');
+  });
+
+  // ── openSessionModal integration ────────────────────────────
+  it('openSessionModal seeds _draftQuests from existing session quests', () => {
+    assert.ok(
+      src.includes('_draftQuests = existingSession'),
+      'openSessionModal must seed _draftQuests from existingSession.quests'
+    );
+  });
+
+  it('openSessionModal shallow-clones each quest object into _draftQuests', () => {
+    assert.ok(
+      src.includes('...q') || src.includes('Object.assign'),
+      'openSessionModal must clone quest objects to avoid mutating session state'
+    );
+  });
+
+  it('openSessionModal calls buildQuestEditor() after seeding', () => {
+    assert.ok(src.includes('buildQuestEditor()'), 'openSessionModal must call buildQuestEditor');
+  });
+
+  it('openSessionModal initialises _draftQuests to [] for new sessions', () => {
+    assert.ok(
+      src.includes(': []') || src.includes(':[]'),
+      'openSessionModal must set _draftQuests = [] for new sessions'
+    );
+  });
+
+  // ── saveSession integration ──────────────────────────────────
+  it('saveSession row uses _draftQuests for the quests field', () => {
+    assert.ok(
+      src.includes('quests:') && src.includes('_draftQuests'),
+      'saveSession must write _draftQuests into the quests field'
+    );
+  });
+
+  it('saveSession filters out blank quest text before persisting', () => {
+    assert.ok(
+      src.includes('_draftQuests.filter(') &&
+      (src.includes('q.text') || src.includes('.text.trim()')),
+      'saveSession must filter _draftQuests to exclude blank text rows'
+    );
+  });
+
+  // ── renderTabQuests upgrade ──────────────────────────────────
+  it('renderTabQuests uses shared QUEST_ICON_MAP constant (not inline object)', () => {
+    assert.ok(
+      src.includes('QUEST_ICON_MAP[st]') || src.includes('QUEST_ICON_MAP['),
+      'renderTabQuests must use the shared QUEST_ICON_MAP constant'
+    );
+  });
+
+  it('renderTabQuests uses shared QUEST_CLS and QUEST_LABEL constants', () => {
+    const fn   = src.slice(src.indexOf('function renderTabQuests('));
+    const end  = fn.indexOf('\nfunction ', 10);
+    const body = fn.slice(0, end > 0 ? end : 600);
+    assert.ok(body.includes('QUEST_CLS['),   'renderTabQuests must use QUEST_CLS');
+    assert.ok(body.includes('QUEST_LABEL['), 'renderTabQuests must use QUEST_LABEL');
+  });
+
+  it('renderTabQuests does not re-declare inline quest constant objects', () => {
+    const fn   = src.slice(src.indexOf('function renderTabQuests('));
+    const end  = fn.indexOf('\nfunction ', 10);
+    const body = fn.slice(0, end > 0 ? end : 600);
+    assert.ok(
+      !body.includes('const QUEST_ICON'),
+      'renderTabQuests must not re-declare QUEST_ICON as a local — use the shared constant'
+    );
+  });
+
+  // ── CSS ──────────────────────────────────────────────────────
+  it('defines .sm-quest-row CSS class', () => {
+    assert.ok(src.includes('.sm-quest-row {') || src.includes('.sm-quest-row{'),
+      '.sm-quest-row CSS must be defined');
+  });
+
+  it('defines .sm-quest-cycle with per-status colour variants', () => {
+    assert.ok(src.includes('.sm-quest-cycle'),             '.sm-quest-cycle CSS must be defined');
+    assert.ok(src.includes('.sm-quest-cycle.qs-active'),   '.sm-quest-cycle.qs-active must be defined');
+    assert.ok(src.includes('.sm-quest-cycle.qs-completed'), '.sm-quest-cycle.qs-completed must be defined');
+    assert.ok(src.includes('.sm-quest-cycle.qs-failed'),   '.sm-quest-cycle.qs-failed must be defined');
+    assert.ok(src.includes('.sm-quest-cycle.qs-on-hold'),  '.sm-quest-cycle.qs-on-hold must be defined');
+  });
+
+  it('defines .sm-quest-input with strikethrough for completed and failed states', () => {
+    assert.ok(src.includes('.sm-quest-input'),             '.sm-quest-input CSS must be defined');
+    assert.ok(src.includes('.sm-quest-input.completed'),   '.sm-quest-input.completed must be defined');
+    assert.ok(src.includes('.sm-quest-input.failed'),      '.sm-quest-input.failed must be defined');
+    assert.ok(
+      src.includes('line-through'),
+      'completed/failed quest inputs must use text-decoration: line-through'
+    );
+  });
+
+  it('defines all 4 .qs-* display CSS classes for the card view', () => {
+    assert.ok(src.includes('.qs-active'),    '.qs-active CSS must be defined');
+    assert.ok(src.includes('.qs-completed'), '.qs-completed CSS must be defined');
+    assert.ok(src.includes('.qs-failed'),    '.qs-failed CSS must be defined');
+    assert.ok(src.includes('.qs-on-hold'),   '.qs-on-hold CSS must be defined');
+  });
+
+  it('defines .sc-quest-list and .sc-quest-row CSS for card display', () => {
+    assert.ok(src.includes('.sc-quest-list'), '.sc-quest-list CSS must be defined');
+    assert.ok(src.includes('.sc-quest-row'),  '.sc-quest-row CSS must be defined');
+  });
+
+  it('defines .sc-quest-text.completed and .sc-quest-text.failed with line-through', () => {
+    assert.ok(src.includes('.sc-quest-text.completed'), '.sc-quest-text.completed must be defined');
+    assert.ok(src.includes('.sc-quest-text.failed'),    '.sc-quest-text.failed must be defined');
+  });
+});
+
+// ══════════════════════════════════════════════════════════════
+// Section 57 — Stage 8: Polish
+// ══════════════════════════════════════════════════════════════
+describe('Stage 8 — Polish', () => {
+  const fs    = require('fs'), path = require('path');
+  const sl    = fs.readFileSync(path.join(__dirname, '../session-log.html'), 'utf8');
+  const admin = fs.readFileSync(path.join(__dirname, '../admin.html'),        'utf8');
+
+  // ── Stats bar: Moments count ─────────────────────────────────
+  it('stats bar has a statMoments element', () => {
+    assert.ok(sl.includes('id="statMoments"'),
+      'stats bar must have a statMoments span');
+  });
+
+  it('stats bar Moments is labelled correctly', () => {
+    const idx  = sl.indexOf('id="statMoments"');
+    const chunk = sl.slice(idx, idx + 120);
+    assert.ok(chunk.includes('Moments'),
+      'statMoments stat must be labelled "Moments"');
+  });
+
+  it('updateStats() counts total moments across all sessions', () => {
+    assert.ok(sl.includes('momentCount'),
+      'updateStats must maintain a momentCount variable');
+    assert.ok(
+      sl.includes('events[s.id]') && sl.includes('momentCount'),
+      'updateStats must accumulate moment counts from the events cache'
+    );
+    assert.ok(
+      sl.includes("'statMoments'") || sl.includes('"statMoments"'),
+      'updateStats must write to statMoments element'
+    );
+  });
+
+  it('updateStats Moments count uses (events[s.id] || []).length per session', () => {
+    const fn   = sl.slice(sl.indexOf('function updateStats()'));
+    const end  = fn.indexOf('\nfunction ', 10);
+    const body = fn.slice(0, end > 0 ? end : 500);
+    assert.ok(
+      body.includes('events[s.id]') && body.includes('.length'),
+      'updateStats must use events[s.id] to get moment count for each session'
+    );
+  });
+
+  // ── Session card header moment count chip ────────────────────
+  it('renderCard emits .sc-moment-count chip when session has events', () => {
+    assert.ok(sl.includes('sc-moment-count'),
+      'renderCard must emit an sc-moment-count chip when events exist');
+  });
+
+  it('sc-moment-count chip shows the ◆ prefix character', () => {
+    assert.ok(
+      sl.includes('◆${') || sl.includes('◆" +'),
+      'sc-moment-count chip must use ◆ as a visual prefix'
+    );
+  });
+
+  it('sc-moment-count chip only appears when the session has at least one event', () => {
+    assert.ok(
+      sl.includes('(events[s.id] || []).length') &&
+      sl.includes('sc-moment-count'),
+      'sc-moment-count chip must be conditional on events[s.id] having entries'
+    );
+  });
+
+  it('sc-moment-count chip has a title attribute describing the count', () => {
+    // Search the HTML occurrence (inside renderCard template), not the CSS definition
+    const idx  = sl.indexOf('class="sc-moment-count"') > -1
+      ? sl.indexOf('class="sc-moment-count"')
+      : sl.indexOf("sc-moment-count\"");
+    const chunk = sl.slice(idx, idx + 300);
+    assert.ok(
+      chunk.includes('title=') && chunk.includes('moment'),
+      'sc-moment-count chip must have a tooltip describing the moment count'
+    );
+  });
+
+  it('sc-moment-count chip pluralises correctly (moment vs moments)', () => {
+    assert.ok(
+      sl.includes("=== 1 ? '' : 's'") ||
+      sl.includes("=== 1?'':'s'") ||
+      sl.includes('===1?') ||
+      sl.includes("moment${") ,
+      'sc-moment-count chip must handle singular/plural of "moment"'
+    );
+  });
+
+  // ── CSS: sc-moment-count ─────────────────────────────────────
+  it('defines .sc-moment-count CSS class', () => {
+    assert.ok(sl.includes('.sc-moment-count {') || sl.includes('.sc-moment-count{'),
+      '.sc-moment-count CSS class must be defined');
+  });
+
+  it('.sc-moment-count uses Share Tech Mono font at dim violet colour', () => {
+    const idx  = sl.indexOf('.sc-moment-count {') > -1
+      ? sl.indexOf('.sc-moment-count {')
+      : sl.indexOf('.sc-moment-count{');
+    const chunk = sl.slice(idx, idx + 200);
+    assert.ok(chunk.includes('Share Tech Mono') || chunk.includes('monospace'),
+      '.sc-moment-count must use monospace font');
+  });
+
+  // ── renderTabNpcs: deep-link button ──────────────────────────
+  it('renderTabNpcs includes a ↗ jump-to-NPC button for each linked NPC', () => {
+    assert.ok(
+      sl.includes("jumpToNpc(") && sl.includes('↗'),
+      'renderTabNpcs must include a ↗ button that calls jumpToNpc'
+    );
+  });
+
+  it('renderTabNpcs ↗ button calls event.stopPropagation()', () => {
+    const fn   = sl.slice(sl.indexOf('function renderTabNpcs('));
+    const end  = fn.indexOf('\nfunction ', 10);
+    const body = fn.slice(0, end > 0 ? end : 600);
+    assert.ok(
+      body.includes('stopPropagation()'),
+      'renderTabNpcs ↗ button must stop propagation to prevent card toggle'
+    );
+  });
+
+  it('renderTabNpcs ↗ button has a descriptive title attribute', () => {
+    const fn   = sl.slice(sl.indexOf('function renderTabNpcs('));
+    const end  = fn.indexOf('\nfunction ', 10);
+    const body = fn.slice(0, end > 0 ? end : 600);
+    assert.ok(body.includes('title='), 'renderTabNpcs ↗ button must have a title attribute');
+  });
+
+  // ── NPC Index card: first_seen display ───────────────────────
+  it('renderNpcs renders a first-seen line for NPCs that have first_seen set', () => {
+    assert.ok(sl.includes('npc-first-seen'),
+      'renderNpcs must render an npc-first-seen element when first_seen is set');
+    assert.ok(sl.includes('First seen:'),
+      'renderNpcs must label the first_seen display with "First seen:"');
+  });
+
+  it('renderNpcs first-seen link resolves the session id to a session number and title', () => {
+    assert.ok(
+      sl.includes('sessions.find(s => s.id === npc.first_seen)') ||
+      sl.includes("sessions.find(s=>s.id===npc.first_seen)"),
+      'renderNpcs must look up the session row by npc.first_seen id'
+    );
+    assert.ok(
+      sl.includes('fs.number') || sl.includes('Session ${fs'),
+      'renderNpcs first-seen display must show the session number'
+    );
+    assert.ok(
+      sl.includes('fs.title') || sl.includes("fs.title"),
+      'renderNpcs first-seen display must show the session title'
+    );
+  });
+
+  it('renderNpcs first-seen link calls jumpToSession on click', () => {
+    assert.ok(
+      sl.includes("jumpToSession('${esc(fs.id)}')") ||
+      sl.includes('jumpToSession('),
+      'renderNpcs first-seen link must call jumpToSession when clicked'
+    );
+  });
+
+  it('renderNpcs first-seen renders nothing when first_seen is null/unset', () => {
+    assert.ok(
+      sl.includes('if (!npc.first_seen) return') ||
+      sl.includes('!npc.first_seen'),
+      'renderNpcs must guard against null first_seen and render nothing'
+    );
+  });
+
+  it('renderNpcs first-seen renders nothing when the referenced session no longer exists', () => {
+    assert.ok(
+      sl.includes('if (!fs) return') || sl.includes('if(!fs)return'),
+      'renderNpcs must guard against a stale first_seen id pointing to a deleted session'
+    );
+  });
+
+  // ── CSS: npc-first-seen ──────────────────────────────────────
+  it('defines .npc-first-seen CSS class', () => {
+    assert.ok(sl.includes('.npc-first-seen {') || sl.includes('.npc-first-seen{'),
+      '.npc-first-seen CSS class must be defined');
+  });
+
+  it('defines .npc-first-seen-link CSS class with hover state', () => {
+    assert.ok(sl.includes('.npc-first-seen-link'),
+      '.npc-first-seen-link CSS class must be defined');
+    assert.ok(sl.includes('.npc-first-seen-link:hover'),
+      '.npc-first-seen-link:hover must be defined');
+  });
+
+  it('.npc-first-seen-link uses violet accent colour on hover', () => {
+    const idx   = sl.indexOf('.npc-first-seen-link:hover');
+    const chunk = sl.slice(idx, idx + 80);
+    assert.ok(
+      chunk.includes('#a78bfa') || chunk.includes('167,139,250'),
+      '.npc-first-seen-link:hover must use the violet accent colour'
+    );
+  });
+
+  // ── Citation autocomplete: NPC modal notes ───────────────────
+  it('openNpcModal wires citation autocomplete to nmNotes textarea', () => {
+    assert.ok(
+      sl.includes("initCitationAutocomplete(document.getElementById('nmNotes')") ||
+      sl.includes('initCitationAutocomplete(document.getElementById("nmNotes")'),
+      'openNpcModal must wire initCitationAutocomplete to the nmNotes textarea'
+    );
+  });
+
+  it('openNpcModal wires nmNotes autocomplete inside the setTimeout focus block', () => {
+    const fn   = sl.slice(sl.indexOf('function openNpcModal(id)'));
+    const end  = fn.indexOf('\nfunction ', 10);
+    const body = fn.slice(0, end > 0 ? end : 500);
+    assert.ok(
+      body.includes('setTimeout') && body.includes('nmNotes'),
+      'openNpcModal must wire nmNotes autocomplete inside the setTimeout block (after modal opens)'
+    );
+  });
+
+  // ── Global Escape key handler ────────────────────────────────
+  it('global keydown listener closes sessionModal on Escape', () => {
+    assert.ok(
+      sl.includes("e.key !== 'Escape'") || sl.includes("e.key === 'Escape'"),
+      'global keydown listener must check for Escape key'
+    );
+    assert.ok(
+      sl.includes('closeSessionModal()'),
+      'Escape handler must call closeSessionModal'
+    );
+  });
+
+  it('global keydown listener closes npcModal on Escape', () => {
+    assert.ok(
+      sl.includes('closeNpcModal()') &&
+      (sl.includes("e.key !== 'Escape'") || sl.includes("e.key === 'Escape'")),
+      'Escape handler must call closeNpcModal'
+    );
+  });
+
+  it('Escape handler prioritises sessionModal over npcModal', () => {
+    const idx  = sl.indexOf("e.key !== 'Escape'") > -1
+      ? sl.indexOf("e.key !== 'Escape'")
+      : sl.indexOf("e.key === 'Escape'");
+    const chunk = sl.slice(idx, idx + 400);
+    const sessionFirst = chunk.indexOf('closeSessionModal()');
+    const npcFirst     = chunk.indexOf('closeNpcModal()');
+    assert.ok(
+      sessionFirst < npcFirst,
+      'Escape handler must check sessionModal before npcModal'
+    );
+  });
+
+  it('Escape handler uses optional chaining on classList.contains to be null-safe', () => {
+    const idx   = sl.indexOf("e.key !== 'Escape'") > -1
+      ? sl.indexOf("e.key !== 'Escape'")
+      : sl.indexOf("e.key === 'Escape'");
+    const chunk = sl.slice(idx, idx + 400);
+    assert.ok(
+      chunk.includes('?.classList') || chunk.includes("getElementById('sessionModal')"),
+      'Escape handler must safely handle the case where modal elements are not found'
+    );
+  });
+
+  // ── Snapshot: admin.html ─────────────────────────────────────
+  it('admin SNAPSHOT_TABLES includes session_log', () => {
+    assert.ok(
+      admin.includes("'session_log'") || admin.includes('"session_log"'),
+      'SNAPSHOT_TABLES must include session_log'
+    );
+  });
+
+  it('admin SNAPSHOT_TABLES includes session_events', () => {
+    assert.ok(
+      admin.includes("'session_events'") || admin.includes('"session_events"'),
+      'SNAPSHOT_TABLES must include session_events'
+    );
+  });
+
+  it('admin SNAPSHOT_TABLES includes npcs', () => {
+    assert.ok(
+      admin.includes("'npcs'") || admin.includes('"npcs"'),
+      "SNAPSHOT_TABLES must include npcs"
+    );
+  });
+
+  it('admin SNAPSHOT_TABLES now has 8 entries', () => {
+    const match   = admin.match(/const SNAPSHOT_TABLES\s*=\s*\[([\s\S]*?)\];/);
+    assert.ok(match, 'SNAPSHOT_TABLES must be defined in admin.html');
+    const entries = (match[1].match(/'[^']+'/g) || []);
+    assert.strictEqual(entries.length, 8,
+      `SNAPSHOT_TABLES must have 8 entries after Stage 8, found ${entries.length}`
+    );
+  });
+
+  it('admin SNAPSHOT_TABLES has nexus_settings last', () => {
+    const match   = admin.match(/const SNAPSHOT_TABLES\s*=\s*\[([\s\S]*?)\];/);
+    const entries = (match[1].match(/'[^']+'/g) || []).map(s => s.replace(/'/g, ''));
+    const settingsIdx = entries.indexOf('nexus_settings');
+    assert.strictEqual(settingsIdx, entries.length - 1,
+      `nexus_settings must be the last entry in SNAPSHOT_TABLES (found at index ${settingsIdx} of ${entries.length - 1})`
+    );
+  });
+
+  it('admin SNAPSHOT_TABLES has session_log before session_events (FK order)', () => {
+    const match   = admin.match(/const SNAPSHOT_TABLES\s*=\s*\[([\s\S]*?)\];/);
+    const entries = (match[1].match(/'[^']+'/g) || []).map(s => s.replace(/'/g, ''));
+    const logIdx  = entries.indexOf('session_log');
+    const evtIdx  = entries.indexOf('session_events');
+    assert.ok(
+      logIdx < evtIdx,
+      `session_log (idx ${logIdx}) must come before session_events (idx ${evtIdx}) due to FK constraint`
+    );
+  });
+
+  it('admin SNAPSHOT_TABLES has session_log before npcs (FK: npcs.first_seen)', () => {
+    const match   = admin.match(/const SNAPSHOT_TABLES\s*=\s*\[([\s\S]*?)\];/);
+    const entries = (match[1].match(/'[^']+'/g) || []).map(s => s.replace(/'/g, ''));
+    const logIdx  = entries.indexOf('session_log');
+    const npcIdx  = entries.indexOf('npcs');
+    assert.ok(
+      logIdx < npcIdx,
+      `session_log (idx ${logIdx}) must come before npcs (idx ${npcIdx}) — npcs.first_seen FK`
+    );
+  });
+
+  it('admin restore loop has special handling for session_events FK case', () => {
+    assert.ok(
+      admin.includes('session_events') && admin.includes('FK'),
+      'admin restore loop must have a comment or branch noting session_events FK dependency'
+    );
+  });
+
+  it('admin snapshot description mentions 8 tables', () => {
+    assert.ok(
+      admin.includes('8 tables') || admin.includes('eight tables'),
+      'admin snapshot description text must be updated to reflect 8 tables'
+    );
+  });
+
+  // ── No stale Stage-8 stub text ───────────────────────────────
+  it('no Stage 8 stub text remains in session-log.html', () => {
+    assert.ok(
+      !sl.includes('Stage 8'),
+      'All Stage 8 placeholder text must be removed from session-log.html'
+    );
+  });
+});
+
+// ══════════════════════════════════════════════════════════════
+// Section 58 — Stage 9: Integration & Completeness
+// ══════════════════════════════════════════════════════════════
+describe('Stage 9 — Integration & Completeness', () => {
+  const fs    = require('fs'), path = require('path');
+  const sl    = fs.readFileSync(path.join(__dirname, '../session-log.html'), 'utf8');
+  const idx   = fs.readFileSync(path.join(__dirname, '../index.html'),        'utf8');
+
+  // ── Disposition-coloured citation chips ──────────────────────
+  it('declares DISP_CHIP_COLOR constant with all 5 dispositions', () => {
+    assert.ok(sl.includes('const DISP_CHIP_COLOR'), 'DISP_CHIP_COLOR must be declared');
+    assert.ok(sl.includes("allied:"),   'DISP_CHIP_COLOR must have allied');
+    assert.ok(sl.includes("friendly:"), 'DISP_CHIP_COLOR must have friendly');
+    assert.ok(sl.includes("neutral:"),  'DISP_CHIP_COLOR must have neutral');
+    assert.ok(sl.includes("hostile:"),  'DISP_CHIP_COLOR must have hostile');
+    assert.ok(sl.includes("unknown:"),  'DISP_CHIP_COLOR must have unknown fallback');
+  });
+
+  it('DISP_CHIP_COLOR allied maps to cyan', () => {
+    assert.ok(
+      sl.includes("allied:") && sl.includes("14,240,208"),
+      'DISP_CHIP_COLOR allied must use cyan (14,240,208)'
+    );
+  });
+
+  it('DISP_CHIP_COLOR hostile maps to red', () => {
+    assert.ok(
+      sl.includes("hostile:") && sl.includes("239,68,68"),
+      'DISP_CHIP_COLOR hostile must use red (239,68,68)'
+    );
+  });
+
+  it('DISP_CHIP_COLOR friendly maps to green', () => {
+    assert.ok(
+      sl.includes("friendly:") && sl.includes("60,224,138"),
+      'DISP_CHIP_COLOR friendly must use green (60,224,138)'
+    );
+  });
+
+  it('DISP_CHIP_COLOR neutral maps to amber', () => {
+    assert.ok(
+      sl.includes("neutral:") && sl.includes("212,134,10"),
+      'DISP_CHIP_COLOR neutral must use amber (212,134,10)'
+    );
+  });
+
+  it('renderWithCitations uses DISP_CHIP_COLOR to set chip colour', () => {
+    assert.ok(
+      sl.includes('DISP_CHIP_COLOR[npc.disposition]'),
+      'renderWithCitations must look up chip colour via DISP_CHIP_COLOR[npc.disposition]'
+    );
+  });
+
+  it('renderWithCitations applies disposition colour as inline style', () => {
+    const fn   = sl.slice(sl.indexOf('function renderWithCitations('));
+    const end  = fn.indexOf('\nfunction ', 10);
+    const body = fn.slice(0, end > 0 ? end : 700);
+    assert.ok(
+      body.includes('style=') && body.includes('color:'),
+      'renderWithCitations must apply colour as an inline style on resolved chips'
+    );
+  });
+
+  it('renderWithCitations chip inline style sets color, border-color and background', () => {
+    const fn   = sl.slice(sl.indexOf('function renderWithCitations('));
+    const end  = fn.indexOf('\nfunction ', 10);
+    const body = fn.slice(0, end > 0 ? end : 700);
+    assert.ok(body.includes('border-color:'), 'chip must set border-color inline');
+    assert.ok(body.includes('background:'),   'chip must set background inline');
+  });
+
+  it('renderWithCitations chip title includes the NPC disposition', () => {
+    const fn   = sl.slice(sl.indexOf('function renderWithCitations('));
+    const end  = fn.indexOf('\nfunction ', 10);
+    const body = fn.slice(0, end > 0 ? end : 700);
+    assert.ok(
+      body.includes('npc.disposition') && body.includes('title='),
+      'resolved chip title must include NPC disposition'
+    );
+  });
+
+  it('renderWithCitations falls back to DISP_CHIP_COLOR.unknown for unrecognised disposition', () => {
+    assert.ok(
+      sl.includes('DISP_CHIP_COLOR.unknown'),
+      'renderWithCitations must fall back to DISP_CHIP_COLOR.unknown'
+    );
+  });
+
+  // ── Quest text citations ──────────────────────────────────────
+  it('renderTabQuests uses renderWithCitations for quest text (not esc)', () => {
+    assert.ok(
+      sl.includes('renderWithCitations(q.text)'),
+      'renderTabQuests must render quest text via renderWithCitations'
+    );
+  });
+
+  it('renderTabQuests does not use bare esc(q.text) for display', () => {
+    const fn   = sl.slice(sl.indexOf('function renderTabQuests('));
+    const end  = fn.indexOf('\nfunction ', 10);
+    const body = fn.slice(0, end > 0 ? end : 500);
+    assert.ok(
+      !body.includes('${esc(q.text)}'),
+      'renderTabQuests must not use bare esc(q.text) — it should go through renderWithCitations'
+    );
+  });
+
+  // ── getSessionAppearances scans quest text ───────────────────
+  it('getSessionAppearances scans quest text for ^slug citations', () => {
+    assert.ok(
+      sl.includes('s.quests') && sl.includes('q.text') &&
+      sl.includes('needle'),
+      'getSessionAppearances must scan s.quests[].text for the needle slug'
+    );
+  });
+
+  it('getSessionAppearances quest scan is inside the main session loop', () => {
+    const fn   = sl.slice(sl.indexOf('function getSessionAppearances('));
+    const end  = fn.indexOf('\nfunction ', 10);
+    const body = fn.slice(0, end > 0 ? end : 700);
+    assert.ok(
+      body.includes('s.quests') && body.includes('needle'),
+      'quest scanning must be co-located with the session loop in getSessionAppearances'
+    );
+  });
+
+  it('getSessionAppearances scans summary, events, AND quests', () => {
+    const fn   = sl.slice(sl.indexOf('function getSessionAppearances('));
+    const end  = fn.indexOf('\nfunction ', 10);
+    const body = fn.slice(0, end > 0 ? end : 700);
+    assert.ok(body.includes('s.summary'),  'getSessionAppearances must scan summary');
+    assert.ok(body.includes('events[s.id]'), 'getSessionAppearances must scan events');
+    assert.ok(body.includes('s.quests'),   'getSessionAppearances must scan quests');
+  });
+
+  it('getSessionAppearances skips quest scan if session already added via earlier scan', () => {
+    const fn   = sl.slice(sl.indexOf('function getSessionAppearances('));
+    const end  = fn.indexOf('\nfunction ', 10);
+    const body = fn.slice(0, end > 0 ? end : 700);
+    assert.ok(
+      body.includes('results.has(s.id)') || body.includes('continue'),
+      'getSessionAppearances must short-circuit quest scan if already matched'
+    );
+  });
+
+  // ── Search haystack expansion ─────────────────────────────────
+  it('getFilteredSessions haystack includes moment texts', () => {
+    assert.ok(
+      sl.includes('momentTexts'),
+      'getFilteredSessions must build momentTexts from events cache'
+    );
+    assert.ok(
+      sl.includes("events[s.id]") && sl.includes("ev.text"),
+      'getFilteredSessions must map event texts for the haystack'
+    );
+  });
+
+  it('getFilteredSessions haystack includes quest texts', () => {
+    assert.ok(
+      sl.includes('questTexts'),
+      'getFilteredSessions must build questTexts from session quests'
+    );
+    assert.ok(
+      sl.includes("s.quests") && sl.includes("qt.text"),
+      'getFilteredSessions must map quest texts for the haystack'
+    );
+  });
+
+  it('getFilteredSessions haystack joins all 5 sources before toLowerCase', () => {
+    const fn   = sl.slice(sl.indexOf('function getFilteredSessions()'));
+    const end  = fn.indexOf('\nfunction ', 10);
+    const body = fn.slice(0, end > 0 ? end : 500);
+    assert.ok(
+      body.includes('s.title') &&
+      body.includes('s.summary') &&
+      body.includes('s.world_date') &&
+      body.includes('momentTexts') &&
+      body.includes('questTexts'),
+      'haystack must join all 5 text sources: title, summary, world_date, momentTexts, questTexts'
+    );
+  });
+
+  it('getFilteredSessions guards against null/undefined event or quest text', () => {
+    assert.ok(
+      sl.includes("ev.text || ''") || sl.includes('ev.text||'),
+      'getFilteredSessions must guard ev.text against null/undefined'
+    );
+    assert.ok(
+      sl.includes("qt.text  || ''") || sl.includes("qt.text || ''") || sl.includes('qt.text||'),
+      'getFilteredSessions must guard qt.text against null/undefined'
+    );
+  });
+
+  // ── Citation autocomplete wired to quest inputs ───────────────
+  it('buildQuestEditor wires citation autocomplete to quest inputs after render', () => {
+    assert.ok(
+      sl.includes('.sm-quest-input') && sl.includes('initCitationAutocomplete'),
+      'buildQuestEditor must attach initCitationAutocomplete to quest inputs'
+    );
+  });
+
+  it('buildQuestEditor queries all .sm-quest-input elements for autocomplete', () => {
+    const fn   = sl.slice(sl.indexOf('function buildQuestEditor()'));
+    const end  = fn.indexOf('\nfunction ', 10);
+    const body = fn.slice(0, end > 0 ? end : 700);
+    assert.ok(
+      body.includes("querySelectorAll('.sm-quest-input')") ||
+      body.includes('querySelectorAll(".sm-quest-input")'),
+      'buildQuestEditor must use querySelectorAll to find all quest inputs'
+    );
+    assert.ok(
+      body.includes('initCitationAutocomplete'),
+      'buildQuestEditor must call initCitationAutocomplete on each quest input'
+    );
+  });
+
+  it('quest inputs have a ^ citation hint in their placeholder text', () => {
+    assert.ok(
+      sl.includes('type ^ to cite') || sl.includes('type ^ to'),
+      'quest inputs must hint that ^ triggers NPC citation autocomplete'
+    );
+  });
+
+  // ── Dashboard session card enrichment ────────────────────────
+  it('dashboard has statSessionComplete element', () => {
+    assert.ok(
+      idx.includes('id="statSessionComplete"'),
+      'index.html must have a statSessionComplete element on the session card'
+    );
+  });
+
+  it('dashboard statSessionComplete is labelled "Complete"', () => {
+    const i     = idx.indexOf('id="statSessionComplete"');
+    const chunk = idx.slice(i, i + 120);
+    assert.ok(
+      chunk.includes('Complete'),
+      'statSessionComplete must be labelled "Complete"'
+    );
+  });
+
+  it('dashboard has statSessionQuests element', () => {
+    assert.ok(
+      idx.includes('id="statSessionQuests"'),
+      'index.html must have a statSessionQuests element on the session card'
+    );
+  });
+
+  it('dashboard statSessionQuests is labelled "Active Quests"', () => {
+    const i     = idx.indexOf('id="statSessionQuests"');
+    const chunk = idx.slice(i, i + 130);
+    assert.ok(
+      chunk.includes('Active Quests'),
+      'statSessionQuests must be labelled "Active Quests"'
+    );
+  });
+
+  it('dashboard has statLatestSession element', () => {
+    assert.ok(
+      idx.includes('id="statLatestSession"'),
+      'index.html must have a statLatestSession element for the latest session title'
+    );
+  });
+
+  it('loadSessionStats populates statSessionComplete', () => {
+    assert.ok(
+      idx.includes("'statSessionComplete'") || idx.includes('"statSessionComplete"'),
+      'loadSessionStats must write to statSessionComplete'
+    );
+  });
+
+  it('loadSessionStats populates statSessionQuests with active quest count', () => {
+    assert.ok(
+      idx.includes("'statSessionQuests'") || idx.includes('"statSessionQuests"'),
+      'loadSessionStats must write to statSessionQuests'
+    );
+    assert.ok(
+      idx.includes("q.status === 'active'") || idx.includes('activeQuests'),
+      'loadSessionStats must count active quests across all sessions'
+    );
+  });
+
+  it('loadSessionStats populates statLatestSession with latest session title', () => {
+    assert.ok(
+      idx.includes("statLatestSession") && idx.includes('latest.title'),
+      'loadSessionStats must write the latest session title to statLatestSession'
+    );
+  });
+
+  it('loadSessionStats orders sessions by number desc for correct latest detection', () => {
+    assert.ok(
+      idx.includes('number.desc') || idx.includes('number desc'),
+      'loadSessionStats must order sessions by number desc to reliably find the latest'
+    );
+  });
+
+  it('loadSessionStats handles empty sessions array gracefully for latest display', () => {
+    assert.ok(
+      idx.includes('sessions[0]') &&
+      (idx.includes('latest ?') || idx.includes('latest\n') || idx.includes("? `Latest")),
+      'loadSessionStats must guard against empty sessions array when setting latest label'
+    );
+  });
+
+  it('statLatestSession element uses monospace font and violet accent colour', () => {
+    const i     = idx.indexOf('id="statLatestSession"');
+    const chunk = idx.slice(i, i + 250);
+    assert.ok(
+      chunk.includes('Share Tech Mono') || chunk.includes('monospace'),
+      'statLatestSession must use monospace font'
+    );
+    assert.ok(
+      chunk.includes('a78bfa') || chunk.includes('167,139,250'),
+      'statLatestSession must use violet accent colour'
+    );
+  });
+});
+
+// ══════════════════════════════════════════════════════════════
+// Section 59 — Nav: Session Log in every sidenav
+// ══════════════════════════════════════════════════════════════
+describe('Nav — Session Log present in every sidenav', () => {
+  const fs   = require('fs'), path = require('path');
+  const base = path.join(__dirname, '..');
+
+  const PAGES = [
+    'index.html',
+    'party-roster.html',
+    'treasury.html',
+    'loot-tracker.html',
+    'admin.html',
+    'session-log.html',
+  ];
+
+  for (const page of PAGES) {
+    it(`${page} sidenav contains a link to session-log.html`, () => {
+      const src = fs.readFileSync(path.join(base, page), 'utf8');
+      assert.ok(
+        src.includes('href="session-log.html"'),
+        `${page} must have a sidenav link to session-log.html`
+      );
+    });
+  }
+
+  it('session-log.html nav link has .active class on the session-log entry', () => {
+    const src = fs.readFileSync(path.join(base, 'session-log.html'), 'utf8');
+    assert.ok(
+      src.includes('sidenav-link active') && src.includes('href="session-log.html"'),
+      'session-log.html must mark its own nav link as active'
+    );
+  });
+
+  it('index.html nav does NOT mark the session-log link as active (dashboard is active)', () => {
+    const src = fs.readFileSync(path.join(base, 'index.html'), 'utf8');
+    // The active link should be the dashboard, not session-log
+    const activeLink = src.match(/sidenav-link active[^>]*href="([^"]+)"/);
+    assert.ok(activeLink, 'index.html must have exactly one active sidenav link');
+    assert.strictEqual(activeLink[1], 'index.html',
+      'The active sidenav link on index.html must point to index.html, not session-log.html');
+  });
+
+  it('each active-module page marks only its own link as active', () => {
+    const activeMap = {
+      'party-roster.html': 'party-roster.html',
+      'treasury.html':     'treasury.html',
+      'loot-tracker.html': 'loot-tracker.html',
+      'admin.html':        'admin.html',
+    };
+    for (const [page, expectedHref] of Object.entries(activeMap)) {
+      const src = fs.readFileSync(path.join(base, page), 'utf8');
+      // Find all active sidenav links
+      const matches = [...src.matchAll(/sidenav-link active[^>]*href="([^"]+)"/g)];
+      assert.ok(matches.length >= 1, `${page} must have at least one active sidenav link`);
+      const activeHrefs = matches.map(m => m[1]);
+      assert.ok(
+        activeHrefs.includes(expectedHref),
+        `${page} must mark its own nav link (${expectedHref}) as active`
+      );
+      assert.ok(
+        !activeHrefs.includes('session-log.html'),
+        `${page} must NOT mark the session-log link as active`
+      );
+    }
+  });
+
+  it('every page nav link to session-log.html includes the 📋 icon', () => {
+    for (const page of PAGES) {
+      const src = fs.readFileSync(path.join(base, page), 'utf8');
+      // Find the session-log nav link block and check icon nearby
+      const idx = src.indexOf('href="session-log.html"');
+      const chunk = src.slice(idx, idx + 200);
+      assert.ok(
+        chunk.includes('📋'),
+        `${page} session-log nav link must include the 📋 icon`
+      );
+    }
+  });
+
+  it('every page nav link to session-log.html includes "Session Log" label', () => {
+    for (const page of PAGES) {
+      const src = fs.readFileSync(path.join(base, page), 'utf8');
+      const idx = src.indexOf('href="session-log.html"');
+      const chunk = src.slice(idx, idx + 200);
+      assert.ok(
+        chunk.includes('Session Log'),
+        `${page} session-log nav link must include the "Session Log" label`
+      );
+    }
+  });
+});
+
+// ══════════════════════════════════════════════════════════════
+// Section 60 — Seed Tool: structure and data integrity
+// ══════════════════════════════════════════════════════════════
+describe('Seed Tool — seed-session-log.html', () => {
+  const fs   = require('fs'), path = require('path');
+  const seed = fs.readFileSync(path.join(__dirname, '../seed-session-log.html'), 'utf8');
+
+  // ── File basics ──────────────────────────────────────────────
+  it('seed file exists and is non-empty', () => {
+    assert.ok(seed.length > 500, 'seed-session-log.html must be a substantial file');
+  });
+
+  it('seed file is valid HTML with a <head> and <body>', () => {
+    assert.ok(seed.includes('<head>'),  'seed file must have a <head>');
+    assert.ok(seed.includes('<body>'),  'seed file must have a <body>');
+    assert.ok(seed.includes('</html>'), 'seed file must close with </html>');
+  });
+
+  // ── Credentials ──────────────────────────────────────────────
+  it('has Supabase credentials hardcoded as constants (no input fields needed)', () => {
+    assert.ok(seed.includes('SEED_URL'), 'seed tool must define a SEED_URL constant');
+    assert.ok(seed.includes('SEED_KEY'), 'seed tool must define a SEED_KEY constant');
+    // Credentials are pulled from nexus-config.js values — no runtime input needed
+    assert.ok(!seed.includes('id="inUrl"'), 'seed tool must not have a URL input field');
+    assert.ok(!seed.includes('id="inKey"'), 'seed tool must not have a key input field');
+  });
+
+  // ── Buttons ───────────────────────────────────────────────────
+  it('has a Run Seed button', () => {
+    assert.ok(seed.includes('btnSeed') && seed.includes('runSeed()'),
+      'seed tool must have a Run Seed button calling runSeed()');
+  });
+
+  it('has a Wipe & Re-seed button', () => {
+    assert.ok(seed.includes('btnWipe') && seed.includes('runWipe()'),
+      'seed tool must have a Wipe & Re-seed button calling runWipe()');
+  });
+
+  // ── NPC data ──────────────────────────────────────────────────
+  it('defines at least 5 NPCs', () => {
+    const matches = seed.match(/disposition:/g) || [];
+    assert.ok(matches.length >= 5, `seed must define at least 5 NPCs (found ${matches.length})`);
+  });
+
+  it('NPC data covers all 5 disposition values', () => {
+    assert.ok(seed.includes("'allied'"),   "seed NPCs must include an 'allied' disposition");
+    assert.ok(seed.includes("'friendly'"), "seed NPCs must include a 'friendly' disposition");
+    assert.ok(seed.includes("'neutral'"),  "seed NPCs must include a 'neutral' disposition");
+    assert.ok(seed.includes("'hostile'"),  "seed NPCs must include a 'hostile' disposition");
+  });
+
+  it('NPCs have non-empty name, role, and notes fields', () => {
+    assert.ok(seed.includes('name:') && seed.includes('role:') && seed.includes('notes:'),
+      'each NPC definition must have name, role, and notes fields');
+  });
+
+  // ── Session data ──────────────────────────────────────────────
+  it('defines at least 3 sessions', () => {
+    const matches = seed.match(/number:\s+\d/g) || [];
+    assert.ok(matches.length >= 3, `seed must define at least 3 sessions (found ${matches.length})`);
+  });
+
+  it('sessions include both draft and complete status values', () => {
+    assert.ok(seed.includes("status:     'complete'") || seed.includes("status: 'complete'"),
+      "seed must have at least one 'complete' session");
+    assert.ok(seed.includes("status:     'draft'") || seed.includes("status: 'draft'"),
+      "seed must have at least one 'draft' session");
+  });
+
+  it('sessions have quests with active and completed statuses', () => {
+    assert.ok(seed.includes("status: 'active'"),    "seed quests must include 'active' status");
+    assert.ok(seed.includes("status: 'completed'"), "seed quests must include 'completed' status");
+  });
+
+  it('sessions include world_date (in-world calendar) fields', () => {
+    assert.ok(seed.includes('world_date:'), 'seed sessions must include world_date fields');
+  });
+
+  it('session summaries contain ^slug citation tokens', () => {
+    // Look for the ^slug pattern in session summary strings
+    assert.ok(/\^[a-z][a-z0-9-]+/.test(seed),
+      'seed session summaries must contain ^slug citation tokens linking to NPCs');
+  });
+
+  it('sessions reference NPCs via npc_indices', () => {
+    assert.ok(seed.includes('npc_indices'),
+      'seed sessions must reference their NPCs via npc_indices for session_npcs population');
+  });
+
+  // ── Moments data ─────────────────────────────────────────────
+  it('defines moments for each session', () => {
+    assert.ok(seed.includes('moments:'), 'seed sessions must have moments arrays');
+  });
+
+  it('moments include tagged party members', () => {
+    assert.ok(seed.includes('members:'), 'seed moments must have members arrays');
+  });
+
+  it('some moments have empty members (unassigned moments are valid)', () => {
+    assert.ok(seed.includes('members: []'), 'seed must include unassigned moments (empty members array)');
+  });
+
+  // ── Logic: uid and slugify ────────────────────────────────────
+  it('defines a uid() helper function', () => {
+    assert.ok(seed.includes('function uid()'), 'seed tool must define uid() for ID generation');
+  });
+
+  it('defines a slugify() helper function', () => {
+    assert.ok(seed.includes('function slugify('), 'seed tool must define slugify() for NPC slug generation');
+  });
+
+  // ── Wipe safety ───────────────────────────────────────────────
+  it('wipe operation deletes session_events before session_log (FK order)', () => {
+    // Use a larger window — the confirm() dialog pushes the deleteWhere calls past 800 chars
+    const wipeIdx  = seed.indexOf('async function runWipe');
+    const nextFn   = seed.indexOf('\nasync function ', wipeIdx + 10);
+    const wipeBody = seed.slice(wipeIdx, nextFn > 0 ? nextFn : wipeIdx + 1500);
+    const eventsPos = wipeBody.indexOf("'session_events'");
+    const logPos    = wipeBody.indexOf("'session_log'");
+    // Positions must be from the deleteWhere calls, not the confirm dialog text
+    // Find the deleteWhere block specifically
+    const deleteBlock = wipeBody.slice(wipeBody.indexOf('deleteWhere'));
+    const devPos = deleteBlock.indexOf("'session_events'");
+    const dslPos = deleteBlock.indexOf("'session_log'");
+    assert.ok(devPos > -1 && dslPos > -1, 'runWipe must deleteWhere on both session_events and session_log');
+    assert.ok(devPos < dslPos,
+      'runWipe must delete session_events before session_log to respect the FK constraint');
+  });
+
+  it('wipe operation also clears the npcs table', () => {
+    const wipeIdx  = seed.indexOf('async function runWipe');
+    const nextFn   = seed.indexOf('\nasync function ', wipeIdx + 10);
+    const wipeBody = seed.slice(wipeIdx, nextFn > 0 ? nextFn : wipeIdx + 1500);
+    const deleteBlock = wipeBody.slice(wipeBody.indexOf('deleteWhere'));
+    assert.ok(deleteBlock.includes("'npcs'"), 'runWipe must also deleteWhere on the npcs table');
+  });
+
+  it('wipe operation requires confirmation before executing', () => {
+    const wipeIdx  = seed.indexOf('async function runWipe');
+    const wipeBody = seed.slice(wipeIdx, wipeIdx + 400);
+    assert.ok(
+      wipeBody.includes('confirm('),
+      'runWipe must call confirm() to require user acknowledgment before destructive wipe'
+    );
+  });
+
+  // ── first_seen patching ───────────────────────────────────────
+  it('seed patches NPC first_seen to the earliest session they appear in', () => {
+    assert.ok(
+      seed.includes('first_seen') && seed.includes('npcFirstSeen'),
+      'seed must track and patch NPC first_seen after sessions are inserted'
+    );
+  });
+
+  it('first_seen is patched in session-number order (earliest session wins)', () => {
+    assert.ok(
+      seed.includes('npcFirstSeen[npcId]') || seed.includes('npcFirstSeen['),
+      'first_seen patch must guard against overwriting with a later session (first occurrence wins)'
+    );
+  });
+
+  // ── Error handling ────────────────────────────────────────────
+  it('errors during seed are caught and counted rather than crashing silently', () => {
+    assert.ok(
+      seed.includes('errors++') || seed.includes('errors +='),
+      'seed runner must count errors rather than letting them crash the whole run'
+    );
+  });
+
+  it('final summary distinguishes success from partial failure', () => {
+    assert.ok(
+      seed.includes('errors === 0'),
+      'seed runner must check error count to show success vs partial-failure banner'
+    );
+  });
+
+  // ── Visual / UX ───────────────────────────────────────────────
+  it('uses NEXUS brand fonts', () => {
+    assert.ok(seed.includes('Orbitron'),    'seed tool must use the Orbitron display font');
+    assert.ok(seed.includes('Share Tech'), 'seed tool must use the Share Tech Mono monospace font');
+  });
+
+  it('uses the NEXUS violet accent colour', () => {
+    assert.ok(
+      seed.includes('#a78bfa') || seed.includes('167,139,250'),
+      'seed tool must use the violet accent colour to match NEXUS branding'
+    );
+  });
+
+  it('shows a progress log during seed execution', () => {
+    assert.ok(seed.includes('logWrap') && seed.includes('function log('),
+      'seed tool must show a progress log with individual step feedback'
+    );
+  });
+
+  it('shows a spinner on buttons during execution', () => {
+    assert.ok(seed.includes('spinnerSeed') && seed.includes('spinnerWipe'),
+      'seed tool must show spinners on buttons while requests are in-flight'
+    );
+  });
+
+  it('disables buttons during execution to prevent double-submit', () => {
+    assert.ok(seed.includes('function setBusy(') || seed.includes('setBusy('),
+      'seed tool must disable buttons during execution to prevent double-submit'
+    );
+  });
+});
+
+// ══════════════════════════════════════════════════════════════
+// Section 61 — Admin Danger Zone: Session Log + NPC clear buttons
+// ══════════════════════════════════════════════════════════════
+describe('Admin Danger Zone — Session Log and NPC clear buttons', () => {
+  const fs    = require('fs'), path = require('path');
+  const admin = fs.readFileSync(path.join(__dirname, '../admin.html'), 'utf8');
+
+  // ── Session Log row ──────────────────────────────────────────
+  it('Danger Zone has a Clear All Session Log Data row', () => {
+    assert.ok(admin.includes('Clear All Session Log Data'),
+      'Danger Zone must have a "Clear All Session Log Data" heading');
+  });
+
+  it('Clear Sessions button has id="btnClearSessions"', () => {
+    assert.ok(admin.includes('id="btnClearSessions"'),
+      'Clear sessions button must have id="btnClearSessions"');
+  });
+
+  it('Clear Sessions button calls clearAllSessions()', () => {
+    assert.ok(admin.includes('onclick="clearAllSessions()"'),
+      'Clear sessions button must call clearAllSessions() on click');
+  });
+
+  it('Clear Sessions row description mentions sessions, moments, and quests', () => {
+    const idx   = admin.indexOf('Clear All Session Log Data');
+    const chunk = admin.slice(idx, idx + 400);
+    assert.ok(chunk.includes('session') || chunk.includes('moment') || chunk.includes('quest'),
+      'Clear sessions row must describe what is deleted (sessions, moments, quests)');
+  });
+
+  it('Clear Sessions row clarifies NPC records are not affected', () => {
+    const idx   = admin.indexOf('Clear All Session Log Data');
+    const chunk = admin.slice(idx, idx + 400);
+    assert.ok(chunk.toLowerCase().includes('npc'),
+      'Clear sessions row must note that NPC records are not affected');
+  });
+
+  // ── NPC row ───────────────────────────────────────────────────
+  it('Danger Zone has a Clear All NPCs row', () => {
+    assert.ok(admin.includes('Clear All NPCs'),
+      'Danger Zone must have a "Clear All NPCs" heading');
+  });
+
+  it('Clear NPCs button has id="btnClearNpcs"', () => {
+    assert.ok(admin.includes('id="btnClearNpcs"'),
+      'Clear NPCs button must have id="btnClearNpcs"');
+  });
+
+  it('Clear NPCs button calls clearAllNpcs()', () => {
+    assert.ok(admin.includes('onclick="clearAllNpcs()"'),
+      'Clear NPCs button must call clearAllNpcs() on click');
+  });
+
+  it('Clear NPCs row description warns that ^slug citations will become unresolved', () => {
+    const idx   = admin.indexOf('Clear All NPCs');
+    const chunk = admin.slice(idx, idx + 500);
+    assert.ok(chunk.includes('^slug') || chunk.includes('citation') || chunk.includes('unresolved'),
+      'Clear NPCs row must warn that existing ^slug citations will become unresolved');
+  });
+
+  it('Clear NPCs row clarifies session records are not affected', () => {
+    const idx   = admin.indexOf('Clear All NPCs');
+    const chunk = admin.slice(idx, idx + 500);
+    assert.ok(chunk.toLowerCase().includes('session'),
+      'Clear NPCs row must note that session records are not affected');
+  });
+
+  // ── clearAllSessions() function ───────────────────────────────
+  it('clearAllSessions() is defined as an async function', () => {
+    assert.ok(admin.includes('async function clearAllSessions()'),
+      'clearAllSessions must be an async function');
+  });
+
+  it('clearAllSessions() calls dangerConfirm before deleting', () => {
+    const fn   = admin.slice(admin.indexOf('async function clearAllSessions()'));
+    const body = fn.slice(0, fn.indexOf('\n  }', 10) + 4);
+    assert.ok(body.includes('dangerConfirm('),
+      'clearAllSessions must call dangerConfirm before deleting anything');
+  });
+
+  it('clearAllSessions() deletes session_events before session_log (FK order)', () => {
+    const fn    = admin.slice(admin.indexOf('async function clearAllSessions()'));
+    const body  = fn.slice(0, fn.indexOf('\n  async function', 10));
+    const evPos = body.indexOf("'session_events'");
+    const slPos = body.indexOf("'session_log'");
+    assert.ok(evPos > -1 && slPos > -1,
+      'clearAllSessions must delete both session_events and session_log');
+    assert.ok(evPos < slPos,
+      'clearAllSessions must delete session_events before session_log (FK constraint)');
+  });
+
+  it('clearAllSessions() does NOT delete from the npcs table', () => {
+    const fn   = admin.slice(admin.indexOf('async function clearAllSessions()'));
+    const body = fn.slice(0, fn.indexOf('\n  async function', 10));
+    assert.ok(!body.includes("'npcs'"),
+      'clearAllSessions must not touch the npcs table');
+  });
+
+  it('clearAllSessions() uses setLoading on btnClearSessions', () => {
+    const fn   = admin.slice(admin.indexOf('async function clearAllSessions()'));
+    const body = fn.slice(0, fn.indexOf('\n  async function', 10));
+    assert.ok(body.includes('btnClearSessions') && body.includes('setLoading'),
+      'clearAllSessions must use setLoading on the btnClearSessions button');
+  });
+
+  it('clearAllSessions() calls showToast on success', () => {
+    const fn   = admin.slice(admin.indexOf('async function clearAllSessions()'));
+    const body = fn.slice(0, fn.indexOf('\n  async function', 10));
+    assert.ok(body.includes('showToast('), 'clearAllSessions must call showToast on success');
+  });
+
+  it('clearAllSessions() has a try/catch/finally block', () => {
+    const fn   = admin.slice(admin.indexOf('async function clearAllSessions()'));
+    const body = fn.slice(0, fn.indexOf('\n  async function', 10));
+    assert.ok(body.includes('try {') && body.includes('catch(') && body.includes('finally {'),
+      'clearAllSessions must use try/catch/finally for error handling');
+  });
+
+  // ── clearAllNpcs() function ───────────────────────────────────
+  it('clearAllNpcs() is defined as an async function', () => {
+    assert.ok(admin.includes('async function clearAllNpcs()'),
+      'clearAllNpcs must be an async function');
+  });
+
+  it('clearAllNpcs() calls dangerConfirm before deleting', () => {
+    const fn   = admin.slice(admin.indexOf('async function clearAllNpcs()'));
+    const body = fn.slice(0, fn.indexOf('\n  async function', 10));
+    assert.ok(body.includes('dangerConfirm('),
+      'clearAllNpcs must call dangerConfirm before deleting anything');
+  });
+
+  it('clearAllNpcs() deletes only from the npcs table', () => {
+    const fn    = admin.slice(admin.indexOf('async function clearAllNpcs()'));
+    // Stop at the SNAPSHOT section comment, which immediately follows clearAllNpcs
+    const end   = fn.indexOf('//  CAMPAIGN SNAPSHOT');
+    const body  = fn.slice(0, end > 0 ? end : 700);
+    assert.ok(body.includes("'npcs'"),
+      "clearAllNpcs must delete from the 'npcs' table");
+    assert.ok(!body.includes("'session_log'"),
+      'clearAllNpcs must not touch session_log');
+    assert.ok(!body.includes("'session_events'"),
+      'clearAllNpcs must not touch session_events');
+  });
+
+  it('clearAllNpcs() uses setLoading on btnClearNpcs', () => {
+    const fn   = admin.slice(admin.indexOf('async function clearAllNpcs()'));
+    const body = fn.slice(0, fn.indexOf('\n  async function', 10));
+    assert.ok(body.includes('btnClearNpcs') && body.includes('setLoading'),
+      'clearAllNpcs must use setLoading on the btnClearNpcs button');
+  });
+
+  it('clearAllNpcs() calls showToast on success', () => {
+    const fn   = admin.slice(admin.indexOf('async function clearAllNpcs()'));
+    const body = fn.slice(0, fn.indexOf('\n  async function', 10));
+    assert.ok(body.includes('showToast('), 'clearAllNpcs must call showToast on success');
+  });
+
+  it('clearAllNpcs() has a try/catch/finally block', () => {
+    const fn   = admin.slice(admin.indexOf('async function clearAllNpcs()'));
+    const body = fn.slice(0, fn.indexOf('\n  async function', 10));
+    assert.ok(body.includes('try {') && body.includes('catch(') && body.includes('finally {'),
+      'clearAllNpcs must use try/catch/finally for error handling');
+  });
+
+  // ── Ordering: new rows appear after existing ones ─────────────
+  it('Danger Zone rows appear in module order: Members, Treasury, Loot, Sessions, NPCs', () => {
+    const membersPos  = admin.indexOf('btnClearMembers');
+    const treasuryPos = admin.indexOf('btnClearTreasury');
+    const lootPos     = admin.indexOf('btnClearLoot');
+    const sessionsPos = admin.indexOf('btnClearSessions');
+    const npcsPos     = admin.indexOf('btnClearNpcs');
+    assert.ok(
+      membersPos < treasuryPos &&
+      treasuryPos < lootPos &&
+      lootPos < sessionsPos &&
+      sessionsPos < npcsPos,
+      'Danger Zone rows must appear in order: Members → Treasury → Loot → Sessions → NPCs'
+    );
+  });
+});
+
+// ══════════════════════════════════════════════════════════════
+// Section 62 — Module Visibility: nexus-config.js
+// ══════════════════════════════════════════════════════════════
+describe('Module Visibility — nexus-config.js', () => {
+  const fs  = require('fs'), path = require('path');
+  const cfg = fs.readFileSync(path.join(__dirname, '../js/nexus-config.js'), 'utf8');
+
+  // ── MODULE_DEFS ──────────────────────────────────────────────
+  it('defines MODULE_DEFS array with all four live modules', () => {
+    assert.ok(cfg.includes('const MODULE_DEFS'), 'MODULE_DEFS must be defined');
+    assert.ok(cfg.includes("'partyRoster'"),   'MODULE_DEFS must include partyRoster');
+    assert.ok(cfg.includes("'treasury'"),      'MODULE_DEFS must include treasury');
+    assert.ok(cfg.includes("'lootTracker'"),   'MODULE_DEFS must include lootTracker');
+    assert.ok(cfg.includes("'sessionLog'"),    'MODULE_DEFS must include sessionLog');
+  });
+
+  it('MODULE_DEFS entries include href to the page file', () => {
+    assert.ok(cfg.includes("'party-roster.html'"),  'MODULE_DEFS must include party-roster.html href');
+    assert.ok(cfg.includes("'treasury.html'"),      'MODULE_DEFS must include treasury.html href');
+    assert.ok(cfg.includes("'loot-tracker.html'"),  'MODULE_DEFS must include loot-tracker.html href');
+    assert.ok(cfg.includes("'session-log.html'"),   'MODULE_DEFS must include session-log.html href');
+  });
+
+  it('MODULE_ENABLED_DEFAULTS has all four modules set to true', () => {
+    assert.ok(cfg.includes('MODULE_ENABLED_DEFAULTS'), 'MODULE_ENABLED_DEFAULTS must be defined');
+    // All four keys must appear as enabled by default
+    ['partyRoster', 'treasury', 'lootTracker', 'sessionLog'].forEach(key => {
+      const pattern = new RegExp(`${key}:\\s*true`);
+      assert.ok(pattern.test(cfg), `MODULE_ENABLED_DEFAULTS must set ${key}: true`);
+    });
+  });
+
+  // ── loadModuleSettings ───────────────────────────────────────
+  it('defines async loadModuleSettings()', () => {
+    assert.ok(cfg.includes('async function loadModuleSettings()'),
+      'loadModuleSettings must be an async function');
+  });
+
+  it('loadModuleSettings reads from nexus_settings key "module_enabled"', () => {
+    const fn   = cfg.slice(cfg.indexOf('async function loadModuleSettings()'));
+    const body = fn.slice(0, fn.indexOf('\n}') + 2);
+    assert.ok(body.includes('module_enabled'),
+      'loadModuleSettings must query nexus_settings for the "module_enabled" key');
+  });
+
+  it('loadModuleSettings merges saved values with defaults (safe fallback)', () => {
+    const fn   = cfg.slice(cfg.indexOf('async function loadModuleSettings()'));
+    const body = fn.slice(0, fn.indexOf('\n}') + 2);
+    assert.ok(body.includes('MODULE_ENABLED_DEFAULTS'),
+      'loadModuleSettings must merge with MODULE_ENABLED_DEFAULTS for safe fallback');
+  });
+
+  // ── saveModuleSettings ───────────────────────────────────────
+  it('defines async saveModuleSettings()', () => {
+    assert.ok(cfg.includes('async function saveModuleSettings('),
+      'saveModuleSettings must be an async function');
+  });
+
+  it('saveModuleSettings upserts to nexus_settings with key "module_enabled"', () => {
+    const fn   = cfg.slice(cfg.indexOf('async function saveModuleSettings('));
+    const body = fn.slice(0, fn.indexOf('\n}') + 2);
+    assert.ok(body.includes("'module_enabled'"),
+      'saveModuleSettings must upsert with key "module_enabled"');
+    assert.ok(body.includes('db.upsert'),
+      'saveModuleSettings must use db.upsert to persist settings');
+  });
+
+  // ── isModuleEnabled ──────────────────────────────────────────
+  it('defines isModuleEnabled(key) that returns true for unknown keys', () => {
+    assert.ok(cfg.includes('function isModuleEnabled('),
+      'isModuleEnabled must be defined');
+    // Default-enabled behaviour: keys not in map return true
+    assert.ok(cfg.includes('!== false'),
+      'isModuleEnabled must return true for any key not explicitly set to false');
+  });
+
+  // ── enforceModuleGuard ───────────────────────────────────────
+  it('defines enforceModuleGuard(moduleKey)', () => {
+    assert.ok(cfg.includes('function enforceModuleGuard('),
+      'enforceModuleGuard must be defined');
+  });
+
+  it('enforceModuleGuard returns true when module is enabled', () => {
+    const fn   = cfg.slice(cfg.indexOf('function enforceModuleGuard('));
+    const body = fn.slice(0, fn.indexOf('\n}') + 2);
+    assert.ok(body.includes('return true'),
+      'enforceModuleGuard must return true when the module is enabled');
+  });
+
+  it('enforceModuleGuard replaces body content when module is disabled', () => {
+    const fn   = cfg.slice(cfg.indexOf('function enforceModuleGuard('));
+    const body = fn.slice(0, fn.indexOf('\n}') + 2);
+    assert.ok(body.includes('document.body.innerHTML'),
+      'enforceModuleGuard must replace body innerHTML to show a disabled screen');
+  });
+
+  it('enforceModuleGuard disabled screen includes a link back to index.html', () => {
+    const fn   = cfg.slice(cfg.indexOf('function enforceModuleGuard('));
+    const body = fn.slice(0, fn.indexOf('\n}') + 2);
+    assert.ok(body.includes('index.html'),
+      'enforceModuleGuard disabled screen must link back to index.html');
+  });
+
+  it('enforceModuleGuard returns false when module is disabled', () => {
+    const fn   = cfg.slice(cfg.indexOf('function enforceModuleGuard('));
+    const body = fn.slice(0, fn.indexOf('\n}') + 2);
+    assert.ok(body.includes('return false'),
+      'enforceModuleGuard must return false after rendering the disabled screen');
+  });
+
+  // ── applyModuleVisibility ────────────────────────────────────
+  it('defines applyModuleVisibility()', () => {
+    assert.ok(cfg.includes('function applyModuleVisibility()'),
+      'applyModuleVisibility must be defined');
+  });
+
+  it('applyModuleVisibility hides sidenav links for disabled modules', () => {
+    const fn   = cfg.slice(cfg.indexOf('function applyModuleVisibility()'));
+    const body = fn.slice(0, fn.indexOf('\n}') + 2);
+    assert.ok(body.includes('sidenav-link'),
+      'applyModuleVisibility must target .sidenav-link elements');
+    assert.ok(body.includes("display") && body.includes("'none'"),
+      'applyModuleVisibility must set display:none on links for disabled modules');
+  });
+
+  it('applyModuleVisibility also hides module-card elements on the dashboard', () => {
+    const fn   = cfg.slice(cfg.indexOf('function applyModuleVisibility()'));
+    const body = fn.slice(0, fn.indexOf('\n}') + 2);
+    assert.ok(body.includes('module-card'),
+      'applyModuleVisibility must target .module-card elements for the dashboard');
+  });
+});
+
+// ══════════════════════════════════════════════════════════════
+// Section 63 — Module Visibility: admin.html
+// ══════════════════════════════════════════════════════════════
+describe('Module Visibility — admin.html', () => {
+  const fs    = require('fs'), path = require('path');
+  const admin = fs.readFileSync(path.join(__dirname, '../admin.html'), 'utf8');
+
+  // ── Section HTML ─────────────────────────────────────────────
+  it('has a Module Visibility admin section', () => {
+    assert.ok(admin.includes('Module Visibility'),
+      'admin.html must have a "Module Visibility" section heading');
+  });
+
+  it('module toggle grid container exists', () => {
+    assert.ok(admin.includes('id="moduleToggleGrid"'),
+      'admin.html must have a #moduleToggleGrid container');
+  });
+
+  it('Module Visibility section has a Save Changes button', () => {
+    assert.ok(admin.includes('saveModuleVisibility()'),
+      'Module Visibility section must have a Save Changes button calling saveModuleVisibility()');
+  });
+
+  it('Module Visibility section has a save status indicator', () => {
+    assert.ok(admin.includes('id="moduleSaveStatus"'),
+      'Module Visibility section must have a #moduleSaveStatus element');
+  });
+
+  // ── CSS ───────────────────────────────────────────────────────
+  it('defines .module-toggle-row CSS class', () => {
+    assert.ok(admin.includes('.module-toggle-row'),
+      'admin.html must define .module-toggle-row CSS class');
+  });
+
+  it('defines .pill-toggle CSS class for the switch', () => {
+    assert.ok(admin.includes('.pill-toggle'),
+      'admin.html must define .pill-toggle CSS class');
+  });
+
+  it('defines .pill-track CSS class for the switch track', () => {
+    assert.ok(admin.includes('.pill-track'),
+      'admin.html must define .pill-track CSS class');
+  });
+
+  it('pill toggle uses a checkbox input for accessibility', () => {
+    assert.ok(admin.includes('.pill-toggle input'),
+      'pill toggle must be built on a checkbox input element');
+  });
+
+  // ── JS ────────────────────────────────────────────────────────
+  it('defines buildModuleToggleGrid()', () => {
+    assert.ok(admin.includes('function buildModuleToggleGrid()'),
+      'admin.html must define buildModuleToggleGrid()');
+  });
+
+  it('buildModuleToggleGrid iterates MODULE_DEFS', () => {
+    const fn   = admin.slice(admin.indexOf('function buildModuleToggleGrid()'));
+    const body = fn.slice(0, fn.indexOf('\n  }\n') + 4);
+    assert.ok(body.includes('MODULE_DEFS'),
+      'buildModuleToggleGrid must iterate MODULE_DEFS');
+  });
+
+  it('buildModuleToggleGrid renders a checkbox per module with id "modToggle-{key}"', () => {
+    const fn   = admin.slice(admin.indexOf('function buildModuleToggleGrid()'));
+    const body = fn.slice(0, fn.indexOf('\n  }\n') + 4);
+    assert.ok(body.includes('modToggle-'),
+      'buildModuleToggleGrid must generate checkboxes with id="modToggle-{key}" pattern');
+  });
+
+  it('defines async saveModuleVisibility()', () => {
+    assert.ok(admin.includes('async function saveModuleVisibility()'),
+      'admin.html must define async saveModuleVisibility()');
+  });
+
+  it('saveModuleVisibility reads from modToggle- checkboxes', () => {
+    const fn   = admin.slice(admin.indexOf('async function saveModuleVisibility()'));
+    const body = fn.slice(0, fn.indexOf('\n  }\n') + 4);
+    assert.ok(body.includes('modToggle-'),
+      'saveModuleVisibility must read values from modToggle- checkboxes');
+  });
+
+  it('saveModuleVisibility calls saveModuleSettings()', () => {
+    const fn   = admin.slice(admin.indexOf('async function saveModuleVisibility()'));
+    const body = fn.slice(0, fn.indexOf('\n  }\n') + 4);
+    assert.ok(body.includes('saveModuleSettings('),
+      'saveModuleVisibility must call saveModuleSettings() to persist settings');
+  });
+
+  it('saveModuleVisibility shows a toast on success', () => {
+    const fn   = admin.slice(admin.indexOf('async function saveModuleVisibility()'));
+    const body = fn.slice(0, fn.indexOf('\n  }\n') + 4);
+    assert.ok(body.includes('showToast('),
+      'saveModuleVisibility must call showToast on success');
+  });
+
+  it('loadAdminData calls loadModuleSettings and buildModuleToggleGrid', () => {
+    const fn   = admin.slice(admin.indexOf('async function loadAdminData()'));
+    const body = fn.slice(0, fn.indexOf('\n  }\n') + 4);
+    assert.ok(body.includes('loadModuleSettings()'),
+      'loadAdminData must call loadModuleSettings()');
+    assert.ok(body.includes('buildModuleToggleGrid()'),
+      'loadAdminData must call buildModuleToggleGrid()');
+  });
+
+  it('Module Visibility section appears before the Term Mappings section', () => {
+    const modPos  = admin.indexOf('Module Visibility');
+    const termPos = admin.indexOf('Module &amp; Term Mappings');
+    assert.ok(modPos > -1 && termPos > -1 && modPos < termPos,
+      'Module Visibility section must appear before Term Mappings section');
+  });
+});
+
+// ══════════════════════════════════════════════════════════════
+// Section 64 — Module Visibility: page guards
+// ══════════════════════════════════════════════════════════════
+describe('Module Visibility — page guards on module pages', () => {
+  const fs   = require('fs'), path = require('path');
+  const base = path.join(__dirname, '..');
+
+  const GUARDS = [
+    { file: 'party-roster.html', key: 'partyRoster' },
+    { file: 'treasury.html',     key: 'treasury'    },
+    { file: 'loot-tracker.html', key: 'lootTracker' },
+    { file: 'session-log.html',  key: 'sessionLog'  },
+  ];
+
+  for (const { file, key } of GUARDS) {
+    it(`${file} calls loadModuleSettings() before rendering`, () => {
+      const src = fs.readFileSync(path.join(base, file), 'utf8');
+      assert.ok(src.includes('loadModuleSettings()'),
+        `${file} must call loadModuleSettings() in its boot sequence`);
+    });
+
+    it(`${file} calls applyModuleVisibility()`, () => {
+      const src = fs.readFileSync(path.join(base, file), 'utf8');
+      assert.ok(src.includes('applyModuleVisibility()'),
+        `${file} must call applyModuleVisibility() to hide disabled nav links`);
+    });
+
+    it(`${file} calls enforceModuleGuard('${key}')`, () => {
+      const src = fs.readFileSync(path.join(base, file), 'utf8');
+      assert.ok(src.includes(`enforceModuleGuard('${key}')`),
+        `${file} must call enforceModuleGuard('${key}') to block direct URL access`);
+    });
+
+    it(`${file} guards against continuing if enforceModuleGuard returns false`, () => {
+      const src = fs.readFileSync(path.join(base, file), 'utf8');
+      const guardIdx = src.indexOf(`enforceModuleGuard('${key}')`);
+      const chunk = src.slice(Math.max(0, guardIdx - 10), guardIdx + 60);
+      assert.ok(
+        chunk.includes('return') || chunk.includes('if (!'),
+        `${file} must stop execution if enforceModuleGuard returns false`
+      );
+    });
+  }
+
+  it('index.html calls loadModuleSettings() and applyModuleVisibility()', () => {
+    const src = fs.readFileSync(path.join(base, 'index.html'), 'utf8');
+    assert.ok(src.includes('loadModuleSettings()'),
+      'index.html must call loadModuleSettings() to know which modules are enabled');
+    assert.ok(src.includes('applyModuleVisibility()'),
+      'index.html must call applyModuleVisibility() to hide disabled module cards and nav links');
+  });
+
+  it('index.html does NOT call enforceModuleGuard (dashboard is never disabled)', () => {
+    const src = fs.readFileSync(path.join(base, 'index.html'), 'utf8');
+    assert.ok(!src.includes('enforceModuleGuard('),
+      'index.html must not call enforceModuleGuard — the dashboard is always accessible');
+  });
+
+  it('admin.html does NOT call enforceModuleGuard (admin is never disabled)', () => {
+    const src = fs.readFileSync(path.join(base, 'admin.html'), 'utf8');
+    assert.ok(!src.includes('enforceModuleGuard('),
+      'admin.html must not call enforceModuleGuard — the admin panel is always accessible');
   });
 });

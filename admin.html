@@ -113,6 +113,52 @@
     }
     .term-group-label:first-child { border-top: none; margin-top: 0; padding-top: 0; }
     .term-group-label::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+    /* Module toggle rows */
+    .module-toggle-row {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 0.85rem 1rem;
+      background: rgba(255,255,255,0.02);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      transition: border-color 0.15s;
+    }
+    .module-toggle-row:hover { border-color: rgba(167,139,250,0.25); }
+    .module-toggle-info { display: flex; align-items: center; gap: 0.7rem; }
+    .module-toggle-icon { font-size: 1.1rem; opacity: 0.7; flex-shrink: 0; }
+    .module-toggle-name {
+      font-family: 'Orbitron', sans-serif;
+      font-size: 0.7rem; font-weight: 700; letter-spacing: 0.12em;
+    }
+    .module-toggle-hint {
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 0.58rem; color: var(--text-dim); letter-spacing: 0.06em;
+      margin-top: 0.15rem;
+    }
+    /* Pill toggle switch */
+    .pill-toggle { position: relative; width: 44px; height: 24px; flex-shrink: 0; }
+    .pill-toggle input { opacity: 0; width: 0; height: 0; position: absolute; }
+    .pill-track {
+      position: absolute; inset: 0; cursor: pointer;
+      background: rgba(255,255,255,0.08);
+      border: 1px solid var(--border);
+      border-radius: 24px;
+      transition: background 0.2s, border-color 0.2s;
+    }
+    .pill-track::after {
+      content: ''; position: absolute;
+      width: 16px; height: 16px; border-radius: 50%;
+      background: var(--text-dim);
+      top: 3px; left: 3px;
+      transition: transform 0.2s, background 0.2s;
+    }
+    .pill-toggle input:checked + .pill-track {
+      background: rgba(60,224,138,0.18);
+      border-color: rgba(60,224,138,0.4);
+    }
+    .pill-toggle input:checked + .pill-track::after {
+      transform: translateX(20px);
+      background: var(--green);
+    }
     /* Password change */
     .pw-row { display: flex; gap: 0.8rem; align-items: flex-end; flex-wrap: wrap; }
     .pw-row .field { flex: 1; min-width: 180px; }
@@ -177,6 +223,9 @@
       <a class="sidenav-link" href="loot-tracker.html">
         <span class="nav-icon">⚔️</span><span class="nav-label">Loot Tracker</span><span class="nav-pip"></span>
       </a>
+      <a class="sidenav-link" href="session-log.html">
+        <span class="nav-icon">📋</span><span class="nav-label">Session Log</span><span class="nav-pip"></span>
+      </a>
       <a class="sidenav-link active" href="admin.html">
         <span class="nav-icon">⚙</span><span class="nav-label">Admin</span><span class="nav-pip"></span>
       </a>
@@ -219,6 +268,24 @@
     <div class="admin-main">
 
       <!-- ── TERM MAPPINGS ── -->
+      <!-- ── MODULE VISIBILITY ── -->
+      <div class="admin-section-card">
+        <div class="admin-section-head">Module Visibility</div>
+        <div class="admin-section-desc">
+          Toggle modules on or off. Disabled modules are hidden from the nav and dashboard,
+          and their pages redirect to the dashboard if accessed directly.
+        </div>
+
+        <div id="moduleToggleGrid" style="display:flex;flex-direction:column;gap:0.6rem;margin-bottom:1rem">
+          <!-- Built by buildModuleToggleGrid() -->
+        </div>
+
+        <div class="admin-save-bar">
+          <span class="save-status" id="moduleSaveStatus">✓ Saved</span>
+          <button class="btn btn-primary" onclick="saveModuleVisibility()">Save Changes</button>
+        </div>
+      </div>
+
       <div class="admin-section-card">
         <div class="admin-section-head">Module &amp; Term Mappings</div>
         <div class="admin-section-desc">
@@ -249,7 +316,7 @@
         <div class="snapshot-row">
           <div class="snapshot-action">
             <div class="snapshot-action-title">Export Everything</div>
-            <div class="snapshot-action-desc">Downloads a full snapshot of all 5 tables as one JSON file.</div>
+            <div class="snapshot-action-desc">Downloads a full snapshot of all 8 tables as one JSON file (party, treasury, loot, session log, NPCs, and settings).</div>
           </div>
           <button class="btn btn-cyan" id="btnExportSnapshot" onclick="exportSnapshot()">⬇ Export Snapshot</button>
         </div>
@@ -374,6 +441,55 @@
                     onmouseout="this.style.opacity='0.85';this.style.boxShadow='none'"
                     onclick="clearAllLoot()">
               🗑 Clear Loot
+            </button>
+          </div>
+
+
+          <!-- Session Log -->
+          <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:0.6rem;
+                      padding:0.9rem 1rem;background:rgba(224,60,60,0.04);
+                      border:1px solid rgba(224,60,60,0.18);border-radius:4px;">
+            <div>
+              <div style="font-family:'Orbitron',sans-serif;font-size:0.7rem;font-weight:700;
+                          letter-spacing:0.12em;color:var(--text);margin-bottom:0.2rem;">
+                Clear All Session Log Data
+              </div>
+              <div style="font-family:'Share Tech Mono',monospace;font-size:0.62rem;
+                          color:var(--text-dim);letter-spacing:0.04em;">
+                Deletes every session, all logged moments, and all quest entries. NPC records are not affected.
+              </div>
+            </div>
+            <button class="btn" id="btnClearSessions"
+                    style="background:transparent;border:1px solid var(--red);color:var(--red);
+                           flex-shrink:0;opacity:0.85;transition:opacity 0.15s,box-shadow 0.15s;"
+                    onmouseover="this.style.opacity='1';this.style.boxShadow='0 0 12px rgba(224,60,60,0.3)'"
+                    onmouseout="this.style.opacity='0.85';this.style.boxShadow='none'"
+                    onclick="clearAllSessions()">
+              🗑 Clear Sessions
+            </button>
+          </div>
+
+          <!-- NPC Index -->
+          <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:0.6rem;
+                      padding:0.9rem 1rem;background:rgba(224,60,60,0.04);
+                      border:1px solid rgba(224,60,60,0.18);border-radius:4px;">
+            <div>
+              <div style="font-family:'Orbitron',sans-serif;font-size:0.7rem;font-weight:700;
+                          letter-spacing:0.12em;color:var(--text);margin-bottom:0.2rem;">
+                Clear All NPCs
+              </div>
+              <div style="font-family:'Share Tech Mono',monospace;font-size:0.62rem;
+                          color:var(--text-dim);letter-spacing:0.04em;">
+                Removes every NPC from the index. Session records and logged moments are not affected, but any ^slug citations in them will become unresolved.
+              </div>
+            </div>
+            <button class="btn" id="btnClearNpcs"
+                    style="background:transparent;border:1px solid var(--red);color:var(--red);
+                           flex-shrink:0;opacity:0.85;transition:opacity 0.15s,box-shadow 0.15s;"
+                    onmouseover="this.style.opacity='1';this.style.boxShadow='0 0 12px rgba(224,60,60,0.3)'"
+                    onmouseout="this.style.opacity='0.85';this.style.boxShadow='none'"
+                    onclick="clearAllNpcs()">
+              🗑 Clear NPCs
             </button>
           </div>
 
@@ -503,9 +619,52 @@
     `).join('');
   }
 
+  function buildModuleToggleGrid() {
+    const grid = document.getElementById('moduleToggleGrid');
+    if (!grid) return;
+    grid.innerHTML = MODULE_DEFS.map(mod => {
+      const enabled = isModuleEnabled(mod.key);
+      const checkedAttr = enabled ? 'checked' : '';
+      return `
+        <div class="module-toggle-row">
+          <div class="module-toggle-info">
+            <span class="module-toggle-icon">${mod.icon}</span>
+            <div>
+              <div class="module-toggle-name">${esc(t(mod.key))}</div>
+              <div class="module-toggle-hint">${esc(mod.href)}</div>
+            </div>
+          </div>
+          <label class="pill-toggle" title="Toggle ${esc(mod.label)}">
+            <input type="checkbox" id="modToggle-${mod.key}" ${checkedAttr}
+                   onchange="document.getElementById('moduleSaveStatus').classList.remove('show')" />
+            <span class="pill-track"></span>
+          </label>
+        </div>`;
+    }).join('');
+  }
+
+  async function saveModuleVisibility() {
+    const settings = {};
+    MODULE_DEFS.forEach(mod => {
+      const cb = document.getElementById('modToggle-' + mod.key);
+      settings[mod.key] = cb ? cb.checked : true;
+    });
+    try {
+      await saveModuleSettings(settings);
+      const status = document.getElementById('moduleSaveStatus');
+      status.classList.add('show');
+      setTimeout(() => status.classList.remove('show'), 2000);
+      showToast('Module visibility saved.');
+    } catch(e) {
+      console.error(e);
+      showToast('Save failed — check Supabase config.');
+    }
+  }
+
   async function loadAdminData() {
-    await loadTerms();
+    await Promise.all([loadTerms(), loadModuleSettings()]);
     buildTermGrid();
+    buildModuleToggleGrid();
   }
 
   async function saveTermsAdmin() {
@@ -666,6 +825,54 @@
     }
   }
 
+  async function clearAllSessions() {
+    const confirmed = await dangerConfirm(
+      'Clear All Session Log Data',
+      'Every session, moment, and quest entry',
+      'All sessions, logged moments, and quest entries will be permanently deleted. ' +
+      'NPC records in the index are not affected.'
+    );
+    if (!confirmed) return;
+
+    const btn = document.getElementById('btnClearSessions');
+    setLoading(btn, true); btn.dataset.loadingText = 'Deleting…';
+    try {
+      // session_events has FK → session_log (CASCADE), so delete events first
+      await db.deleteWhere('session_events', 'id=gt.');
+      await db.deleteWhere('session_log',    'id=gt.');
+      showToast('All session log data deleted.');
+    } catch(e) {
+      console.error(e);
+      showToast('Delete failed — check Supabase config.');
+    } finally {
+      setLoading(btn, false);
+    }
+  }
+
+  async function clearAllNpcs() {
+    const confirmed = await dangerConfirm(
+      'Clear All NPCs',
+      'Every NPC in the index',
+      'All NPC records will be permanently deleted. ' +
+      'Session records and logged moments are not affected, but any ^slug citations in them will become unresolved.'
+    );
+    if (!confirmed) return;
+
+    const btn = document.getElementById('btnClearNpcs');
+    setLoading(btn, true); btn.dataset.loadingText = 'Deleting…';
+    try {
+      // npcs.first_seen is SET NULL on session delete, so no FK concern here.
+      // id=gt. matches all rows with a non-empty text PK.
+      await db.deleteWhere('npcs', 'id=gt.');
+      showToast('All NPCs deleted.');
+    } catch(e) {
+      console.error(e);
+      showToast('Delete failed — check Supabase config.');
+    } finally {
+      setLoading(btn, false);
+    }
+  }
+
   // ══════════════════════════════════════════════════════════
   //  CAMPAIGN SNAPSHOT — EXPORT / RESTORE
   // ══════════════════════════════════════════════════════════
@@ -675,8 +882,19 @@
     'treasury_currencies',
     'treasury_ledger',
     'loot_items',
+    'session_log',
+    'session_events',
+    'npcs',
     'nexus_settings',
   ];
+
+  // Tables that must be restored in dependency order:
+  //   session_log before session_events (FK: session_events.session_id → session_log.id)
+  //   session_log before npcs (FK: npcs.first_seen → session_log.id)
+  // SNAPSHOT_TABLES is already ordered correctly for this.
+  //
+  // session_events uses CASCADE delete — restore session_log first,
+  // then session_events, so FKs resolve cleanly.
 
   function snapshotStatus(msg, isError = false) {
     const el = document.getElementById('snapshotStatus');
@@ -786,6 +1004,12 @@
       try {
         if (tbl === 'nexus_settings') {
           // Key-value store — upsert by key, no blanket delete
+          if (rows.length) await db.upsertMany(tbl, rows);
+        } else if (tbl === 'session_events') {
+          // session_events has FK → session_log (already restored above in loop order).
+          // CASCADE delete on session_log would wipe events, but we delete session_log
+          // first then re-seed both, so we delete session_events explicitly here too.
+          await db.deleteWhere(tbl, 'id=gt.').catch(() => {});
           if (rows.length) await db.upsertMany(tbl, rows);
         } else {
           // Delete all existing rows, then re-seed

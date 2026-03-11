@@ -1,0 +1,2651 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>NEXUS // Session Log</title>
+  <script src="js/nexus-config.js"></script>
+  <script src="js/nexus-utils.js"></script>
+  <link rel="icon" type="image/x-icon" href="assets/favicon.ico" />
+  <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@400;700;900&family=Rajdhani:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/nexus.css" />
+  <style>
+    /* ── Session Log page-scoped styles ───────────────────────── */
+
+    body.page-session main { max-width: 900px; }
+
+    /* Brand accent: indigo/violet for session log */
+    body.page-session .brand-name {
+      color: #a78bfa;
+      text-shadow: 0 0 20px rgba(167,139,250,0.4), 0 0 50px rgba(167,139,250,0.15);
+    }
+    body.page-session .brand-sub { color: var(--cyan); opacity: 0.7; }
+    body.page-session .hline     { opacity: 0.5; }
+
+    /* View toggle — SESSIONS / NPC INDEX */
+    .sl-view-toggle {
+      display: flex;
+      gap: 0;
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      overflow: hidden;
+    }
+    .sl-view-btn {
+      font-family: 'Orbitron', sans-serif;
+      font-size: 0.6rem;
+      font-weight: 700;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      padding: 0.42rem 0.9rem;
+      background: transparent;
+      border: none;
+      color: var(--text-dim);
+      cursor: pointer;
+      transition: color 0.15s, background 0.15s;
+    }
+    .sl-view-btn + .sl-view-btn { border-left: 1px solid var(--border); }
+    .sl-view-btn:hover { color: var(--text); background: rgba(255,255,255,0.03); }
+    .sl-view-btn.active {
+      color: #a78bfa;
+      background: rgba(167,139,250,0.08);
+    }
+
+    /* ── Stats bar override for session accent ─────────────────── */
+    body.page-session .stats-bar {
+      border-color: rgba(167,139,250,0.15);
+      background: rgba(167,139,250,0.03);
+    }
+    body.page-session .stat-val { color: #a78bfa; }
+
+    /* ── Session cards ─────────────────────────────────────────── */
+    .session-grid {
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+    }
+
+    .session-card {
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      border-radius: 5px;
+      overflow: hidden;
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+    .session-card:hover { border-color: rgba(167,139,250,0.3); }
+    .session-card.is-expanded {
+      border-color: rgba(167,139,250,0.4);
+      box-shadow: 0 0 24px rgba(167,139,250,0.07);
+    }
+
+    /* Collapsed card header — always visible */
+    .sc-header {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      padding: 0.85rem 1.1rem;
+      cursor: pointer;
+      user-select: none;
+      transition: background 0.15s;
+    }
+    .sc-header:hover { background: rgba(167,139,250,0.04); }
+
+    .sc-number {
+      font-family: 'Orbitron', sans-serif;
+      font-size: 0.62rem;
+      font-weight: 700;
+      letter-spacing: 0.12em;
+      color: rgba(167,139,250,0.6);
+      flex-shrink: 0;
+      min-width: 5.5rem;
+    }
+
+    .sc-title {
+      font-family: 'Rajdhani', sans-serif;
+      font-size: 1.05rem;
+      font-weight: 600;
+      color: var(--text);
+      flex: 1;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .sc-date {
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 0.72rem;
+      color: var(--text-dim);
+      flex-shrink: 0;
+    }
+
+    .sc-status {
+      font-family: 'Orbitron', sans-serif;
+      font-size: 0.52rem;
+      font-weight: 700;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      padding: 0.22rem 0.55rem;
+      border-radius: 3px;
+      flex-shrink: 0;
+    }
+    .sc-status.draft    { color: var(--amber); border: 1px solid rgba(212,134,10,0.35); background: rgba(212,134,10,0.07); }
+    .sc-status.complete { color: var(--green); border: 1px solid rgba(60,224,138,0.35);  background: rgba(60,224,138,0.07); }
+
+    .sc-chevron {
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 0.75rem;
+      color: var(--text-dim);
+      flex-shrink: 0;
+      transition: transform 0.2s;
+    }
+    .session-card.is-expanded .sc-chevron { transform: rotate(180deg); }
+
+    /* Expanded panel */
+    .sc-body {
+      display: none;
+      border-top: 1px solid var(--border);
+    }
+    .session-card.is-expanded .sc-body { display: block; }
+
+    /* Tab bar inside expanded card */
+    .sc-tabs {
+      display: flex;
+      border-bottom: 1px solid var(--border);
+      background: rgba(0,0,0,0.25);
+    }
+    .sc-tab {
+      font-family: 'Orbitron', sans-serif;
+      font-size: 0.55rem;
+      font-weight: 700;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      padding: 0.65rem 1rem;
+      color: var(--text-dim);
+      cursor: pointer;
+      border-bottom: 2px solid transparent;
+      transition: color 0.15s, border-color 0.15s;
+      background: none;
+      border-top: none;
+      border-left: none;
+      border-right: none;
+    }
+    .sc-tab:hover { color: var(--text); }
+    .sc-tab.active {
+      color: #a78bfa;
+      border-bottom-color: #a78bfa;
+    }
+
+    /* Tab content panels */
+    .sc-tab-panel {
+      display: none;
+      padding: 1.1rem 1.2rem;
+    }
+    .sc-tab-panel.active { display: block; }
+
+    /* Tab action bar (Edit / Delete) */
+    .sc-actions {
+      display: flex;
+      gap: 0.5rem;
+      justify-content: flex-end;
+      padding: 0.6rem 1.1rem;
+      border-top: 1px solid var(--border);
+      background: rgba(0,0,0,0.15);
+    }
+
+    /* Overview tab */
+    .sc-summary {
+      font-family: 'Rajdhani', sans-serif;
+      font-size: 0.95rem;
+      line-height: 1.65;
+      color: var(--text);
+      white-space: pre-wrap;
+    }
+    .sc-summary.empty { color: var(--text-dim); font-style: italic; }
+    .sc-meta-row {
+      display: flex;
+      gap: 2rem;
+      flex-wrap: wrap;
+      margin-bottom: 0.9rem;
+      padding-bottom: 0.75rem;
+      border-bottom: 1px solid var(--border);
+    }
+    .sc-meta-item { display: flex; flex-direction: column; gap: 2px; }
+    .sc-meta-label {
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 0.62rem;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      color: var(--text-dim);
+    }
+    .sc-meta-value {
+      font-family: 'Rajdhani', sans-serif;
+      font-size: 0.9rem;
+      font-weight: 600;
+      color: var(--text);
+    }
+
+    /* Moments tab */
+    .sc-moments-list {
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+    .sc-moment-row {
+      display: flex;
+      align-items: flex-start;
+      gap: 0.75rem;
+      padding: 0.55rem 0.7rem;
+      background: rgba(255,255,255,0.02);
+      border: 1px solid var(--border);
+      border-radius: 3px;
+    }
+    .sc-moment-bullet {
+      color: rgba(167,139,250,0.5);
+      font-size: 0.75rem;
+      flex-shrink: 0;
+      margin-top: 2px;
+    }
+    .sc-moment-text {
+      font-family: 'Rajdhani', sans-serif;
+      font-size: 0.9rem;
+      line-height: 1.5;
+      color: var(--text);
+      flex: 1;
+    }
+    .sc-moment-member {
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 0.6rem;
+      letter-spacing: 0.08em;
+      color: rgba(167,139,250,0.7);
+      flex-shrink: 0;
+      align-self: center;
+      padding: 0.15rem 0.45rem;
+      border: 1px solid rgba(167,139,250,0.2);
+      border-radius: 2px;
+      background: rgba(167,139,250,0.05);
+    }
+
+    /* NPCs tab */
+    .sc-npc-list {
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+    .sc-npc-row {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      padding: 0.6rem 0.8rem;
+      background: rgba(255,255,255,0.02);
+      border: 1px solid var(--border);
+      border-radius: 3px;
+    }
+    .sc-npc-disp {
+      font-family: 'Orbitron', sans-serif;
+      font-size: 0.5rem;
+      font-weight: 700;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      padding: 0.2rem 0.5rem;
+      border-radius: 2px;
+      flex-shrink: 0;
+    }
+    .disp-allied   { color: var(--cyan);  border: 1px solid rgba(14,240,208,0.35); background: rgba(14,240,208,0.07); }
+    .disp-friendly { color: var(--green); border: 1px solid rgba(60,224,138,0.35); background: rgba(60,224,138,0.07); }
+    .disp-neutral  { color: var(--amber); border: 1px solid rgba(212,134,10,0.35); background: rgba(212,134,10,0.07); }
+    .disp-hostile  { color: var(--red);   border: 1px solid rgba(224,60,60,0.35);  background: rgba(224,60,60,0.07); }
+    .disp-unknown  { color: var(--text-dim); border: 1px solid var(--border);       background: transparent; }
+
+    .sc-npc-name {
+      font-family: 'Rajdhani', sans-serif;
+      font-size: 0.95rem;
+      font-weight: 600;
+      color: var(--text);
+      flex: 1;
+    }
+    .sc-npc-role {
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 0.68rem;
+      color: var(--text-dim);
+    }
+
+    /* Quests tab */
+    .sc-quest-list {
+      display: flex;
+      flex-direction: column;
+      gap: 0.45rem;
+    }
+    .sc-quest-row {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      padding: 0.55rem 0.75rem;
+      background: rgba(255,255,255,0.02);
+      border: 1px solid var(--border);
+      border-radius: 3px;
+    }
+    .sc-quest-icon { font-size: 0.8rem; flex-shrink: 0; width: 1rem; text-align: center; }
+    .sc-quest-text {
+      font-family: 'Rajdhani', sans-serif;
+      font-size: 0.9rem;
+      color: var(--text);
+      flex: 1;
+    }
+    .sc-quest-text.completed { color: var(--text-dim); text-decoration: line-through; }
+    .sc-quest-text.failed    { color: var(--red); opacity: 0.6; text-decoration: line-through; }
+    .sc-quest-status {
+      font-family: 'Orbitron', sans-serif;
+      font-size: 0.5rem;
+      font-weight: 700;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      padding: 0.18rem 0.45rem;
+      border-radius: 2px;
+      flex-shrink: 0;
+    }
+    .qs-active    { color: var(--cyan);  border: 1px solid rgba(14,240,208,0.3);  background: rgba(14,240,208,0.06); }
+    .qs-completed { color: var(--green); border: 1px solid rgba(60,224,138,0.3);  background: rgba(60,224,138,0.06); }
+    .qs-failed    { color: var(--red);   border: 1px solid rgba(224,60,60,0.3);   background: rgba(224,60,60,0.06); }
+    .qs-on-hold   { color: var(--amber); border: 1px solid rgba(212,134,10,0.3);  background: rgba(212,134,10,0.06); }
+
+    /* Empty state for tabs */
+    .sc-tab-empty {
+      text-align: center;
+      padding: 1.8rem 1rem;
+      color: var(--text-dim);
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 0.72rem;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+    }
+
+    /* ── NPC Index view ──────────────────────────────────────── */
+    .npc-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+      gap: 0.85rem;
+    }
+
+    .npc-card {
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      border-radius: 5px;
+      padding: 1rem 1.1rem;
+      transition: border-color 0.2s, box-shadow 0.2s;
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+    .npc-card:hover {
+      border-color: rgba(167,139,250,0.3);
+      box-shadow: 0 0 16px rgba(167,139,250,0.06);
+    }
+
+    .npc-card-head {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 0.5rem;
+    }
+    .npc-card-name {
+      font-family: 'Rajdhani', sans-serif;
+      font-size: 1.05rem;
+      font-weight: 700;
+      color: var(--text);
+      line-height: 1.2;
+    }
+    .npc-card-role {
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 0.68rem;
+      color: var(--text-dim);
+      margin-top: 1px;
+    }
+    .npc-card-slug {
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 0.6rem;
+      color: rgba(167,139,250,0.45);
+      letter-spacing: 0.05em;
+    }
+    .npc-card-notes {
+      font-family: 'Rajdhani', sans-serif;
+      font-size: 0.85rem;
+      line-height: 1.5;
+      color: var(--text-dim);
+      flex: 1;
+    }
+    .npc-appearances {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.35rem;
+      margin-top: 0.25rem;
+    }
+    .npc-appearances-label {
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 0.6rem;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--text-dim);
+      width: 100%;
+      margin-bottom: 0.1rem;
+    }
+    .npc-session-badge {
+      font-family: 'Orbitron', sans-serif;
+      font-size: 0.5rem;
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      padding: 0.18rem 0.45rem;
+      border: 1px solid rgba(167,139,250,0.25);
+      border-radius: 2px;
+      background: rgba(167,139,250,0.05);
+      color: rgba(167,139,250,0.7);
+      cursor: pointer;
+      transition: border-color 0.15s, color 0.15s;
+    }
+    .npc-session-badge:hover {
+      border-color: rgba(167,139,250,0.6);
+      color: #a78bfa;
+    }
+    .npc-card-actions {
+      display: flex;
+      gap: 0.4rem;
+      justify-content: flex-end;
+      margin-top: 0.25rem;
+      padding-top: 0.5rem;
+      border-top: 1px solid var(--border);
+    }
+
+    /* ── Toolbar (sessions + npc views) ──────────────────────── */
+    body.page-session .toolbar input[type="text"],
+    body.page-session .toolbar select {
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      color: var(--text);
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 0.75rem;
+      padding: 0.45rem 0.75rem;
+      border-radius: 3px;
+      transition: border-color 0.15s, box-shadow 0.15s;
+    }
+    body.page-session .toolbar input[type="text"]:focus,
+    body.page-session .toolbar select:focus {
+      outline: none;
+      border-color: rgba(167,139,250,0.5);
+      box-shadow: 0 0 8px rgba(167,139,250,0.15);
+    }
+
+    /* Session-accent primary button */
+    body.page-session .btn-primary {
+      background: linear-gradient(135deg, rgba(167,139,250,0.7), rgba(109,80,195,0.8));
+      border-color: rgba(167,139,250,0.5);
+    }
+    body.page-session .btn-primary:hover {
+      filter: brightness(1.15);
+      box-shadow: 0 0 20px rgba(167,139,250,0.35);
+    }
+
+    /* ── Moments editor rows ────────────────────────────────── */
+    .sm-moment-row {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.45rem 0.6rem;
+      background: rgba(255,255,255,0.02);
+      border: 1px solid var(--border);
+      border-radius: 3px;
+      transition: border-color 0.15s;
+    }
+    .sm-moment-row:focus-within { border-color: rgba(167,139,250,0.3); }
+    .sm-moment-drag {
+      color: var(--text-dim);
+      font-size: 0.75rem;
+      cursor: grab;
+      flex-shrink: 0;
+      padding: 0 2px;
+      user-select: none;
+    }
+    .sm-moment-input {
+      flex: 1;
+      background: transparent;
+      border: none;
+      color: var(--text);
+      font-family: 'Rajdhani', sans-serif;
+      font-size: 0.9rem;
+      outline: none;
+      min-width: 0;
+    }
+    .sm-moment-input::placeholder { color: var(--text-dim); }
+    .sm-moment-member-select {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      color: rgba(167,139,250,0.8);
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 0.65rem;
+      padding: 0.22rem 0.4rem;
+      border-radius: 3px;
+      cursor: pointer;
+      flex-shrink: 0;
+      max-width: 120px;
+      transition: border-color 0.15s;
+    }
+    .sm-moment-member-select:focus {
+      outline: none;
+      border-color: rgba(167,139,250,0.5);
+    }
+
+    /* ── Session modal status toggle ────────────────────────── */
+    .sm-status-btn {
+      font-family: 'Orbitron', sans-serif;
+      font-size: 0.6rem;
+      font-weight: 700;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      padding: 0.38rem 1rem;
+      background: transparent;
+      border: 1px solid var(--border);
+      border-radius: 3px;
+      color: var(--text-dim);
+      cursor: pointer;
+      transition: color 0.15s, border-color 0.15s, background 0.15s;
+    }
+    .sm-status-btn:hover { color: var(--text); border-color: rgba(167,139,250,0.4); }
+    .sm-status-btn.active[data-status="draft"] {
+      color: var(--amber);
+      border-color: rgba(212,134,10,0.5);
+      background: rgba(212,134,10,0.08);
+    }
+    .sm-status-btn.active[data-status="complete"] {
+      color: var(--green);
+      border-color: rgba(60,224,138,0.5);
+      background: rgba(60,224,138,0.08);
+    }
+
+    /* ── Modal tab panel visibility ─────────────────────────── */
+    .sm-panel          { display: none; height: 100%; }
+    .sm-panel.active   { display: flex; flex-direction: column; height: 100%; overflow-y: auto; }
+
+    /* ── Modal input label style ─────────────────────────────── */
+    body.page-session .modal-label {
+      display: block;
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 0.65rem;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      color: var(--text-dim);
+      margin-bottom: 0.3rem;
+    }
+    body.page-session .modal-input {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      color: var(--text);
+      font-family: 'Rajdhani', sans-serif;
+      font-size: 0.95rem;
+      padding: 0.45rem 0.7rem;
+      border-radius: 3px;
+      transition: border-color 0.15s, box-shadow 0.15s;
+      box-sizing: border-box;
+    }
+    body.page-session .modal-input:focus {
+      outline: none;
+      border-color: rgba(167,139,250,0.5);
+      box-shadow: 0 0 8px rgba(167,139,250,0.15);
+    }
+
+    /* ── NPC session link rows ──────────────────────────────── */
+    .sm-npc-row {
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+      padding: 0.5rem 0.7rem;
+      background: rgba(255,255,255,0.02);
+      border: 1px solid var(--border);
+      border-radius: 3px;
+    }
+    .sm-npc-name-block { flex: 1; min-width: 0; }
+    .sm-npc-linked-name {
+      font-family: 'Rajdhani', sans-serif;
+      font-size: 0.92rem;
+      font-weight: 600;
+      color: var(--text);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .sm-npc-linked-role {
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 0.62rem;
+      color: var(--text-dim);
+    }
+
+    /* ── NPC suggest dropdown ────────────────────────────── */
+    .npc-suggest-drop {
+      position: absolute;
+      top: calc(100% + 3px);
+      left: 0; right: 0;
+      background: var(--bg2);
+      border: 1px solid rgba(167,139,250,0.35);
+      border-radius: 3px;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.6);
+      z-index: 600;
+      max-height: 180px;
+      overflow-y: auto;
+    }
+    .npc-suggest-item {
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+      padding: 0.5rem 0.75rem;
+      cursor: pointer;
+      transition: background 0.1s;
+    }
+    .npc-suggest-item:hover { background: rgba(167,139,250,0.08); }
+    .npc-suggest-item-name {
+      font-family: 'Rajdhani', sans-serif;
+      font-size: 0.9rem;
+      font-weight: 600;
+      color: var(--text);
+      flex: 1;
+    }
+    .npc-suggest-item-role {
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 0.62rem;
+      color: var(--text-dim);
+    }
+
+    /* ── Inline NPC create form ──────────────────────────── */
+    .inline-npc-form {
+      margin-top: 0.75rem;
+      padding: 0.9rem 1rem;
+      background: rgba(167,139,250,0.04);
+      border: 1px solid rgba(167,139,250,0.2);
+      border-radius: 4px;
+    }
+    .inline-npc-title {
+      font-family: 'Orbitron', sans-serif;
+      font-size: 0.62rem;
+      font-weight: 700;
+      letter-spacing: 0.15em;
+      color: rgba(167,139,250,0.7);
+      margin-bottom: 0.75rem;
+    }
+
+    /* ── NPC citation chips ─────────────────────────────────── */
+    .npc-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 3px;
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 0.72rem;
+      color: #a78bfa;
+      background: rgba(167,139,250,0.12);
+      border: 1px solid rgba(167,139,250,0.3);
+      border-radius: 3px;
+      padding: 0.1rem 0.45rem;
+      cursor: pointer;
+      transition: background 0.15s, border-color 0.15s;
+      white-space: nowrap;
+      vertical-align: baseline;
+      line-height: 1.5;
+    }
+    .npc-chip:hover {
+      background: rgba(167,139,250,0.22);
+      border-color: rgba(167,139,250,0.55);
+    }
+    .npc-chip-unresolved {
+      display: inline-flex;
+      align-items: center;
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 0.72rem;
+      color: rgba(255,255,255,0.3);
+      background: rgba(255,255,255,0.04);
+      border: 1px dashed rgba(255,255,255,0.15);
+      border-radius: 3px;
+      padding: 0.1rem 0.45rem;
+      white-space: nowrap;
+      vertical-align: baseline;
+      line-height: 1.5;
+    }
+
+    /* ── Citation autocomplete dropdown ─────────────────────── */
+    .cite-drop {
+      position: fixed;
+      background: var(--bg2);
+      border: 1px solid rgba(167,139,250,0.4);
+      border-radius: 4px;
+      box-shadow: 0 8px 28px rgba(0,0,0,0.7);
+      z-index: 1100;
+      min-width: 220px;
+      max-width: 340px;
+      max-height: 220px;
+      overflow-y: auto;
+      pointer-events: all;
+    }
+    .cite-drop-item {
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+      padding: 0.5rem 0.75rem;
+      cursor: pointer;
+      transition: background 0.1s;
+    }
+    .cite-drop-item:hover,
+    .cite-drop-item.cite-focused { background: rgba(167,139,250,0.1); }
+    .cite-drop-name {
+      font-family: 'Rajdhani', sans-serif;
+      font-size: 0.88rem;
+      font-weight: 600;
+      color: var(--text);
+      flex: 1;
+    }
+    .cite-drop-slug {
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 0.6rem;
+      color: rgba(167,139,250,0.5);
+    }
+
+    /* ── Quest editor rows ──────────────────────────────────── */
+    .sm-quest-row {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.45rem 0.6rem;
+      background: rgba(255,255,255,0.02);
+      border: 1px solid var(--border);
+      border-radius: 3px;
+      transition: border-color 0.15s;
+    }
+    .sm-quest-row:focus-within { border-color: rgba(167,139,250,0.3); }
+
+    .sm-quest-cycle {
+      font-family: 'Orbitron', sans-serif;
+      font-size: 0.48rem;
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      padding: 0.2rem 0.55rem;
+      border-radius: 3px;
+      border: 1px solid;
+      cursor: pointer;
+      flex-shrink: 0;
+      background: transparent;
+      transition: opacity 0.15s;
+      white-space: nowrap;
+    }
+    .sm-quest-cycle:hover { opacity: 0.75; }
+    .sm-quest-cycle.qs-active    { color: var(--cyan);  border-color: rgba(6,182,212,0.4);  background: rgba(6,182,212,0.07);  }
+    .sm-quest-cycle.qs-completed { color: var(--green); border-color: rgba(60,224,138,0.4); background: rgba(60,224,138,0.07); }
+    .sm-quest-cycle.qs-failed    { color: var(--red);   border-color: rgba(239,68,68,0.4);  background: rgba(239,68,68,0.07);  }
+    .sm-quest-cycle.qs-on-hold   { color: var(--amber); border-color: rgba(212,134,10,0.4); background: rgba(212,134,10,0.07); }
+
+    .sm-quest-input {
+      flex: 1;
+      background: transparent;
+      border: none;
+      color: var(--text);
+      font-family: 'Rajdhani', sans-serif;
+      font-size: 0.9rem;
+      outline: none;
+      min-width: 0;
+    }
+    .sm-quest-input::placeholder { color: var(--text-dim); }
+    .sm-quest-input.completed { text-decoration: line-through; opacity: 0.55; }
+    .sm-quest-input.failed    { text-decoration: line-through; opacity: 0.45; }
+
+    /* Displayed quest rows in card view */
+    .sc-quest-list { display: flex; flex-direction: column; gap: 0.4rem; }
+    .sc-quest-row {
+      display: flex;
+      align-items: baseline;
+      gap: 0.65rem;
+      padding: 0.3rem 0;
+    }
+    .sc-quest-icon {
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 0.75rem;
+      flex-shrink: 0;
+      width: 1rem;
+      text-align: center;
+    }
+    .sc-quest-text {
+      font-family: 'Rajdhani', sans-serif;
+      font-size: 0.92rem;
+      flex: 1;
+      line-height: 1.5;
+    }
+    .sc-quest-text.completed { text-decoration: line-through; opacity: 0.5; }
+    .sc-quest-text.failed    { text-decoration: line-through; opacity: 0.45; }
+    .sc-quest-status {
+      font-family: 'Orbitron', sans-serif;
+      font-size: 0.48rem;
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      padding: 0.18rem 0.5rem;
+      border-radius: 3px;
+      border: 1px solid;
+      flex-shrink: 0;
+    }
+    .qs-active    { color: var(--cyan);  border-color: rgba(6,182,212,0.35);  background: rgba(6,182,212,0.07);  }
+    .qs-completed { color: var(--green); border-color: rgba(60,224,138,0.35); background: rgba(60,224,138,0.07); }
+    .qs-failed    { color: var(--red);   border-color: rgba(239,68,68,0.35);  background: rgba(239,68,68,0.07);  }
+    .qs-on-hold   { color: var(--amber); border-color: rgba(212,134,10,0.35); background: rgba(212,134,10,0.07); }
+
+    /* ── Session card moment count chip ─────────────────────── */
+    .sc-moment-count {
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 0.62rem;
+      color: rgba(167,139,250,0.5);
+      flex-shrink: 0;
+      letter-spacing: 0.05em;
+    }
+
+    /* ── NPC card first-seen ─────────────────────────────────── */
+    .npc-first-seen {
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 0.6rem;
+      color: var(--text-dim);
+      margin-top: 0.25rem;
+    }
+    .npc-first-seen-link {
+      color: rgba(167,139,250,0.6);
+      cursor: pointer;
+      transition: color 0.15s;
+      text-decoration: underline;
+      text-decoration-color: rgba(167,139,250,0.25);
+    }
+    .npc-first-seen-link:hover { color: #a78bfa; }
+
+    /* ── Mobile responsive ───────────────────────────────────── */
+    @media (max-width: 600px) {
+      .sc-header { gap: 0.5rem; padding: 0.75rem 0.85rem; }
+      .sc-date   { display: none; }
+      .npc-grid  { grid-template-columns: 1fr; }
+      body.page-session .stats-bar { gap: 1.2rem; }
+      .sl-view-toggle { font-size: 0.55rem; }
+      .sc-tab { padding: 0.55rem 0.65rem; font-size: 0.5rem; }
+    }
+  </style>
+</head>
+<body class="has-sidenav page-session">
+
+<div id="loadingOverlay" style="display:none;position:fixed;inset:0;background:rgba(6,8,9,0.75);z-index:5000;align-items:center;justify-content:center;flex-direction:column;gap:0.8rem;">
+  <div style="font-family:'Orbitron',sans-serif;font-size:0.75rem;font-weight:700;letter-spacing:0.3em;color:#a78bfa;text-shadow:0 0 20px rgba(167,139,250,0.5);animation:pulse 1s ease-in-out infinite;">LOADING…</div>
+</div>
+
+<button class="nav-toggle" id="navToggle" aria-label="Toggle navigation">
+  <span></span><span></span><span></span>
+</button>
+<div class="nav-overlay" id="navOverlay" onclick="closeNav()"></div>
+
+<nav class="sidenav" id="sidenav">
+  <a class="sidenav-logo" href="index.html">
+    <div class="sidenav-logo-top">⚙ nexus</div>
+    <div class="sidenav-logo-name">NEXUS</div>
+    <div class="sidenav-logo-sub">campaign system</div>
+  </a>
+  <div class="sidenav-section">Modules</div>
+  <div class="sidenav-links">
+    <a class="sidenav-link" href="index.html">
+      <span class="nav-icon">⬡</span>
+      <span class="nav-label">Dashboard</span>
+      <span class="nav-pip"></span>
+    </a>
+    <a class="sidenav-link" href="party-roster.html">
+      <span class="nav-icon">👥</span>
+      <span class="nav-label">Party Roster</span>
+      <span class="nav-pip"></span>
+    </a>
+    <a class="sidenav-link" href="treasury.html">
+      <span class="nav-icon">💰</span>
+      <span class="nav-label">Treasury</span>
+      <span class="nav-pip"></span>
+    </a>
+    <a class="sidenav-link" href="loot-tracker.html">
+      <span class="nav-icon">⚔️</span>
+      <span class="nav-label">Loot Tracker</span>
+      <span class="nav-pip"></span>
+    </a>
+    <a class="sidenav-link active" href="session-log.html">
+      <span class="nav-icon">📋</span>
+      <span class="nav-label">Session Log</span>
+      <span class="nav-pip"></span>
+    </a>
+    <a class="sidenav-link" href="admin.html">
+      <span class="nav-icon">⚙</span>
+      <span class="nav-label">Admin</span>
+      <span class="nav-pip"></span>
+    </a>
+  </div>
+  <div class="sidenav-bottom">nexus // v1.0.0</div>
+</nav>
+
+<header>
+  <div class="brand">
+    <div class="brand-top">⚙ nexus // campaign chronicle</div>
+    <div class="brand-name">SESSION LOG</div>
+    <div class="brand-sub">party adventure record</div>
+  </div>
+  <div class="header-actions">
+    <div class="sl-view-toggle">
+      <button class="sl-view-btn active" id="btnViewSessions" onclick="switchView('sessions')">Sessions</button>
+      <button class="sl-view-btn"        id="btnViewNpcs"     onclick="switchView('npcs')">NPC Index</button>
+    </div>
+    <button class="btn btn-primary" id="btnNewSession" onclick="openSessionModal()">+ New Session</button>
+    <button class="btn btn-primary" id="btnNewNpc"     onclick="openNpcModal()"     style="display:none">+ Add NPC</button>
+  </div>
+</header>
+
+<div class="hline"></div>
+
+<main>
+
+  <!-- Stats bar -->
+  <div class="stats-bar">
+    <div class="stat"><span class="stat-val" id="statSessions">0</span><span class="stat-label">Sessions</span></div>
+    <div class="stat"><span class="stat-val" id="statComplete">0</span><span class="stat-label">Complete</span></div>
+    <div class="stat"><span class="stat-val" id="statActiveQuests">0</span><span class="stat-label">Active Quests</span></div>
+    <div class="stat"><span class="stat-val" id="statMoments">0</span><span class="stat-label">Moments</span></div>
+    <div class="stat"><span class="stat-val" id="statNpcs">0</span><span class="stat-label">NPCs Tracked</span></div>
+  </div>
+
+  <!-- ── SESSIONS VIEW ─────────────────────────────────────── -->
+  <div id="sessionsView">
+
+    <div class="toolbar">
+      <div class="toolbar-left">
+        <div style="position:relative;flex:1;min-width:200px;display:flex;align-items:center">
+          <input class="search-input" type="text" id="sessionSearch"
+                 placeholder="⌕ Search sessions, summaries…"
+                 oninput="renderSessions();document.getElementById('btnClearSearch').style.display=this.value?'flex':'none'"
+                 style="width:100%;padding-right:2rem" />
+          <button id="btnClearSearch"
+                  onclick="document.getElementById('sessionSearch').value='';document.getElementById('btnClearSearch').style.display='none';renderSessions()"
+                  title="Clear search"
+                  style="display:none;position:absolute;right:0.4rem;background:none;border:none;
+                         cursor:pointer;color:var(--red);opacity:0.75;font-size:0.85rem;
+                         align-items:center;justify-content:center;width:1.4rem;height:1.4rem;
+                         border-radius:2px;transition:opacity 0.15s;padding:0;line-height:1"
+                  onmouseover="this.style.opacity='1'"
+                  onmouseout="this.style.opacity='0.75'">✕</button>
+        </div>
+      </div>
+      <div class="toolbar-right">
+        <select id="filterStatus" onchange="renderSessions()">
+          <option value="">All Statuses</option>
+          <option value="draft">Draft</option>
+          <option value="complete">Complete</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="session-grid" id="sessionGrid">
+      <!-- Populated by renderSessions() -->
+    </div>
+
+  </div>
+
+  <!-- ── NPC INDEX VIEW ────────────────────────────────────── -->
+  <div id="npcView" style="display:none">
+
+    <div class="toolbar">
+      <div class="toolbar-left">
+        <input class="search-input" type="text" id="npcSearch"
+               placeholder="⌕ Search NPCs, roles, notes…"
+               oninput="renderNpcs()" />
+      </div>
+      <div class="toolbar-right">
+        <select id="filterDisposition" onchange="renderNpcs()">
+          <option value="">All Dispositions</option>
+          <option value="allied">Allied</option>
+          <option value="friendly">Friendly</option>
+          <option value="neutral">Neutral</option>
+          <option value="hostile">Hostile</option>
+          <option value="unknown">Unknown</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="npc-grid" id="npcGrid">
+      <!-- Populated by renderNpcs() -->
+    </div>
+
+  </div>
+
+</main>
+
+<div class="toast" id="toast"></div>
+
+<!-- ══════════════════════════════════════════════════════
+     SESSION MODAL
+═══════════════════════════════════════════════════════ -->
+<div class="modal-backdrop" id="sessionModal"
+     onclick="if(event.target===this)closeSessionModal()">
+  <div class="modal" style="max-width:600px;width:100%">
+
+    <div class="modal-header">
+      <span class="modal-title" id="sessionModalTitle">⚙ NEW SESSION</span>
+      <button class="btn-icon" onclick="closeSessionModal()">✕</button>
+    </div>
+
+    <!-- Modal tab bar -->
+    <div class="sc-tabs" style="border-top:none">
+      <button class="sc-tab sm-tab active" data-tab="overview"  onclick="switchModalTab('overview')">Overview</button>
+      <button class="sc-tab sm-tab"        data-tab="moments"   onclick="switchModalTab('moments')">Moments</button>
+      <button class="sc-tab sm-tab"        data-tab="npcs"      onclick="switchModalTab('npcs')">NPCs</button>
+      <button class="sc-tab sm-tab"        data-tab="quests"    onclick="switchModalTab('quests')">Quests</button>
+    </div>
+
+    <div class="modal-body" style="padding:0;height:420px;overflow-y:auto">
+
+      <!-- ── Tab 1: Overview ── -->
+      <div class="sm-panel active" data-panel="overview" style="padding:1.1rem 1.4rem">
+
+        <!-- Number + Title row -->
+        <div style="display:flex;gap:0.75rem;align-items:flex-start;margin-bottom:0.9rem">
+          <div style="flex:0 0 100px">
+            <label class="modal-label">Session #</label>
+            <input id="smNumber" type="number" min="1" class="modal-input"
+                   style="width:100%;text-align:center"
+                   oninput="document.getElementById('smNumberError').textContent=''" />
+            <div class="tx-desc-error" id="smNumberError"></div>
+          </div>
+          <div style="flex:1">
+            <label class="modal-label">Title <span class="field-required">(required)</span></label>
+            <input id="smTitle" type="text" class="modal-input" style="width:100%"
+                   placeholder="e.g. The Siege of Thornwall"
+                   oninput="document.getElementById('smTitleError').textContent=''" />
+            <div class="tx-desc-error" id="smTitleError"></div>
+          </div>
+        </div>
+
+        <!-- Real date + World date -->
+        <div style="display:flex;gap:0.75rem;margin-bottom:0.9rem">
+          <div style="flex:1">
+            <label class="modal-label">Real-World Date</label>
+            <input id="smRealDate" type="date" class="modal-input" style="width:100%" />
+          </div>
+          <div style="flex:1">
+            <label class="modal-label">In-World Date</label>
+            <input id="smWorldDate" type="text" class="modal-input" style="width:100%"
+                   placeholder="e.g. 14th of Frostfall" />
+          </div>
+        </div>
+
+        <!-- Status toggle -->
+        <div style="margin-bottom:0.9rem">
+          <label class="modal-label">Status</label>
+          <div style="display:flex;gap:0.5rem;margin-top:0.3rem">
+            <button class="sm-status-btn active" data-status="draft"
+                    onclick="setSessionStatus('draft')">Draft</button>
+            <button class="sm-status-btn" data-status="complete"
+                    onclick="setSessionStatus('complete')">Complete</button>
+          </div>
+          <input type="hidden" id="smStatusHidden" value="draft" />
+        </div>
+
+        <!-- Summary -->
+        <div>
+          <label class="modal-label">Session Summary</label>
+          <textarea id="smSummary" class="modal-input"
+                    style="width:100%;min-height:140px;resize:vertical"
+                    placeholder="Write a freeform recap of what happened…"></textarea>
+        </div>
+      </div>
+
+      <!-- ── Tab 2: Moments ── -->
+      <div class="sm-panel" data-panel="moments" style="padding:1.1rem 1.4rem">
+        <div id="smMomentsList" style="display:flex;flex-direction:column;gap:0.45rem;margin-bottom:0.75rem">
+          <!-- Populated by buildMomentsEditor() -->
+        </div>
+        <button class="btn btn-ghost" style="width:100%;justify-content:center;font-size:0.75rem"
+                onclick="addMoment()">+ Add Moment</button>
+      </div>
+
+      <!-- ── Tab 3: NPCs ── -->
+      <div class="sm-panel" data-panel="npcs" style="padding:1.1rem 1.4rem">
+
+        <!-- Linked NPCs list -->
+        <div id="smNpcList" style="display:flex;flex-direction:column;gap:0.45rem;margin-bottom:0.75rem">
+          <!-- Populated by buildNpcPanel() -->
+        </div>
+
+        <!-- Link / Create row -->
+        <div style="display:flex;gap:0.5rem;align-items:center;flex-wrap:wrap">
+          <div style="position:relative;flex:1;min-width:160px">
+            <input id="smNpcSearch" type="text" class="modal-input" style="width:100%"
+                   placeholder="Search NPCs to link…"
+                   oninput="filterNpcSuggestions(this.value)"
+                   onfocus="filterNpcSuggestions(this.value)"
+                   autocomplete="off" />
+            <div id="smNpcSuggestions" class="npc-suggest-drop" style="display:none"></div>
+          </div>
+          <button class="btn btn-ghost" style="font-size:0.75rem;white-space:nowrap"
+                  onclick="openInlineNpcCreate()">+ New NPC</button>
+        </div>
+
+        <!-- Inline NPC create form (hidden by default) -->
+        <div id="smInlineNpc" class="inline-npc-form" style="display:none">
+          <div class="inline-npc-title">⚙ Quick-Create NPC</div>
+          <div style="display:flex;gap:0.6rem;flex-wrap:wrap;margin-bottom:0.6rem">
+            <div style="flex:2;min-width:140px">
+              <label class="modal-label">Name <span class="field-required">(required)</span></label>
+              <input id="inNpcName" type="text" class="modal-input" style="width:100%"
+                     placeholder="e.g. Captain Draegar"
+                     oninput="onInlineNpcNameInput(this.value)" />
+            </div>
+            <div style="flex:2;min-width:140px">
+              <label class="modal-label">Role</label>
+              <input id="inNpcRole" type="text" class="modal-input" style="width:100%"
+                     placeholder="e.g. City Guard Captain" />
+            </div>
+          </div>
+          <div style="display:flex;gap:0.6rem;flex-wrap:wrap;margin-bottom:0.6rem">
+            <div style="flex:1;min-width:120px">
+              <label class="modal-label">Slug <span style="color:rgba(167,139,250,0.5);font-size:0.6rem">(citation key)</span></label>
+              <input id="inNpcSlug" type="text" class="modal-input" style="width:100%"
+                     placeholder="auto-generated" />
+            </div>
+            <div style="flex:1;min-width:120px">
+              <label class="modal-label">Disposition</label>
+              <select id="inNpcDisposition" class="modal-input" style="width:100%">
+                <option value="unknown">Unknown</option>
+                <option value="allied">Allied</option>
+                <option value="friendly">Friendly</option>
+                <option value="neutral">Neutral</option>
+                <option value="hostile">Hostile</option>
+              </select>
+            </div>
+          </div>
+          <div style="margin-bottom:0.6rem">
+            <label class="modal-label">Notes</label>
+            <textarea id="inNpcNotes" class="modal-input"
+                      style="width:100%;min-height:60px;resize:vertical"
+                      placeholder="Persistent notes about this NPC…"></textarea>
+          </div>
+          <div id="inNpcError" class="tx-desc-error"></div>
+          <div style="display:flex;gap:0.5rem;justify-content:flex-end">
+            <button class="btn btn-ghost" style="font-size:0.75rem"
+                    onclick="closeInlineNpcCreate()">Cancel</button>
+            <button class="btn btn-primary" id="btnSaveInlineNpc" style="font-size:0.75rem"
+                    onclick="saveInlineNpc()">Save &amp; Link</button>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- ── Tab 4: Quests ── -->
+      <div class="sm-panel" data-panel="quests" style="padding:1.1rem 1.4rem">
+
+        <!-- Intro hint -->
+        <div style="font-family:'Share Tech Mono',monospace;font-size:0.65rem;
+                    color:var(--text-dim);margin-bottom:0.65rem;line-height:1.6">
+          Track quests tied to this session. Click the status badge to cycle it.
+        </div>
+
+        <!-- Quest list -->
+        <div id="smQuestList" style="display:flex;flex-direction:column;gap:0.4rem;margin-bottom:0.65rem">
+          <!-- Populated by buildQuestEditor() -->
+        </div>
+
+        <button class="btn btn-ghost"
+                style="width:100%;justify-content:center;font-size:0.75rem"
+                onclick="addQuest()">+ Add Quest</button>
+
+      </div>
+
+    </div><!-- /modal-body -->
+
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeSessionModal()">Cancel</button>
+      <button class="btn btn-primary" id="btnSaveSession" onclick="saveSession()">Save Session</button>
+    </div>
+
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════
+     NPC MODAL (global index add/edit)
+═══════════════════════════════════════════════════════ -->
+<div class="modal-backdrop" id="npcModal"
+     onclick="if(event.target===this)closeNpcModal()">
+  <div class="modal" style="max-width:480px;width:100%">
+
+    <div class="modal-header">
+      <span class="modal-title" id="npcModalTitle">⚙ ADD NPC</span>
+      <button class="btn-icon" onclick="closeNpcModal()">✕</button>
+    </div>
+
+    <div class="modal-body" style="padding:1.1rem 1.4rem">
+
+      <!-- Name + Role -->
+      <div style="display:flex;gap:0.75rem;margin-bottom:0.85rem">
+        <div style="flex:2">
+          <label class="modal-label">Name <span class="field-required">(required)</span></label>
+          <input id="nmName" type="text" class="modal-input" style="width:100%"
+                 placeholder="e.g. Captain Draegar"
+                 oninput="onNpcNameInput(this.value)" />
+          <div class="tx-desc-error" id="nmNameError"></div>
+        </div>
+        <div style="flex:2">
+          <label class="modal-label">Role</label>
+          <input id="nmRole" type="text" class="modal-input" style="width:100%"
+                 placeholder="e.g. City Guard Captain" />
+        </div>
+      </div>
+
+      <!-- Slug + Disposition -->
+      <div style="display:flex;gap:0.75rem;margin-bottom:0.85rem">
+        <div style="flex:2">
+          <label class="modal-label">
+            Slug
+            <span style="color:rgba(167,139,250,0.5);font-size:0.6rem;margin-left:4px">(^citation key)</span>
+          </label>
+          <input id="nmSlug" type="text" class="modal-input" style="width:100%"
+                 placeholder="auto-generated"
+                 oninput="this._manualEdit=true" />
+          <div class="tx-desc-error" id="nmSlugError"></div>
+        </div>
+        <div style="flex:1">
+          <label class="modal-label">Disposition</label>
+          <select id="nmDisposition" class="modal-input" style="width:100%">
+            <option value="unknown">Unknown</option>
+            <option value="allied">Allied</option>
+            <option value="friendly">Friendly</option>
+            <option value="neutral">Neutral</option>
+            <option value="hostile">Hostile</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Notes -->
+      <div>
+        <label class="modal-label">Notes</label>
+        <textarea id="nmNotes" class="modal-input"
+                  style="width:100%;min-height:90px;resize:vertical"
+                  placeholder="Persistent notes about this NPC across all sessions…"></textarea>
+      </div>
+
+    </div>
+
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeNpcModal()">Cancel</button>
+      <button class="btn btn-primary" id="btnSaveNpc" onclick="saveNpc()">Save NPC</button>
+    </div>
+
+  </div>
+</div>
+
+<script>
+// ══════════════════════════════════════════════════════════════
+//  STATE
+// ══════════════════════════════════════════════════════════════
+let sessions    = [];   // session_log rows
+let events      = {};   // { [session_id]: session_events[] }
+let npcs        = [];   // all NPC rows
+let npcMap      = new Map(); // slug → npc
+
+let currentView = 'sessions'; // 'sessions' | 'npcs'
+let expandedId  = null;        // currently expanded session card id
+let activeTabs  = {};          // { [session_id]: tabName }
+
+// ══════════════════════════════════════════════════════════════
+//  BOOT
+// ══════════════════════════════════════════════════════════════
+function showLoading(on) {
+  const el = document.getElementById('loadingOverlay');
+  if (el) el.style.display = on ? 'flex' : 'none';
+}
+
+async function boot() {
+  showLoading(true);
+  try {
+    await loadModuleSettings();
+    applyModuleVisibility();
+    if (!enforceModuleGuard('sessionLog')) return;
+    await loadTerms().catch(() => {});
+    // All three data sources load in parallel
+    const [sessionRows, eventRows, npcRows] = await Promise.all([
+      db.select('session_log',    { order: 'number.desc' }),
+      db.select('session_events', { order: 'session_id.asc,sort_order.asc' }),
+      db.select('npcs',           { order: 'name.asc' }),
+    ]);
+    sessions = sessionRows;
+    // Group events by session_id
+    events = {};
+    for (const ev of eventRows) {
+      if (!events[ev.session_id]) events[ev.session_id] = [];
+      events[ev.session_id].push(ev);
+    }
+    npcs = npcRows;
+    buildNpcMap();
+  } catch(e) {
+    console.error(e);
+    showToast('Could not load session data — check your Supabase config.');
+  } finally {
+    showLoading(false);
+  }
+  updateStats();
+  renderView();
+}
+
+// ══════════════════════════════════════════════════════════════
+//  NPC MAP
+// ══════════════════════════════════════════════════════════════
+function buildNpcMap() {
+  npcMap = new Map();
+  for (const npc of npcs) {
+    npcMap.set(npc.slug, npc);
+  }
+}
+
+// ══════════════════════════════════════════════════════════════
+//  VIEW SWITCHER
+// ══════════════════════════════════════════════════════════════
+function switchView(view) {
+  currentView = view;
+  document.getElementById('sessionsView').style.display = view === 'sessions' ? '' : 'none';
+  document.getElementById('npcView').style.display      = view === 'npcs'     ? '' : 'none';
+  document.getElementById('btnNewSession').style.display = view === 'sessions' ? '' : 'none';
+  document.getElementById('btnNewNpc').style.display     = view === 'npcs'     ? '' : 'none';
+  document.getElementById('btnViewSessions').classList.toggle('active', view === 'sessions');
+  document.getElementById('btnViewNpcs').classList.toggle('active',     view === 'npcs');
+  if (view === 'npcs') renderNpcs();
+}
+
+// ══════════════════════════════════════════════════════════════
+//  STATS BAR
+// ══════════════════════════════════════════════════════════════
+function updateStats() {
+  document.getElementById('statSessions').textContent = sessions.length;
+  document.getElementById('statNpcs').textContent     = npcs.length;
+  document.getElementById('statComplete').textContent = sessions.filter(s => s.status === 'complete').length;
+
+  // Count active quests and total logged moments across all sessions
+  let activeQuestCount = 0;
+  let momentCount      = 0;
+  for (const s of sessions) {
+    activeQuestCount += (s.quests || []).filter(q => q.status === 'active').length;
+    momentCount      += (events[s.id] || []).length;
+  }
+  document.getElementById('statActiveQuests').textContent = activeQuestCount;
+  document.getElementById('statMoments').textContent      = momentCount;
+}
+
+// ══════════════════════════════════════════════════════════════
+//  CITATION RENDERING
+//  renderWithCitations(text) — parses ^slug tokens in plain text
+//  and replaces them with interactive NPC chip elements.
+//  Known slugs → .npc-chip (clickable, opens NPC in index view)
+//  Unknown slugs → .npc-chip-unresolved (dimmed, tooltip)
+// ══════════════════════════════════════════════════════════════
+// Disposition → chip accent colour (matches the disp badge palette)
+const DISP_CHIP_COLOR = {
+  allied:   'rgba(14,240,208,0.85)',   // cyan
+  friendly: 'rgba(60,224,138,0.85)',   // green
+  neutral:  'rgba(212,134,10,0.85)',   // amber
+  hostile:  'rgba(239,68,68,0.85)',    // red
+  unknown:  'rgba(140,148,158,0.7)',   // dim gray
+};
+
+function renderWithCitations(text) {
+  if (!text) return '';
+  // Split on ^word-chars tokens; keep the delimiters via capture group
+  const parts = String(text).split(/(\^[a-z0-9][a-z0-9-]*)/g);
+  return parts.map(part => {
+    if (!part.startsWith('^')) return esc(part);
+    const slug = part.slice(1);                 // strip leading ^
+    const npc  = npcMap.get(slug);
+    if (npc) {
+      // Resolved chip — colour matches NPC disposition
+      const color = DISP_CHIP_COLOR[npc.disposition] || DISP_CHIP_COLOR.unknown;
+      return `<span class="npc-chip"
+                     onclick="jumpToNpc('${esc(npc.id)}')"
+                     title="${esc(npc.name)}${npc.role ? ' — ' + esc(npc.role) : ''} [${npc.disposition}]"
+                     style="color:${color};border-color:${color.replace('0.85','0.3')};background:${color.replace('0.85','0.08')}"
+                     >^${esc(slug)}</span>`;
+    } else {
+      // Unresolved chip — slug not in index
+      return `<span class="npc-chip-unresolved" title="Unknown NPC: ^${esc(slug)}">^${esc(slug)}</span>`;
+    }
+  }).join('');
+}
+
+// Navigate from a chip click to the NPC Index view, scrolling to that card
+function jumpToNpc(npcId) {
+  switchView('npcs');
+  renderNpcs();
+  setTimeout(() => {
+    // NPC cards don't have stable DOM ids yet — scroll to top of grid as fallback
+    const grid = document.getElementById('npcGrid');
+    if (grid) grid.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    // Highlight the target card briefly
+    const cards = grid ? grid.querySelectorAll('.npc-card') : [];
+    cards.forEach(card => {
+      // Match by edit button onclick
+      if (card.innerHTML.includes(`openNpcModal('${npcId}')`)) {
+        card.style.transition = 'box-shadow 0.2s';
+        card.style.boxShadow  = '0 0 0 2px rgba(167,139,250,0.6)';
+        card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        setTimeout(() => { card.style.boxShadow = ''; }, 1800);
+      }
+    });
+  }, 80);
+}
+
+// ══════════════════════════════════════════════════════════════
+//  CITATION AUTOCOMPLETE
+//  Attaches to a textarea or text input.  When the user types
+//  '^' followed by letters, a floating dropdown of matching NPCs
+//  appears.  Selecting an item replaces the partial token with
+//  the full ^slug token.
+//
+//  Usage:
+//    initCitationAutocomplete(inputEl)
+//
+//  Works for both <textarea> and <input type="text">.
+//  One shared singleton dropdown element is reused.
+// ══════════════════════════════════════════════════════════════
+let _citeDropEl  = null;   // singleton dropdown DOM element
+let _citeAnchor  = null;   // element the drop is currently attached to
+let _citeFocusIdx = -1;    // keyboard-nav index into current results
+
+function _ensureCiteDrop() {
+  if (_citeDropEl) return;
+  _citeDropEl = document.createElement('div');
+  _citeDropEl.className = 'cite-drop';
+  _citeDropEl.style.display = 'none';
+  document.body.appendChild(_citeDropEl);
+
+  // Hide on outside click
+  document.addEventListener('click', e => {
+    if (_citeDropEl &&
+        _citeAnchor && !_citeAnchor.contains(e.target) &&
+        !_citeDropEl.contains(e.target)) {
+      _hideCiteDrop();
+    }
+  }, true);
+}
+
+function _hideCiteDrop() {
+  if (_citeDropEl) _citeDropEl.style.display = 'none';
+  _citeAnchor   = null;
+  _citeFocusIdx = -1;
+}
+
+function _getCiteToken(el) {
+  // Returns { prefix, token, start } where token is the partial ^xxx being typed,
+  // or null if the cursor is not inside a citation token.
+  const val = el.value;
+  const pos = el.selectionStart;
+  // Walk left from cursor to find '^'
+  let i = pos - 1;
+  while (i >= 0 && /[a-z0-9-]/.test(val[i])) i--;
+  if (i < 0 || val[i] !== '^') return null;
+  const token = val.slice(i + 1, pos);  // text after ^ up to cursor
+  return { prefix: val.slice(0, i), token, after: val.slice(pos), caretStart: i };
+}
+
+function _positionDrop(el) {
+  // Use fixed positioning with raw viewport coordinates so the dropdown
+  // escapes any overflow:hidden/auto ancestor (including the session modal).
+  const rect = el.getBoundingClientRect();
+  const dropH = 220; // max-height of the dropdown
+  const spaceBelow = window.innerHeight - rect.bottom;
+  // Flip above the input if there's not enough room below
+  if (spaceBelow < dropH && rect.top > dropH) {
+    _citeDropEl.style.top    = 'auto';
+    _citeDropEl.style.bottom = (window.innerHeight - rect.top + 4) + 'px';
+  } else {
+    _citeDropEl.style.bottom = 'auto';
+    _citeDropEl.style.top    = (rect.bottom + 4) + 'px';
+  }
+  _citeDropEl.style.left     = rect.left + 'px';
+  _citeDropEl.style.position = 'fixed';
+}
+
+function _renderCiteDrop(matches, el, token) {
+  if (!matches.length) { _hideCiteDrop(); return; }
+  _citeFocusIdx = -1;
+  _citeDropEl.innerHTML = matches.map((npc, i) => `
+    <div class="cite-drop-item" data-i="${i}" data-slug="${esc(npc.slug)}">
+      <span class="cite-drop-name">${esc(npc.name)}</span>
+      <span class="cite-drop-slug">^${esc(npc.slug)}</span>
+    </div>`).join('');
+
+  _citeDropEl.querySelectorAll('.cite-drop-item').forEach(item => {
+    item.addEventListener('mousedown', e => {
+      e.preventDefault(); // prevent blur before insert
+      _insertCitation(el, item.dataset.slug);
+    });
+  });
+
+  _positionDrop(el);
+  _citeDropEl.style.display = 'block';
+  _citeAnchor = el;
+}
+
+function _insertCitation(el, slug) {
+  const ctx = _getCiteToken(el);
+  if (!ctx) { _hideCiteDrop(); return; }
+  const newVal = ctx.prefix + '^' + slug + ' ' + ctx.after;
+  el.value = newVal;
+  // Place cursor after the inserted token + space
+  const newPos = ctx.prefix.length + slug.length + 2; // +2 for ^ and space
+  el.setSelectionRange(newPos, newPos);
+  el.dispatchEvent(new Event('input', { bubbles: true }));
+  _hideCiteDrop();
+  el.focus();
+}
+
+function initCitationAutocomplete(el) {
+  if (!el || el._citeInit) return;
+  el._citeInit = true;
+  _ensureCiteDrop();
+
+  el.addEventListener('input', () => {
+    const ctx = _getCiteToken(el);
+    if (!ctx) { _hideCiteDrop(); return; }
+    const term = ctx.token.toLowerCase();
+    const matches = npcs
+      .filter(n => n.slug.includes(term) || n.name.toLowerCase().includes(term))
+      .slice(0, 8);
+    _renderCiteDrop(matches, el, ctx.token);
+  });
+
+  el.addEventListener('keydown', e => {
+    if (!_citeDropEl || _citeDropEl.style.display === 'none') return;
+    const items = _citeDropEl.querySelectorAll('.cite-drop-item');
+    if (!items.length) return;
+
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      _citeFocusIdx = Math.min(_citeFocusIdx + 1, items.length - 1);
+      items.forEach((it, i) => it.classList.toggle('cite-focused', i === _citeFocusIdx));
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      _citeFocusIdx = Math.max(_citeFocusIdx - 1, 0);
+      items.forEach((it, i) => it.classList.toggle('cite-focused', i === _citeFocusIdx));
+    } else if (e.key === 'Enter' && _citeFocusIdx >= 0) {
+      e.preventDefault();
+      const slug = items[_citeFocusIdx].dataset.slug;
+      _insertCitation(el, slug);
+    } else if (e.key === 'Escape') {
+      _hideCiteDrop();
+    }
+  });
+
+  el.addEventListener('blur', () => {
+    // Defer hide so mousedown on item fires first
+    setTimeout(() => {
+      if (_citeAnchor === el) _hideCiteDrop();
+    }, 150);
+  });
+}
+
+// ══════════════════════════════════════════════════════════════
+//  SESSIONS VIEW — RENDER
+// ══════════════════════════════════════════════════════════════
+function getFilteredSessions() {
+  const q      = (document.getElementById('sessionSearch').value || '').toLowerCase();
+  const status = document.getElementById('filterStatus').value;
+
+  return sessions.filter(s => {
+    if (status && s.status !== status) return false;
+    if (q) {
+      // Search title, summary, world_date, moment texts, and quest texts
+      const momentTexts = (events[s.id] || []).map(ev => ev.text || '').join(' ');
+      const questTexts  = (s.quests     || []).map(qt => qt.text  || '').join(' ');
+      const haystack    = [s.title, s.summary, s.world_date, momentTexts, questTexts]
+        .join(' ').toLowerCase();
+      if (!haystack.includes(q)) return false;
+    }
+    return true;
+  });
+}
+
+function renderSessions() {
+  const grid = document.getElementById('sessionGrid');
+  const rows = getFilteredSessions();
+
+  if (!rows.length) {
+    grid.innerHTML = `
+      <div class="empty-state">
+        <span class="empty-icon">📋</span>
+        <p>${sessions.length === 0 ? 'No sessions logged yet' : 'No sessions match filters'}</p>
+      </div>`;
+    return;
+  }
+
+  grid.innerHTML = rows.map(s => renderCard(s)).join('');
+}
+
+function renderCard(s) {
+  const isExpanded = expandedId === s.id;
+  const tab        = activeTabs[s.id] || 'overview';
+  const statusCls  = s.status === 'complete' ? 'complete' : 'draft';
+  const statusLabel= s.status === 'complete' ? 'Complete' : 'Draft';
+  const dateStr    = s.real_date
+    ? new Date(s.real_date + 'T12:00:00').toLocaleDateString(undefined, { month:'short', day:'numeric', year:'numeric' })
+    : '—';
+
+  return `
+  <div class="session-card ${isExpanded ? 'is-expanded' : ''}" id="sc-${esc(s.id)}">
+    <div class="sc-header" onclick="toggleCard('${esc(s.id)}')">
+      <span class="sc-number">SESSION ${s.number}</span>
+      <span class="sc-title">${esc(s.title)}</span>
+      <span class="sc-date">${dateStr}</span>
+      ${(events[s.id] || []).length
+        ? `<span class="sc-moment-count" title="${(events[s.id]||[]).length} moment${(events[s.id]||[]).length===1?'':'s'} logged">◆${(events[s.id]||[]).length}</span>`
+        : ''}
+      <span class="sc-status ${statusCls}">${statusLabel}</span>
+      <span class="sc-chevron">▾</span>
+    </div>
+    ${isExpanded ? renderCardBody(s, tab) : ''}
+  </div>`;
+}
+
+function renderCardBody(s, tab) {
+  return `
+  <div class="sc-body">
+    <div class="sc-tabs">
+      <button class="sc-tab ${tab==='overview'?'active':''}"  onclick="switchTab('${esc(s.id)}','overview');event.stopPropagation()">Overview</button>
+      <button class="sc-tab ${tab==='moments'?'active':''}"   onclick="switchTab('${esc(s.id)}','moments');event.stopPropagation()">Moments</button>
+      <button class="sc-tab ${tab==='npcs'?'active':''}"      onclick="switchTab('${esc(s.id)}','npcs');event.stopPropagation()">NPCs</button>
+      <button class="sc-tab ${tab==='quests'?'active':''}"    onclick="switchTab('${esc(s.id)}','quests');event.stopPropagation()">Quests</button>
+    </div>
+    <div class="sc-tab-panel ${tab==='overview'?'active':''}" id="sp-overview-${esc(s.id)}">${renderTabOverview(s)}</div>
+    <div class="sc-tab-panel ${tab==='moments'?'active':''}"  id="sp-moments-${esc(s.id)}">${renderTabMoments(s)}</div>
+    <div class="sc-tab-panel ${tab==='npcs'?'active':''}"     id="sp-npcs-${esc(s.id)}">${renderTabNpcs(s)}</div>
+    <div class="sc-tab-panel ${tab==='quests'?'active':''}"   id="sp-quests-${esc(s.id)}">${renderTabQuests(s)}</div>
+    <div class="sc-actions">
+      <button class="btn btn-ghost"         onclick="openSessionModal('${esc(s.id)}',activeTabs['${esc(s.id)}']);event.stopPropagation()">✎ Edit</button>
+      <button class="btn-icon delete"       onclick="deleteSession('${esc(s.id)}');event.stopPropagation()" title="Delete session">🗑</button>
+    </div>
+  </div>`;
+}
+
+function renderTabOverview(s) {
+  const worldDate = s.world_date
+    ? `<div class="sc-meta-item"><div class="sc-meta-label">In-World Date</div><div class="sc-meta-value">${esc(s.world_date)}</div></div>`
+    : '';
+  const meta = `
+    <div class="sc-meta-row">
+      <div class="sc-meta-item">
+        <div class="sc-meta-label">Session</div>
+        <div class="sc-meta-value">#${s.number}</div>
+      </div>
+      <div class="sc-meta-item">
+        <div class="sc-meta-label">Date</div>
+        <div class="sc-meta-value">${s.real_date
+          ? new Date(s.real_date+'T12:00:00').toLocaleDateString(undefined,{month:'long',day:'numeric',year:'numeric'})
+          : '—'}</div>
+      </div>
+      ${worldDate}
+    </div>`;
+
+  const summary = s.summary
+    ? `<div class="sc-summary">${renderWithCitations(s.summary)}</div>`
+    : `<div class="sc-summary empty">No summary recorded.</div>`;
+
+  return meta + summary;
+}
+
+function renderTabMoments(s) {
+  const evList = events[s.id] || [];
+  if (!evList.length) return `<div class="sc-tab-empty">No moments logged for this session.</div>`;
+
+  return `<div class="sc-moments-list">${evList.map(ev => {
+    const memberTag = (ev.members && ev.members.length)
+      ? `<span class="sc-moment-member">${esc(ev.members.join(', '))}</span>` : '';
+    return `<div class="sc-moment-row">
+      <span class="sc-moment-bullet">◆</span>
+      <span class="sc-moment-text">${renderWithCitations(ev.text)}</span>
+      ${memberTag}
+    </div>`;
+  }).join('')}</div>`;
+}
+
+function renderTabNpcs(s) {
+  const sessionNpcIds = s.session_npcs || [];
+  if (!sessionNpcIds.length) return `<div class="sc-tab-empty">No NPCs linked to this session.</div>`;
+
+  const sessionNpcs = sessionNpcIds
+    .map(id => npcs.find(n => n.id === id))
+    .filter(Boolean);
+
+  if (!sessionNpcs.length) return `<div class="sc-tab-empty">No NPCs linked to this session.</div>`;
+
+  return `<div class="sc-npc-list">${sessionNpcs.map(npc => `
+    <div class="sc-npc-row">
+      <span class="sc-npc-disp disp-${npc.disposition}">${npc.disposition.toUpperCase()}</span>
+      <div style="flex:1">
+        <div class="sc-npc-name">${esc(npc.name)}</div>
+        ${npc.role ? `<div class="sc-npc-role">${esc(npc.role)}</div>` : ''}
+      </div>
+      <span style="font-family:'Share Tech Mono',monospace;font-size:0.6rem;color:rgba(167,139,250,0.4)">^${esc(npc.slug)}</span>
+      <button class="btn-icon" style="font-size:0.7rem;color:rgba(167,139,250,0.6)"
+              onclick="jumpToNpc('${esc(npc.id)}');event.stopPropagation()"
+              title="View in NPC Index">↗</button>
+    </div>`).join('')}
+  </div>`;
+}
+
+function renderTabQuests(s) {
+  const quests = s.quests || [];
+  if (!quests.length) return `<div class="sc-tab-empty">No quests tracked for this session.</div>`;
+
+  // Uses shared QUEST_ICON_MAP, QUEST_CLS, QUEST_LABEL constants from the quest editor
+  const TEXT_CLS = { active:'', completed:'completed', failed:'failed', 'on-hold':'' };
+
+  return `<div class="sc-quest-list">${quests.map(q => {
+    const st = q.status || 'active';
+    return `
+    <div class="sc-quest-row">
+      <span class="sc-quest-icon">${QUEST_ICON_MAP[st] || '○'}</span>
+      <span class="sc-quest-text ${TEXT_CLS[st] || ''}">${renderWithCitations(q.text)}</span>
+      <span class="sc-quest-status ${QUEST_CLS[st] || 'qs-active'}">${QUEST_LABEL[st] || st}</span>
+    </div>`;
+  }).join('')}
+  </div>`;
+}
+
+// ══════════════════════════════════════════════════════════════
+//  CARD EXPAND / TAB SWITCH
+// ══════════════════════════════════════════════════════════════
+function toggleCard(id) {
+  if (expandedId === id) {
+    expandedId = null;
+  } else {
+    expandedId = id;
+    if (!activeTabs[id]) activeTabs[id] = 'overview';
+  }
+  renderSessions();
+}
+
+function switchTab(sessionId, tab) {
+  activeTabs[sessionId] = tab;
+  // Surgical DOM update — only re-render the body, not the whole grid
+  const card = document.getElementById(`sc-${sessionId}`);
+  if (!card) return;
+  // Update tab button states
+  card.querySelectorAll('.sc-tab').forEach(btn => {
+    btn.classList.toggle('active', btn.textContent.toLowerCase().trim() === tab);
+  });
+  // Show correct panel
+  card.querySelectorAll('.sc-tab-panel').forEach(panel => {
+    panel.classList.toggle('active', panel.id === `sp-${tab}-${sessionId}`);
+  });
+}
+
+// ══════════════════════════════════════════════════════════════
+//  NPC INDEX VIEW — RENDER
+// ══════════════════════════════════════════════════════════════
+function getSessionAppearances(npc) {
+  // Find all sessions where this NPC appears:
+  // 1. Listed in session_npcs array
+  // 2. ^{slug} appears in summary, event text, or quest text (citation scan)
+  const needle  = `^${npc.slug}`;
+  const results = new Set();
+
+  for (const s of sessions) {
+    if ((s.session_npcs || []).includes(npc.id)) { results.add(s.id); continue; }
+    if (s.summary && s.summary.includes(needle))  { results.add(s.id); continue; }
+    // Scan moment text
+    for (const ev of (events[s.id] || [])) {
+      if (ev.text && ev.text.includes(needle)) { results.add(s.id); break; }
+    }
+    if (results.has(s.id)) continue;
+    // Scan quest text
+    for (const q of (s.quests || [])) {
+      if (q.text && q.text.includes(needle)) { results.add(s.id); break; }
+    }
+  }
+
+  return sessions
+    .filter(s => results.has(s.id))
+    .sort((a, b) => a.number - b.number);
+}
+
+function renderNpcs() {
+  const grid = document.getElementById('npcGrid');
+  const q    = (document.getElementById('npcSearch').value || '').toLowerCase();
+  const disp = document.getElementById('filterDisposition').value;
+
+  const filtered = npcs.filter(n => {
+    if (disp && n.disposition !== disp) return false;
+    if (q) {
+      const hay = [n.name, n.role, n.notes, n.slug].join(' ').toLowerCase();
+      if (!hay.includes(q)) return false;
+    }
+    return true;
+  });
+
+  if (!filtered.length) {
+    grid.innerHTML = `
+      <div class="empty-state" style="grid-column:1/-1">
+        <span class="empty-icon">👤</span>
+        <p>${npcs.length === 0 ? 'No NPCs in the index yet' : 'No NPCs match filters'}</p>
+      </div>`;
+    return;
+  }
+
+  grid.innerHTML = filtered.map(npc => {
+    const appearances = getSessionAppearances(npc);
+    const badges = appearances.map(s =>
+      `<span class="npc-session-badge" onclick="jumpToSession('${esc(s.id)}')" title="Session ${s.number}: ${esc(s.title)}">S${s.number}</span>`
+    ).join('');
+
+    return `
+    <div class="npc-card">
+      <div class="npc-card-head">
+        <div>
+          <div class="npc-card-name">${esc(npc.name)}</div>
+          ${npc.role ? `<div class="npc-card-role">${esc(npc.role)}</div>` : ''}
+        </div>
+        <span class="sc-npc-disp disp-${npc.disposition}">${npc.disposition.toUpperCase()}</span>
+      </div>
+      ${npc.notes ? `<div class="npc-card-notes">${renderWithCitations(npc.notes)}</div>` : ''}
+      <div class="npc-card-slug">^${esc(npc.slug)}</div>
+      ${(() => {
+        if (!npc.first_seen) return '';
+        const fs = sessions.find(s => s.id === npc.first_seen);
+        if (!fs) return '';
+        return `<div class="npc-first-seen">
+          First seen:
+          <span class="npc-first-seen-link"
+                onclick="jumpToSession('${esc(fs.id)}')"
+                title="Go to Session ${fs.number}: ${esc(fs.title)}">
+            Session ${fs.number} — ${esc(fs.title)}
+          </span>
+        </div>`;
+      })()}
+      ${appearances.length ? `
+        <div class="npc-appearances">
+          <div class="npc-appearances-label">Appears in</div>
+          ${badges}
+        </div>` : ''}
+      <div class="npc-card-actions">
+        <button class="btn btn-ghost" style="font-size:0.72rem;padding:0.3rem 0.8rem" onclick="openNpcModal('${esc(npc.id)}')">✎ Edit</button>
+        <button class="btn-icon delete" onclick="deleteNpc('${esc(npc.id)}')" title="Delete NPC">🗑</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// Jump from NPC badge to the session card in Sessions view
+function jumpToSession(sessionId) {
+  switchView('sessions');
+  expandedId = sessionId;
+  if (!activeTabs[sessionId]) activeTabs[sessionId] = 'overview';
+  renderSessions();
+  // Scroll to the card after render
+  setTimeout(() => {
+    const el = document.getElementById(`sc-${sessionId}`);
+    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }, 80);
+}
+
+// ══════════════════════════════════════════════════════════════
+//  SESSION MODAL — OPEN / CLOSE
+// ══════════════════════════════════════════════════════════════
+let _editingSessionId = null;
+let _modalTab = 'overview'; // active modal tab
+let _draftMoments    = [];  // working copy of moments for the open modal
+let _partyMembers    = [];  // cached for the member tag dropdown
+let _draftSessionNpcs = []; // working copy of NPC ids linked to the open session
+let _draftQuests     = [];  // working copy of quests for the open session
+
+function openSessionModal(id, startTab) {
+  _editingSessionId = id || null;
+  _modalTab = 'overview';
+
+  // Title
+  document.getElementById('sessionModalTitle').textContent =
+    id ? '⚙ EDIT SESSION' : '⚙ NEW SESSION';
+
+  const s = id ? sessions.find(x => x.id === id) : null;
+
+  // ── Tab 1: Overview ──
+  const nextNumber = sessions.length
+    ? Math.max(...sessions.map(s => s.number || 0)) + 1
+    : 1;
+  document.getElementById('smNumber').value   = s ? s.number   : nextNumber;
+  document.getElementById('smTitle').value    = s ? s.title    : '';
+  document.getElementById('smRealDate').value = s ? (s.real_date || '') : new Date().toISOString().slice(0,10);
+  document.getElementById('smWorldDate').value= s ? (s.world_date || '') : '';
+  document.getElementById('smSummary').value  = s ? (s.summary || '') : '';
+
+  // Status toggle
+  const statusVal = s ? s.status : 'draft';
+  document.querySelectorAll('.sm-status-btn').forEach(b =>
+    b.classList.toggle('active', b.dataset.status === statusVal)
+  );
+  document.getElementById('smStatusHidden').value = statusVal;
+
+  // Clear errors
+  document.getElementById('smTitleError').textContent = '';
+  document.getElementById('smNumberError').textContent = '';
+
+  // ── Tab 2: Moments — load draft from existing events ──
+  _draftMoments = id
+    ? (events[id] || []).map(ev => ({
+        _key:    ev.id,           // use DB id as stable key
+        text:    ev.text,
+        members: ev.members || [],
+      }))
+    : [];
+  // Load party members for the tag dropdown (lazy, cached)
+  loadMembersForModal().then(() => buildMomentsEditor());
+
+  // ── Tab 3: NPCs — seed draft from session_npcs ──
+  const existingSession = id ? sessions.find(x => x.id === id) : null;
+  _draftSessionNpcs = existingSession
+    ? [...(existingSession.session_npcs || [])]
+    : [];
+  buildNpcPanel();
+
+  // ── Tab 4: Quests — seed draft from quests jsonb ──
+  _draftQuests = existingSession
+    ? (existingSession.quests || []).map(q => ({ ...q }))  // shallow clone each quest
+    : [];
+  buildQuestEditor();
+
+  // Open to the tab the user was viewing (default: overview)
+  const tabToOpen = (id && startTab) ? startTab : 'overview';
+  switchModalTab(tabToOpen);
+
+  document.getElementById('sessionModal').classList.add('open');
+  setTimeout(() => {
+    // Focus the title field only when opening on the overview tab
+    if (tabToOpen === 'overview') document.getElementById('smTitle').focus();
+    // Attach citation autocomplete to summary textarea
+    initCitationAutocomplete(document.getElementById('smSummary'));
+  }, 120);
+}
+
+function closeSessionModal() {
+  document.getElementById('sessionModal').classList.remove('open');
+}
+
+function switchModalTab(tab) {
+  _modalTab = tab;
+  document.querySelectorAll('.sm-tab').forEach(b =>
+    b.classList.toggle('active', b.dataset.tab === tab)
+  );
+  document.querySelectorAll('.sm-panel').forEach(p =>
+    p.classList.toggle('active', p.dataset.panel === tab)
+  );
+}
+
+function setSessionStatus(status) {
+  document.getElementById('smStatusHidden').value = status;
+  document.querySelectorAll('.sm-status-btn').forEach(b =>
+    b.classList.toggle('active', b.dataset.status === status)
+  );
+}
+
+// ══════════════════════════════════════════════════════════════
+//  SESSION MODAL — SAVE
+// ══════════════════════════════════════════════════════════════
+async function saveSession() {
+  // ── Validate ──
+  const title  = document.getElementById('smTitle').value.trim();
+  const number = parseInt(document.getElementById('smNumber').value, 10);
+  let valid = true;
+
+  const titleErr  = document.getElementById('smTitleError');
+  const numberErr = document.getElementById('smNumberError');
+  titleErr.textContent  = '';
+  numberErr.textContent = '';
+
+  if (!title) {
+    titleErr.textContent = '⚠ Title is required.';
+    valid = false;
+  }
+  if (!number || isNaN(number) || number < 1) {
+    numberErr.textContent = '⚠ Session number must be a positive integer.';
+    valid = false;
+  }
+  // Warn on duplicate number (only for new or changed number)
+  const dupNum = sessions.find(s =>
+    s.number === number && s.id !== _editingSessionId
+  );
+  if (dupNum && !numberErr.textContent) {
+    numberErr.textContent = `⚠ Session ${number} already exists ("${dupNum.title}"). Numbers should be unique.`;
+    // Not blocking — user may intentionally reuse (e.g. split sessions)
+  }
+
+  if (!valid) {
+    switchModalTab('overview');
+    setTimeout(() => document.getElementById('smTitle').focus(), 50);
+    return;
+  }
+
+  const id     = _editingSessionId || uid();
+  const status = document.getElementById('smStatusHidden').value;
+  const row    = {
+    id,
+    number,
+    title,
+    real_date:  document.getElementById('smRealDate').value  || null,
+    world_date: document.getElementById('smWorldDate').value.trim() || null,
+    summary:    document.getElementById('smSummary').value.trim()   || null,
+    status,
+    // quests live in _draftQuests; filter empty text rows before persisting
+    quests:       _draftQuests.filter(q => q.text && q.text.trim()),
+    session_npcs: _draftSessionNpcs,
+  };
+
+  const btn   = document.getElementById('btnSaveSession');
+  const modal = document.getElementById('sessionModal');
+  setLoading(btn, true); setModalLoading(modal, true);
+
+  try {
+    await db.upsert('session_log', row);
+
+    // ── Save events: delete existing, then batch-insert draft ──
+    // deleteWhere with session_id filter; safe even on new sessions (no rows match)
+    await db.deleteWhere('session_events', `session_id=eq.${encodeURIComponent(id)}`);
+    const eventRows = _draftMoments
+      .filter(m => m.text.trim())
+      .map((m, i) => ({
+        id:         m._key || uid(),
+        session_id: id,
+        text:       m.text.trim(),
+        members:    m.members || [],
+        sort_order: i,
+      }));
+    if (eventRows.length) await db.upsertMany('session_events', eventRows);
+
+    // Update local events cache
+    events[id] = eventRows;
+
+    if (_editingSessionId) {
+      const idx = sessions.findIndex(s => s.id === _editingSessionId);
+      if (idx >= 0) sessions[idx] = row;
+      showToast('Session updated.');
+    } else {
+      sessions.unshift(row); // newest first
+      showToast('Session logged.');
+    }
+
+    // Re-sort by number desc
+    sessions.sort((a,b) => b.number - a.number);
+
+    updateStats();
+    closeSessionModal();
+    // Expand the card we just saved
+    expandedId = id;
+    if (!activeTabs[id]) activeTabs[id] = 'overview';
+    renderSessions();
+  } catch(e) {
+    console.error(e);
+    showToast('Save failed — check Supabase config.');
+  } finally {
+    setLoading(btn, false); setModalLoading(modal, false);
+  }
+}
+
+// ══════════════════════════════════════════════════════════════
+//  SESSION DELETE
+// ══════════════════════════════════════════════════════════════
+async function deleteSession(id) {
+  const s = sessions.find(x => x.id === id);
+  if (!s) return;
+
+  const ok = await nexusConfirm({
+    title:        'Delete Session',
+    name:         `Session ${s.number}: ${s.title}`,
+    message:      'This will permanently delete the session and all its moments. NPCs will not be affected.',
+    confirmLabel: 'Delete',
+  });
+  if (!ok) return;
+
+  try {
+    // session_events deletes via CASCADE — only need to delete the session row
+    await db.delete('session_log', id);
+    sessions = sessions.filter(x => x.id !== id);
+    delete events[id];
+    if (expandedId === id) expandedId = null;
+    updateStats();
+    renderSessions();
+    showToast('Session deleted.');
+  } catch(e) {
+    console.error(e);
+    showToast('Delete failed.');
+  }
+}
+
+// ══════════════════════════════════════════════════════════════
+//  MOMENTS EDITOR
+// ══════════════════════════════════════════════════════════════
+
+async function loadMembersForModal() {
+  if (_partyMembers.length) return; // already loaded
+  try {
+    _partyMembers = await db.select('party_members', { order: 'name.asc' });
+  } catch(e) {
+    _partyMembers = [];
+  }
+}
+
+function memberOptions(selectedMembers) {
+  // Build <option> list from _partyMembers
+  // "selected" is the first entry in members[] (moments support one primary tag)
+  const selected = selectedMembers && selectedMembers.length ? selectedMembers[0] : '';
+  const opts = _partyMembers.map(m =>
+    `<option value="${esc(m.name)}" ${m.name === selected ? 'selected' : ''}>${esc(m.name)}</option>`
+  ).join('');
+  return `<option value="">— untagged —</option>${opts}`;
+}
+
+function buildMomentsEditor() {
+  const list = document.getElementById('smMomentsList');
+  if (!list) return;
+
+  if (!_draftMoments.length) {
+    list.innerHTML = `<div class="sc-tab-empty" style="padding:1rem 0">No moments yet — click + Add Moment.</div>`;
+    return;
+  }
+
+  list.innerHTML = _draftMoments.map((m, i) => `
+    <div class="sm-moment-row" data-idx="${i}">
+      <span class="sm-moment-drag" title="Drag to reorder">⠿</span>
+      <input class="sm-moment-input"
+             type="text"
+             value="${esc(m.text)}"
+             placeholder="Describe what happened… (type ^ to cite an NPC)"
+             oninput="updateMomentText(${i}, this.value)"
+             onkeydown="momentKeydown(event, ${i})" />
+      <select class="sm-moment-member-select"
+              onchange="updateMomentMember(${i}, this.value)"
+              title="Tag a party member">
+        ${memberOptions(m.members)}
+      </select>
+      <button class="btn-icon delete" onclick="removeMoment(${i})" title="Remove moment">✕</button>
+    </div>`).join('');
+
+  // Attach citation autocomplete to every moment input after render
+  list.querySelectorAll('.sm-moment-input').forEach(inp => initCitationAutocomplete(inp));
+}
+
+function addMoment() {
+  _draftMoments.push({ _key: uid(), text: '', members: [] });
+  buildMomentsEditor();
+  // Focus the new input
+  const list  = document.getElementById('smMomentsList');
+  const rows  = list.querySelectorAll('.sm-moment-input');
+  const last  = rows[rows.length - 1];
+  if (last) last.focus();
+}
+
+function removeMoment(idx) {
+  _draftMoments.splice(idx, 1);
+  buildMomentsEditor();
+}
+
+function updateMomentText(idx, value) {
+  if (_draftMoments[idx]) _draftMoments[idx].text = value;
+}
+
+function updateMomentMember(idx, memberName) {
+  if (!_draftMoments[idx]) return;
+  _draftMoments[idx].members = memberName ? [memberName] : [];
+}
+
+// Enter key in a moment field: add a new moment if it's the last row
+function momentKeydown(e, idx) {
+  if (e.key !== 'Enter') return;
+  e.preventDefault();
+  if (idx === _draftMoments.length - 1) {
+    addMoment();
+  } else {
+    // Move focus to the next moment input
+    const list  = document.getElementById('smMomentsList');
+    const rows  = list.querySelectorAll('.sm-moment-input');
+    const next  = rows[idx + 1];
+    if (next) next.focus();
+  }
+}
+
+// ══════════════════════════════════════════════════════════════
+//  QUEST EDITOR
+// ══════════════════════════════════════════════════════════════
+
+// Status cycle order and display metadata
+const QUEST_CYCLE   = ['active', 'completed', 'failed', 'on-hold'];
+const QUEST_LABEL   = { active: 'Active', completed: 'Completed', failed: 'Failed', 'on-hold': 'On Hold' };
+const QUEST_CLS     = { active: 'qs-active', completed: 'qs-completed', failed: 'qs-failed', 'on-hold': 'qs-on-hold' };
+const QUEST_ICON_MAP = { active: '○', completed: '✓', failed: '✗', 'on-hold': '◌' };
+
+function buildQuestEditor() {
+  const list = document.getElementById('smQuestList');
+  if (!list) return;
+
+  if (!_draftQuests.length) {
+    list.innerHTML = `<div class="sc-tab-empty" style="padding:0.5rem 0">No quests yet — click + Add Quest.</div>`;
+    return;
+  }
+
+  list.innerHTML = _draftQuests.map((q, i) => {
+    const status  = q.status || 'active';
+    const cls     = QUEST_CLS[status]   || 'qs-active';
+    const label   = QUEST_LABEL[status] || status;
+    const textCls = (status === 'completed' || status === 'failed') ? status : '';
+    return `
+    <div class="sm-quest-row" data-idx="${i}">
+      <button class="sm-quest-cycle ${cls}"
+              onclick="cycleQuestStatus(${i})"
+              title="Click to cycle status">${label}</button>
+      <input  class="sm-quest-input ${textCls}"
+              type="text"
+              value="${esc(q.text || '')}"
+              placeholder="Describe the quest… (type ^ to cite an NPC)"
+              oninput="updateQuestText(${i}, this.value)"
+              onkeydown="questKeydown(event, ${i})" />
+      <button class="btn-icon delete" onclick="removeQuest(${i})" title="Remove quest">✕</button>
+    </div>`;
+  }).join('');
+
+  // Attach citation autocomplete to every quest input after render
+  list.querySelectorAll('.sm-quest-input').forEach(inp => initCitationAutocomplete(inp));
+}
+
+function addQuest() {
+  _draftQuests.push({ _key: uid(), text: '', status: 'active' });
+  buildQuestEditor();
+  // Focus the new input
+  const list  = document.getElementById('smQuestList');
+  const rows  = list ? list.querySelectorAll('.sm-quest-input') : [];
+  const last  = rows[rows.length - 1];
+  if (last) last.focus();
+}
+
+function removeQuest(idx) {
+  _draftQuests.splice(idx, 1);
+  buildQuestEditor();
+}
+
+function updateQuestText(idx, value) {
+  if (_draftQuests[idx]) _draftQuests[idx].text = value;
+}
+
+function cycleQuestStatus(idx) {
+  if (!_draftQuests[idx]) return;
+  const current  = _draftQuests[idx].status || 'active';
+  const i        = QUEST_CYCLE.indexOf(current);
+  const next     = QUEST_CYCLE[(i + 1) % QUEST_CYCLE.length];
+  _draftQuests[idx].status = next;
+
+  // Surgical DOM update — update just this row's button and input class
+  const list = document.getElementById('smQuestList');
+  if (!list) return;
+  const row  = list.querySelector(`[data-idx="${idx}"]`);
+  if (!row)  return;
+  const btn  = row.querySelector('.sm-quest-cycle');
+  const inp  = row.querySelector('.sm-quest-input');
+  if (btn) {
+    btn.className = `sm-quest-cycle ${QUEST_CLS[next] || 'qs-active'}`;
+    btn.textContent = QUEST_LABEL[next] || next;
+  }
+  if (inp) {
+    inp.className = `sm-quest-input ${(next === 'completed' || next === 'failed') ? next : ''}`.trim();
+  }
+}
+
+// Enter on last quest row → add new one; otherwise move to next
+function questKeydown(e, idx) {
+  if (e.key !== 'Enter') return;
+  e.preventDefault();
+  if (idx === _draftQuests.length - 1) {
+    addQuest();
+  } else {
+    const list  = document.getElementById('smQuestList');
+    const rows  = list ? list.querySelectorAll('.sm-quest-input') : [];
+    const next  = rows[idx + 1];
+    if (next) next.focus();
+  }
+}
+
+// ══════════════════════════════════════════════════════════════
+//  SESSION MODAL — NPC PANEL
+// ══════════════════════════════════════════════════════════════
+
+function buildNpcPanel() {
+  const list = document.getElementById('smNpcList');
+  if (!list) return;
+
+  if (!_draftSessionNpcs.length) {
+    list.innerHTML = `<div class="sc-tab-empty" style="padding:0.6rem 0">No NPCs linked yet.</div>`;
+    return;
+  }
+
+  list.innerHTML = _draftSessionNpcs.map(npcId => {
+    const npc = npcs.find(n => n.id === npcId);
+    if (!npc) return '';
+    return `
+    <div class="sm-npc-row">
+      <span class="sc-npc-disp disp-${npc.disposition}">${npc.disposition.toUpperCase()}</span>
+      <div class="sm-npc-name-block">
+        <div class="sm-npc-linked-name">${esc(npc.name)}</div>
+        ${npc.role ? `<div class="sm-npc-linked-role">${esc(npc.role)}</div>` : ''}
+      </div>
+      <span style="font-family:'Share Tech Mono',monospace;font-size:0.58rem;color:rgba(167,139,250,0.35)">^${esc(npc.slug)}</span>
+      <button class="btn-icon delete" onclick="unlinkNpc('${esc(npcId)}')" title="Remove from this session">✕</button>
+    </div>`;
+  }).filter(Boolean).join('');
+}
+
+function filterNpcSuggestions(q) {
+  const drop = document.getElementById('smNpcSuggestions');
+  if (!drop) return;
+  const term = (q || '').toLowerCase().trim();
+
+  // Filter: not already linked, matches query
+  const candidates = npcs.filter(n => {
+    if (_draftSessionNpcs.includes(n.id)) return false;
+    if (!term) return true;
+    return (n.name + ' ' + (n.role || '') + ' ' + n.slug).toLowerCase().includes(term);
+  }).slice(0, 8);
+
+  if (!candidates.length || !term) {
+    drop.style.display = 'none';
+    return;
+  }
+
+  drop.style.display = 'block';
+  drop.innerHTML = candidates.map(n => `
+    <div class="npc-suggest-item" onclick="linkNpc('${esc(n.id)}')">
+      <span class="sc-npc-disp disp-${n.disposition}" style="font-size:0.45rem;padding:0.15rem 0.4rem">${n.disposition.toUpperCase()}</span>
+      <span class="npc-suggest-item-name">${esc(n.name)}</span>
+      ${n.role ? `<span class="npc-suggest-item-role">${esc(n.role)}</span>` : ''}
+    </div>`).join('');
+}
+
+function linkNpc(npcId) {
+  if (!_draftSessionNpcs.includes(npcId)) {
+    _draftSessionNpcs.push(npcId);
+    buildNpcPanel();
+  }
+  // Clear search
+  const inp = document.getElementById('smNpcSearch');
+  const drop = document.getElementById('smNpcSuggestions');
+  if (inp)  inp.value = '';
+  if (drop) drop.style.display = 'none';
+}
+
+function unlinkNpc(npcId) {
+  _draftSessionNpcs = _draftSessionNpcs.filter(id => id !== npcId);
+  buildNpcPanel();
+}
+
+function openInlineNpcCreate() {
+  document.getElementById('smInlineNpc').style.display = 'block';
+  document.getElementById('inNpcName').value        = '';
+  document.getElementById('inNpcRole').value        = '';
+  document.getElementById('inNpcSlug').value        = '';
+  document.getElementById('inNpcNotes').value       = '';
+  document.getElementById('inNpcDisposition').value = 'unknown';
+  document.getElementById('inNpcError').textContent = '';
+  setTimeout(() => document.getElementById('inNpcName').focus(), 60);
+}
+
+function closeInlineNpcCreate() {
+  document.getElementById('smInlineNpc').style.display = 'none';
+}
+
+function onInlineNpcNameInput(name) {
+  const slugEl = document.getElementById('inNpcSlug');
+  // Only auto-fill slug if user hasn't manually edited it
+  if (!slugEl._manualEdit) slugEl.value = slugify(name);
+}
+
+async function saveInlineNpc() {
+  const name = document.getElementById('inNpcName').value.trim();
+  const errEl = document.getElementById('inNpcError');
+  errEl.textContent = '';
+
+  if (!name) {
+    errEl.textContent = '⚠ Name is required.';
+    document.getElementById('inNpcName').focus();
+    return;
+  }
+
+  const rawSlug = document.getElementById('inNpcSlug').value.trim() || slugify(name);
+  const slug    = rawSlug.toLowerCase().replace(/[^a-z0-9-]/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '');
+
+  if (!slug) {
+    errEl.textContent = '⚠ Could not generate a valid slug from this name.';
+    return;
+  }
+
+  // Check slug uniqueness
+  if (npcs.some(n => n.slug === slug)) {
+    errEl.textContent = `⚠ Slug "^${slug}" is already in use — edit the slug field.`;
+    document.getElementById('inNpcSlug').focus();
+    return;
+  }
+
+  const npc = {
+    id:          uid(),
+    slug,
+    name,
+    role:        document.getElementById('inNpcRole').value.trim()  || null,
+    disposition: document.getElementById('inNpcDisposition').value,
+    notes:       document.getElementById('inNpcNotes').value.trim() || null,
+    first_seen:  _editingSessionId || null,
+  };
+
+  const btn = document.getElementById('btnSaveInlineNpc');
+  setLoading(btn, true);
+  try {
+    await db.upsert('npcs', npc);
+    npcs.push(npc);
+    buildNpcMap(); // rebuild slug → npc lookup
+    _draftSessionNpcs.push(npc.id);
+    buildNpcPanel();
+    closeInlineNpcCreate();
+    updateStats();
+    showToast(`NPC "${name}" created and linked.`);
+  } catch(e) {
+    console.error(e);
+    errEl.textContent = '⚠ Save failed — check Supabase config.';
+  } finally {
+    setLoading(btn, false);
+  }
+}
+
+// ══════════════════════════════════════════════════════════════
+//  NPC MODAL (global NPC Index edit)
+// ══════════════════════════════════════════════════════════════
+let _editingNpcId = null;
+
+function openNpcModal(id) {
+  _editingNpcId = id || null;
+  const npc = id ? npcs.find(n => n.id === id) : null;
+
+  document.getElementById('npcModalTitle').textContent =
+    id ? '⚙ EDIT NPC' : '⚙ ADD NPC';
+
+  document.getElementById('nmName').value        = npc ? npc.name        : '';
+  document.getElementById('nmRole').value        = npc ? (npc.role || '')        : '';
+  document.getElementById('nmSlug').value        = npc ? npc.slug        : '';
+  document.getElementById('nmDisposition').value = npc ? npc.disposition : 'unknown';
+  document.getElementById('nmNotes').value       = npc ? (npc.notes || '') : '';
+  document.getElementById('nmNameError').textContent = '';
+  document.getElementById('nmSlugError').textContent = '';
+
+  // Track manual slug edits
+  document.getElementById('nmSlug')._manualEdit = !!id;
+
+  document.getElementById('npcModal').classList.add('open');
+  setTimeout(() => {
+    document.getElementById('nmName').focus();
+    initCitationAutocomplete(document.getElementById('nmNotes'));
+  }, 120);
+}
+
+function closeNpcModal() {
+  document.getElementById('npcModal').classList.remove('open');
+}
+
+function onNpcNameInput(name) {
+  const slugEl = document.getElementById('nmSlug');
+  if (!slugEl._manualEdit) slugEl.value = slugify(name);
+}
+
+async function saveNpc() {
+  const name    = document.getElementById('nmName').value.trim();
+  const rawSlug = document.getElementById('nmSlug').value.trim();
+  const nameErr = document.getElementById('nmNameError');
+  const slugErr = document.getElementById('nmSlugError');
+  nameErr.textContent = '';
+  slugErr.textContent = '';
+  let valid = true;
+
+  if (!name) {
+    nameErr.textContent = '⚠ Name is required.';
+    valid = false;
+  }
+
+  const slug = rawSlug.toLowerCase().replace(/[^a-z0-9-]/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '');
+  if (!slug) {
+    slugErr.textContent = '⚠ Slug is required — it is the ^citation key.';
+    valid = false;
+  }
+  const dupSlug = npcs.find(n => n.slug === slug && n.id !== _editingNpcId);
+  if (dupSlug && !slugErr.textContent) {
+    slugErr.textContent = `⚠ Slug "^${slug}" is already used by "${dupSlug.name}".`;
+    valid = false;
+  }
+
+  if (!valid) {
+    document.getElementById('nmName').focus();
+    return;
+  }
+
+  const id  = _editingNpcId || uid();
+  const npc = {
+    id,
+    slug,
+    name,
+    role:        document.getElementById('nmRole').value.trim()  || null,
+    disposition: document.getElementById('nmDisposition').value,
+    notes:       document.getElementById('nmNotes').value.trim() || null,
+    first_seen:  _editingNpcId
+      ? (npcs.find(n => n.id === _editingNpcId)?.first_seen || null)
+      : null,
+  };
+
+  const btn   = document.getElementById('btnSaveNpc');
+  const modal = document.getElementById('npcModal');
+  setLoading(btn, true); setModalLoading(modal, true);
+
+  try {
+    await db.upsert('npcs', npc);
+    if (_editingNpcId) {
+      const idx = npcs.findIndex(n => n.id === _editingNpcId);
+      if (idx >= 0) npcs[idx] = npc;
+      showToast('NPC updated.');
+    } else {
+      npcs.push(npc);
+      showToast(`NPC "${name}" added to index.`);
+    }
+    // Keep index sorted alphabetically
+    npcs.sort((a, b) => a.name.localeCompare(b.name));
+    buildNpcMap();
+    updateStats();
+    closeNpcModal();
+    renderNpcs();
+  } catch(e) {
+    console.error(e);
+    showToast('Save failed — check Supabase config.');
+  } finally {
+    setLoading(btn, false); setModalLoading(modal, false);
+  }
+}
+
+async function deleteNpc(id) {
+  const npc = npcs.find(n => n.id === id);
+  if (!npc) return;
+
+  const ok = await nexusConfirm({
+    title:        'Delete NPC',
+    name:         npc.name,
+    message:      'This NPC will be removed from the global index. Sessions that reference ^' + npc.slug + ' via citations will show an unresolved chip until the text is updated.',
+    confirmLabel: 'Delete',
+  });
+  if (!ok) return;
+
+  try {
+    await db.delete('npcs', id);
+    npcs = npcs.filter(n => n.id !== id);
+    buildNpcMap();
+    updateStats();
+    renderNpcs();
+    showToast('NPC deleted.');
+  } catch(e) {
+    console.error(e);
+    showToast('Delete failed.');
+  }
+}
+
+// ══════════════════════════════════════════════════════════════
+//  RENDER DISPATCH
+// ══════════════════════════════════════════════════════════════
+function renderView() {
+  if (currentView === 'sessions') renderSessions();
+  else renderNpcs();
+}
+
+// ══════════════════════════════════════════════════════════════
+//  UTILITIES
+// ══════════════════════════════════════════════════════════════
+function esc(s) {
+  return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+function showToast(msg, dur=2800) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(t._to);
+  t._to = setTimeout(() => t.classList.remove('show'), dur);
+}
+
+// ══════════════════════════════════════════════════════════════
+//  GLOBAL KEYBOARD — Escape closes modals
+// ══════════════════════════════════════════════════════════════
+document.addEventListener('keydown', e => {
+  if (e.key !== 'Escape') return;
+  if (document.getElementById('sessionModal')?.classList.contains('open')) {
+    closeSessionModal(); return;
+  }
+  if (document.getElementById('npcModal')?.classList.contains('open')) {
+    closeNpcModal(); return;
+  }
+});
+
+// ══════════════════════════════════════════════════════════════
+//  GLOBAL CLICK — close NPC suggestion dropdown
+// ══════════════════════════════════════════════════════════════
+document.addEventListener('click', e => {
+  const drop = document.getElementById('smNpcSuggestions');
+  const inp  = document.getElementById('smNpcSearch');
+  if (drop && inp && !inp.contains(e.target) && !drop.contains(e.target)) {
+    drop.style.display = 'none';
+  }
+});
+
+// ══════════════════════════════════════════════════════════════
+//  SIDENAV
+// ══════════════════════════════════════════════════════════════
+function openNav()  { document.getElementById('sidenav').classList.add('nav-open');    document.getElementById('navOverlay').classList.add('nav-open'); }
+function closeNav() { document.getElementById('sidenav').classList.remove('nav-open'); document.getElementById('navOverlay').classList.remove('nav-open'); }
+document.getElementById('navToggle').addEventListener('click', () => {
+  document.getElementById('sidenav').classList.contains('nav-open') ? closeNav() : openNav();
+});
+
+// Boot
+boot();
+</script>
+
+</body>
+</html>
