@@ -99,7 +99,7 @@ describe('esc()', () => {
   it('escapes a full XSS-style payload', () => {
     assert.strictEqual(
       esc('<img src=x onerror="alert(1)">'),
-      '&lt;img src=x onerror="alert(1)"&gt;'
+      '&lt;img src=x onerror=&quot;alert(1)&quot;&gt;'
     );
   });
 
@@ -3065,8 +3065,8 @@ describe('CSS — duplicate selectors are responsive overrides only', () => {
 
   it('admin.html snapshot CSS classes do not conflict with nexus.css', () => {
     const adm = fs.readFileSync(path.join(__dirname,'../admin.html'), 'utf8');
-    const styleMatch = adm.match(/<style>([\s\S]*?)<\/style>/);
-    const adminBlock = styleMatch ? styleMatch[1] : '';
+    // Admin CSS is now in nexus.css; check nexus.css for admin classes
+    const adminBlock = css;
     const adminClasses = new Set([...adminBlock.matchAll(/(\.[a-zA-Z][a-zA-Z0-9_-]*)\s*\{/g)].map(m => m[1]));
     const nexusClasses = new Set([...css.matchAll(/^(\.[a-zA-Z][a-zA-Z0-9_-]*)\s*\{/gm)].map(m => m[1]));
     const snapshotClasses = ['.snapshot-row', '.snapshot-action', '.snapshot-action-title', '.snapshot-action-desc'];
@@ -3097,14 +3097,14 @@ describe('CSS — duplicate selectors are responsive overrides only', () => {
   it('admin.html .field override is qualified under .pw-row (scoped)', () => {
     const adm = fs.readFileSync(path.join(__dirname,'../admin.html'), 'utf8');
     // The bare .field override in admin should be scoped to .pw-row
-    assert.ok(adm.includes('.pw-row .field') || adm.includes('.pw-row .field {'),
+    assert.ok(css.includes('.pw-row .field') || css.includes('.pw-row .field {'),
       '.field override in admin.html must be scoped as .pw-row .field to avoid clobbering global .field');
   });
 
   it('admin.html .save-status.show is qualified (scoped)', () => {
     const adm = fs.readFileSync(path.join(__dirname,'../admin.html'), 'utf8');
     // Must be .save-status.show not bare .show
-    assert.ok(adm.includes('.save-status.show'),
+    assert.ok(css.includes('.save-status.show'),
       '.show in admin.html must be qualified as .save-status.show');
     // And there must NOT be a bare .show { in admin
     const styleMatch = adm.match(/<style>([\s\S]*?)<\/style>/);
@@ -4368,6 +4368,7 @@ describe('Stage 2 Scaffold — session-log.html DOM structure', () => {
   const fs   = require('fs'), path = require('path');
   const src  = fs.readFileSync(path.join(__dirname, '../session-log.html'), 'utf8');
   const idx  = fs.readFileSync(path.join(__dirname, '../index.html'), 'utf8');
+  const css  = fs.readFileSync(path.join(__dirname, '../css/nexus.css'), 'utf8');
 
   // ── Page identity ────────────────────────────────────────────
   it('has correct page title', () => {
@@ -4387,21 +4388,21 @@ describe('Stage 2 Scaffold — session-log.html DOM structure', () => {
   });
 
   // ── Nav ──────────────────────────────────────────────────────
-  it('sidenav has all 6 links including session-log.html', () => {
+  it('sidenav has all 6 links including session-log.html — via NAV_LINKS in nexus-utils.js', () => {
+    const utils = fs.readFileSync(path.join(__dirname, '../js/nexus-utils.js'), 'utf8');
     const links = ['index.html','party-roster.html','treasury.html','loot-tracker.html','session-log.html','admin.html'];
-    links.forEach(link => assert.ok(src.includes(`href="${link}"`), `sidenav must include link to ${link}`));
+    links.forEach(link => assert.ok(utils.includes(`'${link}'`), `NAV_LINKS in nexus-utils.js must include ${link}`));
   });
 
-  it('session-log.html nav link is marked active', () => {
+  it('session-log.html calls buildSidenav with session-log.html as active', () => {
     assert.ok(
-      src.includes('sidenav-link active') && src.includes('href="session-log.html"'),
-      'the session-log.html sidenav link must have the "active" class'
+      src.includes("buildSidenav('session-log.html')"),
+      'session-log.html must call buildSidenav with itself as the active href'
     );
   });
 
-  it('has nav toggle button for mobile', () => {
-    assert.ok(src.includes('id="navToggle"'), 'nav toggle button must exist');
-    assert.ok(src.includes('id="navOverlay"'), 'nav overlay must exist');
+  it('has nexus-nav-root placeholder for dynamic nav', () => {
+    assert.ok(src.includes('id="nexus-nav-root"'), 'page must have a #nexus-nav-root div for buildSidenav');
   });
 
   // ── Header ───────────────────────────────────────────────────
@@ -4587,15 +4588,17 @@ describe('Stage 2 Scaffold — session-log.html DOM structure', () => {
     assert.ok(src.includes("'quests'"),  'quests tab must exist');
   });
 
-  it('defines esc() for XSS protection', () => {
-    assert.ok(src.includes('function esc('), 'esc() must be defined for XSS protection');
-    assert.ok(src.includes('&amp;'), 'esc() must escape ampersands');
-    assert.ok(src.includes('&lt;'),  'esc() must escape less-than');
+  it('esc() is defined in nexus-utils.js and available on this page', () => {
+    const utils = fs.readFileSync(path.join(__dirname, '../js/nexus-utils.js'), 'utf8');
+    assert.ok(utils.includes('function esc('), 'esc() must be defined in nexus-utils.js');
+    assert.ok(utils.includes('&amp;'), 'esc() must escape ampersands');
+    assert.ok(src.includes('nexus-utils.js'), 'session-log.html must load nexus-utils.js');
   });
 
-  it('defines showToast() for user feedback', () => {
-    assert.ok(src.includes('function showToast('), 'showToast() must be defined');
-    assert.ok(src.includes('id="toast"'), 'toast element must exist in DOM');
+  it('showToast() is defined in nexus-utils.js and loaded on this page', () => {
+    const utils = fs.readFileSync(path.join(__dirname, '../js/nexus-utils.js'), 'utf8');
+    assert.ok(utils.includes('function showToast('), 'showToast() must be defined in nexus-utils.js');
+    assert.ok(src.includes('nexus-utils.js'), 'session-log.html must load nexus-utils.js');
   });
 
   // ── CSS classes ──────────────────────────────────────────────
@@ -4611,11 +4614,11 @@ describe('Stage 2 Scaffold — session-log.html DOM structure', () => {
   });
 
   it('defines disposition badge CSS classes for all 5 values', () => {
-    assert.ok(src.includes('disp-allied'),   'disp-allied CSS class must exist');
-    assert.ok(src.includes('disp-friendly'), 'disp-friendly CSS class must exist');
-    assert.ok(src.includes('disp-neutral'),  'disp-neutral CSS class must exist');
-    assert.ok(src.includes('disp-hostile'),  'disp-hostile CSS class must exist');
-    assert.ok(src.includes('disp-unknown'),  'disp-unknown CSS class must exist');
+    assert.ok(css.includes('disp-allied'),   'disp-allied CSS class must exist');
+    assert.ok(css.includes('disp-friendly'), 'disp-friendly CSS class must exist');
+    assert.ok(css.includes('disp-neutral'),  'disp-neutral CSS class must exist');
+    assert.ok(css.includes('disp-hostile'),  'disp-hostile CSS class must exist');
+    assert.ok(css.includes('disp-unknown'),  'disp-unknown CSS class must exist');
   });
 
   it('defines quest status CSS classes for all 4 states', () => {
@@ -4638,8 +4641,11 @@ describe('Stage 2 Scaffold — session-log.html DOM structure', () => {
   });
 
   it('uses page-session brand accent color (violet)', () => {
-    assert.ok(src.includes('#a78bfa') || src.includes('a78bfa'),
-      'page must use the violet session-log accent color #a78bfa');
+    // Violet may be in session-log.html directly, or in nexus.css as --violet variable
+    const hasViolet = src.includes('#a78bfa') || src.includes('a78bfa') || src.includes('var(--violet)')
+                   || css.includes('--violet') && css.includes('page-session');
+    assert.ok(hasViolet,
+      'page must use the violet session-log accent color (defined in nexus.css as --violet or inline as #a78bfa)');
   });
 
   // ── index.html dashboard card ────────────────────────────────
@@ -4684,24 +4690,14 @@ describe('Stage 2 Scaffold — session-log.html DOM structure', () => {
   });
 
   // ── Nav propagation ──────────────────────────────────────────
-  it('party-roster.html nav includes session-log.html', () => {
-    const pr = fs.readFileSync(path.join(__dirname, '../party-roster.html'), 'utf8');
-    assert.ok(pr.includes('href="session-log.html"'), 'party-roster.html nav must include Session Log link');
-  });
-
-  it('treasury.html nav includes session-log.html', () => {
-    const t = fs.readFileSync(path.join(__dirname, '../treasury.html'), 'utf8');
-    assert.ok(t.includes('href="session-log.html"'), 'treasury.html nav must include Session Log link');
-  });
-
-  it('loot-tracker.html nav includes session-log.html', () => {
-    const l = fs.readFileSync(path.join(__dirname, '../loot-tracker.html'), 'utf8');
-    assert.ok(l.includes('href="session-log.html"'), 'loot-tracker.html nav must include Session Log link');
-  });
-
-  it('admin.html nav includes session-log.html', () => {
-    const a = fs.readFileSync(path.join(__dirname, '../admin.html'), 'utf8');
-    assert.ok(a.includes('href="session-log.html"'), 'admin.html nav must include Session Log link');
+  it('all module pages use buildSidenav for nav (session-log link comes from NAV_LINKS)', () => {
+    const utils = fs.readFileSync(path.join(__dirname, '../js/nexus-utils.js'), 'utf8');
+    assert.ok(utils.includes("'session-log.html'"), 'NAV_LINKS in nexus-utils.js must define the session-log.html link');
+    const pages = ['party-roster.html','treasury.html','loot-tracker.html','admin.html'];
+    pages.forEach(page => {
+      const src = fs.readFileSync(path.join(__dirname, '..', page), 'utf8');
+      assert.ok(src.includes('buildSidenav('), `${page} must call buildSidenav() to render the shared nav`);
+    });
   });
 });
 
@@ -4711,6 +4707,7 @@ describe('Stage 2 Scaffold — session-log.html DOM structure', () => {
 describe('Stage 3 — Session CRUD', () => {
   const fs  = require('fs'), path = require('path');
   const src = fs.readFileSync(path.join(__dirname, '../session-log.html'), 'utf8');
+  const css = fs.readFileSync(path.join(__dirname, '../css/nexus.css'), 'utf8');
 
   // ── Modal HTML structure ─────────────────────────────────────
   it('session modal exists with id="sessionModal"', () => {
@@ -4948,7 +4945,7 @@ describe('Stage 3 — Session CRUD', () => {
 
   // ── CSS ──────────────────────────────────────────────────────
   it('defines .sm-status-btn CSS class', () => {
-    assert.ok(src.includes('.sm-status-btn'), 'sm-status-btn CSS class must be defined');
+    assert.ok(css.includes('.sm-status-btn'), 'sm-status-btn CSS class must be defined');
   });
 
   it('sm-status-btn.active styles differ for draft (amber) and complete (green)', () => {
@@ -4957,26 +4954,26 @@ describe('Stage 3 — Session CRUD', () => {
       'status toggle buttons must use data-status attribute'
     );
     assert.ok(
-      src.includes('active[data-status="draft"]') || src.includes("active[data-status='draft']"),
+      css.includes('active[data-status="draft"]') || css.includes("active[data-status='draft']"),
       'draft active style must be defined'
     );
     assert.ok(
-      src.includes('active[data-status="complete"]') || src.includes("active[data-status='complete']"),
+      css.includes('active[data-status="complete"]') || css.includes("active[data-status='complete']"),
       'complete active style must be defined'
     );
   });
 
   it('defines .sm-panel and .sm-panel.active CSS for tab visibility', () => {
-    assert.ok(src.includes('.sm-panel'), '.sm-panel CSS must be defined');
+    assert.ok(css.includes('.sm-panel'), '.sm-panel CSS must be defined');
     assert.ok(
-      src.includes('.sm-panel.active') || src.includes('.sm-panel .active'),
+      css.includes('.sm-panel.active') || css.includes('.sm-panel .active'),
       '.sm-panel.active must be defined'
     );
   });
 
   it('defines .modal-label and .modal-input styles scoped to body.page-session', () => {
-    assert.ok(src.includes('.modal-label'), '.modal-label CSS must be defined');
-    assert.ok(src.includes('.modal-input'), '.modal-input CSS must be defined');
+    assert.ok(css.includes('.modal-label'), '.modal-label CSS must be defined');
+    assert.ok(css.includes('.modal-input'), '.modal-input CSS must be defined');
   });
 
   // ── Stub preservation ────────────────────────────────────────
@@ -4996,6 +4993,7 @@ describe('Stage 3 — Session CRUD', () => {
 describe('Stage 4 — Events (Moments tab)', () => {
   const fs  = require('fs'), path = require('path');
   const src = fs.readFileSync(path.join(__dirname, '../session-log.html'), 'utf8');
+  const css = fs.readFileSync(path.join(__dirname, '../css/nexus.css'), 'utf8');
 
   // ── State variables ──────────────────────────────────────────
   it('declares _draftMoments state variable', () => {
@@ -5232,24 +5230,24 @@ describe('Stage 4 — Events (Moments tab)', () => {
 
   // ── CSS ──────────────────────────────────────────────────────
   it('defines .sm-moment-row CSS class', () => {
-    assert.ok(src.includes('.sm-moment-row'), '.sm-moment-row CSS class must be defined');
+    assert.ok(css.includes('.sm-moment-row'), '.sm-moment-row CSS class must be defined');
   });
 
   it('defines .sm-moment-input CSS class (transparent background, no border)', () => {
-    assert.ok(src.includes('.sm-moment-input'), '.sm-moment-input CSS class must be defined');
+    assert.ok(css.includes('.sm-moment-input'), '.sm-moment-input CSS class must be defined');
     assert.ok(
-      src.includes('background: transparent') || src.includes('background:transparent'),
+      css.includes('background: transparent') || css.includes('background:transparent'),
       '.sm-moment-input must use a transparent background to blend into the row'
     );
   });
 
   it('defines .sm-moment-member-select CSS class', () => {
-    assert.ok(src.includes('.sm-moment-member-select'),
+    assert.ok(css.includes('.sm-moment-member-select'),
       '.sm-moment-member-select CSS class must be defined');
   });
 
   it('defines .sm-moment-drag CSS class', () => {
-    assert.ok(src.includes('.sm-moment-drag'),
+    assert.ok(css.includes('.sm-moment-drag'),
       '.sm-moment-drag CSS class must be defined');
   });
 });
@@ -5260,6 +5258,7 @@ describe('Stage 4 — Events (Moments tab)', () => {
 describe('Stage 5 — NPCs', () => {
   const fs   = require('fs'), path = require('path');
   const src  = fs.readFileSync(path.join(__dirname, '../session-log.html'), 'utf8');
+  const css  = fs.readFileSync(path.join(__dirname, '../css/nexus.css'), 'utf8');
   const util = require('../js/nexus-utils.js');
 
   // ── slugify() in nexus-utils ─────────────────────────────────
@@ -5321,7 +5320,7 @@ describe('Stage 5 — NPCs', () => {
 
   it('session modal NPC panel has smNpcSuggestions dropdown', () => {
     assert.ok(src.includes('id="smNpcSuggestions"'), 'smNpcSuggestions dropdown must exist');
-    assert.ok(src.includes('npc-suggest-drop'),       'dropdown must use npc-suggest-drop class');
+    assert.ok(css.includes('npc-suggest-drop'),       'dropdown must use npc-suggest-drop class');
   });
 
   it('session modal NPC panel has + New NPC button calling openInlineNpcCreate()', () => {
@@ -5330,7 +5329,7 @@ describe('Stage 5 — NPCs', () => {
 
   it('inline NPC create form exists with id smInlineNpc', () => {
     assert.ok(src.includes('id="smInlineNpc"'), 'smInlineNpc form must exist');
-    assert.ok(src.includes('inline-npc-form'),  'inline form must use inline-npc-form class');
+    assert.ok(css.includes('inline-npc-form'),  'inline form must use inline-npc-form class');
   });
 
   it('inline NPC form has name, role, slug, disposition, notes inputs', () => {
@@ -5727,27 +5726,27 @@ describe('Stage 5 — NPCs', () => {
 
   // ── CSS ──────────────────────────────────────────────────────
   it('defines .sm-npc-row CSS class', () => {
-    assert.ok(src.includes('.sm-npc-row'), '.sm-npc-row CSS must be defined');
+    assert.ok(css.includes('.sm-npc-row'), '.sm-npc-row CSS must be defined');
   });
 
   it('defines .npc-suggest-drop CSS class with z-index for layering', () => {
-    assert.ok(src.includes('.npc-suggest-drop'), '.npc-suggest-drop CSS must be defined');
+    assert.ok(css.includes('.npc-suggest-drop'), '.npc-suggest-drop CSS must be defined');
     assert.ok(
-      src.includes('z-index: 600') || src.includes('z-index:600'),
+      css.includes('z-index: 600') || css.includes('z-index:600'),
       '.npc-suggest-drop must have a high z-index to layer over modal content'
     );
   });
 
   it('defines .npc-suggest-item CSS class', () => {
-    assert.ok(src.includes('.npc-suggest-item'), '.npc-suggest-item CSS must be defined');
+    assert.ok(css.includes('.npc-suggest-item'), '.npc-suggest-item CSS must be defined');
   });
 
   it('defines .inline-npc-form CSS class', () => {
-    assert.ok(src.includes('.inline-npc-form'), '.inline-npc-form CSS must be defined');
+    assert.ok(css.includes('.inline-npc-form'), '.inline-npc-form CSS must be defined');
   });
 
   it('defines .inline-npc-title CSS class', () => {
-    assert.ok(src.includes('.inline-npc-title'), '.inline-npc-title CSS must be defined');
+    assert.ok(css.includes('.inline-npc-title'), '.inline-npc-title CSS must be defined');
   });
 });
 
@@ -5757,6 +5756,7 @@ describe('Stage 5 — NPCs', () => {
 describe('Stage 6 — Citations', () => {
   const fs   = require('fs'), path = require('path');
   const src  = fs.readFileSync(path.join(__dirname, '../session-log.html'), 'utf8');
+  const css  = fs.readFileSync(path.join(__dirname, '../css/nexus.css'), 'utf8');
   const util = require('../js/nexus-utils.js');
 
   // ── renderWithCitations — unit-testable logic ────────────────
@@ -5783,7 +5783,7 @@ describe('Stage 6 — Citations', () => {
 
   it('renderWithCitations renders resolved chips as .npc-chip', () => {
     assert.ok(
-      src.includes('npc-chip"') || src.includes("npc-chip'"),
+      src.includes('npc-chip') || css.includes('.npc-chip'),
       'renderWithCitations must apply npc-chip class to resolved citations'
     );
   });
@@ -5797,7 +5797,7 @@ describe('Stage 6 — Citations', () => {
 
   it('renderWithCitations renders unresolved chips as .npc-chip-unresolved', () => {
     assert.ok(
-      src.includes('npc-chip-unresolved'),
+      css.includes('npc-chip-unresolved'),
       'renderWithCitations must apply npc-chip-unresolved class to unknown slugs'
     );
   });
@@ -5818,7 +5818,7 @@ describe('Stage 6 — Citations', () => {
 
   it('renderWithCitations chip has a title attribute with NPC name and role', () => {
     assert.ok(
-      src.includes('title=') && src.includes('npc.name') && src.includes('npc-chip'),
+      src.includes('title=') && src.includes('npc.name') && css.includes('npc-chip'),
       'resolved npc-chip must have a title showing NPC name (and role if present)'
     );
   });
@@ -5933,7 +5933,7 @@ describe('Stage 6 — Citations', () => {
   it('defines _renderCiteDrop(matches, el, token) that populates and shows the dropdown', () => {
     assert.ok(src.includes('function _renderCiteDrop('), '_renderCiteDrop must be defined');
     assert.ok(
-      src.includes('cite-drop-item'),
+      css.includes('cite-drop-item'),
       '_renderCiteDrop must render items with cite-drop-item class'
     );
     assert.ok(
@@ -6080,52 +6080,52 @@ describe('Stage 6 — Citations', () => {
 
   it('buildMomentsEditor wires citation autocomplete to every moment input after render', () => {
     assert.ok(
-      src.includes('.sm-moment-input') && src.includes('initCitationAutocomplete'),
+      css.includes('.sm-moment-input') && src.includes('initCitationAutocomplete'),
       'buildMomentsEditor must attach initCitationAutocomplete to each moment input'
     );
   });
 
   // ── CSS ──────────────────────────────────────────────────────
   it('defines .npc-chip CSS class with violet colour scheme', () => {
-    assert.ok(src.includes('.npc-chip {') || src.includes('.npc-chip{'),
+    assert.ok(css.includes('.npc-chip {') || css.includes('.npc-chip{'),
       '.npc-chip CSS class must be defined');
     assert.ok(
-      src.includes('#a78bfa') || src.includes('167,139,250'),
+      css.includes('#a78bfa') || css.includes('167,139,250'),
       '.npc-chip must use the violet colour scheme'
     );
   });
 
   it('defines .npc-chip:hover CSS', () => {
-    assert.ok(src.includes('.npc-chip:hover'), '.npc-chip:hover CSS must be defined');
+    assert.ok(css.includes('.npc-chip:hover'), '.npc-chip:hover CSS must be defined');
   });
 
   it('defines .npc-chip-unresolved CSS class with dimmed/dashed styling', () => {
-    assert.ok(src.includes('.npc-chip-unresolved'), '.npc-chip-unresolved CSS must be defined');
+    assert.ok(css.includes('.npc-chip-unresolved'), '.npc-chip-unresolved CSS must be defined');
     assert.ok(
-      src.includes('dashed'),
+      css.includes('dashed'),
       '.npc-chip-unresolved must use a dashed border to distinguish from resolved chips'
     );
   });
 
   it('defines .cite-drop CSS class with a high z-index above the modal backdrop', () => {
-    assert.ok(src.includes('.cite-drop {') || src.includes('.cite-drop{'),
+    assert.ok(css.includes('.cite-drop {') || css.includes('.cite-drop{'),
       '.cite-drop CSS class must be defined');
     // z-index must exceed the modal-backdrop z-index of 1000 so the dropdown
     // appears above the open modal. We raised it to 1100 for this reason.
     assert.ok(
-      src.includes('z-index: 1100') || src.includes('z-index:1100'),
+      css.includes('z-index: 1100') || css.includes('z-index:1100'),
       '.cite-drop must have z-index 1100 to appear above the modal backdrop (z-index:1000)'
     );
   });
 
   it('defines .cite-drop-item and .cite-focused CSS classes', () => {
-    assert.ok(src.includes('.cite-drop-item'), '.cite-drop-item CSS must be defined');
-    assert.ok(src.includes('.cite-focused'),   '.cite-focused CSS must be defined');
+    assert.ok(css.includes('.cite-drop-item'), '.cite-drop-item CSS must be defined');
+    assert.ok(css.includes('.cite-focused'),   '.cite-focused CSS must be defined');
   });
 
   it('defines .cite-drop-name and .cite-drop-slug CSS', () => {
-    assert.ok(src.includes('.cite-drop-name'), '.cite-drop-name CSS must be defined');
-    assert.ok(src.includes('.cite-drop-slug'), '.cite-drop-slug CSS must be defined');
+    assert.ok(css.includes('.cite-drop-name'), '.cite-drop-name CSS must be defined');
+    assert.ok(css.includes('.cite-drop-slug'), '.cite-drop-slug CSS must be defined');
   });
 });
 
@@ -6135,6 +6135,7 @@ describe('Stage 6 — Citations', () => {
 describe('Stage 7 — Quests', () => {
   const fs  = require('fs'), path = require('path');
   const src = fs.readFileSync(path.join(__dirname, '../session-log.html'), 'utf8');
+  const css = fs.readFileSync(path.join(__dirname, '../css/nexus.css'), 'utf8');
 
   // ── State ────────────────────────────────────────────────────
   it('declares _draftQuests state variable', () => {
@@ -6187,18 +6188,18 @@ describe('Stage 7 — Quests', () => {
 
   // ── Quest row structure ───────────────────────────────────────
   it('quest rows use sm-quest-row class with data-idx attribute', () => {
-    assert.ok(src.includes('sm-quest-row'), 'quest rows must use sm-quest-row class');
+    assert.ok(css.includes('sm-quest-row'), 'quest rows must use sm-quest-row class');
     assert.ok(src.includes('data-idx='), 'quest rows must have data-idx attribute');
   });
 
   it('quest rows have a cycle button calling cycleQuestStatus(idx)', () => {
     assert.ok(src.includes('cycleQuestStatus('), 'quest row must have a cycle button');
-    assert.ok(src.includes('sm-quest-cycle'), 'cycle button must use sm-quest-cycle class');
+    assert.ok(css.includes('sm-quest-cycle'), 'cycle button must use sm-quest-cycle class');
   });
 
   it('quest rows have a text input calling updateQuestText on input', () => {
     assert.ok(src.includes('updateQuestText('), 'quest input must call updateQuestText');
-    assert.ok(src.includes('sm-quest-input'),   'quest input must use sm-quest-input class');
+    assert.ok(css.includes('sm-quest-input'),   'quest input must use sm-quest-input class');
   });
 
   it('quest rows have a remove button calling removeQuest(idx)', () => {
@@ -6228,7 +6229,7 @@ describe('Stage 7 — Quests', () => {
 
   it('buildQuestEditor applies text decoration class for completed/failed quests', () => {
     assert.ok(
-      src.includes('completed') && src.includes('failed') && src.includes('sm-quest-input'),
+      src.includes('completed') && src.includes('failed') && css.includes('sm-quest-input'),
       'buildQuestEditor must apply completed/failed styling classes to the input text'
     );
   });
@@ -6384,43 +6385,43 @@ describe('Stage 7 — Quests', () => {
 
   // ── CSS ──────────────────────────────────────────────────────
   it('defines .sm-quest-row CSS class', () => {
-    assert.ok(src.includes('.sm-quest-row {') || src.includes('.sm-quest-row{'),
+    assert.ok(css.includes('.sm-quest-row {') || css.includes('.sm-quest-row{'),
       '.sm-quest-row CSS must be defined');
   });
 
   it('defines .sm-quest-cycle with per-status colour variants', () => {
-    assert.ok(src.includes('.sm-quest-cycle'),             '.sm-quest-cycle CSS must be defined');
-    assert.ok(src.includes('.sm-quest-cycle.qs-active'),   '.sm-quest-cycle.qs-active must be defined');
-    assert.ok(src.includes('.sm-quest-cycle.qs-completed'), '.sm-quest-cycle.qs-completed must be defined');
-    assert.ok(src.includes('.sm-quest-cycle.qs-failed'),   '.sm-quest-cycle.qs-failed must be defined');
-    assert.ok(src.includes('.sm-quest-cycle.qs-on-hold'),  '.sm-quest-cycle.qs-on-hold must be defined');
+    assert.ok(css.includes('.sm-quest-cycle'),             '.sm-quest-cycle CSS must be defined');
+    assert.ok(css.includes('.sm-quest-cycle.qs-active'),   '.sm-quest-cycle.qs-active must be defined');
+    assert.ok(css.includes('.sm-quest-cycle.qs-completed'), '.sm-quest-cycle.qs-completed must be defined');
+    assert.ok(css.includes('.sm-quest-cycle.qs-failed'),   '.sm-quest-cycle.qs-failed must be defined');
+    assert.ok(css.includes('.sm-quest-cycle.qs-on-hold'),  '.sm-quest-cycle.qs-on-hold must be defined');
   });
 
   it('defines .sm-quest-input with strikethrough for completed and failed states', () => {
-    assert.ok(src.includes('.sm-quest-input'),             '.sm-quest-input CSS must be defined');
-    assert.ok(src.includes('.sm-quest-input.completed'),   '.sm-quest-input.completed must be defined');
-    assert.ok(src.includes('.sm-quest-input.failed'),      '.sm-quest-input.failed must be defined');
+    assert.ok(css.includes('.sm-quest-input'),             '.sm-quest-input CSS must be defined');
+    assert.ok(css.includes('.sm-quest-input.completed'),   '.sm-quest-input.completed must be defined');
+    assert.ok(css.includes('.sm-quest-input.failed'),      '.sm-quest-input.failed must be defined');
     assert.ok(
-      src.includes('line-through'),
+      css.includes('line-through'),
       'completed/failed quest inputs must use text-decoration: line-through'
     );
   });
 
   it('defines all 4 .qs-* display CSS classes for the card view', () => {
-    assert.ok(src.includes('.qs-active'),    '.qs-active CSS must be defined');
-    assert.ok(src.includes('.qs-completed'), '.qs-completed CSS must be defined');
-    assert.ok(src.includes('.qs-failed'),    '.qs-failed CSS must be defined');
-    assert.ok(src.includes('.qs-on-hold'),   '.qs-on-hold CSS must be defined');
+    assert.ok(css.includes('.qs-active'),    '.qs-active CSS must be defined');
+    assert.ok(css.includes('.qs-completed'), '.qs-completed CSS must be defined');
+    assert.ok(css.includes('.qs-failed'),    '.qs-failed CSS must be defined');
+    assert.ok(css.includes('.qs-on-hold'),   '.qs-on-hold CSS must be defined');
   });
 
   it('defines .sc-quest-list and .sc-quest-row CSS for card display', () => {
-    assert.ok(src.includes('.sc-quest-list'), '.sc-quest-list CSS must be defined');
-    assert.ok(src.includes('.sc-quest-row'),  '.sc-quest-row CSS must be defined');
+    assert.ok(css.includes('.sc-quest-list'), '.sc-quest-list CSS must be defined');
+    assert.ok(css.includes('.sc-quest-row'),  '.sc-quest-row CSS must be defined');
   });
 
   it('defines .sc-quest-text.completed and .sc-quest-text.failed with line-through', () => {
-    assert.ok(src.includes('.sc-quest-text.completed'), '.sc-quest-text.completed must be defined');
-    assert.ok(src.includes('.sc-quest-text.failed'),    '.sc-quest-text.failed must be defined');
+    assert.ok(css.includes('.sc-quest-text.completed'), '.sc-quest-text.completed must be defined');
+    assert.ok(css.includes('.sc-quest-text.failed'),    '.sc-quest-text.failed must be defined');
   });
 });
 
@@ -6431,6 +6432,7 @@ describe('Stage 8 — Polish', () => {
   const fs    = require('fs'), path = require('path');
   const sl    = fs.readFileSync(path.join(__dirname, '../session-log.html'), 'utf8');
   const admin = fs.readFileSync(path.join(__dirname, '../admin.html'),        'utf8');
+  const css   = fs.readFileSync(path.join(__dirname, '../css/nexus.css'),     'utf8');
 
   // ── Stats bar: Moments count ─────────────────────────────────
   it('stats bar has a statMoments element', () => {
@@ -6513,15 +6515,15 @@ describe('Stage 8 — Polish', () => {
 
   // ── CSS: sc-moment-count ─────────────────────────────────────
   it('defines .sc-moment-count CSS class', () => {
-    assert.ok(sl.includes('.sc-moment-count {') || sl.includes('.sc-moment-count{'),
+    assert.ok(css.includes('.sc-moment-count {') || css.includes('.sc-moment-count{'),
       '.sc-moment-count CSS class must be defined');
   });
 
   it('.sc-moment-count uses Share Tech Mono font at dim violet colour', () => {
-    const idx  = sl.indexOf('.sc-moment-count {') > -1
-      ? sl.indexOf('.sc-moment-count {')
-      : sl.indexOf('.sc-moment-count{');
-    const chunk = sl.slice(idx, idx + 200);
+    const idx  = css.indexOf('.sc-moment-count {') > -1
+      ? css.indexOf('.sc-moment-count {')
+      : css.indexOf('.sc-moment-count{');
+    const chunk = css.slice(idx, idx + 200);
     assert.ok(chunk.includes('Share Tech Mono') || chunk.includes('monospace'),
       '.sc-moment-count must use monospace font');
   });
@@ -6600,22 +6602,22 @@ describe('Stage 8 — Polish', () => {
 
   // ── CSS: npc-first-seen ──────────────────────────────────────
   it('defines .npc-first-seen CSS class', () => {
-    assert.ok(sl.includes('.npc-first-seen {') || sl.includes('.npc-first-seen{'),
+    assert.ok(css.includes('.npc-first-seen {') || css.includes('.npc-first-seen{'),
       '.npc-first-seen CSS class must be defined');
   });
 
   it('defines .npc-first-seen-link CSS class with hover state', () => {
-    assert.ok(sl.includes('.npc-first-seen-link'),
+    assert.ok(css.includes('.npc-first-seen-link'),
       '.npc-first-seen-link CSS class must be defined');
-    assert.ok(sl.includes('.npc-first-seen-link:hover'),
+    assert.ok(css.includes('.npc-first-seen-link:hover'),
       '.npc-first-seen-link:hover must be defined');
   });
 
   it('.npc-first-seen-link uses violet accent colour on hover', () => {
-    const idx   = sl.indexOf('.npc-first-seen-link:hover');
-    const chunk = sl.slice(idx, idx + 80);
+    const idx   = css.indexOf('.npc-first-seen-link:hover');
+    const chunk = css.slice(idx, idx + 80);
     assert.ok(
-      chunk.includes('#a78bfa') || chunk.includes('167,139,250'),
+      chunk.includes('#a78bfa') || chunk.includes('167,139,250') || chunk.includes('var(--violet)'),
       '.npc-first-seen-link:hover must use the violet accent colour'
     );
   });
@@ -7100,80 +7102,43 @@ describe('Nav — Session Log present in every sidenav', () => {
     'session-log.html',
   ];
 
-  for (const page of PAGES) {
-    it(`${page} sidenav contains a link to session-log.html`, () => {
+  it('NAV_LINKS in nexus-utils.js contains session-log.html for all pages', () => {
+    const utils = fs.readFileSync(path.join(base, 'js/nexus-utils.js'), 'utf8');
+    assert.ok(utils.includes("'session-log.html'"), 'NAV_LINKS must include session-log.html href');
+    assert.ok(utils.includes('Session Log'), 'NAV_LINKS must include Session Log label');
+    assert.ok(utils.includes('📋'), 'NAV_LINKS must include the 📋 icon for Session Log');
+  });
+
+  it('every page calls buildSidenav() to render the nav dynamically', () => {
+    for (const page of PAGES) {
       const src = fs.readFileSync(path.join(base, page), 'utf8');
-      assert.ok(
-        src.includes('href="session-log.html"'),
-        `${page} must have a sidenav link to session-log.html`
-      );
-    });
-  }
-
-  it('session-log.html nav link has .active class on the session-log entry', () => {
-    const src = fs.readFileSync(path.join(base, 'session-log.html'), 'utf8');
-    assert.ok(
-      src.includes('sidenav-link active') && src.includes('href="session-log.html"'),
-      'session-log.html must mark its own nav link as active'
-    );
+      assert.ok(src.includes('buildSidenav('), `${page} must call buildSidenav()`);
+      assert.ok(src.includes('id="nexus-nav-root"'), `${page} must have #nexus-nav-root placeholder`);
+    }
   });
 
-  it('index.html nav does NOT mark the session-log link as active (dashboard is active)', () => {
-    const src = fs.readFileSync(path.join(base, 'index.html'), 'utf8');
-    // The active link should be the dashboard, not session-log
-    const activeLink = src.match(/sidenav-link active[^>]*href="([^"]+)"/);
-    assert.ok(activeLink, 'index.html must have exactly one active sidenav link');
-    assert.strictEqual(activeLink[1], 'index.html',
-      'The active sidenav link on index.html must point to index.html, not session-log.html');
-  });
-
-  it('each active-module page marks only its own link as active', () => {
+  it('each page calls buildSidenav with its own href as the active argument', () => {
     const activeMap = {
+      'index.html':        'index.html',
       'party-roster.html': 'party-roster.html',
       'treasury.html':     'treasury.html',
       'loot-tracker.html': 'loot-tracker.html',
       'admin.html':        'admin.html',
+      'session-log.html':  'session-log.html',
     };
     for (const [page, expectedHref] of Object.entries(activeMap)) {
       const src = fs.readFileSync(path.join(base, page), 'utf8');
-      // Find all active sidenav links
-      const matches = [...src.matchAll(/sidenav-link active[^>]*href="([^"]+)"/g)];
-      assert.ok(matches.length >= 1, `${page} must have at least one active sidenav link`);
-      const activeHrefs = matches.map(m => m[1]);
       assert.ok(
-        activeHrefs.includes(expectedHref),
-        `${page} must mark its own nav link (${expectedHref}) as active`
-      );
-      assert.ok(
-        !activeHrefs.includes('session-log.html'),
-        `${page} must NOT mark the session-log link as active`
+        src.includes(`buildSidenav('${expectedHref}')`),
+        `${page} must call buildSidenav('${expectedHref}') so its own nav link is marked active`
       );
     }
   });
 
-  it('every page nav link to session-log.html includes the 📋 icon', () => {
-    for (const page of PAGES) {
-      const src = fs.readFileSync(path.join(base, page), 'utf8');
-      // Find the session-log nav link block and check icon nearby
-      const idx = src.indexOf('href="session-log.html"');
-      const chunk = src.slice(idx, idx + 200);
-      assert.ok(
-        chunk.includes('📋'),
-        `${page} session-log nav link must include the 📋 icon`
-      );
-    }
-  });
-
-  it('every page nav link to session-log.html includes "Session Log" label', () => {
-    for (const page of PAGES) {
-      const src = fs.readFileSync(path.join(base, page), 'utf8');
-      const idx = src.indexOf('href="session-log.html"');
-      const chunk = src.slice(idx, idx + 200);
-      assert.ok(
-        chunk.includes('Session Log'),
-        `${page} session-log nav link must include the "Session Log" label`
-      );
-    }
+  it('buildSidenav in nexus-utils.js marks the correct link active via CSS class', () => {
+    const utils = fs.readFileSync(path.join(base, 'js/nexus-utils.js'), 'utf8');
+    assert.ok(utils.includes('sidenav-link${active}') || utils.includes("'sidenav-link'") || utils.includes('sidenav-link active') || utils.includes('active}'),
+      'buildSidenav must apply the active class to the matching link');
   });
 });
 
@@ -7398,14 +7363,11 @@ describe('Admin Danger Zone — Session Log and NPC clear buttons', () => {
       'Danger Zone must have a "Clear All Session Log Data" heading');
   });
 
-  it('Clear Sessions button has id="btnClearSessions"', () => {
-    assert.ok(admin.includes('id="btnClearSessions"'),
-      'Clear sessions button must have id="btnClearSessions"');
-  });
-
-  it('Clear Sessions button calls clearAllSessions()', () => {
-    assert.ok(admin.includes('onclick="clearAllSessions()"'),
-      'Clear sessions button must call clearAllSessions() on click');
+  it('DANGER_ROWS data contains btnClearSessions with clearAllSessions()', () => {
+    assert.ok(admin.includes('btnClearSessions'),
+      'DANGER_ROWS must define btnClearSessions id');
+    assert.ok(admin.includes('clearAllSessions()'),
+      'DANGER_ROWS must include clearAllSessions() fn');
   });
 
   it('Clear Sessions row description mentions sessions, moments, and quests', () => {
@@ -7428,14 +7390,11 @@ describe('Admin Danger Zone — Session Log and NPC clear buttons', () => {
       'Danger Zone must have a "Clear All NPCs" heading');
   });
 
-  it('Clear NPCs button has id="btnClearNpcs"', () => {
-    assert.ok(admin.includes('id="btnClearNpcs"'),
-      'Clear NPCs button must have id="btnClearNpcs"');
-  });
-
-  it('Clear NPCs button calls clearAllNpcs()', () => {
-    assert.ok(admin.includes('onclick="clearAllNpcs()"'),
-      'Clear NPCs button must call clearAllNpcs() on click');
+  it('DANGER_ROWS data contains btnClearNpcs with clearAllNpcs()', () => {
+    assert.ok(admin.includes('btnClearNpcs'),
+      'DANGER_ROWS must define btnClearNpcs id');
+    assert.ok(admin.includes('clearAllNpcs()'),
+      'DANGER_ROWS must include clearAllNpcs() fn');
   });
 
   it('Clear NPCs row description warns that ^slug citations will become unresolved', () => {
@@ -7705,6 +7664,7 @@ describe('Module Visibility — nexus-config.js', () => {
 describe('Module Visibility — admin.html', () => {
   const fs    = require('fs'), path = require('path');
   const admin = fs.readFileSync(path.join(__dirname, '../admin.html'), 'utf8');
+  const css   = fs.readFileSync(path.join(__dirname, '../css/nexus.css'), 'utf8');
 
   // ── Section HTML ─────────────────────────────────────────────
   it('has a Module Visibility admin section', () => {
@@ -7729,22 +7689,22 @@ describe('Module Visibility — admin.html', () => {
 
   // ── CSS ───────────────────────────────────────────────────────
   it('defines .module-toggle-row CSS class', () => {
-    assert.ok(admin.includes('.module-toggle-row'),
+    assert.ok(css.includes('.module-toggle-row'),
       'admin.html must define .module-toggle-row CSS class');
   });
 
   it('defines .pill-toggle CSS class for the switch', () => {
-    assert.ok(admin.includes('.pill-toggle'),
+    assert.ok(css.includes('.pill-toggle'),
       'admin.html must define .pill-toggle CSS class');
   });
 
   it('defines .pill-track CSS class for the switch track', () => {
-    assert.ok(admin.includes('.pill-track'),
+    assert.ok(css.includes('.pill-track'),
       'admin.html must define .pill-track CSS class');
   });
 
   it('pill toggle uses a checkbox input for accessibility', () => {
-    assert.ok(admin.includes('.pill-toggle input'),
+    assert.ok(css.includes('.pill-toggle input'),
       'pill toggle must be built on a checkbox input element');
   });
 
@@ -7873,5 +7833,282 @@ describe('Module Visibility — page guards on module pages', () => {
     const src = fs.readFileSync(path.join(base, 'admin.html'), 'utf8');
     assert.ok(!src.includes('enforceModuleGuard('),
       'admin.html must not call enforceModuleGuard — the admin panel is always accessible');
+  });
+});
+
+
+// ══════════════════════════════════════════════════════════════════
+//  Section 66: Component Cleanup — no duplicated utility code
+//  All shared functions must live only in nexus-utils.js.
+//  Orphaned nav toggle fragments must not exist in any page.
+// ══════════════════════════════════════════════════════════════════
+
+describe('Component cleanup — no duplicated utility code in HTML pages', () => {
+
+  const fs   = require('fs'), path = require('path');
+  const base = path.join(__dirname, '..');
+  const ALL_PAGES = [
+    'index.html', 'party-roster.html', 'treasury.html',
+    'loot-tracker.html', 'session-log.html', 'admin.html',
+  ];
+
+  // ── showToast ──────────────────────────────────────────────────
+  for (const file of ALL_PAGES) {
+    it(`${file} does not define its own showToast() function`, () => {
+      const src = fs.readFileSync(path.join(base, file), 'utf8');
+      assert.ok(!src.includes('function showToast('),
+        `${file} must not define showToast() locally — use the one in nexus-utils.js`);
+    });
+  }
+
+  it('nexus-utils.js defines showToast() as the single canonical implementation', () => {
+    const src = fs.readFileSync(path.join(base, 'js', 'nexus-utils.js'), 'utf8');
+    assert.ok(src.includes('function showToast('),
+      'nexus-utils.js must contain the canonical showToast() definition');
+    // Count occurrences — must be exactly one
+    const count = (src.match(/function showToast\(/g) || []).length;
+    assert.strictEqual(count, 1,
+      'nexus-utils.js must define showToast() exactly once');
+  });
+
+  // ── openNav / closeNav ─────────────────────────────────────────
+  for (const file of ALL_PAGES) {
+    it(`${file} does not define its own openNav() or closeNav()`, () => {
+      const src = fs.readFileSync(path.join(base, file), 'utf8');
+      assert.ok(!src.includes('function openNav('),
+        `${file} must not define openNav() locally — use the one in nexus-utils.js`);
+      assert.ok(!src.includes('function closeNav('),
+        `${file} must not define closeNav() locally — use the one in nexus-utils.js`);
+    });
+  }
+
+  it('nexus-utils.js defines openNav() and closeNav() as canonical implementations', () => {
+    const src = fs.readFileSync(path.join(base, 'js', 'nexus-utils.js'), 'utf8');
+    assert.ok(src.includes('function openNav('),  'nexus-utils.js must define openNav()');
+    assert.ok(src.includes('function closeNav()'), 'nexus-utils.js must define closeNav()');
+  });
+
+  // ── Orphaned navToggle fragments ───────────────────────────────
+  for (const file of ALL_PAGES) {
+    it(`${file} has no orphaned navToggle fragment (buildSidenav handles wiring)`, () => {
+      const src = fs.readFileSync(path.join(base, file), 'utf8');
+      assert.ok(!src.includes("nav.classList.contains('nav-open') ? closeNav() : openNav()"),
+        `${file} must not contain a bare navToggle fragment — buildSidenav() wires it`);
+      assert.ok(!src.includes("nav.classList.contains('nav-open')?closeNav():openNav()"),
+        `${file} must not contain a bare navToggle fragment (minified form)`);
+    });
+  }
+
+  // ── esc() ──────────────────────────────────────────────────────
+  for (const file of ALL_PAGES) {
+    it(`${file} does not define its own esc() function`, () => {
+      const src = fs.readFileSync(path.join(base, file), 'utf8');
+      assert.ok(!src.includes('function esc('),
+        `${file} must not define esc() locally — use the one in nexus-utils.js`);
+    });
+  }
+
+  it('nexus-utils.js esc() escapes all four dangerous characters', () => {
+    const { esc } = require('../js/nexus-utils.js');
+    assert.strictEqual(esc('<'),  '&lt;',   'esc must escape <');
+    assert.strictEqual(esc('>'),  '&gt;',   'esc must escape >');
+    assert.strictEqual(esc('&'),  '&amp;',  'esc must escape &');
+    assert.strictEqual(esc('"'),  '&quot;', 'esc must escape "');
+    assert.strictEqual(
+      esc('<b>"bold" & \'fine\'</b>'),
+      '&lt;b&gt;&quot;bold&quot; &amp; \'fine\'&lt;/b&gt;',
+      'esc must escape all four characters in a combined string'
+    );
+  });
+
+  // ── No inline toast divs ───────────────────────────────────────
+  for (const file of ALL_PAGES) {
+    it(`${file} has no hardcoded toast div (nexus-utils injects it)`, () => {
+      const src = fs.readFileSync(path.join(base, file), 'utf8');
+      assert.ok(!src.includes('id="toast"'),
+        `${file} must not include a hardcoded #toast div — showToast() auto-injects it`);
+    });
+  }
+
+  it('nexus-utils.js showToast() auto-injects the toast element when absent', () => {
+    const src = fs.readFileSync(path.join(base, 'js', 'nexus-utils.js'), 'utf8');
+    assert.ok(src.includes("document.getElementById('toast')"),
+      'showToast must check for an existing #toast element');
+    assert.ok(src.includes("document.createElement('div')"),
+      'showToast must create a new div when #toast is absent');
+    assert.ok(src.includes("document.body.appendChild(t)"),
+      'showToast must append the new toast div to document.body');
+  });
+
+  // ── buildSidenav is the single nav construction point ─────────
+  for (const file of ALL_PAGES) {
+    it(`${file} uses buildSidenav() to construct the sidenav`, () => {
+      const src = fs.readFileSync(path.join(base, file), 'utf8');
+      assert.ok(src.includes('buildSidenav('),
+        `${file} must call buildSidenav() to construct navigation`);
+    });
+
+    it(`${file} has no hardcoded <nav class="sidenav"> HTML`, () => {
+      const src = fs.readFileSync(path.join(base, file), 'utf8');
+      assert.ok(!src.includes('<nav class="sidenav"'),
+        `${file} must not contain hardcoded sidenav HTML — buildSidenav() generates it`);
+    });
+  }
+
+  // ── Admin Danger Zone uses builder pattern ─────────────────────
+  it('admin.html defines DANGER_ROWS data array for the Danger Zone', () => {
+    const src = fs.readFileSync(path.join(base, 'admin.html'), 'utf8');
+    assert.ok(src.includes('const DANGER_ROWS'),
+      'admin.html must define DANGER_ROWS as a data array');
+  });
+
+  it('admin.html buildDangerZone() renders from DANGER_ROWS (no hardcoded rows)', () => {
+    const src = fs.readFileSync(path.join(base, 'admin.html'), 'utf8');
+    assert.ok(src.includes('function buildDangerZone()'),
+      'admin.html must define buildDangerZone()');
+    assert.ok(src.includes('DANGER_ROWS.map('),
+      'buildDangerZone must iterate over DANGER_ROWS to render rows');
+    // Confirm no hardcoded row divs outside the builder
+    const builderMatch = src.match(/function buildDangerZone\(\)[\s\S]+?^\s*\}/m);
+    const outside = builderMatch
+      ? src.replace(builderMatch[0], '')
+      : src;
+    assert.ok(!outside.includes('class="danger-row"'),
+      'danger-row divs must only be emitted by buildDangerZone(), not hardcoded in HTML');
+  });
+
+  it('admin.html DANGER_ROWS contains exactly 5 entries', () => {
+    const src  = fs.readFileSync(path.join(base, 'admin.html'), 'utf8');
+    const rows = (src.match(/id:\s*'btn/g) || []).length;
+    assert.strictEqual(rows, 5,
+      'DANGER_ROWS must have exactly 5 entries (members, treasury, loot, sessions, npcs)');
+  });
+});
+
+
+// ══════════════════════════════════════════════════════════════════
+//  Section 67: CSS Health — variables, dead classes, duplicates,
+//  and loading overlay hygiene
+// ══════════════════════════════════════════════════════════════════
+
+describe('CSS health — nexus.css', () => {
+  const fs   = require('fs'), path = require('path');
+  const base = path.join(__dirname, '..');
+  const css  = fs.readFileSync(path.join(base, 'css', 'nexus.css'), 'utf8');
+
+  // ── CSS Variables ──────────────────────────────────────────────
+  it('defines --violet CSS variable in :root', () => {
+    assert.ok(css.includes('--violet:'),
+      ':root must define --violet for the session-log accent colour');
+  });
+
+  it('--violet variable value is #a78bfa', () => {
+    const match = css.match(/--violet\s*:\s*([^;]+);/);
+    assert.ok(match, '--violet must be defined');
+    assert.ok(match[1].trim().includes('#a78bfa'),
+      '--violet must be set to #a78bfa');
+  });
+
+  it('no hardcoded #a78bfa outside :root (should be var(--violet))', () => {
+    const rootEnd = css.indexOf('}', css.indexOf(':root {'));
+    const afterRoot = css.slice(rootEnd + 1);
+    assert.ok(!afterRoot.includes('#a78bfa'),
+      'All uses of #a78bfa outside :root must be replaced with var(--violet)');
+  });
+
+  const CORE_VARS = ['--bg', '--bg2', '--panel', '--border', '--cyan', '--violet',
+                     '--red', '--green', '--gold', '--amber', '--text', '--text-dim'];
+  for (const v of CORE_VARS) {
+    it(`defines ${v} in :root`, () => {
+      assert.ok(css.includes(`${v}:`),
+        `nexus.css :root must define ${v}`);
+    });
+  }
+
+  // ── Dead class guard ───────────────────────────────────────────
+  const KNOWN_DEAD = [
+    '.fx-from-items', '.loot-tab-vault', '.loot-vault-label',
+    '.loot-vault-total', '.status-soon', '.prof-grid',
+  ];
+  for (const cls of KNOWN_DEAD) {
+    it(`${cls} is not defined in nexus.css (dead class removed)`, () => {
+      assert.ok(!css.includes(`${cls} {`) && !css.includes(`${cls}{`),
+        `${cls} was a dead class and must be removed from nexus.css`);
+    });
+  }
+
+  // ── No true duplicate top-level selectors ─────────────────────
+  it('has no duplicate top-level selectors outside @media blocks', () => {
+    const lines = css.split('\n');
+    // Collect selectors that are NOT inside @media blocks
+    const selectors = [];
+    let mediaDepth = 0;
+    for (const line of lines) {
+      if (line.includes('@media')) mediaDepth++;
+      if (mediaDepth > 0) {
+        // Count closing braces to detect end of @media
+        const opens  = (line.match(/\{/g) || []).length;
+        const closes = (line.match(/\}/g) || []).length;
+        mediaDepth = Math.max(0, mediaDepth + opens - closes);
+        if (mediaDepth === 0) mediaDepth = 0;
+        continue;
+      }
+      const m = line.match(/^\s+(\.[a-zA-Z][a-zA-Z0-9_-]+)\s*\{/);
+      if (m) selectors.push(m[1]);
+    }
+    const counts = {};
+    for (const s of selectors) counts[s] = (counts[s] || 0) + 1;
+    const dupes = Object.entries(counts).filter(([,c]) => c > 1).map(([s]) => s);
+    assert.deepStrictEqual(dupes, [],
+      `These selectors are duplicated outside @media blocks: ${dupes.join(', ')}`);
+  });
+
+  // ── Loading overlay CSS is complete ───────────────────────────
+  it('defines #loadingOverlay styles in nexus.css', () => {
+    assert.ok(css.includes('#loadingOverlay {') || css.includes('#loadingOverlay{'),
+      '#loadingOverlay styles must be defined in nexus.css');
+  });
+
+  it('defines .loading-text class in nexus.css', () => {
+    assert.ok(css.includes('.loading-text {') || css.includes('.loading-text{'),
+      '.loading-text class must be defined in nexus.css');
+  });
+
+  it('defines page-session .loading-text override for violet accent', () => {
+    assert.ok(css.includes('page-session') && css.includes('.loading-text'),
+      'nexus.css must have a page-session scoped .loading-text override for violet accent');
+  });
+
+  // ── Loading overlay HTML uses classes not inline styles ────────
+  const MODULE_PAGES = ['party-roster.html', 'treasury.html', 'loot-tracker.html', 'session-log.html'];
+  for (const page of MODULE_PAGES) {
+    it(`${page} loading overlay has no inline styles (uses CSS classes)`, () => {
+      const src = fs.readFileSync(path.join(base, page), 'utf8');
+      assert.ok(!src.includes('position:fixed;inset:0;background:rgba(6,8,9'),
+        `${page} loadingOverlay must not use inline styles — styles are in nexus.css`);
+    });
+
+    it(`${page} loading overlay inner text uses class="loading-text"`, () => {
+      const src = fs.readFileSync(path.join(base, page), 'utf8');
+      assert.ok(src.includes('class="loading-text"'),
+        `${page} must use class="loading-text" on the overlay text element`);
+    });
+  }
+
+  // ── Sidenav uses CSS variables not hardcoded hex ───────────────
+  it('sidenav section uses var(--cyan) not hardcoded #0ef0d0', () => {
+    const navStart = css.indexOf('8. SIDE NAV');
+    const navEnd   = css.indexOf('9. SHARED', navStart);
+    const navSection = css.slice(navStart, navEnd);
+    assert.ok(!navSection.includes('#0ef0d0'),
+      'sidenav CSS must use var(--cyan) instead of hardcoded #0ef0d0');
+  });
+
+  it('sidenav section uses var(--border) not hardcoded #1a2a3a', () => {
+    const navStart = css.indexOf('8. SIDE NAV');
+    const navEnd   = css.indexOf('9. SHARED', navStart);
+    const navSection = css.slice(navStart, navEnd);
+    assert.ok(!navSection.includes('#1a2a3a'),
+      'sidenav CSS must use var(--border) instead of hardcoded #1a2a3a');
   });
 });

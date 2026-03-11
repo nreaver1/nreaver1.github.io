@@ -6,59 +6,17 @@
   <title>PARTY ROSTER // Crew Registry</title>
   <script src="js/nexus-config.js"></script>
   <script src="js/nexus-utils.js"></script>
+<script>buildSidenav('party-roster.html');</script>
   <link rel="icon" type="image/x-icon" href="assets/favicon.ico" />
   <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@400;700;900&family=Rajdhani:wght@400;500;600;700&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="css/nexus.css" />
 </head>
 <body class="has-sidenav page-roster">
 
-<div id="loadingOverlay" style="display:none;position:fixed;inset:0;background:rgba(6,8,9,0.75);z-index:5000;align-items:center;justify-content:center;flex-direction:column;gap:0.8rem;">
-  <div style="font-family:'Orbitron',sans-serif;font-size:0.75rem;font-weight:700;letter-spacing:0.3em;color:#0ef0d0;text-shadow:0 0 20px rgba(14,240,208,0.5);animation:pulse 1s ease-in-out infinite;">LOADING…</div>
+<div id="loadingOverlay">
+  <div class="loading-text">LOADING…</div>
 </div>
-<button class="nav-toggle" id="navToggle" aria-label="Toggle navigation">
-  <span></span><span></span><span></span>
-</button>
-<div class="nav-overlay" id="navOverlay" onclick="closeNav()"></div>
-
-<nav class="sidenav" id="sidenav">
-  <a class="sidenav-logo" href="index.html">
-    <div class="sidenav-logo-top">⚙ nexus</div>
-    <div class="sidenav-logo-name">NEXUS</div>
-    <div class="sidenav-logo-sub">campaign system</div>
-  </a>
-  <div class="sidenav-section">Modules</div>
-  <div class="sidenav-links">
-    <a class="sidenav-link" href="index.html">
-      <span class="nav-icon">⬡</span>
-      <span class="nav-label">Dashboard</span>
-      <span class="nav-pip"></span>
-    </a>
-    <a class="sidenav-link active" href="party-roster.html">
-      <span class="nav-icon">👥</span>
-      <span class="nav-label">Party Roster</span>
-      <span class="nav-pip"></span>
-    </a>
-    <a class="sidenav-link" href="treasury.html">
-      <span class="nav-icon">💰</span>
-      <span class="nav-label">Treasury</span>
-      <span class="nav-pip"></span>
-    </a>
-    <a class="sidenav-link" href="loot-tracker.html">
-      <span class="nav-icon">⚔️</span>
-      <span class="nav-label">Loot Tracker</span>
-      <span class="nav-pip"></span>
-    </a>
-    <a class="sidenav-link" href="session-log.html">
-      <span class="nav-icon">📋</span>
-      <span class="nav-label">Session Log</span>
-      <span class="nav-pip"></span>
-    </a>
-    <a class="sidenav-link" href="admin.html">
-      <span class="nav-icon">⚙</span><span class="nav-label">Admin</span><span class="nav-pip"></span>
-    </a>
-  </div>
-  <div class="sidenav-bottom">nexus // v1.0.0</div>
-</nav>
+<div id="nexus-nav-root"></div>
 
 <header>
   <div class="brand">
@@ -331,7 +289,6 @@
   </div>
 </div>
 
-<div class="toast" id="toast"></div>
 
 <script>
 // ══════════════════════════════════════════════════════════════
@@ -1439,7 +1396,6 @@ async function handleImport(e){
   r.readAsText(file);e.target.value='';
 }
 
-function showToast(msg,dur=2800){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');clearTimeout(t._to);t._to=setTimeout(()=>t.classList.remove('show'),dur);}
 
 // Keyboard: Escape closes any open modal; Enter submits member modal
 document.addEventListener('keydown',e=>{
@@ -1661,13 +1617,6 @@ loadModuleSettings().then(() => {
 });
 </script>
 
-<script>
-  function openNav(){document.getElementById('sidenav').classList.add('nav-open');document.getElementById('navOverlay').classList.add('nav-open');}
-  function closeNav(){document.getElementById('sidenav').classList.remove('nav-open');document.getElementById('navOverlay').classList.remove('nav-open');}
-  document.getElementById('navToggle').addEventListener('click',function(){
-    const nav=document.getElementById('sidenav');nav.classList.contains('nav-open')?closeNav():openNav();
-  });
-</script>
 
 </body>
 </html>

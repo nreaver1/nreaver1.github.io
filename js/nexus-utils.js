@@ -38,11 +38,16 @@ function fmt(n) {
 /**
  * esc(s)
  * HTML-escapes a string so it can be safely injected into innerHTML
- * without XSS risk. Converts &, <, > to their HTML entities.
- * Example: esc('<b>bold</b>') → '&lt;b&gt;bold&lt;/b&gt;'
+ * or used inside HTML attribute values without XSS risk.
+ * Converts &, <, >, and " to their HTML entities.
+ * Example: esc('<b>"bold"</b>') → '&lt;b&gt;&quot;bold&quot;&lt;/b&gt;'
  */
 function esc(s) {
-  return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  return String(s || '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
 }
 
 
@@ -351,11 +356,128 @@ function slugify(name) {
 //  When loaded in a browser via <script>, module is undefined
 //  and this block is skipped safely.
 // ──────────────────────────────────────────────────────────────
+
+
+// ══════════════════════════════════════════════════════════════
+//  TOAST NOTIFICATION
+//  showToast(msg, dur?)
+//
+//  Shows a brief notification at the bottom of the screen.
+//  Injects the #toast div into the document body on first call
+//  so pages don't need to include the element themselves.
+// ══════════════════════════════════════════════════════════════
+
+function showToast(msg, dur = 2800) {
+  let t = document.getElementById('toast');
+  if (!t) {
+    t = document.createElement('div');
+    t.id = 'toast';
+    t.className = 'toast';
+    document.body.appendChild(t);
+  }
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(t._to);
+  t._to = setTimeout(() => t.classList.remove('show'), dur);
+}
+
+// ══════════════════════════════════════════════════════════════
+//  SIDENAV COMPONENT
+//  buildSidenav(activeHref)
+//
+//  Writes the full sidenav HTML into #nexus-nav-root and wires
+//  up the hamburger toggle and overlay.  Call once per page:
+//
+//    buildSidenav('party-roster.html');
+//
+//  Module links are hidden when their module is disabled via
+//  MODULE_ENABLED (set by loadModuleSettings in nexus-config.js).
+//  Admin and Dashboard are always visible.
+// ══════════════════════════════════════════════════════════════
+
+const NAV_LINKS = [
+  { href: 'index.html',        icon: '⬡',  label: 'Dashboard'    },
+  { href: 'party-roster.html', icon: '👥', label: 'Party Roster' },
+  { href: 'treasury.html',     icon: '💰', label: 'Treasury'     },
+  { href: 'loot-tracker.html', icon: '⚔️', label: 'Loot Tracker' },
+  { href: 'session-log.html',  icon: '📋', label: 'Session Log'  },
+  { href: 'admin.html',        icon: '⚙',  label: 'Admin'        },
+];
+
+// Maps page hrefs to their MODULE_ENABLED key (Dashboard+Admin have none)
+const NAV_MODULE_KEY = {
+  'party-roster.html': 'partyRoster',
+  'treasury.html':     'treasury',
+  'loot-tracker.html': 'lootTracker',
+  'session-log.html':  'sessionLog',
+};
+
+function buildSidenav(activeHref) {
+  const root = document.getElementById('nexus-nav-root');
+  if (!root) return;
+
+  const linksHtml = NAV_LINKS.map(link => {
+    const modKey = NAV_MODULE_KEY[link.href];
+    // Module links respect visibility; Dashboard + Admin always shown
+    const hidden = (modKey && typeof isModuleEnabled === 'function' && !isModuleEnabled(modKey))
+      ? ' style="display:none"' : '';
+    const active = link.href === activeHref ? ' active' : '';
+    return (
+      `    <a class="sidenav-link${active}" href="${link.href}"${hidden}>\n` +
+      `      <span class="nav-icon">${link.icon}</span>\n` +
+      `      <span class="nav-label">${link.label}</span>\n` +
+      `      <span class="nav-pip"></span>\n` +
+      `    </a>`
+    );
+  }).join('\n');
+
+  root.innerHTML =
+    `<button class="nav-toggle" id="navToggle" aria-label="Toggle navigation">\n` +
+    `  <span></span><span></span><span></span>\n` +
+    `</button>\n` +
+    `<div class="nav-overlay" id="navOverlay"></div>\n` +
+    `<nav class="sidenav" id="sidenav">\n` +
+    `  <a class="sidenav-logo" href="index.html">\n` +
+    `    <div class="sidenav-logo-top">⚙ nexus</div>\n` +
+    `    <div class="sidenav-logo-name">NEXUS</div>\n` +
+    `    <div class="sidenav-logo-sub">campaign system</div>\n` +
+    `  </a>\n` +
+    `  <div class="sidenav-section">Modules</div>\n` +
+    `  <div class="sidenav-links">\n` +
+    linksHtml + '\n' +
+    `  </div>\n` +
+    `  <div class="sidenav-bottom">nexus // v1.0.0</div>\n` +
+    `</nav>`;
+
+  // Wire toggle and overlay now that they exist in the DOM
+  document.getElementById('navToggle').addEventListener('click', () => {
+    document.getElementById('sidenav').classList.contains('nav-open')
+      ? closeNav() : openNav();
+  });
+  document.getElementById('navOverlay').addEventListener('click', closeNav);
+}
+
+function openNav() {
+  document.getElementById('sidenav').classList.add('nav-open');
+  document.getElementById('navOverlay').classList.add('nav-open');
+}
+
+function closeNav() {
+  document.getElementById('sidenav').classList.remove('nav-open');
+  document.getElementById('navOverlay').classList.remove('nav-open');
+}
+
 if (typeof module !== 'undefined') {
   module.exports = {
     uid,
     fmt,
     esc,
+    showToast,
+    openNav,
+    closeNav,
+    buildSidenav,
+    NAV_LINKS,
+    NAV_MODULE_KEY,
     abilityMod,
     modStr,
     computeCheck,

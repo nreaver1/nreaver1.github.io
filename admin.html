@@ -9,229 +9,12 @@
   <link rel="icon" type="image/x-icon" href="assets/favicon.ico" />
   <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Rajdhani:wght@400;500;600;700&family=Share+Tech+Mono&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="css/nexus.css" />
-  <style>
-    /* ── ADMIN-SPECIFIC STYLES ── */
-    .admin-gate {
-      min-height: 100vh;
-      display: flex; align-items: center; justify-content: center;
-      padding: 2rem;
-    }
-    .gate-box {
-      background: var(--panel);
-      border: 1px solid var(--border);
-      border-radius: 6px;
-      padding: 2.5rem 2rem;
-      width: 100%; max-width: 360px;
-      box-shadow: 0 0 40px rgba(0,0,0,0.6), 0 0 0 1px rgba(14,240,208,0.05);
-      text-align: center;
-    }
-    .gate-icon { font-size: 2rem; margin-bottom: 0.8rem; filter: drop-shadow(0 0 8px rgba(14,240,208,0.4)); }
-    .gate-title {
-      font-family: 'Orbitron', sans-serif;
-      font-size: 0.9rem; font-weight: 900;
-      letter-spacing: 0.2em; color: var(--cyan);
-      text-shadow: 0 0 16px rgba(14,240,208,0.3);
-      margin-bottom: 0.3rem;
-    }
-    .gate-sub {
-      font-family: 'Share Tech Mono', monospace;
-      font-size: 0.62rem; color: var(--text-dim);
-      letter-spacing: 0.15em; margin-bottom: 1.8rem;
-    }
-    .gate-box input[type="password"] {
-      text-align: center;
-      font-family: 'Share Tech Mono', monospace;
-      font-size: 1rem; letter-spacing: 0.2em;
-      margin-bottom: 1rem;
-    }
-    .gate-error {
-      font-family: 'Share Tech Mono', monospace;
-      font-size: 0.65rem; color: var(--red);
-      letter-spacing: 0.1em; margin-top: 0.7rem;
-      min-height: 1.2em;
-    }
-    /* ── ADMIN CONTENT ── */
-    #adminContent { display: none; }
-    .admin-main { max-width: 820px; margin: 0 auto; padding: 0 1.5rem 5rem; }
-    .admin-section-card {
-      background: var(--panel);
-      border: 1px solid var(--border);
-      border-radius: 6px;
-      padding: 1.5rem;
-      margin-bottom: 1.4rem;
-    }
-    .admin-section-head {
-      font-family: 'Orbitron', sans-serif;
-      font-size: 0.72rem; font-weight: 700;
-      letter-spacing: 0.18em; text-transform: uppercase;
-      color: var(--cyan);
-      margin-bottom: 0.4rem;
-      display: flex; align-items: center; gap: 0.6rem;
-    }
-    .admin-section-head::before {
-      content: ''; display: inline-block;
-      width: 10px; height: 2px;
-      background: var(--cyan); box-shadow: 0 0 6px var(--cyan);
-    }
-    .admin-section-desc {
-      font-family: 'Share Tech Mono', monospace;
-      font-size: 0.65rem; color: var(--text-dim);
-      letter-spacing: 0.06em; line-height: 1.6;
-      margin-bottom: 1.2rem;
-    }
-    /* Term mapping grid */
-    .term-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-      gap: 0.8rem 1.2rem;
-    }
-    .term-row {
-      display: flex; flex-direction: column; gap: 0.25rem;
-    }
-    .term-row label {
-      font-size: 0.62rem; letter-spacing: 0.12em;
-    }
-    .term-row input {
-      font-size: 0.95rem;
-      padding: 0.4rem 0.7rem;
-    }
-    .term-default {
-      font-family: 'Share Tech Mono', monospace;
-      font-size: 0.58rem; color: var(--text-dim);
-      letter-spacing: 0.06em;
-    }
-    /* Group headers within term grid */
-    .term-group-label {
-      grid-column: 1 / -1;
-      font-family: 'Share Tech Mono', monospace;
-      font-size: 0.65rem; letter-spacing: 0.2em;
-      text-transform: uppercase; color: var(--cyan-dim);
-      padding: 0.5rem 0 0.2rem;
-      border-top: 1px solid var(--border);
-      margin-top: 0.4rem;
-      display: flex; align-items: center; gap: 0.5rem;
-    }
-    .term-group-label:first-child { border-top: none; margin-top: 0; padding-top: 0; }
-    .term-group-label::after { content: ''; flex: 1; height: 1px; background: var(--border); }
-    /* Module toggle rows */
-    .module-toggle-row {
-      display: flex; align-items: center; justify-content: space-between;
-      padding: 0.85rem 1rem;
-      background: rgba(255,255,255,0.02);
-      border: 1px solid var(--border);
-      border-radius: 4px;
-      transition: border-color 0.15s;
-    }
-    .module-toggle-row:hover { border-color: rgba(167,139,250,0.25); }
-    .module-toggle-info { display: flex; align-items: center; gap: 0.7rem; }
-    .module-toggle-icon { font-size: 1.1rem; opacity: 0.7; flex-shrink: 0; }
-    .module-toggle-name {
-      font-family: 'Orbitron', sans-serif;
-      font-size: 0.7rem; font-weight: 700; letter-spacing: 0.12em;
-    }
-    .module-toggle-hint {
-      font-family: 'Share Tech Mono', monospace;
-      font-size: 0.58rem; color: var(--text-dim); letter-spacing: 0.06em;
-      margin-top: 0.15rem;
-    }
-    /* Pill toggle switch */
-    .pill-toggle { position: relative; width: 44px; height: 24px; flex-shrink: 0; }
-    .pill-toggle input { opacity: 0; width: 0; height: 0; position: absolute; }
-    .pill-track {
-      position: absolute; inset: 0; cursor: pointer;
-      background: rgba(255,255,255,0.08);
-      border: 1px solid var(--border);
-      border-radius: 24px;
-      transition: background 0.2s, border-color 0.2s;
-    }
-    .pill-track::after {
-      content: ''; position: absolute;
-      width: 16px; height: 16px; border-radius: 50%;
-      background: var(--text-dim);
-      top: 3px; left: 3px;
-      transition: transform 0.2s, background 0.2s;
-    }
-    .pill-toggle input:checked + .pill-track {
-      background: rgba(60,224,138,0.18);
-      border-color: rgba(60,224,138,0.4);
-    }
-    .pill-toggle input:checked + .pill-track::after {
-      transform: translateX(20px);
-      background: var(--green);
-    }
-    /* Password change */
-    .pw-row { display: flex; gap: 0.8rem; align-items: flex-end; flex-wrap: wrap; }
-    .pw-row .field { flex: 1; min-width: 180px; }
-    .admin-save-bar {
-      position: sticky; bottom: 0;
-      background: linear-gradient(to top, var(--bg) 60%, transparent);
-      padding: 1.2rem 0 0.5rem;
-      display: flex; justify-content: flex-end; gap: 0.8rem;
-    }
-    .save-status {
-      font-family: 'Share Tech Mono', monospace;
-      font-size: 0.65rem; color: var(--cyan);
-      letter-spacing: 0.1em; align-self: center;
-      opacity: 0; transition: opacity 0.3s;
-    }
-    .save-status.show { opacity: 1; }
-    /* Snapshot section */
-    .snapshot-row {
-      display: flex; align-items: center; justify-content: space-between;
-      flex-wrap: wrap; gap: 0.7rem;
-      padding: 0.85rem 1rem;
-      background: rgba(14,240,208,0.03);
-      border: 1px solid rgba(14,240,208,0.12);
-      border-radius: 4px;
-    }
-    .snapshot-action { flex: 1; min-width: 0; }
-    .snapshot-action-title {
-      font-family: 'Orbitron', sans-serif; font-size: 0.7rem;
-      font-weight: 700; letter-spacing: 0.12em; color: var(--text);
-      margin-bottom: 0.2rem;
-    }
-    .snapshot-action-desc {
-      font-family: 'Share Tech Mono', monospace; font-size: 0.62rem;
-      color: var(--text-dim); letter-spacing: 0.04em;
-    }
-  </style>
+  
 </head>
 <body class="has-sidenav page-admin">
 
   <!-- Side Nav -->
-  <button class="nav-toggle" id="navToggle" aria-label="Toggle navigation">
-    <span></span><span></span><span></span>
-  </button>
-  <div class="nav-overlay" id="navOverlay" onclick="closeNav()"></div>
-  <nav class="sidenav" id="sidenav">
-    <a class="sidenav-logo" href="index.html">
-      <div class="sidenav-logo-top">⚙ nexus</div>
-      <div class="sidenav-logo-name">NEXUS</div>
-      <div class="sidenav-logo-sub">campaign system</div>
-    </a>
-    <div class="sidenav-section">Navigation</div>
-    <div class="sidenav-links">
-      <a class="sidenav-link" href="index.html">
-        <span class="nav-icon">⬡</span><span class="nav-label">Dashboard</span><span class="nav-pip"></span>
-      </a>
-      <a class="sidenav-link" href="party-roster.html">
-        <span class="nav-icon">👥</span><span class="nav-label">Party Roster</span><span class="nav-pip"></span>
-      </a>
-      <a class="sidenav-link" href="treasury.html">
-        <span class="nav-icon">💰</span><span class="nav-label">Treasury</span><span class="nav-pip"></span>
-      </a>
-      <a class="sidenav-link" href="loot-tracker.html">
-        <span class="nav-icon">⚔️</span><span class="nav-label">Loot Tracker</span><span class="nav-pip"></span>
-      </a>
-      <a class="sidenav-link" href="session-log.html">
-        <span class="nav-icon">📋</span><span class="nav-label">Session Log</span><span class="nav-pip"></span>
-      </a>
-      <a class="sidenav-link active" href="admin.html">
-        <span class="nav-icon">⚙</span><span class="nav-label">Admin</span><span class="nav-pip"></span>
-      </a>
-    </div>
-    <div class="sidenav-bottom">nexus // v1.0.0</div>
-  </nav>
+  <div id="nexus-nav-root"></div>
 
   <!-- ══════════════════════════════════
        PASSWORD GATE
@@ -370,139 +153,17 @@
           Each button requires a confirmation before anything is deleted.
         </div>
 
-        <div style="display:flex;flex-direction:column;gap:0.75rem;">
-
-          <!-- Party Members -->
-          <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:0.6rem;
-                      padding:0.9rem 1rem;background:rgba(224,60,60,0.04);
-                      border:1px solid rgba(224,60,60,0.18);border-radius:4px;">
-            <div>
-              <div style="font-family:'Orbitron',sans-serif;font-size:0.7rem;font-weight:700;
-                          letter-spacing:0.12em;color:var(--text);margin-bottom:0.2rem;">
-                Clear All Party Members
-              </div>
-              <div style="font-family:'Share Tech Mono',monospace;font-size:0.62rem;
-                          color:var(--text-dim);letter-spacing:0.04em;">
-                Removes every member from the Party Roster. Treasury ledger entries and loot item holders are not affected.
-              </div>
-            </div>
-            <button class="btn" id="btnClearMembers"
-                    style="background:transparent;border:1px solid var(--red);color:var(--red);
-                           flex-shrink:0;opacity:0.85;transition:opacity 0.15s,box-shadow 0.15s;"
-                    onmouseover="this.style.opacity='1';this.style.boxShadow='0 0 12px rgba(224,60,60,0.3)'"
-                    onmouseout="this.style.opacity='0.85';this.style.boxShadow='none'"
-                    onclick="clearAllMembers()">
-              🗑 Clear Members
-            </button>
-          </div>
-
-          <!-- Treasury -->
-          <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:0.6rem;
-                      padding:0.9rem 1rem;background:rgba(224,60,60,0.04);
-                      border:1px solid rgba(224,60,60,0.18);border-radius:4px;">
-            <div>
-              <div style="font-family:'Orbitron',sans-serif;font-size:0.7rem;font-weight:700;
-                          letter-spacing:0.12em;color:var(--text);margin-bottom:0.2rem;">
-                Clear All Treasury Data
-              </div>
-              <div style="font-family:'Share Tech Mono',monospace;font-size:0.62rem;
-                          color:var(--text-dim);letter-spacing:0.04em;">
-                Deletes the entire transaction ledger and all currency types. Party member records are not affected.
-              </div>
-            </div>
-            <button class="btn" id="btnClearTreasury"
-                    style="background:transparent;border:1px solid var(--red);color:var(--red);
-                           flex-shrink:0;opacity:0.85;transition:opacity 0.15s,box-shadow 0.15s;"
-                    onmouseover="this.style.opacity='1';this.style.boxShadow='0 0 12px rgba(224,60,60,0.3)'"
-                    onmouseout="this.style.opacity='0.85';this.style.boxShadow='none'"
-                    onclick="clearAllTreasury()">
-              🗑 Clear Treasury
-            </button>
-          </div>
-
-          <!-- Loot Items -->
-          <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:0.6rem;
-                      padding:0.9rem 1rem;background:rgba(224,60,60,0.04);
-                      border:1px solid rgba(224,60,60,0.18);border-radius:4px;">
-            <div>
-              <div style="font-family:'Orbitron',sans-serif;font-size:0.7rem;font-weight:700;
-                          letter-spacing:0.12em;color:var(--text);margin-bottom:0.2rem;">
-                Clear All Loot Items
-              </div>
-              <div style="font-family:'Share Tech Mono',monospace;font-size:0.62rem;
-                          color:var(--text-dim);letter-spacing:0.04em;">
-                Removes every item from the Loot Tracker. Party member records and treasury data are not affected.
-              </div>
-            </div>
-            <button class="btn" id="btnClearLoot"
-                    style="background:transparent;border:1px solid var(--red);color:var(--red);
-                           flex-shrink:0;opacity:0.85;transition:opacity 0.15s,box-shadow 0.15s;"
-                    onmouseover="this.style.opacity='1';this.style.boxShadow='0 0 12px rgba(224,60,60,0.3)'"
-                    onmouseout="this.style.opacity='0.85';this.style.boxShadow='none'"
-                    onclick="clearAllLoot()">
-              🗑 Clear Loot
-            </button>
-          </div>
-
-
-          <!-- Session Log -->
-          <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:0.6rem;
-                      padding:0.9rem 1rem;background:rgba(224,60,60,0.04);
-                      border:1px solid rgba(224,60,60,0.18);border-radius:4px;">
-            <div>
-              <div style="font-family:'Orbitron',sans-serif;font-size:0.7rem;font-weight:700;
-                          letter-spacing:0.12em;color:var(--text);margin-bottom:0.2rem;">
-                Clear All Session Log Data
-              </div>
-              <div style="font-family:'Share Tech Mono',monospace;font-size:0.62rem;
-                          color:var(--text-dim);letter-spacing:0.04em;">
-                Deletes every session, all logged moments, and all quest entries. NPC records are not affected.
-              </div>
-            </div>
-            <button class="btn" id="btnClearSessions"
-                    style="background:transparent;border:1px solid var(--red);color:var(--red);
-                           flex-shrink:0;opacity:0.85;transition:opacity 0.15s,box-shadow 0.15s;"
-                    onmouseover="this.style.opacity='1';this.style.boxShadow='0 0 12px rgba(224,60,60,0.3)'"
-                    onmouseout="this.style.opacity='0.85';this.style.boxShadow='none'"
-                    onclick="clearAllSessions()">
-              🗑 Clear Sessions
-            </button>
-          </div>
-
-          <!-- NPC Index -->
-          <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:0.6rem;
-                      padding:0.9rem 1rem;background:rgba(224,60,60,0.04);
-                      border:1px solid rgba(224,60,60,0.18);border-radius:4px;">
-            <div>
-              <div style="font-family:'Orbitron',sans-serif;font-size:0.7rem;font-weight:700;
-                          letter-spacing:0.12em;color:var(--text);margin-bottom:0.2rem;">
-                Clear All NPCs
-              </div>
-              <div style="font-family:'Share Tech Mono',monospace;font-size:0.62rem;
-                          color:var(--text-dim);letter-spacing:0.04em;">
-                Removes every NPC from the index. Session records and logged moments are not affected, but any ^slug citations in them will become unresolved.
-              </div>
-            </div>
-            <button class="btn" id="btnClearNpcs"
-                    style="background:transparent;border:1px solid var(--red);color:var(--red);
-                           flex-shrink:0;opacity:0.85;transition:opacity 0.15s,box-shadow 0.15s;"
-                    onmouseover="this.style.opacity='1';this.style.boxShadow='0 0 12px rgba(224,60,60,0.3)'"
-                    onmouseout="this.style.opacity='0.85';this.style.boxShadow='none'"
-                    onclick="clearAllNpcs()">
-              🗑 Clear NPCs
-            </button>
-          </div>
-
-        </div>
+        <div id="dangerRowsContainer" style="display:flex;flex-direction:column;gap:0.75rem;">
+          <!-- Built by buildDangerZone() -->
+        </div></div>
       </div><!-- /danger zone -->
 
     </div><!-- /admin-main -->
   </div><!-- /adminContent -->
 
-  <div class="toast" id="toast"></div>
-
   <script src="js/nexus-config.js"></script>
   <script src="js/nexus-utils.js"></script>
+<script>buildSidenav('admin.html');</script>
   <script>
   // ══════════════════════════════════════════════════════════
   //  PASSWORD GATE
@@ -661,10 +322,68 @@
     }
   }
 
+
+  // ══════════════════════════════════════════════════════════
+  //  DANGER ZONE BUILDER
+  // ══════════════════════════════════════════════════════════
+  const DANGER_ROWS = [
+    {
+      id:    'btnClearMembers',
+      title: 'Clear All Party Members',
+      desc:  'Removes every member from the Party Roster. Treasury ledger entries and loot item holders are not affected.',
+      label: '🗑 Clear Members',
+      fn:    'clearAllMembers()',
+    },
+    {
+      id:    'btnClearTreasury',
+      title: 'Clear All Treasury Data',
+      desc:  'Deletes the entire transaction ledger and all currency types. Party member records are not affected.',
+      label: '🗑 Clear Treasury',
+      fn:    'clearAllTreasury()',
+    },
+    {
+      id:    'btnClearLoot',
+      title: 'Clear All Loot Items',
+      desc:  'Removes every item from the Loot Tracker. Party member records and treasury data are not affected.',
+      label: '🗑 Clear Loot',
+      fn:    'clearAllLoot()',
+    },
+    {
+      id:    'btnClearSessions',
+      title: 'Clear All Session Log Data',
+      desc:  'Deletes every session, all logged moments, and all quest entries. NPC records are not affected.',
+      label: '🗑 Clear Sessions',
+      fn:    'clearAllSessions()',
+    },
+    {
+      id:    'btnClearNpcs',
+      title: 'Clear All NPCs',
+      desc:  'Removes every NPC from the index. Session records and logged moments are not affected, but any ^slug citations in them will become unresolved.',
+      label: '🗑 Clear NPCs',
+      fn:    'clearAllNpcs()',
+    },
+  ];
+
+  function buildDangerZone() {
+    const container = document.getElementById('dangerRowsContainer');
+    if (!container) return;
+    container.innerHTML = DANGER_ROWS.map(row => `
+      <div class="danger-row">
+        <div>
+          <div class="danger-row-title">${esc(row.title)}</div>
+          <div class="danger-row-desc">${esc(row.desc)}</div>
+        </div>
+        <button class="btn btn-danger" id="${row.id}" onclick="${row.fn}">
+          ${row.label}
+        </button>
+      </div>`).join('\n');
+  }
+
   async function loadAdminData() {
     await Promise.all([loadTerms(), loadModuleSettings()]);
     buildTermGrid();
     buildModuleToggleGrid();
+    buildDangerZone();
   }
 
   async function saveTermsAdmin() {
@@ -1040,30 +759,9 @@
   // ══════════════════════════════════════════════════════════
   //  UTILS
   // ══════════════════════════════════════════════════════════
-  function esc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
-  function showToast(msg, dur=2800) {
-    const t = document.getElementById('toast');
-    t.textContent = msg; t.classList.add('show');
-    clearTimeout(t._to); t._to = setTimeout(() => t.classList.remove('show'), dur);
-  }
-
   // If already unlocked on load, populate the grid
   if (adminUnlocked) loadAdminData();
   </script>
 
-  <script>
-    function openNav() {
-      document.getElementById('sidenav').classList.add('nav-open');
-      document.getElementById('navOverlay').classList.add('nav-open');
-    }
-    function closeNav() {
-      document.getElementById('sidenav').classList.remove('nav-open');
-      document.getElementById('navOverlay').classList.remove('nav-open');
-    }
-    document.getElementById('navToggle').addEventListener('click', function() {
-      const nav = document.getElementById('sidenav');
-      nav.classList.contains('nav-open') ? closeNav() : openNav();
-    });
-  </script>
 </body>
 </html>
