@@ -163,7 +163,7 @@
 
   <script src="js/nexus-config.js"></script>
   <script src="js/nexus-utils.js"></script>
-<script>buildSidenav('admin.html');</script>
+<script>loadModuleSettings().then(() => { buildSidenav('admin.html'); applyModuleVisibility(); });</script>
   <script>
   // ══════════════════════════════════════════════════════════
   //  PASSWORD GATE

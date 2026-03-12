@@ -7896,6 +7896,9 @@ describe('Component cleanup — no duplicated utility code in HTML pages', () =>
         `${file} must not contain a bare navToggle fragment — buildSidenav() wires it`);
       assert.ok(!src.includes("nav.classList.contains('nav-open')?closeNav():openNav()"),
         `${file} must not contain a bare navToggle fragment (minified form)`);
+      // Guard against the wrapping remnant left when only the inner line is removed
+      assert.ok(!src.includes('//  SIDENAV\n// ══════════════════════════════════════════════════════════════\n});'),
+        `${file} must not contain the orphaned SIDENAV comment + stray }); from a navToggle removal`);
     });
   }
 
@@ -7939,6 +7942,43 @@ describe('Component cleanup — no duplicated utility code in HTML pages', () =>
     assert.ok(src.includes("document.body.appendChild(t)"),
       'showToast must append the new toast div to document.body');
   });
+
+  // ── buildSidenav must be called AFTER loadModuleSettings ──────
+  // (so module visibility is known before the nav renders)
+  for (const file of ALL_PAGES) {
+    it(`${file} calls buildSidenav() after loadModuleSettings() so nav reflects enabled modules`, () => {
+      const src       = fs.readFileSync(path.join(base, file), 'utf8');
+      const buildIdx  = src.indexOf('buildSidenav(');
+      if (buildIdx === -1) return;
+      const loadIdx   = src.indexOf('loadModuleSettings()');
+      assert.ok(loadIdx !== -1,
+        `${file}: loadModuleSettings() must be present`);
+      assert.ok(buildIdx > loadIdx,
+        `${file}: buildSidenav() must appear after loadModuleSettings() call — currently at char ${buildIdx} vs ${loadIdx}`);
+    });
+  }
+
+  // ── No bare <script>buildSidenav()</script> blocks ─────────────
+  // buildSidenav must live inside a loadModuleSettings callback, not as a bare script tag
+  for (const file of ALL_PAGES) {
+    it(`${file} does not call buildSidenav() as a bare inline script tag`, () => {
+      const src = fs.readFileSync(path.join(base, file), 'utf8');
+      assert.ok(!src.includes('<script>buildSidenav('),
+        `${file}: buildSidenav() must not be a bare <script> tag — it must run inside the loadModuleSettings() callback`);
+    });
+  }
+
+  // ── buildSidenav must be called AFTER nexus-nav-root exists ──
+  for (const file of ALL_PAGES) {
+    it(`${file} calls buildSidenav() after #nexus-nav-root in the DOM (not in <head>)`, () => {
+      const src  = fs.readFileSync(path.join(base, file), 'utf8');
+      const rootIdx  = src.indexOf('nexus-nav-root');
+      const buildIdx = src.indexOf('buildSidenav(');
+      if (buildIdx === -1) return;
+      assert.ok(buildIdx > rootIdx,
+        `${file}: buildSidenav() must appear after <div id="nexus-nav-root"> so the element exists when called`);
+    });
+  }
 
   // ── buildSidenav is the single nav construction point ─────────
   for (const file of ALL_PAGES) {
@@ -8092,6 +8132,23 @@ describe('CSS health — nexus.css', () => {
       const src = fs.readFileSync(path.join(base, page), 'utf8');
       assert.ok(src.includes('class="loading-text"'),
         `${page} must use class="loading-text" on the overlay text element`);
+    });
+  }
+
+  // ── #loadingOverlay default is display:flex (page-cover-first pattern) ─
+  it('#loadingOverlay CSS default is display:flex so pages are covered before guard runs', () => {
+    const match = css.match(/#loadingOverlay\s*\{([^}]+)\}/);
+    assert.ok(match, '#loadingOverlay rule must exist in nexus.css');
+    assert.ok(match[1].includes('display: flex') || match[1].includes('display:flex'),
+      '#loadingOverlay must default to display:flex — it hides page content until guard clears it');
+  });
+
+  // ── Module pages: enforceModuleGuard called before showLoading(false) ──
+  for (const page of MODULE_PAGES) {
+    it(`${page} calls enforceModuleGuard before revealing page content`, () => {
+      const src      = fs.readFileSync(path.join(base, page), 'utf8');
+      const guardIdx = src.indexOf('enforceModuleGuard(');
+      assert.ok(guardIdx !== -1, `${page} must call enforceModuleGuard()`);
     });
   }
 

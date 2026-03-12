@@ -6,7 +6,6 @@
   <title>PARTY ROSTER // Crew Registry</title>
   <script src="js/nexus-config.js"></script>
   <script src="js/nexus-utils.js"></script>
-<script>buildSidenav('party-roster.html');</script>
   <link rel="icon" type="image/x-icon" href="assets/favicon.ico" />
   <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@400;700;900&family=Rajdhani:wght@400;500;600;700&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="css/nexus.css" />
@@ -1609,8 +1608,10 @@ async function lt_saveItem(){
 //  BOOT
 // ══════════════════════════════════════════════════════════════
 loadModuleSettings().then(() => {
+  buildSidenav('party-roster.html');
   applyModuleVisibility();
   if (!enforceModuleGuard('partyRoster')) return;
+  showLoading(false);
   loadTerms().catch(() => {});
   // Boot: load members + loot + treasury in parallel for fastest first render
   loadData().then(()=>Promise.all([prefetchLootItems(),prefetchTreasury()]).then(()=>render()));

@@ -6,7 +6,6 @@
   <title>VAULT-LEDGER // Party Treasury</title>
   <script src="js/nexus-config.js"></script>
   <script src="js/nexus-utils.js"></script>
-<script>buildSidenav('treasury.html');</script>
   <link rel="icon" type="image/x-icon" href="assets/favicon.ico" />
   <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@400;700;900&family=Rajdhani:wght@400;500;600&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="css/nexus.css" />
@@ -2054,8 +2053,10 @@ document.addEventListener('keydown', e => {
 //  INIT
 // ══════════════════════════════════
 loadModuleSettings().then(() => {
+  buildSidenav('treasury.html');
   applyModuleVisibility();
   if (!enforceModuleGuard('treasury')) return;
+  showLoading(false);
   loadTerms().catch(() => {});
   Promise.all([
     loadData(),

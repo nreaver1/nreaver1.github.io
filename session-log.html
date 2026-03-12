@@ -6,7 +6,6 @@
   <title>NEXUS // Session Log</title>
   <script src="js/nexus-config.js"></script>
   <script src="js/nexus-utils.js"></script>
-<script>buildSidenav('session-log.html');</script>
   <link rel="icon" type="image/x-icon" href="assets/favicon.ico" />
   <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@400;700;900&family=Rajdhani:wght@400;500;600;700&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="css/nexus.css" />
@@ -397,10 +396,12 @@ function showLoading(on) {
 
 async function boot() {
   showLoading(true);
+  let guarded = false;
   try {
     await loadModuleSettings();
+    buildSidenav('session-log.html');
     applyModuleVisibility();
-    if (!enforceModuleGuard('sessionLog')) return;
+    if (!enforceModuleGuard('sessionLog')) { guarded = true; return; }
     await loadTerms().catch(() => {});
     // All three data sources load in parallel
     const [sessionRows, eventRows, npcRows] = await Promise.all([
@@ -421,7 +422,7 @@ async function boot() {
     console.error(e);
     showToast('Could not load session data — check your Supabase config.');
   } finally {
-    showLoading(false);
+    if (!guarded) showLoading(false);
   }
   updateStats();
   renderView();
@@ -1723,11 +1724,6 @@ document.addEventListener('click', e => {
   if (drop && inp && !inp.contains(e.target) && !drop.contains(e.target)) {
     drop.style.display = 'none';
   }
-});
-
-// ══════════════════════════════════════════════════════════════
-//  SIDENAV
-// ══════════════════════════════════════════════════════════════
 });
 
 // Boot

@@ -6,7 +6,6 @@
   <title>LOOT TRACKER // Item Registry</title>
   <script src="js/nexus-config.js"></script>
   <script src="js/nexus-utils.js"></script>
-<script>buildSidenav('loot-tracker.html');</script>
   <link rel="icon" type="image/x-icon" href="assets/favicon.ico" />
   <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@400;700;900&family=Rajdhani:wght@400;500;600;700&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="css/nexus.css" />
@@ -1218,8 +1217,10 @@ async function populateHolderFilter(){
 }
 
 loadModuleSettings().then(() => {
+  buildSidenav('loot-tracker.html');
   applyModuleVisibility();
   if (!enforceModuleGuard('lootTracker')) return;
+  showLoading(false);
   loadTerms().catch(() => {});
   Promise.all([
     loadData(),
