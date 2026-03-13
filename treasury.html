@@ -162,22 +162,24 @@
       <button class="btn-icon" onclick="closeModal('addCurrencyModal')">✕</button>
     </div>
     <div class="modal-body">
+      <div class="field">
+        <label>Currency Name <span class="field-required">(required)</span></label>
+        <input type="text" id="nc-name" placeholder="e.g. Void Shards" oninput="updatePreview();(function(){var e=document.getElementById('ncNameError');if(e&&this.value.trim())e.textContent='';}).call(this)" />
+        <div class="tx-desc-error" id="ncNameError" aria-live="polite"></div>
+      </div>
       <div class="field-row">
         <div class="field">
-          <label>Currency Name <span class="field-required">(required)</span></label>
-          <input type="text" id="nc-name" placeholder="e.g. Void Shards" oninput="updatePreview();(function(){var e=document.getElementById('ncNameError');if(e&&this.value.trim())e.textContent='';}).call(this)" />
-          <div class="tx-desc-error" id="ncNameError" aria-live="polite"></div>
-        </div>
-        <div class="field">
-          <label>Abbreviation <span class="field-required">(required)</span> <span class="optional">2–4 chars</span></label>
+          <label>Abbreviation <span class="field-required">(required)</span></label>
           <input type="text" id="nc-abbr" placeholder="e.g. VS" maxlength="4" oninput="updatePreview();(function(){var e=document.getElementById('ncAbbrError');if(e&&this.value.trim())e.textContent='';}).call(this)" />
           <div class="tx-desc-error" id="ncAbbrError" aria-live="polite"></div>
+          <div class="hint-text" style="padding-top:0.15rem">2–4 characters</div>
         </div>
-      </div>
-      <div class="field">
-        <label>Symbol <span class="field-required">(required)</span> <span class="optional">any character, emoji, or icon</span></label>
-        <input type="text" id="nc-symbol" placeholder="e.g.  ◆  ⬡  Ω  §  ★  💎" maxlength="3" oninput="updatePreview();(function(){var e=document.getElementById('ncSymbolError');if(e&&this.value.trim())e.textContent='';}).call(this)" />
-        <div class="tx-desc-error" id="ncSymbolError" aria-live="polite"></div>
+        <div class="field">
+          <label>Symbol <span class="field-required">(required)</span></label>
+          <input type="text" id="nc-symbol" placeholder="e.g.  ◆  ⬡  Ω  §  ★  💎" maxlength="3" oninput="updatePreview();(function(){var e=document.getElementById('ncSymbolError');if(e&&this.value.trim())e.textContent='';}).call(this)" />
+          <div class="tx-desc-error" id="ncSymbolError" aria-live="polite"></div>
+          <div class="hint-text" style="padding-top:0.15rem">Any character, emoji, or icon</div>
+        </div>
       </div>
       <div class="field">
         <label>Color</label>
@@ -792,7 +794,9 @@ async function deleteTx(id) {
   try {
     await deleteTxFromDB(id);
     ledger = ledger.filter(t => t.id !== id);
-    recalcVault(); renderTotal(); renderLedger(); showToast('Entry removed.');
+    recalcVault();
+    await renderMemberWealth();
+    renderTotal(); renderGrid(); renderLedger(); showToast('Entry removed.');
   } catch(e) {
     console.error(e); showToast('Delete failed.');
     if (delBtn) setLoading(delBtn, false);
