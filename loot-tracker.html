@@ -42,14 +42,14 @@
   </div>
   <div class="toolbar">
     <div class="toolbar-left">
-      <input class="search-input" type="text" id="searchInput" placeholder="Search items, holders…" oninput="renderTable()" />
-      <select id="filterRarity" onchange="renderTable()">
+      <input class="search-input" type="text" id="searchInput" placeholder="Search items, holders…" oninput="applyFilter()" />
+      <select id="filterRarity" onchange="applyFilter()">
         <option value="">All Rarities</option>
         <option value="common">Common</option><option value="uncommon">Uncommon</option>
         <option value="rare">Rare</option><option value="very-rare">Very Rare</option>
         <option value="legendary">Legendary</option><option value="artifact">Artifact</option>
       </select>
-      <select id="filterType" onchange="renderTable()">
+      <select id="filterType" onchange="applyFilter()">
         <option value="">All Types</option>
         <optgroup label="⚔️ Weapon">
           <option value="Melee Weapon">Melee Weapon</option>
@@ -123,15 +123,15 @@
       </select>
     </div>
     <div class="toolbar-right">
-      <select id="filterHolder" onchange="renderTable()">
+      <select id="filterHolder" onchange="applyFilter()">
         <option value="">All Holders</option>
         <option value="Party Inventory">🎒 Party Inventory</option>
       </select>
-      <select id="filterAttune" onchange="renderTable()">
+      <select id="filterAttune" onchange="applyFilter()">
         <option value="">All Attunement</option>
         <option value="attuned">Attuned</option><option value="required">Required</option><option value="none">None</option>
       </select>
-      <select id="filterFx" onchange="renderTable()">
+      <select id="filterFx" onchange="applyFilter()">
         <option value="">All Items</option>
         <option value="yes">Has Stat Effects</option>
         <option value="no">No Stat Effects</option>
@@ -166,8 +166,9 @@
     </div>
     <div class="modal-body">
       <div class="field">
-        <label>Item Name *</label>
-        <input type="text" class="mi" id="fieldName" placeholder="e.g. Plasma Sword, Shadow Cloak…" />
+        <label>Item Name <span class="field-required">(required)</span></label>
+        <input type="text" class="mi" id="fieldName" placeholder="e.g. Plasma Sword, Shadow Cloak…" oninput="(function(){var e=document.getElementById('fieldNameError');if(e&&this.value.trim())e.textContent='';}).call(this)" />
+        <div class="tx-desc-error" id="fieldNameError" aria-live="polite"></div>
       </div>
       <div class="field-row">
         <div class="field">
@@ -371,8 +372,12 @@ const FX_TYPES = [
 // must stay in sync. We reference window.DAMAGE_TYPES below.
 const DAMAGE_STATS = new Set(['damage_rolls', 'spell_damage', 'attack_rolls']);
 
-function statLabel(key){ return (ALL_STATS.find(s=>s.key===key)||{label:key}).label.split(' – ')[0].split(' – ')[0]; }
-function fxClass(type){ return (FX_TYPES.find(t=>t.key===type)||{cls:'fx-pos'}).cls; }
+// Pre-built O(1) lookup maps — built once at parse time, not on every pill render
+const _STAT_LABEL_MAP = new Map(ALL_STATS.map(s => [s.key, s.label.split(' – ')[0]]));
+const _FX_CLASS_MAP   = new Map(FX_TYPES.map(t => [t.key, t.cls]));
+
+function statLabel(key){ return _STAT_LABEL_MAP.get(key) || key; }
+function fxClass(type){  return _FX_CLASS_MAP.get(type)  || 'fx-pos'; }
 function fxShort(fx){
   // Include damage type label in pill when set (e.g. "+2 Dmg [acid]")
   const dmgLabel = fx.damageType ? ` [${fx.damageType}]` : '';
@@ -392,6 +397,10 @@ let sortKey = 'name', sortDir = 1;
 let pendingFx = [];   // effects being edited in modal
 
 const RARITY_ORDER = { common:0,uncommon:1,rare:2,'very-rare':3,legendary:4,artifact:5 };
+
+// Cached filter state — updated by applyFilter() so getFiltered() reads from
+// memory instead of querying DOM on every render/keypress
+let _lootFilter = { q:'', rarity:'', type:'', attune:'', fx:'', holder:'' };
 
 const seedItems = [
   { id:uid(), name:"Shadow Cloak",      type:"Wondrous", rarity:"rare",     holder:"Zyx",        attunement:"attuned",  desc:"Advantage on Stealth, disadvantage on Perception.", statEffects:[{stat:'stealth',type:'advantage',value:null},{stat:'perception',type:'disadvantage',value:null}] , qty:1},
@@ -462,13 +471,20 @@ function showLoading(on){
 // ══════════════════════════════════════════
 //  RENDER
 // ══════════════════════════════════════════
+// Update cached filter state from DOM, then re-render.
+// All filter controls call this instead of renderTable() directly.
+function applyFilter(){
+  _lootFilter.q      = document.getElementById('searchInput').value.toLowerCase();
+  _lootFilter.rarity = document.getElementById('filterRarity').value;
+  _lootFilter.type   = document.getElementById('filterType').value;
+  _lootFilter.attune = document.getElementById('filterAttune').value;
+  _lootFilter.fx     = document.getElementById('filterFx').value;
+  _lootFilter.holder = document.getElementById('filterHolder').value;
+  renderTable();
+}
+
 function getFiltered(){
-  const q=document.getElementById('searchInput').value.toLowerCase();
-  const rarity=document.getElementById('filterRarity').value;
-  const type=document.getElementById('filterType').value;
-  const attune=document.getElementById('filterAttune').value;
-  const fx=document.getElementById('filterFx').value;
-  const holder=document.getElementById('filterHolder').value;
+  const {q,rarity,type,attune,fx,holder} = _lootFilter;
   return items.filter(it=>{
     if(q&&!it.name.toLowerCase().includes(q)&&!(it.desc||'').toLowerCase().includes(q)&&!(it.holder||'').toLowerCase().includes(q)) return false;
     if(rarity&&it.rarity!==rarity) return false;
@@ -493,6 +509,8 @@ function renderTable(){
     tbody.innerHTML=`<tr><td colspan="8"><div class="empty-state"><span class="empty-icon">⚔️</span><p>No items found in registry</p></div></td></tr>`;
     return;
   }
+  // Pre-build member name→obj Map once (O(members)) so renderHolderCell is O(1) per row
+  const memberMap = new Map((_cachedPartyMembers||[]).map(m=>[m.name, m]));
   tbody.innerHTML=rows.map(it=>{
     const fxHtml=(it.statEffects||[]).map(fx=>`<span class="fx-pill ${fxClass(fx.type)}">${esc(fxShort(fx))}</span>`).join('');
     const qtyBadge = (it.qty??1)>1 ? `<span class="qty-badge">×${it.qty}</span>` : '';
@@ -504,7 +522,7 @@ function renderTable(){
       <td class="hide-mobile" style="text-align:center;font-family:'Share Tech Mono',monospace;font-size:0.8rem;color:${(it.qty??1)>1?'var(--cyan)':'var(--text-dim)'};">${it.qty??1}</td>
       <td class="hide-mobile"><span class="loot-type-cell"><span class="loot-type-emoji">${lootTypeEmoji(it.type)}</span><span class="loot-type-label">${esc(it.type)}</span></span></td>
       <td><span class="rarity-badge rarity-${it.rarity}">${rarityLabel(it.rarity)}</span></td>
-      <td class="hide-mobile">${renderHolderCell(it.holder)}</td>
+      <td class="hide-mobile">${renderHolderCell(it.holder, memberMap)}</td>
       <td class="hide-mobile"><div class="fx-list">${fxHtml||'<span style="font-family:\'Share Tech Mono\',monospace;font-size:0.5rem;color:var(--text-dim);">—</span>'}</div></td>
       <td class="hide-mobile"><span class="${it.attunement==='none'?'attunement no-attune':'attunement'}">${attuneLabel(it.attunement)}</span></td>
       <td class="td-actions">
@@ -517,10 +535,17 @@ function renderTable(){
 }
 
 function updateStats(){
+  // Single pass — all four counts in one loop
+  let attuned=0, withFx=0, legendary=0;
+  for(const i of items){
+    if(i.attunement==='attuned') attuned++;
+    if(i.statEffects?.length>0)  withFx++;
+    if(i.rarity==='legendary'||i.rarity==='artifact') legendary++;
+  }
   document.getElementById('statTotal').textContent=items.length;
-  document.getElementById('statAttuned').textContent=items.filter(i=>i.attunement==='attuned').length;
-  document.getElementById('statWithFx').textContent=items.filter(i=>i.statEffects?.length>0).length;
-  document.getElementById('statLegendary').textContent=items.filter(i=>i.rarity==='legendary'||i.rarity==='artifact').length;
+  document.getElementById('statAttuned').textContent=attuned;
+  document.getElementById('statWithFx').textContent=withFx;
+  document.getElementById('statLegendary').textContent=legendary;
   renderAttuneWarnings();
 }
 
@@ -560,10 +585,10 @@ function renderAttuneWarnings(){
 function rarityLabel(r){ return{common:'Common',uncommon:'Uncommon',rare:'Rare','very-rare':'Very Rare',legendary:'Legendary',artifact:'Artifact'}[r]||r; }
 function attuneLabel(a){ return{none:'—',required:'Required',attuned:'Attuned'}[a]||a; }
 
-function renderHolderCell(holder){
+function renderHolderCell(holder, memberMap){
   if(!holder) return '<span style="color:var(--text-dim);font-size:0.85rem">—</span>';
-  const members=loadPartyMembers();
-  const m=members.find(x=>x.name===holder);
+  // Use passed-in map when available (from renderTable), fall back to linear scan
+  const m = memberMap ? memberMap.get(holder) : (_cachedPartyMembers||[]).find(x=>x.name===holder);
   const avatarStyle='width:20px;height:20px;border-radius:50%;object-fit:cover;vertical-align:middle;margin-right:5px;border:1px solid rgba(14,240,208,0.2);flex-shrink:0;';
   if(holder==='Party Inventory'){
     return `<span style="display:inline-flex;align-items:center;gap:5px;font-size:0.9rem"><span style="font-size:0.85rem">🎒</span>${esc(t('partyInventory'))}</span>`;
@@ -614,64 +639,49 @@ async function buildHolderDropdown(currentValue){
   const wrap=document.getElementById('holderSelectWrap');
   const dropdown=document.getElementById('holderDropdown');
 
-  // Build option list
-  // Group 1: blank/unassigned
-  // Group 2: Party Inventory
-  // Group 3: party members (from roster)
   const options=[
     { value:'', name:'— Unassigned —', photo:null, sub:'', isBlank:true },
     { value:'Party Inventory', name:t('partyInventory'), photo:null, sub:'shared loot', isSpecial:true },
   ];
   members.forEach(m=>{
-    options.push({
-      value: m.name,
-      name:  m.name,
-      photo: m.photo||null,
-      color: m.color||null,
-      sub:   [m.class, m.race].filter(Boolean).join(' · ')||'',
-    });
+    options.push({ value:m.name, name:m.name, photo:m.photo||null, color:m.color||null,
+      sub:[m.class,m.race].filter(Boolean).join(' · ')||'' });
   });
-
-  // Store options on wrap element so selectHolder can access them
   wrap._holderOptions = options;
 
-  dropdown.innerHTML = options.map((opt,i)=>{
-    const divider=(i===2&&members.length)
-      ? `<div class="holder-opt-divider">Party Members</div>`
-      : '';
-
-    const avatarContent = opt.photo
-      ? `<img src="${opt.photo}" alt="${esc(opt.name)}" />`
-      : opt.isBlank
-        ? `<span style="color:var(--text-dim);font-size:0.7rem">—</span>`
-        : opt.isSpecial
-          ? `<span style="font-size:0.75rem">🎒</span>`
-          : `<span style="color:${opt.color||'var(--gold)'}">${esc(opt.name.charAt(0).toUpperCase())}</span>`;
-
-    const isSelected = opt.value === currentValue;
-
-    return `${divider}<div class="holder-opt ${isSelected?'selected':''}" data-holder-idx="${i}">
-      <div class="holder-opt-avatar" style="${opt.color&&!opt.photo?`border-color:${opt.color}40`:''}">${avatarContent}</div>
-      <div class="holder-opt-info">
-        <div class="holder-opt-name">${esc(opt.name)}</div>
-        ${opt.sub?`<div class="holder-opt-sub">${esc(opt.sub)}</div>`:''}
-      </div>
-    </div>`;
-  }).join('');
-
-  // Attach click handlers via JS (avoids inline onclick with base64/special chars)
-  dropdown.querySelectorAll('.holder-opt').forEach(el=>{
-    el.addEventListener('click', function(e){
-      e.stopPropagation();
-      const idx = parseInt(this.getAttribute('data-holder-idx'));
-      const opt = wrap._holderOptions[idx];
-      if(opt) selectHolder(opt.value, opt.name, opt.photo||'', opt.color||'');
+  // Only rebuild HTML when member list changes — skip on every modal open
+  const optKey = members.map(m=>m.name+(m.photo||'')+(m.color||'')).join('|');
+  if(dropdown._optKey !== optKey){
+    dropdown._optKey = optKey;
+    dropdown.innerHTML = options.map((opt,i)=>{
+      const divider=(i===2&&members.length)?`<div class="holder-opt-divider">Party Members</div>`:'';
+      const avatarContent = opt.photo
+        ? `<img src="${opt.photo}" alt="${esc(opt.name)}" />`
+        : opt.isBlank   ? `<span style="color:var(--text-dim);font-size:0.7rem">—</span>`
+        : opt.isSpecial ? `<span style="font-size:0.75rem">🎒</span>`
+        : `<span style="color:${opt.color||'var(--gold)'}">${esc(opt.name.charAt(0).toUpperCase())}</span>`;
+      return `${divider}<div class="holder-opt" data-holder-idx="${i}">
+        <div class="holder-opt-avatar" style="${opt.color&&!opt.photo?`border-color:${opt.color}40`:''}">${avatarContent}</div>
+        <div class="holder-opt-info">
+          <div class="holder-opt-name">${esc(opt.name)}</div>
+          ${opt.sub?`<div class="holder-opt-sub">${esc(opt.sub)}</div>`:''}
+        </div>
+      </div>`;
+    }).join('');
+    dropdown.querySelectorAll('.holder-opt').forEach(el=>{
+      el.addEventListener('click', function(e){
+        e.stopPropagation();
+        const idx=parseInt(this.getAttribute('data-holder-idx'));
+        const opt=wrap._holderOptions[idx];
+        if(opt) selectHolder(opt.value, opt.name, opt.photo||'', opt.color||'');
+      });
     });
+  }
+  // Always sync selection highlight (cheap class toggles only)
+  dropdown.querySelectorAll('.holder-opt').forEach((el,i)=>{
+    el.classList.toggle('selected', options[i]?.value===currentValue);
   });
-
-  // Set selected display
   setHolderDisplay(currentValue, options);
-
 }
 
 function setHolderDisplay(value, optionsList){
@@ -871,6 +881,8 @@ async function initHolderDisplay(value){
 async function openModal(id){
   editingId=id||null;
   document.getElementById('modalTitle').textContent=id?'⚙ EDIT ITEM':'⚙ ADD LOOT ITEM';
+  const fieldNameError=document.getElementById('fieldNameError');
+  if(fieldNameError)fieldNameError.textContent='';
   pendingFx=[];
   document.getElementById('fxRows').innerHTML='';
   if(id){
@@ -900,7 +912,7 @@ async function openModal(id){
 }
 
 function closeModal(){ document.getElementById('modalBackdrop').classList.remove('open'); editingId=null; pendingFx=[]; }
-function backdropClose(e){ if(e.target===document.getElementById('modalBackdrop')) closeModal(); }
+function backdropClose(e){ if(e.target===document.getElementById('modalBackdrop')&&document.getElementById('modalBackdrop')._mousedownOnBackdrop) closeModal(); }
 
 // ── INLINE ATTUNEMENT WARNING (modal) ───────────────────────
 // Called when attunement select changes or when editing an existing item.
@@ -1003,33 +1015,38 @@ async function buildTxHolderDropdown(currentValue){
   if(!wrap||!dropdown) return;
   wrap._holderOptions = options;
 
-  dropdown.innerHTML = options.map((opt,i)=>{
-    const divider=(i===2&&members.length)?`<div class="holder-opt-divider">Party Members</div>`:'';
-    const avatarContent = opt.photo
-      ? `<img src="${esc(opt.photo)}" alt="${esc(opt.name)}" />`
-      : opt.isBlank  ? `<span style="color:var(--text-dim);font-size:0.7rem">—</span>`
-      : opt.isSpecial? `<span style="font-size:0.75rem">🎒</span>`
-      : `<span style="color:${opt.color||'var(--gold)'}"> ${esc(opt.name.charAt(0).toUpperCase())}</span>`;
-    const isSelected = opt.value===currentValue;
-    return `${divider}<div class="holder-opt ${isSelected?'selected':''}" data-tx-idx="${i}">
-      <div class="holder-opt-avatar" style="${opt.color&&!opt.photo?`border-color:${opt.color}40`:''}">${avatarContent}</div>
-      <div class="holder-opt-info">
-        <div class="holder-opt-name">${esc(opt.name)}</div>
-        ${opt.sub?`<div class="holder-opt-sub">${esc(opt.sub)}</div>`:''}
-      </div>
-    </div>`;
-  }).join('');
-
-  dropdown.querySelectorAll('.holder-opt').forEach(el=>{
-    el.addEventListener('click', function(e){
-      e.stopPropagation();
-      const idx=parseInt(this.getAttribute('data-tx-idx'));
-      const opt=wrap._holderOptions[idx];
-      if(opt) selectTxHolder(opt.value, opt.name, opt.photo||'', opt.color||'');
+  // Only rebuild HTML when member list changes
+  const optKey = members.map(m=>m.name+(m.photo||'')+(m.color||'')).join('|');
+  if(dropdown._optKey !== optKey){
+    dropdown._optKey = optKey;
+    dropdown.innerHTML = options.map((opt,i)=>{
+      const divider=(i===2&&members.length)?`<div class="holder-opt-divider">Party Members</div>`:'';
+      const avatarContent = opt.photo
+        ? `<img src="${esc(opt.photo)}" alt="${esc(opt.name)}" />`
+        : opt.isBlank  ? `<span style="color:var(--text-dim);font-size:0.7rem">—</span>`
+        : opt.isSpecial? `<span style="font-size:0.75rem">🎒</span>`
+        : `<span style="color:${opt.color||'var(--gold)'}"> ${esc(opt.name.charAt(0).toUpperCase())}</span>`;
+      return `${divider}<div class="holder-opt" data-tx-idx="${i}">
+        <div class="holder-opt-avatar" style="${opt.color&&!opt.photo?`border-color:${opt.color}40`:''}">${avatarContent}</div>
+        <div class="holder-opt-info">
+          <div class="holder-opt-name">${esc(opt.name)}</div>
+          ${opt.sub?`<div class="holder-opt-sub">${esc(opt.sub)}</div>`:''}
+        </div>
+      </div>`;
+    }).join('');
+    dropdown.querySelectorAll('.holder-opt').forEach(el=>{
+      el.addEventListener('click', function(e){
+        e.stopPropagation();
+        const idx=parseInt(this.getAttribute('data-tx-idx'));
+        const opt=wrap._holderOptions[idx];
+        if(opt) selectTxHolder(opt.value, opt.name, opt.photo||'', opt.color||'');
+      });
     });
+  }
+  // Always sync selection highlight and display
+  dropdown.querySelectorAll('.holder-opt').forEach((el,i)=>{
+    el.classList.toggle('selected', options[i]?.value===currentValue);
   });
-
-  // Set the display
   const current = options.find(o=>o.value===currentValue);
   const selName  = document.getElementById('txHolderSelName');
   const selAvatar= document.getElementById('txHolderSelAvatar');
@@ -1112,7 +1129,13 @@ document.addEventListener('click', function(e){
 
 async function saveItem(){
   const name=document.getElementById('fieldName').value.trim();
-  if(!name){ showToast('Item name is required.'); return; }
+  const fieldNameError=document.getElementById('fieldNameError');
+  if(fieldNameError)fieldNameError.textContent='';
+  if(!name){
+    if(fieldNameError)fieldNameError.textContent='⚠ Item name is required.';
+    document.getElementById('fieldName').focus();
+    return;
+  }
   const rawQty = parseInt(document.getElementById('fieldQty').value, 10);
   const item={
     id:editingId||uid(), name,
@@ -1196,6 +1219,12 @@ function handleImport(e){
 
 document.addEventListener('keydown',e=>{ if(e.key==='Escape') closeModal(); if(e.key==='Enter'&&document.getElementById('modalBackdrop').classList.contains('open')&&document.activeElement.tagName!=='TEXTAREA'&&document.activeElement.tagName!=='SELECT') saveItem(); });
 
+// Track whether a drag started on the backdrop itself (not inside modal content).
+// Prevents closing the modal when the user clicks inside and drags outside.
+document.getElementById('modalBackdrop').addEventListener('mousedown', function(e){
+  this._mousedownOnBackdrop = e.target === this;
+});
+
 async function populateHolderFilter(){
   const sel=document.getElementById('filterHolder');
   // Update display labels for the static special options using current term mappings
@@ -1216,16 +1245,19 @@ async function populateHolderFilter(){
   if(current) sel.value=current;
 }
 
-loadModuleSettings().then(() => {
+// Start all three fetches simultaneously — none depend on each other at boot
+Promise.all([
+  loadModuleSettings(),
+  loadData(),
+  loadPartyMembersAsync(),
+]).then(() => {
   buildSidenav('loot-tracker.html');
   applyModuleVisibility();
   if (!enforceModuleGuard('lootTracker')) return;
   showLoading(false);
   loadTerms().catch(() => {});
-  Promise.all([
-    loadData(),
-    loadPartyMembersAsync(),   // pre-warm cache so renderHolderCell shows photos on first render
-  ]).then(()=>{ renderTable(); populateHolderFilter(); });
+  renderTable();
+  populateHolderFilter();
 });
 </script>
 

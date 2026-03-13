@@ -370,13 +370,32 @@ function enforceModuleGuard(moduleKey) {
 function applyModuleVisibility() {
   MODULE_DEFS.forEach(mod => {
     const enabled = isModuleEnabled(mod.key);
-    // Sidenav links — hide the link entirely when disabled
+
+    // Sidenav links — hide entirely when disabled (no broken nav links)
     document.querySelectorAll(`.sidenav-link[href="${mod.href}"]`).forEach(el => {
       el.style.display = enabled ? '' : 'none';
     });
+
     // Dashboard module cards (index.html only)
-    const card = document.querySelector(`.module-card[href="${mod.href}"]`);
-    if (card) card.style.display = enabled ? '' : 'none';
+    const card = document.querySelector(`.module-card[data-module="${mod.key}"]`);
+    if (!card) return;
+
+    const badge = card.querySelector('.card-status');
+    const arrow = card.querySelector('.card-arrow');
+
+    if (enabled) {
+      // Restore to active state
+      card.classList.remove('module-disabled');
+      card.setAttribute('href', mod.href);
+      if (badge) { badge.className = 'card-status status-live'; badge.textContent = 'LIVE'; }
+      if (arrow) arrow.style.display = '';
+    } else {
+      // Show as inactive — visible but not clickable
+      card.classList.add('module-disabled');
+      card.removeAttribute('href');
+      if (badge) { badge.className = 'card-status status-inactive'; badge.textContent = 'INACTIVE'; }
+      if (arrow) arrow.style.display = 'none';
+    }
   });
 }
 

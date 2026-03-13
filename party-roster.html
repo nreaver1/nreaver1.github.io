@@ -109,7 +109,7 @@
       </div>
       <!-- Basic info -->
       <div class="field-row">
-        <div class="field"><label>Character Name *</label><input type="text" id="f-name" placeholder="e.g. Zyx Nightshade" oninput="updateModalPreview()" /></div>
+        <div class="field"><label>Character Name <span class="field-required">(required)</span></label><input type="text" id="f-name" placeholder="e.g. Zyx Nightshade" oninput="updateModalPreview();(function(){var e=document.getElementById('fNameError');if(e&&this.value.trim())e.textContent='';}).call(this)" /><div class="tx-desc-error" id="fNameError" aria-live="polite"></div></div>
         <div class="field"><label>Player Name <span class="optional">(optional)</span></label><input type="text" id="f-player" placeholder="e.g. Alex" /></div>
       </div>
       <div class="field-row">
@@ -177,8 +177,9 @@
     </div>
     <div class="modal-body">
       <div class="field">
-        <label>Item Name *</label>
-        <input type="text" class="mi" id="lt_fieldName" placeholder="e.g. Plasma Sword, Shadow Cloak…" />
+        <label>Item Name <span class="field-required">(required)</span></label>
+        <input type="text" class="mi" id="lt_fieldName" placeholder="e.g. Plasma Sword, Shadow Cloak…" oninput="(function(){var e=document.getElementById('ltNameError');if(e&&this.value.trim())e.textContent='';}).call(this)" />
+        <div class="tx-desc-error" id="ltNameError" aria-live="polite"></div>
       </div>
       <div class="field-row">
         <div class="field">
@@ -376,9 +377,19 @@ let _rosterFilter={search:'',status:'',sort:'created'};
 // full re-renders and page reloads without needing a DB column.
 // Shape: { memberId: ['blinded','poisoned',…], … }
 const _COND_KEY='nexus_conditions';
-function _condLoad(){try{return JSON.parse(localStorage.getItem(_COND_KEY)||'{}')}catch{return{}}}
-function _condSave(map){try{localStorage.setItem(_COND_KEY,JSON.stringify(map))}catch{}}
-function getConditions(memberId){return _condLoad()[memberId]||[]}
+// In-memory write-through caches — eliminates repeated JSON.parse on every card render.
+// Write path (save/toggle) updates both cache and localStorage in one step.
+let _condCache=null;  // null = not yet loaded
+function _condLoad(){
+  if(_condCache!==null) return _condCache;
+  try{_condCache=JSON.parse(localStorage.getItem(_COND_KEY)||'{}')}catch{_condCache={}}
+  return _condCache;
+}
+function _condSave(map){
+  _condCache=map;  // update cache first
+  try{localStorage.setItem(_COND_KEY,JSON.stringify(map))}catch{}
+}
+function getConditions(memberId){return _condLoad()[memberId]||[];}
 
 // Toggle a single condition for a member, then do a surgical DOM refresh —
 // only the condition chips and header badge update, no full re-render.
@@ -425,14 +436,20 @@ function clearConditions(memberId){
   _refreshCondChips(memberId);
 }
 
-// ── fx-items collapsed state ─────────────────────────────────
+// ── fx-items collapsed state ─────────────────────────────────────────────────────
 // Persisted in localStorage so expand/collapse state survives renders.
 const _FX_COLLAPSE_KEY='nexus_fxItemsCollapsed';
-function _fxCollapseLoad(){try{return JSON.parse(localStorage.getItem(_FX_COLLAPSE_KEY)||'{}')}catch{return{}}}
-function _fxCollapseIsCollapsed(memberId){return!!_fxCollapseLoad()[memberId]}
+let _fxCollapseCache=null;  // null = not yet loaded
+function _fxCollapseLoad(){
+  if(_fxCollapseCache!==null) return _fxCollapseCache;
+  try{_fxCollapseCache=JSON.parse(localStorage.getItem(_FX_COLLAPSE_KEY)||'{}')}catch{_fxCollapseCache={}}
+  return _fxCollapseCache;
+}
+function _fxCollapseIsCollapsed(memberId){return!!_fxCollapseLoad()[memberId];}
 function fxItemsToggle(memberId){
   const state=_fxCollapseLoad();
   state[memberId]=!state[memberId];
+  _fxCollapseCache=state;  // keep cache in sync
   try{localStorage.setItem(_FX_COLLAPSE_KEY,JSON.stringify(state))}catch{}
   // Surgical DOM update — no re-render needed
   const card=document.querySelector(`.member-card[data-member-id="${memberId}"]`);
@@ -557,6 +574,33 @@ function computeNetEffects(memberName){
   }
   return{net,relevant};
 }
+
+// Fast variant of computeNetEffects using pre-grouped maps from render().
+// Avoids re-scanning the full items array for each member — O(1) map lookup.
+function _computeNetEffectsFromMaps(nameLc,_itemsByHolder,_partyItems){
+  const relevant=[...(_itemsByHolder.get(nameLc)||[]),..._partyItems];
+  const net={};
+  for(const item of relevant){
+    for(const fx of (item.statEffects||[])){
+      if(!fx.stat) continue;
+      if(!net[fx.stat]) net[fx.stat]={bonus:0,penalty:0,advantage:0,disadvantage:0,sources:[]};
+      if(fx.type==='bonus')        net[fx.stat].bonus+=(fx.value||0);
+      if(fx.type==='penalty')      net[fx.stat].penalty+=(fx.value||0);
+      if(fx.type==='advantage')    net[fx.stat].advantage++;
+      if(fx.type==='disadvantage') net[fx.stat].disadvantage++;
+      net[fx.stat].sources.push({itemName:item.name,itemRarity:item.rarity,fx});
+      if(fx.type==='bonus'||fx.type==='penalty'){
+        if(!net[fx.stat].byType) net[fx.stat].byType={};
+        const bucket=fx.damageType?fx.damageType.toLowerCase():'untyped';
+        if(!net[fx.stat].byType[bucket]) net[fx.stat].byType[bucket]={bonus:0,penalty:0};
+        if(fx.type==='bonus')   net[fx.stat].byType[bucket].bonus+=(fx.value||0);
+        if(fx.type==='penalty') net[fx.stat].byType[bucket].penalty+=(fx.value||0);
+      }
+    }
+  }
+  return{net,relevant};
+}
+
 
 function computeCheck(key,ability,m,net,prof){
   let base=abilityMod(m.abilities?.[ability]||10);
@@ -719,13 +763,14 @@ function _getFilteredMembers(){
     }
     return true;
   });
-  // Stable sort: indexOf() as tiebreaker keeps insertion order within equal keys
+  // Pre-build position map once (O(n)) to avoid O(n²) indexOf in sort comparator
+  const posMap=new Map(members.map((m,i)=>[m.id,i]));
   filtered.sort((a,b)=>{
     if(sort==='name')   return (a.name||'').localeCompare(b.name||'');
     if(sort==='level')  return (b.level||0)-(a.level||0);
     if(sort==='class')  return (a.class||'').localeCompare(b.class||'');
     if(sort==='status'){const o={active:0,missing:1,retired:2,deceased:3};return(o[a.status]??9)-(o[b.status]??9);}
-    return members.indexOf(a)-members.indexOf(b); // 'created' — original order
+    return (posMap.get(a.id)??0)-(posMap.get(b.id)??0); // 'created' — original insertion order
   });
   return filtered;
 }
@@ -789,8 +834,24 @@ function render(){
     grid.innerHTML=`<div class="empty-state"><span class="ei">🔍</span><p>No members match the current filter.</p><button class="btn btn-ghost" style="margin-top:1rem;font-size:0.75rem" onclick="clearRosterSearch();document.getElementById('filterStatus').value='';applyRosterFilter()">Clear Filter</button></div>`;
     return;
   }
-  // Use a DocumentFragment for one single DOM write (avoids multiple reflows)
-  grid.innerHTML=filtered.map((m,i)=>buildCard(m,i)).join('')+
+
+  // ── Pre-compute shared state once for all cards (O(items+members), not O(N×M)) ──
+
+  // Group loot items by holder name (lowercased) so buildCard does O(1) lookup
+  const _itemsByHolder=new Map();  // holderNameLc → item[]
+  const _partyItems=[];
+  for(const it of getItemEffects()){
+    const h=(it.holder||'').toLowerCase().trim();
+    if(h==='party'||h==='party inventory'){ _partyItems.push(it); continue; }
+    if(!_itemsByHolder.has(h)) _itemsByHolder.set(h,[]);
+    _itemsByHolder.get(h).push(it);
+  }
+
+  // Pre-load localStorage once (single JSON.parse each) for the whole render pass
+  const _condSnap=_condLoad();
+  const _fxSnap=_fxCollapseLoad();
+
+  grid.innerHTML=filtered.map((m,i)=>buildCard(m,i,_itemsByHolder,_partyItems,_condSnap,_fxSnap)).join('')+
     `<div class="add-card" onclick="openModal()"><div class="add-card-icon">+</div><div class="add-card-label">Recruit Member</div></div>`;
 }
 
@@ -804,10 +865,9 @@ function updateStats(){
 }
 
 // ── stat/fx label helpers ──────────────────────────────────────
-function statLabelShort(key){
-  const map={str:'STR',dex:'DEX',con:'CON',int:'INT',wis:'WIS',cha:'CHA',ac:'AC',hp:'HP Max',speed:'Speed',initiative:'Initiative',prof_bonus:'Prof Bonus',save_str:'STR Save',save_dex:'DEX Save',save_con:'CON Save',save_int:'INT Save',save_wis:'WIS Save',save_cha:'CHA Save',acrobatics:'Acrobatics',animal_handling:'Animal Handling',arcana:'Arcana',athletics:'Athletics',deception:'Deception',history:'History',insight:'Insight',intimidation:'Intimidation',investigation:'Investigation',medicine:'Medicine',nature:'Nature',perception:'Perception',performance:'Performance',persuasion:'Persuasion',religion:'Religion',sleight_of_hand:'Sleight of Hand',stealth:'Stealth',survival:'Survival',attack_rolls:'Attack Rolls',spell_attack:'Spell Atk',spell_dc:'Spell DC',damage_rolls:'Damage Rolls',spell_damage:'Spell Dmg'};
-  return map[key]||key;
-}
+// Module-level const — built once at parse time, not recreated on every call
+const _STAT_LABEL_MAP={str:'STR',dex:'DEX',con:'CON',int:'INT',wis:'WIS',cha:'CHA',ac:'AC',hp:'HP Max',speed:'Speed',initiative:'Initiative',prof_bonus:'Prof Bonus',save_str:'STR Save',save_dex:'DEX Save',save_con:'CON Save',save_int:'INT Save',save_wis:'WIS Save',save_cha:'CHA Save',acrobatics:'Acrobatics',animal_handling:'Animal Handling',arcana:'Arcana',athletics:'Athletics',deception:'Deception',history:'History',insight:'Insight',intimidation:'Intimidation',investigation:'Investigation',medicine:'Medicine',nature:'Nature',perception:'Perception',performance:'Performance',persuasion:'Persuasion',religion:'Religion',sleight_of_hand:'Sleight of Hand',stealth:'Stealth',survival:'Survival',attack_rolls:'Attack Rolls',spell_attack:'Spell Atk',spell_dc:'Spell DC',damage_rolls:'Damage Rolls',spell_damage:'Spell Dmg'};
+function statLabelShort(key){ return _STAT_LABEL_MAP[key]||key; }
 function fxClass(type){return{bonus:'fx-pos',penalty:'fx-neg',advantage:'fx-adv',disadvantage:'fx-dis'}[type]||'fx-pos';}
 function fxShort(fx){
   const dmgLabel=fx.damageType?` [${fx.damageType}]`:'';
@@ -825,7 +885,7 @@ function fxShort(fx){
 // ── buildEffectsPanel ─────────────────────────────────────────
 // Extracted so it can be called both by buildCard (full render)
 // and by lt_refreshEffectsPanel (surgical in-place update).
-function buildEffectsPanel(m,net,relevant){
+function buildEffectsPanel(m,net,relevant,_fxSnap){
   // Net totals section — one row per affected stat
   const netSummary=Object.entries(net).map(([stat,data])=>{
     const parts=[];
@@ -858,7 +918,7 @@ function buildEffectsPanel(m,net,relevant){
 
   // Items group — collapsible, persists open/closed state per member
   const itemsWithFx=relevant.filter(item=>(item.statEffects||[]).length>0);
-  const collapsed=_fxCollapseIsCollapsed(m.id);
+  const collapsed=_fxSnap ? !!_fxSnap[m.id] : _fxCollapseIsCollapsed(m.id);
   const chevron=collapsed?'▶':'▼';
   const bodyDisplay=collapsed?'display:none':'';
   const itemCount=itemsWithFx.length;
@@ -940,7 +1000,7 @@ function buildCondPanel(m,activeConditions,color){
 // ── buildCard ─────────────────────────────────────────────────
 // Master card builder. All tabs are built here and injected as
 // static HTML — no async work, so render() stays synchronous.
-function buildCard(m,idx){
+function buildCard(m,idx,_itemsByHolder,_partyItems,_condSnap,_fxSnap){
   const color=m.color||COLORS[idx%COLORS.length];
   const initials=(m.name||'?').split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase();
   const portrait=m.photo
@@ -948,10 +1008,15 @@ function buildCard(m,idx){
     :`<div class="portrait-initials">${initials}</div>`;
   const statusColor=STATUS_COLORS[m.status]||'var(--text-dim)';
   const prof=m.prof||2;
-  const {net,relevant}=computeNetEffects(m.name);
 
-  // ── Conditions (read from localStorage, not DB) ──────────────
-  const activeConditions=getConditions(m.id);
+  // Use pre-grouped item maps when available (from render()), fall back for surgical calls
+  const nameLc=(m.name||'').toLowerCase().trim();
+  const {net,relevant}=_itemsByHolder
+    ? _computeNetEffectsFromMaps(nameLc,_itemsByHolder,_partyItems)
+    : computeNetEffects(m.name);
+
+  // ── Conditions (read from pre-loaded snapshot when available) ──
+  const activeConditions=_condSnap ? (_condSnap[m.id]||[]) : getConditions(m.id);
 
   // ── HP Bar ────────────────────────────────────────────────────
   // Displayed inline in the card header — always visible without
@@ -1052,15 +1117,13 @@ function buildCard(m,idx){
     </div>`;
 
   // ── EFFECTS TAB ──────────────────────────────────────────────
-  const effectsTab=buildEffectsPanel(m,net,relevant);
+  const effectsTab=buildEffectsPanel(m,net,relevant,_fxSnap);
 
   // ── LOOT TAB ─────────────────────────────────────────────────
-  // Items held by this member (exact name match, case-insensitive)
-  const memberItems=getItemEffects().filter(it=>{
-    const h=(it.holder||'').toLowerCase().trim();
-    const n=(m.name||'').toLowerCase().trim();
-    return h===n;
-  });
+  // Items held by this member — use pre-grouped map when available (O(1)), else fall back
+  const memberItems=_itemsByHolder
+    ? (_itemsByHolder.get(nameLc)||[])
+    : getItemEffects().filter(it=>(it.holder||'').toLowerCase().trim()===(m.name||'').toLowerCase().trim());
 
   // 5e attunement limit: warn if member has > 3 attuned items
   const attuned=memberItems.filter(it=>it.attunement==='attuned');
@@ -1297,12 +1360,18 @@ function openModal(id){
 }
 
 function closeModal(){document.getElementById('memberModal').classList.remove('open');editId=null;}
-function backdropClose(e){if(e.target===document.getElementById('memberModal'))closeModal();}
+function backdropClose(e){if(e.target===document.getElementById('memberModal')&&document.getElementById('memberModal')._mousedownOnBackdrop)closeModal();}
 function updateModalPreview(){const n=document.getElementById('f-name').value;if(!currentPhoto)document.getElementById('photoPreview').innerHTML=`<span class="photo-initials">${n?n.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase():'?'}</span>`;}
 
 async function saveMember(){
   const name=document.getElementById('f-name').value.trim();
-  if(!name){showToast('Character name required.');return;}
+  const fNameError=document.getElementById('fNameError');
+  if(fNameError)fNameError.textContent='';
+  if(!name){
+    if(fNameError)fNameError.textContent='⚠ Character name is required.';
+    document.getElementById('f-name').focus();
+    return;
+  }
   const btn=document.getElementById('btnSaveMember');
   const modal=document.getElementById('memberModal');
   setLoading(btn,true);setModalLoading(modal,true);
@@ -1400,6 +1469,15 @@ async function handleImport(e){
 document.addEventListener('keydown',e=>{
   if(e.key==='Escape'){closeModal();lt_closeModal();}
   if(e.key==='Enter'&&document.getElementById('memberModal').classList.contains('open')&&document.activeElement.tagName!=='TEXTAREA'&&document.activeElement.tagName!=='SELECT') saveMember();
+});
+
+// Track whether a drag started on the backdrop itself (not inside the modal content).
+// Prevents closing the modal when the user clicks inside and drags outside.
+document.getElementById('memberModal').addEventListener('mousedown', function(e){
+  this._mousedownOnBackdrop = e.target === this;
+});
+document.getElementById('lt_modalBackdrop').addEventListener('mousedown', function(e){
+  this._mousedownOnBackdrop = e.target === this;
 });
 
 // ══════════════════════════════════════════════════════════════
@@ -1547,6 +1625,8 @@ function lt_populateHolderSelect(currentValue){
 function lt_openModal(id){
   lt_editingId=id||null;
   document.getElementById('lt_modalTitle').textContent=id?'⚙ EDIT ITEM':'⚙ ADD LOOT ITEM';
+  const ltNameError=document.getElementById('ltNameError');
+  if(ltNameError)ltNameError.textContent='';
   lt_pendingFx=[];document.getElementById('lt_fxRows').innerHTML='';
   if(id){
     const it=(_cachedLootItems||[]).find(i=>i.id===id);
@@ -1568,11 +1648,17 @@ function lt_openModal(id){
 }
 
 function lt_closeModal(){document.getElementById('lt_modalBackdrop').classList.remove('open');lt_editingId=null;lt_pendingFx=[];}
-function lt_backdropClose(e){if(e.target===document.getElementById('lt_modalBackdrop'))lt_closeModal();}
+function lt_backdropClose(e){if(e.target===document.getElementById('lt_modalBackdrop')&&document.getElementById('lt_modalBackdrop')._mousedownOnBackdrop)lt_closeModal();}
 
 async function lt_saveItem(){
   const name=document.getElementById('lt_fieldName').value.trim();
-  if(!name){showToast('Item name is required.');return;}
+  const ltNameError=document.getElementById('ltNameError');
+  if(ltNameError)ltNameError.textContent='';
+  if(!name){
+    if(ltNameError)ltNameError.textContent='⚠ Item name is required.';
+    document.getElementById('lt_fieldName').focus();
+    return;
+  }
   const item={
     id:lt_editingId||uid(),name,
     type:document.getElementById('lt_fieldType').value,
@@ -1607,14 +1693,19 @@ async function lt_saveItem(){
 // ══════════════════════════════════════════════════════════════
 //  BOOT
 // ══════════════════════════════════════════════════════════════
-loadModuleSettings().then(() => {
+// Start all four fetches simultaneously — none depend on each other at boot
+Promise.all([
+  loadModuleSettings(),
+  loadData(),
+  prefetchLootItems(),
+  prefetchTreasury(),
+]).then(() => {
   buildSidenav('party-roster.html');
   applyModuleVisibility();
   if (!enforceModuleGuard('partyRoster')) return;
   showLoading(false);
   loadTerms().catch(() => {});
-  // Boot: load members + loot + treasury in parallel for fastest first render
-  loadData().then(()=>Promise.all([prefetchLootItems(),prefetchTreasury()]).then(()=>render()));
+  render();
 });
 </script>
 

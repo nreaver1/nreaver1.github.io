@@ -56,10 +56,10 @@
         <div style="position:relative;flex:1;min-width:200px;display:flex;align-items:center">
           <input class="search-input" type="text" id="sessionSearch"
                  placeholder="⌕ Search sessions, summaries…"
-                 oninput="renderSessions();document.getElementById('btnClearSearch').style.display=this.value?'flex':'none'"
+                 oninput="applySessionFilter();document.getElementById('btnClearSearch').style.display=this.value?'flex':'none'"
                  style="width:100%;padding-right:2rem" />
           <button id="btnClearSearch"
-                  onclick="document.getElementById('sessionSearch').value='';document.getElementById('btnClearSearch').style.display='none';renderSessions()"
+                  onclick="document.getElementById('sessionSearch').value='';document.getElementById('btnClearSearch').style.display='none';applySessionFilter()"
                   title="Clear search"
                   style="display:none;position:absolute;right:0.4rem;background:none;border:none;
                          cursor:pointer;color:var(--red);opacity:0.75;font-size:0.85rem;
@@ -70,7 +70,7 @@
         </div>
       </div>
       <div class="toolbar-right">
-        <select id="filterStatus" onchange="renderSessions()">
+        <select id="filterStatus" onchange="applySessionFilter()">
           <option value="">All Statuses</option>
           <option value="draft">Draft</option>
           <option value="complete">Complete</option>
@@ -94,7 +94,7 @@
                oninput="renderNpcs()" />
       </div>
       <div class="toolbar-right">
-        <select id="filterDisposition" onchange="renderNpcs()">
+        <select id="filterDisposition" onchange="applyNpcFilter()">
           <option value="">All Dispositions</option>
           <option value="allied">Allied</option>
           <option value="friendly">Friendly</option>
@@ -117,7 +117,7 @@
      SESSION MODAL
 ═══════════════════════════════════════════════════════ -->
 <div class="modal-backdrop" id="sessionModal"
-     onclick="if(event.target===this)closeSessionModal()">
+     onclick="if(event.target===this&&this._mousedownOnBackdrop)closeSessionModal()">
   <div class="modal" style="max-width:600px;width:100%">
 
     <div class="modal-header">
@@ -140,12 +140,12 @@
 
         <!-- Number + Title row -->
         <div style="display:flex;gap:0.75rem;align-items:flex-start;margin-bottom:0.9rem">
-          <div style="flex:0 0 100px">
+          <div style="flex:0 0 90px">
             <label class="modal-label">Session #</label>
             <input id="smNumber" type="number" min="1" class="modal-input"
                    style="width:100%;text-align:center"
                    oninput="document.getElementById('smNumberError').textContent=''" />
-            <div class="tx-desc-error" id="smNumberError"></div>
+            <div class="tx-desc-error" id="smNumberError" style="white-space:nowrap;overflow:visible;min-width:220px"></div>
           </div>
           <div style="flex:1">
             <label class="modal-label">Title <span class="field-required">(required)</span></label>
@@ -305,7 +305,7 @@
      NPC MODAL (global index add/edit)
 ═══════════════════════════════════════════════════════ -->
 <div class="modal-backdrop" id="npcModal"
-     onclick="if(event.target===this)closeNpcModal()">
+     onclick="if(event.target===this&&this._mousedownOnBackdrop)closeNpcModal()">
   <div class="modal" style="max-width:480px;width:100%">
 
     <div class="modal-header">
@@ -382,13 +382,25 @@ let events      = {};   // { [session_id]: session_events[] }
 let npcs        = [];   // all NPC rows
 let npcMap      = new Map(); // slug → npc
 
+// O(1) id lookup maps — rebuilt by _rebuildIdMaps() after any mutation
+let sessionIdMap = new Map(); // id → session
+let npcIdMap     = new Map(); // id → npc
+
+function _rebuildIdMaps() {
+  sessionIdMap = new Map(sessions.map(s => [s.id, s]));
+  npcIdMap     = new Map(npcs.map(n => [n.id, n]));
+}
+
 let currentView = 'sessions'; // 'sessions' | 'npcs'
 let expandedId  = null;        // currently expanded session card id
 let activeTabs  = {};          // { [session_id]: tabName }
 
-// ══════════════════════════════════════════════════════════════
-//  BOOT
-// ══════════════════════════════════════════════════════════════
+// Cached filter state — updated by applySessionFilter()/applyNpcFilter()
+// so render functions read from memory, not the DOM on every call
+let _sessionFilter = { q: '', status: '' };
+let _npcFilter     = { q: '', disp: '' };
+
+
 function showLoading(on) {
   const el = document.getElementById('loadingOverlay');
   if (el) el.style.display = on ? 'flex' : 'none';
@@ -398,17 +410,17 @@ async function boot() {
   showLoading(true);
   let guarded = false;
   try {
-    await loadModuleSettings();
-    buildSidenav('session-log.html');
-    applyModuleVisibility();
-    if (!enforceModuleGuard('sessionLog')) { guarded = true; return; }
-    await loadTerms().catch(() => {});
-    // All three data sources load in parallel
-    const [sessionRows, eventRows, npcRows] = await Promise.all([
+    // All five fetches are independent — fire simultaneously
+    const [, , sessionRows, eventRows, npcRows] = await Promise.all([
+      loadModuleSettings(),
+      loadTerms().catch(() => {}),
       db.select('session_log',    { order: 'number.desc' }),
       db.select('session_events', { order: 'session_id.asc,sort_order.asc' }),
       db.select('npcs',           { order: 'name.asc' }),
     ]);
+    buildSidenav('session-log.html');
+    applyModuleVisibility();
+    if (!enforceModuleGuard('sessionLog')) { guarded = true; return; }
     sessions = sessionRows;
     // Group events by session_id
     events = {};
@@ -418,6 +430,7 @@ async function boot() {
     }
     npcs = npcRows;
     buildNpcMap();
+    _rebuildIdMaps();
   } catch(e) {
     console.error(e);
     showToast('Could not load session data — check your Supabase config.');
@@ -456,19 +469,18 @@ function switchView(view) {
 //  STATS BAR
 // ══════════════════════════════════════════════════════════════
 function updateStats() {
-  document.getElementById('statSessions').textContent = sessions.length;
-  document.getElementById('statNpcs').textContent     = npcs.length;
-  document.getElementById('statComplete').textContent = sessions.filter(s => s.status === 'complete').length;
-
-  // Count active quests and total logged moments across all sessions
-  let activeQuestCount = 0;
-  let momentCount      = 0;
+  // Single pass — collect all counts simultaneously
+  let completeCount = 0, activeQuestCount = 0, momentCount = 0;
   for (const s of sessions) {
+    if (s.status === 'complete') completeCount++;
     activeQuestCount += (s.quests || []).filter(q => q.status === 'active').length;
     momentCount      += (events[s.id] || []).length;
   }
+  document.getElementById('statSessions').textContent    = sessions.length;
+  document.getElementById('statNpcs').textContent        = npcs.length;
+  document.getElementById('statComplete').textContent    = completeCount;
   document.getElementById('statActiveQuests').textContent = activeQuestCount;
-  document.getElementById('statMoments').textContent      = momentCount;
+  document.getElementById('statMoments').textContent     = momentCount;
 }
 
 // ══════════════════════════════════════════════════════════════
@@ -685,14 +697,18 @@ function initCitationAutocomplete(el) {
 // ══════════════════════════════════════════════════════════════
 //  SESSIONS VIEW — RENDER
 // ══════════════════════════════════════════════════════════════
-function getFilteredSessions() {
-  const q      = (document.getElementById('sessionSearch').value || '').toLowerCase();
-  const status = document.getElementById('filterStatus').value;
+// Update session filter state from DOM, then re-render.
+function applySessionFilter() {
+  _sessionFilter.q      = (document.getElementById('sessionSearch').value || '').toLowerCase();
+  _sessionFilter.status = document.getElementById('filterStatus').value;
+  renderSessions();
+}
 
+function getFilteredSessions() {
+  const { q, status } = _sessionFilter;
   return sessions.filter(s => {
     if (status && s.status !== status) return false;
     if (q) {
-      // Search title, summary, world_date, moment texts, and quest texts
       const momentTexts = (events[s.id] || []).map(ev => ev.text || '').join(' ');
       const questTexts  = (s.quests     || []).map(qt => qt.text  || '').join(' ');
       const haystack    = [s.title, s.summary, s.world_date, momentTexts, questTexts]
@@ -810,7 +826,7 @@ function renderTabNpcs(s) {
   if (!sessionNpcIds.length) return `<div class="sc-tab-empty">No NPCs linked to this session.</div>`;
 
   const sessionNpcs = sessionNpcIds
-    .map(id => npcs.find(n => n.id === id))
+    .map(id => npcIdMap.get(id))
     .filter(Boolean);
 
   if (!sessionNpcs.length) return `<div class="sc-tab-empty">No NPCs linked to this session.</div>`;
@@ -880,36 +896,70 @@ function switchTab(sessionId, tab) {
 // ══════════════════════════════════════════════════════════════
 //  NPC INDEX VIEW — RENDER
 // ══════════════════════════════════════════════════════════════
+
+// getSessionAppearances — kept for compatibility; renderNpcs uses _buildAppearanceMap
+// for batch efficiency when rendering all NPC cards.
 function getSessionAppearances(npc) {
-  // Find all sessions where this NPC appears:
-  // 1. Listed in session_npcs array
-  // 2. ^{slug} appears in summary, event text, or quest text (citation scan)
   const needle  = `^${npc.slug}`;
   const results = new Set();
-
   for (const s of sessions) {
     if ((s.session_npcs || []).includes(npc.id)) { results.add(s.id); continue; }
     if (s.summary && s.summary.includes(needle))  { results.add(s.id); continue; }
-    // Scan moment text
     for (const ev of (events[s.id] || [])) {
       if (ev.text && ev.text.includes(needle)) { results.add(s.id); break; }
     }
     if (results.has(s.id)) continue;
-    // Scan quest text
     for (const q of (s.quests || [])) {
       if (q.text && q.text.includes(needle)) { results.add(s.id); break; }
     }
   }
+  return sessions.filter(s => results.has(s.id)).sort((a, b) => a.number - b.number);
+}
 
-  return sessions
-    .filter(s => results.has(s.id))
-    .sort((a, b) => a.number - b.number);
+
+// Build a full npcId → Set<sessionId> appearance map in one pass over all sessions.
+// Called once per renderNpcs() — O(sessions × avg_events) total
+// instead of O(sessions × events) per NPC card.
+function _buildAppearanceMap() {
+  const map = new Map();
+  const _ensure = id => { if (!map.has(id)) map.set(id, new Set()); return map.get(id); };
+
+  for (const s of sessions) {
+    for (const npcId of (s.session_npcs || [])) _ensure(npcId).add(s.id);
+    if (s.summary) {
+      for (const [, slug] of s.summary.matchAll(/\^([a-z0-9][a-z0-9-]*)/g)) {
+        const npc = npcMap.get(slug); if (npc) _ensure(npc.id).add(s.id);
+      }
+    }
+    for (const ev of (events[s.id] || [])) {
+      if (!ev.text) continue;
+      for (const [, slug] of ev.text.matchAll(/\^([a-z0-9][a-z0-9-]*)/g)) {
+        const npc = npcMap.get(slug); if (npc) _ensure(npc.id).add(s.id);
+      }
+    }
+    for (const q of (s.quests || [])) {
+      if (!q.text) continue;
+      for (const [, slug] of q.text.matchAll(/\^([a-z0-9][a-z0-9-]*)/g)) {
+        const npc = npcMap.get(slug); if (npc) _ensure(npc.id).add(s.id);
+      }
+    }
+  }
+  return map;
+}
+
+// Update NPC filter state from DOM, then re-render.
+function applyNpcFilter() {
+  _npcFilter.q    = (document.getElementById('npcSearch').value || '').toLowerCase();
+  _npcFilter.disp = document.getElementById('filterDisposition').value;
+  renderNpcs();
 }
 
 function renderNpcs() {
+  // Sync filter state from DOM (covers both direct calls and applyNpcFilter() path)
+  _npcFilter.q    = (document.getElementById('npcSearch')?.value || '').toLowerCase();
+  _npcFilter.disp = document.getElementById('filterDisposition')?.value || '';
   const grid = document.getElementById('npcGrid');
-  const q    = (document.getElementById('npcSearch').value || '').toLowerCase();
-  const disp = document.getElementById('filterDisposition').value;
+  const { q, disp } = _npcFilter;
 
   const filtered = npcs.filter(n => {
     if (disp && n.disposition !== disp) return false;
@@ -929,8 +979,15 @@ function renderNpcs() {
     return;
   }
 
+  // Pre-build the full appearance map once — O(sessions×events) total
+  // instead of O(sessions×events) per NPC card
+  const appearanceMap = _buildAppearanceMap();
+
   grid.innerHTML = filtered.map(npc => {
-    const appearances = getSessionAppearances(npc);
+    const sessionIds  = appearanceMap.get(npc.id) || new Set();
+    const appearances = sessions
+      .filter(s => sessionIds.has(s.id))
+      .sort((a, b) => a.number - b.number);
     const badges = appearances.map(s =>
       `<span class="npc-session-badge" onclick="jumpToSession('${esc(s.id)}')" title="Session ${s.number}: ${esc(s.title)}">S${s.number}</span>`
     ).join('');
@@ -1003,7 +1060,7 @@ function openSessionModal(id, startTab) {
   document.getElementById('sessionModalTitle').textContent =
     id ? '⚙ EDIT SESSION' : '⚙ NEW SESSION';
 
-  const s = id ? sessions.find(x => x.id === id) : null;
+  const s = id ? sessionIdMap.get(id) : null;
 
   // ── Tab 1: Overview ──
   const nextNumber = sessions.length
@@ -1037,11 +1094,12 @@ function openSessionModal(id, startTab) {
   // Load party members for the tag dropdown (lazy, cached)
   loadMembersForModal().then(() => buildMomentsEditor());
 
-  // ── Tab 3: NPCs — seed draft from session_npcs ──
-  const existingSession = id ? sessions.find(x => x.id === id) : null;
+  // ── Tab 3: NPCs — seed draft from session_npcs, then auto-link citations ──
+  const existingSession = id ? sessionIdMap.get(id) : null;
   _draftSessionNpcs = existingSession
     ? [...(existingSession.session_npcs || [])]
     : [];
+  _autoLinkCitedNpcs();
   buildNpcPanel();
 
   // ── Tab 4: Quests — seed draft from quests jsonb ──
@@ -1075,6 +1133,11 @@ function switchModalTab(tab) {
   document.querySelectorAll('.sm-panel').forEach(p =>
     p.classList.toggle('active', p.dataset.panel === tab)
   );
+  // Auto-link any NPCs cited in text whenever the user opens the NPCs tab
+  if (tab === 'npcs') {
+    _autoLinkCitedNpcs();
+    buildNpcPanel();
+  }
 }
 
 function setSessionStatus(status) {
@@ -1171,6 +1234,7 @@ async function saveSession() {
 
     // Re-sort by number desc
     sessions.sort((a,b) => b.number - a.number);
+    _rebuildIdMaps();
 
     updateStats();
     closeSessionModal();
@@ -1190,7 +1254,7 @@ async function saveSession() {
 //  SESSION DELETE
 // ══════════════════════════════════════════════════════════════
 async function deleteSession(id) {
-  const s = sessions.find(x => x.id === id);
+  const s = sessionIdMap.get(id);
   if (!s) return;
 
   const ok = await nexusConfirm({
@@ -1207,6 +1271,7 @@ async function deleteSession(id) {
     sessions = sessions.filter(x => x.id !== id);
     delete events[id];
     if (expandedId === id) expandedId = null;
+    _rebuildIdMaps();
     updateStats();
     renderSessions();
     showToast('Session deleted.');
@@ -1411,6 +1476,39 @@ function questKeydown(e, idx) {
 //  SESSION MODAL — NPC PANEL
 // ══════════════════════════════════════════════════════════════
 
+// Scan the current draft's Overview summary, Moments, and Quests for ^slug
+// citations, resolve them to NPC ids via npcMap, and merge any newly-found
+// ids into _draftSessionNpcs without creating duplicates.
+function _autoLinkCitedNpcs() {
+  const found = new Set(_draftSessionNpcs);
+
+  // Helper: extract all NPC ids cited in a string
+  const extractFromText = text => {
+    if (!text) return;
+    for (const [, slug] of text.matchAll(/\^([a-z0-9][a-z0-9-]*)/g)) {
+      const npc = npcMap.get(slug);
+      if (npc) found.add(npc.id);
+    }
+  };
+
+  // Overview summary (live DOM value, not yet saved)
+  extractFromText(document.getElementById('smSummary')?.value || '');
+
+  // Moments — read from live inputs in the DOM
+  document.querySelectorAll('.sm-moment-input').forEach(inp => extractFromText(inp.value));
+
+  // Also scan _draftMoments for any moments not yet rendered
+  for (const m of _draftMoments) extractFromText(m.text);
+
+  // Quests — read from live inputs in the DOM
+  document.querySelectorAll('.sm-quest-input').forEach(inp => extractFromText(inp.value));
+
+  // Also scan _draftQuests for any quests not yet rendered
+  for (const q of _draftQuests) extractFromText(q.text);
+
+  _draftSessionNpcs = [...found];
+}
+
 function buildNpcPanel() {
   const list = document.getElementById('smNpcList');
   if (!list) return;
@@ -1421,7 +1519,7 @@ function buildNpcPanel() {
   }
 
   list.innerHTML = _draftSessionNpcs.map(npcId => {
-    const npc = npcs.find(n => n.id === npcId);
+    const npc = npcIdMap.get(npcId);
     if (!npc) return '';
     return `
     <div class="sm-npc-row">
@@ -1542,6 +1640,7 @@ async function saveInlineNpc() {
     await db.upsert('npcs', npc);
     npcs.push(npc);
     buildNpcMap(); // rebuild slug → npc lookup
+    _rebuildIdMaps();
     _draftSessionNpcs.push(npc.id);
     buildNpcPanel();
     closeInlineNpcCreate();
@@ -1562,7 +1661,7 @@ let _editingNpcId = null;
 
 function openNpcModal(id) {
   _editingNpcId = id || null;
-  const npc = id ? npcs.find(n => n.id === id) : null;
+  const npc = id ? npcIdMap.get(id) : null;
 
   document.getElementById('npcModalTitle').textContent =
     id ? '⚙ EDIT NPC' : '⚙ ADD NPC';
@@ -1633,7 +1732,7 @@ async function saveNpc() {
     disposition: document.getElementById('nmDisposition').value,
     notes:       document.getElementById('nmNotes').value.trim() || null,
     first_seen:  _editingNpcId
-      ? (npcs.find(n => n.id === _editingNpcId)?.first_seen || null)
+      ? (npcIdMap.get(_editingNpcId)?.first_seen || null)
       : null,
   };
 
@@ -1654,6 +1753,7 @@ async function saveNpc() {
     // Keep index sorted alphabetically
     npcs.sort((a, b) => a.name.localeCompare(b.name));
     buildNpcMap();
+    _rebuildIdMaps();
     updateStats();
     closeNpcModal();
     renderNpcs();
@@ -1666,7 +1766,7 @@ async function saveNpc() {
 }
 
 async function deleteNpc(id) {
-  const npc = npcs.find(n => n.id === id);
+  const npc = npcIdMap.get(id);
   if (!npc) return;
 
   const ok = await nexusConfirm({
@@ -1681,6 +1781,7 @@ async function deleteNpc(id) {
     await db.delete('npcs', id);
     npcs = npcs.filter(n => n.id !== id);
     buildNpcMap();
+    _rebuildIdMaps();
     updateStats();
     renderNpcs();
     showToast('NPC deleted.');
@@ -1713,6 +1814,15 @@ document.addEventListener('keydown', e => {
   if (document.getElementById('npcModal')?.classList.contains('open')) {
     closeNpcModal(); return;
   }
+});
+
+// Track whether a drag started on the backdrop itself (not inside modal content).
+// Prevents closing the modal when the user clicks inside and drags outside.
+document.getElementById('sessionModal').addEventListener('mousedown', function(e){
+  this._mousedownOnBackdrop = e.target === this;
+});
+document.getElementById('npcModal').addEventListener('mousedown', function(e){
+  this._mousedownOnBackdrop = e.target === this;
 });
 
 // ══════════════════════════════════════════════════════════════
