@@ -408,9 +408,25 @@ function _refreshCondChips(memberId){
   if(!card) return;
   const active=getConditions(memberId);
 
-  // Flip each chip's active state
+  // Flip each chip's active state and apply/remove color styles
   card.querySelectorAll('.cond-chip').forEach(chip=>{
-    chip.classList.toggle('active',active.includes(chip.dataset.condKey));
+    const key=chip.dataset.condKey;
+    const isActive=active.includes(key);
+    chip.classList.toggle('active',isActive);
+    if(isActive){
+      const c=CONDITION_MAP[key];
+      if(c){
+        chip.style.setProperty('--cond-color',c.color);
+        chip.style.borderColor=c.color;
+        chip.style.color=c.color;
+        chip.style.boxShadow=`0 0 8px ${c.color}40`;
+      }
+    } else {
+      chip.style.removeProperty('--cond-color');
+      chip.style.borderColor='';
+      chip.style.color='';
+      chip.style.boxShadow='';
+    }
   });
 
   // Update "N conditions" header badge visibility + count

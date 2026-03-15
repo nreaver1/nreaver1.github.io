@@ -3340,6 +3340,29 @@ oot-vault-total {
       line-height: 1.5;
     }
 
+    /* ── Citation live preview (summary textarea) ── */
+    .cite-preview {
+      margin-top: 0.35rem;
+      padding: 0.45rem 0.7rem;
+      background: rgba(167,139,250,0.04);
+      border: 1px solid rgba(167,139,250,0.15);
+      border-radius: 3px;
+      font-family: 'Rajdhani', sans-serif;
+      font-size: 0.95rem;
+      line-height: 1.55;
+      color: var(--text);
+      white-space: pre-wrap;
+      word-wrap: break-word;
+      min-height: 1.8rem;
+    }
+    .cite-preview-label {
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 0.6rem;
+      letter-spacing: 0.1em;
+      color: var(--text-dim);
+      margin-bottom: 0.25rem;
+    }
+
     /* ── Citation autocomplete dropdown ─────────────────────── */
     .cite-drop {
       position: fixed;
@@ -3424,6 +3447,21 @@ oot-vault-total {
     .sm-quest-input::placeholder { color: var(--text-dim); }
     .sm-quest-input.completed { text-decoration: line-through; opacity: 0.55; }
     .sm-quest-input.failed    { text-decoration: line-through; opacity: 0.45; }
+
+    /* Quest import picker rows */
+    .quest-pick-row {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.3rem 0.4rem;
+      border-radius: 3px;
+      cursor: pointer;
+      transition: background 0.12s;
+    }
+    .quest-pick-row:hover { background: rgba(255,255,255,0.04); }
+    .quest-pick-row input[type=checkbox] { flex-shrink: 0; accent-color: var(--violet); cursor: pointer; }
+    .quest-pick-already { opacity: 0.4; cursor: default; }
+    .quest-pick-already:hover { background: none; }
 
     /* Displayed quest rows in card view */
     .sc-quest-list { display: flex; flex-direction: column; gap: 0.4rem; }

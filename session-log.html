@@ -186,7 +186,12 @@
           <label class="modal-label">Session Summary</label>
           <textarea id="smSummary" class="modal-input"
                     style="width:100%;min-height:140px;resize:vertical"
-                    placeholder="Write a freeform recap of what happened…"></textarea>
+                    placeholder="Write a freeform recap of what happened…"
+                    oninput="updateSummaryMirror()"></textarea>
+          <div id="smSummaryPreviewWrap" style="display:none">
+            <div class="cite-preview-label">PREVIEW</div>
+            <div class="cite-preview" id="smSummaryMirror"></div>
+          </div>
         </div>
       </div>
 
@@ -285,9 +290,34 @@
           <!-- Populated by buildQuestEditor() -->
         </div>
 
-        <button class="btn btn-ghost"
-                style="width:100%;justify-content:center;font-size:0.75rem"
-                onclick="addQuest()">+ Add Quest</button>
+        <div style="display:flex;gap:0.5rem;margin-bottom:0.5rem">
+          <button class="btn btn-ghost"
+                  style="flex:1;justify-content:center;font-size:0.75rem"
+                  onclick="addQuest()">+ New Quest</button>
+          <button class="btn btn-ghost"
+                  style="flex:1;justify-content:center;font-size:0.75rem"
+                  onclick="toggleQuestPicker()">↩ Import from Past Sessions</button>
+        </div>
+
+        <!-- Quest import picker (hidden by default) -->
+        <div id="smQuestPicker" style="display:none;margin-top:0.25rem;
+             border:1px solid var(--border);border-radius:4px;
+             background:rgba(255,255,255,0.02);padding:0.7rem 0.8rem">
+          <div style="font-family:'Share Tech Mono',monospace;font-size:0.65rem;
+                      color:var(--text-dim);margin-bottom:0.55rem">
+            Select quests to import — they'll be added with their last-used status.
+          </div>
+          <div id="smQuestPickerList" style="display:flex;flex-direction:column;gap:0.3rem;
+               max-height:180px;overflow-y:auto;margin-bottom:0.55rem">
+            <!-- Populated by buildQuestPicker() -->
+          </div>
+          <div style="display:flex;gap:0.5rem;justify-content:flex-end">
+            <button class="btn btn-ghost" style="font-size:0.7rem"
+                    onclick="toggleQuestPicker()">Cancel</button>
+            <button class="btn btn-primary" style="font-size:0.7rem"
+                    onclick="importSelectedQuests()">Import Selected</button>
+          </div>
+        </div>
 
       </div>
 
@@ -510,16 +540,41 @@ function renderWithCitations(text) {
     if (npc) {
       // Resolved chip — colour matches NPC disposition
       const color = DISP_CHIP_COLOR[npc.disposition] || DISP_CHIP_COLOR.unknown;
-      return `<span class="npc-chip"
-                     onclick="jumpToNpc('${esc(npc.id)}')"
-                     title="${esc(npc.name)}${npc.role ? ' — ' + esc(npc.role) : ''} [${npc.disposition}]"
-                     style="color:${color};border-color:${color.replace('0.85','0.3')};background:${color.replace('0.85','0.08')}"
-                     >^${esc(slug)}</span>`;
+      const title = `${esc(npc.name)}${npc.role ? ' — ' + esc(npc.role) : ''} [${npc.disposition}]`;
+      return `<span class="npc-chip" onclick="jumpToNpc('${esc(npc.id)}')" title="${title}" style="color:${color};border-color:${color.replace('0.85','0.3')};background:${color.replace('0.85','0.08')}">^${esc(slug)}</span>`;
     } else {
       // Unresolved chip — slug not in index
       return `<span class="npc-chip-unresolved" title="Unknown NPC: ^${esc(slug)}">^${esc(slug)}</span>`;
     }
   }).join('');
+}
+
+// ── Citation preview: renders highlighted ^slug chips below the summary textarea ──
+// Only shown when the text contains at least one ^citation token.
+function updateSummaryMirror() {
+  const ta      = document.getElementById('smSummary');
+  const mirror  = document.getElementById('smSummaryMirror');
+  const wrap    = document.getElementById('smSummaryPreviewWrap');
+  if (!ta || !mirror || !wrap) return;
+
+  const raw = ta.value;
+  const hasCitation = /\^[a-z0-9][a-z0-9-]*/i.test(raw);
+
+  if (!hasCitation) {
+    wrap.style.display = 'none';
+    return;
+  }
+
+  // Replace newlines in the raw text BEFORE rendering citations so the \n→<br>
+  // substitution only touches plain-text segments, not span tag internals.
+  // We split on citation tokens, convert newlines in non-token segments only,
+  // then recombine and pass the whole thing through renderWithCitations.
+  // Simplest correct approach: render citations first on the original text,
+  // then replace literal \n that appear OUTSIDE of HTML tags.
+  const rendered = renderWithCitations(raw);
+  // Replace newlines that are outside HTML tags (between > and <, or at edges)
+  mirror.innerHTML = rendered.replace(/\n/g, '<br>');
+  wrap.style.display = '';
 }
 
 // Navigate from a chip click to the NPC Index view, scrolling to that card
@@ -1106,6 +1161,9 @@ function openSessionModal(id, startTab) {
   _draftQuests = existingSession
     ? (existingSession.quests || []).map(q => ({ ...q }))  // shallow clone each quest
     : [];
+  // Reset picker
+  const picker = document.getElementById('smQuestPicker');
+  if (picker) picker.style.display = 'none';
   buildQuestEditor();
 
   // Open to the tab the user was viewing (default: overview)
@@ -1114,10 +1172,9 @@ function openSessionModal(id, startTab) {
 
   document.getElementById('sessionModal').classList.add('open');
   setTimeout(() => {
-    // Focus the title field only when opening on the overview tab
     if (tabToOpen === 'overview') document.getElementById('smTitle').focus();
-    // Attach citation autocomplete to summary textarea
     initCitationAutocomplete(document.getElementById('smSummary'));
+    updateSummaryMirror();
   }, 120);
 }
 
@@ -1424,6 +1481,77 @@ function addQuest() {
   const rows  = list ? list.querySelectorAll('.sm-quest-input') : [];
   const last  = rows[rows.length - 1];
   if (last) last.focus();
+}
+
+// ── Quest import picker ───────────────────────────────────────
+function toggleQuestPicker() {
+  const picker = document.getElementById('smQuestPicker');
+  if (!picker) return;
+  const opening = picker.style.display === 'none';
+  picker.style.display = opening ? '' : 'none';
+  if (opening) buildQuestPicker();
+}
+
+function buildQuestPicker() {
+  const list = document.getElementById('smQuestPickerList');
+  if (!list) return;
+
+  // Collect all quests from all sessions except the one being edited,
+  // keeping only the most-recent occurrence of each unique text.
+  // Sort sessions newest-first so the most-recent status wins when deduping.
+  const sorted = [...sessions].sort((a, b) => (b.number || 0) - (a.number || 0));
+  const seen   = new Map(); // text.toLowerCase() → { text, status }
+  for (const s of sorted) {
+    if (s.id === _editingSessionId) continue;
+    for (const q of (s.quests || [])) {
+      const key = (q.text || '').trim().toLowerCase();
+      if (key && !seen.has(key)) seen.set(key, { text: q.text.trim(), status: q.status || 'active' });
+    }
+  }
+
+  if (!seen.size) {
+    list.innerHTML = `<div style="font-family:'Share Tech Mono',monospace;font-size:0.65rem;
+                       color:var(--text-dim);padding:0.4rem 0">
+                       No quests found in other sessions.</div>`;
+    return;
+  }
+
+  // Also note which texts are already in the draft (to pre-check / disable)
+  const draftTexts = new Set(_draftQuests.map(q => (q.text || '').trim().toLowerCase()));
+
+  list.innerHTML = [...seen.values()].map((q, i) => {
+    const alreadyIn = draftTexts.has(q.text.toLowerCase());
+    const cls   = QUEST_CLS[q.status]   || 'qs-active';
+    const label = QUEST_LABEL[q.status] || q.status;
+    return `<label class="quest-pick-row${alreadyIn ? ' quest-pick-already' : ''}"
+                   title="${alreadyIn ? 'Already in this session' : ''}">
+      <input type="checkbox" data-idx="${i}" data-text="${esc(q.text)}" data-status="${esc(q.status)}"
+             ${alreadyIn ? 'disabled checked' : ''} />
+      <span class="sm-quest-cycle ${cls}" style="pointer-events:none;font-size:0.65rem">${label}</span>
+      <span style="font-size:0.78rem;color:${alreadyIn ? 'var(--text-dim)' : 'var(--text)'}">${esc(q.text)}</span>
+    </label>`;
+  }).join('');
+}
+
+function importSelectedQuests() {
+  const list = document.getElementById('smQuestPickerList');
+  if (!list) return;
+  const checked = list.querySelectorAll('input[type=checkbox]:checked:not(:disabled)');
+  let added = 0;
+  const draftTexts = new Set(_draftQuests.map(q => (q.text || '').trim().toLowerCase()));
+  checked.forEach(cb => {
+    const text   = cb.dataset.text;
+    const status = cb.dataset.status || 'active';
+    if (!text || draftTexts.has(text.toLowerCase())) return;
+    _draftQuests.push({ _key: uid(), text, status });
+    draftTexts.add(text.toLowerCase());
+    added++;
+  });
+  if (added) buildQuestEditor();
+  // Close picker
+  const picker = document.getElementById('smQuestPicker');
+  if (picker) picker.style.display = 'none';
+  if (added) showToast(`${added} quest${added > 1 ? 's' : ''} imported.`);
 }
 
 function removeQuest(idx) {
