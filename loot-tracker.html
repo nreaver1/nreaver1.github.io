@@ -402,6 +402,7 @@ const RARITY_ORDER = { common:0,uncommon:1,rare:2,'very-rare':3,legendary:4,arti
 // memory instead of querying DOM on every render/keypress
 let _lootFilter = { q:'', rarity:'', type:'', attune:'', fx:'', holder:'' };
 
+// Seed items kept for reference only — not written to DB on first load.
 const seedItems = [
   { id:uid(), name:"Shadow Cloak",      type:"Wondrous", rarity:"rare",     holder:"Zyx",        attunement:"attuned",  desc:"Advantage on Stealth, disadvantage on Perception.", statEffects:[{stat:'stealth',type:'advantage',value:null},{stat:'perception',type:'disadvantage',value:null}] , qty:1},
   { id:uid(), name:"Aegis Mk-II Armor", type:"Armor",    rarity:"rare",     holder:"Mira",       attunement:"none",     desc:"+2 AC. Disadvantage on Stealth checks.",              statEffects:[{stat:'ac',type:'bonus',value:2},{stat:'stealth',type:'disadvantage',value:null}] , qty:1},
@@ -429,15 +430,11 @@ async function loadData(){
         statEffects: r.stat_effects || [],
         qty:         r.quantity ?? 1,
       }));
-    } else {
-      // seed data on first load
-      items = seedItems;
-      await db.upsertMany('loot_items', items.map(itemToRow));
     }
   } catch(e){
     console.error(e);
     showToast('Could not load items — check your Supabase config.');
-    items = seedItems;
+    items = [];
   } finally{ showLoading(false); }
 }
 

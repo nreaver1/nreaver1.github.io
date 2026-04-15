@@ -363,14 +363,6 @@ async function loadData() {
         id: r.id, type: r.type, desc: r.description,
         note: r.note, ts: r.ts, coins: r.coins || {}, member: r.member_name || null,
       }));
-    } else {
-      // Seed demo transactions
-      ledger = [
-        { id: uid(), type:'gain',  desc:'Initial party fund',        coins:{cr:500}, note:'Campaign start',    ts: Date.now()-5e6 },
-        { id: uid(), type:'spend', desc:'Gear and rations',          coins:{cr:120}, note:'Starport market',   ts: Date.now()-3e6 },
-        { id: uid(), type:'gain',  desc:'Bounty: Neon District job', coins:{cr:800}, note:'Package delivered', ts: Date.now()-1e6 },
-      ];
-      await db.upsertMany('treasury_ledger', ledger.map(txToRow));
     }
     recalcVault();
   } catch(e) {
