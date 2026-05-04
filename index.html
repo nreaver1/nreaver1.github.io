@@ -3,559 +3,298 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>NEXUS // Campaign Dashboard</title>
-  <script src="js/nexus-config.js"></script>
-  <script src="js/nexus-utils.js"></script>
-  <link rel="icon" type="image/x-icon" href="assets/favicon.ico" />
-  <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@400;700;900&family=Rajdhani:wght@400;500;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="css/nexus.css" />
+  <title>Nick Reaver</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #F8F7F4;
+      --ink: #111110;
+      --muted: #888880;
+      --rule: #E2E0DA;
+      --accent: #1A1A18;
+      --card-bg: #FFFFFF;
+      --hover-line: #111110;
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      background: var(--bg);
+      color: var(--ink);
+      font-family: 'DM Mono', monospace;
+      font-weight: 300;
+      min-height: 100vh;
+      padding: 0;
+      overflow-x: hidden;
+    }
+
+    /* ── Layout ── */
+    .container {
+      max-width: 780px;
+      margin: 0 auto;
+      padding: 0 32px;
+    }
+
+    /* ── Header ── */
+    header {
+      padding: 80px 0 64px;
+      opacity: 0;
+      transform: translateY(18px);
+      animation: rise 0.7s ease forwards;
+    }
+
+    .eyebrow {
+      font-family: 'DM Mono', monospace;
+      font-size: 11px;
+      font-weight: 500;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 18px;
+    }
+
+    h1 {
+      font-family: 'DM Serif Display', serif;
+      font-size: clamp(44px, 8vw, 72px);
+      line-height: 1.0;
+      letter-spacing: -0.02em;
+      color: var(--ink);
+      margin-bottom: 28px;
+    }
+
+    h1 em {
+      font-style: italic;
+      color: var(--muted);
+    }
+
+    .header-rule {
+      width: 40px;
+      height: 2px;
+      background: var(--ink);
+      margin-bottom: 24px;
+    }
+
+    .header-links {
+      display: flex;
+      gap: 24px;
+      flex-wrap: wrap;
+    }
+
+    .header-links a {
+      font-size: 11px;
+      font-weight: 500;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--muted);
+      text-decoration: none;
+      transition: color 0.2s;
+    }
+
+    .header-links a:hover { color: var(--ink); }
+
+    /* ── Section label ── */
+    .section-label {
+      font-size: 11px;
+      font-weight: 500;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 28px;
+      padding-bottom: 14px;
+      border-bottom: 1px solid var(--rule);
+    }
+
+    /* ── Projects ── */
+    .projects-section {
+      padding-bottom: 80px;
+      opacity: 0;
+      transform: translateY(18px);
+      animation: rise 0.7s ease 0.18s forwards;
+    }
+
+    .project-card {
+      display: block;
+      text-decoration: none;
+      color: inherit;
+      padding: 32px 0;
+      border-bottom: 1px solid var(--rule);
+      position: relative;
+      transition: padding-left 0.3s ease;
+    }
+
+    .project-card::before {
+      content: '';
+      position: absolute;
+      left: 0;
+      top: 32px;
+      bottom: 32px;
+      width: 2px;
+      background: var(--ink);
+      transform: scaleY(0);
+      transform-origin: top;
+      transition: transform 0.25s ease;
+    }
+
+    .project-card:hover {
+      padding-left: 20px;
+    }
+
+    .project-card:hover::before {
+      transform: scaleY(1);
+    }
+
+    .project-top {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 16px;
+      margin-bottom: 12px;
+    }
+
+    .project-name {
+      font-family: 'DM Serif Display', serif;
+      font-size: 28px;
+      letter-spacing: -0.01em;
+      color: var(--ink);
+    }
+
+    .project-arrow {
+      font-size: 18px;
+      color: var(--muted);
+      transition: transform 0.25s ease, color 0.25s ease;
+      flex-shrink: 0;
+    }
+
+    .project-card:hover .project-arrow {
+      transform: translate(4px, -4px);
+      color: var(--ink);
+    }
+
+    .project-desc {
+      font-size: 13px;
+      line-height: 1.7;
+      color: var(--muted);
+      max-width: 500px;
+      margin-bottom: 18px;
+    }
+
+    .project-tags {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .tag {
+      font-size: 10px;
+      font-weight: 500;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--muted);
+      border: 1px solid var(--rule);
+      padding: 4px 10px;
+      border-radius: 2px;
+      transition: border-color 0.2s, color 0.2s;
+    }
+
+    .project-card:hover .tag {
+      border-color: #ccc;
+      color: var(--ink);
+    }
+
+    /* ── Footer ── */
+    footer {
+      border-top: 1px solid var(--rule);
+      padding: 32px 0 48px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 12px;
+      opacity: 0;
+      animation: rise 0.7s ease 0.35s forwards;
+    }
+
+    .footer-name {
+      font-size: 11px;
+      font-weight: 500;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+
+    .footer-github {
+      font-size: 11px;
+      font-weight: 500;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--muted);
+      text-decoration: none;
+      transition: color 0.2s;
+    }
+
+    .footer-github:hover { color: var(--ink); }
+
+    /* ── Animation ── */
+    @keyframes rise {
+      to { opacity: 1; transform: translateY(0); }
+    }
+  </style>
 </head>
-<body class="has-sidenav page-dashboard">
+<body>
+  <div class="container">
 
-<div id="nexus-nav-root"></div>
+    <header>
+      <p class="eyebrow">Portfolio</p>
+      <h1>Nick<br><em>Reaver</em></h1>
+      <div class="header-rule"></div>
+      <nav class="header-links">
+        <a href="https://github.com/nreaver1" target="_blank" rel="noopener">GitHub</a>
+        <!-- Add more links here, e.g. LinkedIn, email -->
+      </nav>
+    </header>
 
-<header>
-  <div class="campaign-eyebrow">⚙ campaign management system // initialized</div>
-  <div class="campaign-title">NEXUS</div>
-  <div class="campaign-subtitle">party operations dashboard</div>
-  <div class="title-line"></div>
-</header>
+    <section class="projects-section">
+      <p class="section-label">Projects</p>
 
-<!-- Party avatar strip -->
-<div class="party-strip" id="partyStrip"></div>
-<div class="party-strip-label" id="partyLabel">loading party roster…</div>
-
-<main>
-  <div class="grid-label">active modules</div>
-
-  <div class="module-grid">
-
-    <!-- Party Roster -->
-    <a class="module-card active-module" href="party-roster.html" data-module="partyRoster"
-       style="--card-accent:#0ef0d0; --card-glow:rgba(14,240,208,0.12)">
-      <div class="card-head">
-        <div class="card-icon">👥</div>
-        <span class="card-status status-live">LIVE</span>
-      </div>
-      <div>
-        <div class="card-title">PARTY ROSTER</div>
-        <div class="card-desc">Manage crew members, portraits, classes, and character details.</div>
-      </div>
-      <div class="card-stats">
-        <div class="cstat"><span class="cstat-val" id="statMembers">0</span><span class="cstat-label">Members</span></div>
-        <div class="cstat"><span class="cstat-val" id="statClasses">—</span><span class="cstat-label">Classes</span></div>
-      </div>
-      <span class="card-arrow">OPEN →</span>
-    </a>
-
-    <!-- Treasury -->
-    <a class="module-card active-module" href="treasury.html" data-module="treasury"
-       style="--card-accent:#f0a832; --card-glow:rgba(240,168,50,0.12)">
-      <div class="card-head">
-        <div class="card-icon">💰</div>
-        <span class="card-status status-live">LIVE</span>
-      </div>
-      <div>
-        <div class="card-title">TREASURY</div>
-        <div class="card-desc">Track credits and custom currencies, log transactions, split loot.</div>
-      </div>
-      <div class="card-stats">
-        <div class="cstat"><span class="cstat-val" id="statCredits">—</span><span class="cstat-label" id="statCreditsLabel">Credits</span></div>
-        <div class="cstat"><span class="cstat-val" id="statTxCount">—</span><span class="cstat-label">Transactions</span></div>
-        <div class="cstat" id="statWealthStat" style="display:none"><span class="cstat-val" id="statTotalWealth">—</span><span class="cstat-label">Total Party Wealth</span></div>
-      </div>
-      <span class="card-arrow">OPEN →</span>
-    </a>
-
-    <!-- Loot Tracker -->
-    <a class="module-card active-module" href="loot-tracker.html" data-module="lootTracker"
-       style="--card-accent:#c07de8; --card-glow:rgba(192,125,232,0.1)">
-      <div class="card-head">
-        <div class="card-icon">⚔️</div>
-        <span class="card-status status-live">LIVE</span>
-      </div>
-      <div>
-        <div class="card-title">LOOT TRACKER</div>
-        <div class="card-desc">Catalog magic items, filter by rarity, track attunement and holders.</div>
-      </div>
-      <div class="card-stats">
-        <div class="cstat"><span class="cstat-val" id="statItems">—</span><span class="cstat-label">Items</span></div>
-        <div class="cstat"><span class="cstat-val" id="statAttuned">—</span><span class="cstat-label">Attuned</span></div>
-      </div>
-      <span class="card-arrow">OPEN →</span>
-    </a>
-
-    <!-- Session Log -->
-    <a class="module-card active-module" href="session-log.html" data-module="sessionLog"
-       style="--card-accent:#a78bfa; --card-glow:rgba(167,139,250,0.1)">
-      <div class="card-head">
-        <div class="card-icon">📋</div>
-        <span class="card-status status-live">LIVE</span>
-      </div>
-      <div>
-        <div class="card-title">SESSION LOG</div>
-        <div class="card-desc">Chronicle sessions, track quests, and build your NPC index.</div>
-      </div>
-      <div class="card-stats">
-        <div class="cstat"><span class="cstat-val" id="statSessionCount">—</span><span class="cstat-label">Sessions</span></div>
-        <div class="cstat"><span class="cstat-val" id="statSessionComplete">—</span><span class="cstat-label">Complete</span></div>
-        <div class="cstat"><span class="cstat-val" id="statSessionQuests">—</span><span class="cstat-label">Active Quests</span></div>
-        <div class="cstat"><span class="cstat-val" id="statNpcCount">—</span><span class="cstat-label">NPCs</span></div>
-      </div>
-      <div id="statLatestSession" style="font-family:'Share Tech Mono',monospace;font-size:0.6rem;color:rgba(167,139,250,0.5);margin-top:0.4rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis"></div>
-      <span class="card-arrow">OPEN →</span>
-    </a>
-
-  </div>
-
-  <div class="grid-label">coming soon</div>
-
-  <div class="module-grid">
-    <div class="module-card coming-soon" style="--card-accent:#4a6080">
-      <div class="card-head">
-        <div class="card-icon" style="filter:none;opacity:0.25">🗺️</div>
-        <span class="card-status status-planned">PLANNED</span>
-      </div>
-      <div>
-        <div class="card-title" style="color:var(--text-dim)">WORLD MAP</div>
-        <div class="card-desc">Pin locations, track explored regions and points of interest.</div>
-      </div>
-    </div>
-    <div class="module-card coming-soon" style="--card-accent:#4a6080">
-      <div class="card-head">
-        <div class="card-icon" style="filter:none;opacity:0.25">📖</div>
-        <span class="card-status status-planned">PLANNED</span>
-      </div>
-      <div>
-        <div class="card-title" style="color:var(--text-dim)">BESTIARY</div>
-        <div class="card-desc">Log encountered enemies, notes on weaknesses and lore.</div>
-      </div>
-    </div>
-    <div class="module-card coming-soon" style="--card-accent:#4a6080">
-      <div class="card-head">
-        <div class="card-icon" style="filter:none;opacity:0.25">🎲</div>
-        <span class="card-status status-planned">PLANNED</span>
-      </div>
-      <div>
-        <div class="card-title" style="color:var(--text-dim)">DICE ROLLER</div>
-        <div class="card-desc">Roll any die combination with modifiers and roll history.</div>
-      </div>
-    </div>
-  </div>
-</main>
-
-<div class="status-bar">
-  <div class="status-items">
-    <div class="status-item"><span class="status-dot dot-green"></span>Party Roster</div>
-    <div class="status-item"><span class="status-dot dot-green"></span>Treasury</div>
-    <div class="status-item"><span class="status-dot dot-green"></span>Loot Tracker</div>
-    <div class="status-item"><span class="status-dot dot-amber"></span>Session Log</div>
-    <div class="status-item"><span class="status-dot dot-dim"></span>3 Planned</div>
-  </div>
-  <div class="status-version">nexus // v1.0.0 // no-db edition</div>
-</div>
-
-<script>
-  function applyTerms() {
-    const map = {
-      'PARTY ROSTER': t('partyRoster').toUpperCase(),
-      'TREASURY':     t('treasury').toUpperCase(),
-      'LOOT TRACKER': t('lootTracker').toUpperCase(),
-      'SESSION LOG':  t('sessionLog').toUpperCase(),
-      'WORLD MAP':    t('worldMap').toUpperCase(),
-      'BESTIARY':     t('bestiary').toUpperCase(),
-      'DICE ROLLER':  t('diceRoller').toUpperCase(),
-    };
-    document.querySelectorAll('.card-title').forEach(el => {
-      const key = el.textContent.trim();
-      if (map[key]) el.textContent = map[key];
-    });
-    document.querySelectorAll('.sidenav-link .nav-label').forEach(el => {
-      const txt = el.textContent.trim();
-      if (txt === 'Party Roster') el.textContent = t('partyRoster');
-      if (txt === 'Treasury')     el.textContent = t('treasury');
-      if (txt === 'Loot Tracker') el.textContent = t('lootTracker');
-    });
-    document.querySelectorAll('.status-item').forEach(el => {
-      const txt = el.textContent.trim();
-      if (txt === 'Party Roster') el.innerHTML = el.innerHTML.replace('Party Roster', t('partyRoster'));
-      if (txt === 'Treasury')     el.innerHTML = el.innerHTML.replace('Treasury',     t('treasury'));
-      if (txt === 'Loot Tracker') el.innerHTML = el.innerHTML.replace('Loot Tracker', t('lootTracker'));
-      if (txt === 'Session Log')  el.innerHTML = el.innerHTML.replace('Session Log',  t('sessionLog'));
-    });
-  }
-
-  async function loadPartyStats() {
-    try {
-      const members = await db.select('party_members', { order: 'created_at.asc' });
-      document.getElementById('statMembers').textContent = members.length;
-      const classes = [...new Set(members.map(m => m.class).filter(Boolean))];
-      document.getElementById('statClasses').textContent = classes.length || '\u2014';
-
-      const strip = document.getElementById('partyStrip');
-      const label = document.getElementById('partyLabel');
-      if (!members.length) {
-        strip.innerHTML = '<div class="party-avatar party-avatar-empty" title="No members yet">+</div>';
-        label.textContent = 'no party members yet \u2014 add some in Party Roster';
-        return;
-      }
-      strip.innerHTML = members.map(m => {
-        const safeName = esc(m.name).replace(/'/g, "\'");
-        const color    = m.color || 'var(--cyan)';
-        const baseStyle = `cursor:pointer;--avatar-color:${color}`;
-        if (m.photo) {
-          return `<div class="party-avatar" title="View ${esc(m.name)}'s holdings" style="${baseStyle}" onclick="openMemberModal('${safeName}')"><img src="${m.photo}" alt="${esc(m.name)}" /></div>`;
-        }
-        return `<div class="party-avatar" title="View ${esc(m.name)}'s holdings" style="${baseStyle}" onclick="openMemberModal('${safeName}')">
-          ${esc(m.name.charAt(0).toUpperCase())}
-        </div>`;
-      }).join('');
-      label.textContent = members.map(m => m.name).join('  \u00b7  ');
-    } catch(e) {
-      console.error(e);
-      document.getElementById('statMembers').textContent = '—';
-    }
-  }
-
-  async function loadTreasuryStats() {
-    try {
-      const [curRows, ledgerRows] = await Promise.all([
-        db.select('treasury_currencies'),
-        db.select('treasury_ledger'),
-      ]);
-      const vault = {};
-      for (const tx of ledgerRows) {
-        const sign = tx.type === 'spend' ? -1 : 1;
-        for (const [cid, amt] of Object.entries(tx.coins || {})) {
-          vault[cid] = (vault[cid] || 0) + sign * (amt || 0);
-        }
-      }
-
-      // Base currency (credits or first)
-      const base = curRows.find(c => c.id === 'cr') || curRows[0];
-
-      // Update credits label to match base currency name (respects edits)
-      const creditsLabel = document.getElementById('statCreditsLabel');
-      if (creditsLabel && base) creditsLabel.textContent = base.name || 'Credits';
-
-      // Credits stat: show base currency amount
-      document.getElementById('statCredits').textContent =
-        (vault[base?.id] || 0).toLocaleString();
-      document.getElementById('statTxCount').textContent = ledgerRows.length;
-
-      // If more than one currency type, compute and show total party wealth
-      if (curRows.length > 1) {
-        let totalInBase = 0; let allHaveRates = true;
-        for (const cur of curRows) {
-          const amt = vault[cur.id] || 0;
-          if (cur.rate != null) totalInBase += amt * cur.rate;
-          else allHaveRates = false;
-        }
-        const wealthEl = document.getElementById('statTotalWealth');
-        const wealthStat = document.getElementById('statWealthStat');
-        if (wealthEl && wealthStat) {
-          wealthEl.textContent = allHaveRates
-            ? totalInBase.toLocaleString(undefined, { maximumFractionDigits: 1 }) + ' ' + (base?.abbr || '')
-            : '—';
-          wealthStat.style.display = '';
-
-          // Animated text gradient using currency colors
-          const doubled = [...curRows, ...curRows];
-          const stops = doubled.map((cur, i) => {
-            const pct = (i / (doubled.length - 1) * 100).toFixed(1);
-            return `${cur.color} ${pct}%`;
-          });
-          const styleId = 'nexus-index-wealth-style';
-          let styleEl = document.getElementById(styleId);
-          if (!styleEl) {
-            styleEl = document.createElement('style');
-            styleEl.id = styleId;
-            document.head.appendChild(styleEl);
-          }
-          styleEl.textContent = `
-            #statTotalWealth {
-              background: linear-gradient(90deg, ${stops.join(', ')});
-              background-size: 200% auto;
-              -webkit-background-clip: text;
-              background-clip: text;
-              -webkit-text-fill-color: transparent;
-              animation: indexWealthFlow 6s ease infinite;
-            }
-          `;
-        }
-      }
-    } catch(e) {
-      console.error(e);
-    }
-  }
-
-  async function loadLootStats() {
-    try {
-      const items = await db.select('loot_items');
-      document.getElementById('statItems').textContent = items.length;
-      document.getElementById('statAttuned').textContent = items.filter(i => i.attunement === 'attuned').length;
-    } catch(e) {
-      console.error(e);
-    }
-  }
-
-  async function loadSessionStats() {
-    try {
-      const [sessions, npcs] = await Promise.all([
-        db.select('session_log', { order: 'number.desc' }),
-        db.select('npcs'),
-      ]);
-      // Counts
-      const completeCount = sessions.filter(s => s.status === 'complete').length;
-      let activeQuests = 0;
-      for (const s of sessions) {
-        activeQuests += (s.quests || []).filter(q => q.status === 'active').length;
-      }
-      document.getElementById('statSessionCount').textContent    = sessions.length;
-      document.getElementById('statSessionComplete').textContent = completeCount;
-      document.getElementById('statSessionQuests').textContent   = activeQuests;
-      document.getElementById('statNpcCount').textContent        = npcs.length;
-      // Latest session label
-      const latest = sessions[0]; // already ordered number desc
-      const latestEl = document.getElementById('statLatestSession');
-      if (latestEl) {
-        latestEl.textContent = latest
-          ? `Latest: #${latest.number} — ${latest.title}`
-          : '';
-      }
-    } catch(e) {
-      console.error(e);
-    }
-  }
-
-
-  // ── Member Holdings Modal ──
-  // Data caches populated when modal first opens
-  let _idxCurrencies = null;
-  let _idxLedger     = null;
-  let _idxMembers    = null;
-
-  function closeIdxMemberModal() {
-    document.getElementById('idxMemberModal').classList.remove('open');
-    const gs = document.getElementById('idx-mm-grad-style');
-    if (gs) gs.remove();
-  }
-
-  async function openMemberModal(memberName) {
-    // Load currencies + ledger if not yet cached this session
-    if (!_idxCurrencies || !_idxLedger || !_idxMembers) {
-      try {
-        [_idxCurrencies, _idxLedger, _idxMembers] = await Promise.all([
-          db.select('treasury_currencies', { order: 'sort_order.asc,created_at.asc' }),
-          db.select('treasury_ledger'),
-          db.select('party_members'),
-        ]);
-      } catch(e) {
-        console.error('Could not load treasury data for modal:', e);
-        _idxCurrencies = []; _idxLedger = []; _idxMembers = [];
-      }
-    }
-
-    const currencies = _idxCurrencies;
-    const ledger     = _idxLedger;
-    const base       = currencies.find(c => c.id === 'cr') || currencies[0];
-
-    // Find member record for color/photo
-    const m = (_idxMembers || []).find(x => x.name === memberName);
-
-    // ── Title ──
-    document.getElementById('idxMemberTitle').textContent = '⚙ ' + memberName.toUpperCase();
-
-    // ── Portrait ──
-    const portraitCol = document.getElementById('idxMmPortrait');
-    const avatar = m && m.photo
-      ? `<img src="${m.photo}" alt="${esc(m.name)}" class="mm-portrait-img" />`
-      : `<div class="mm-portrait-initial" style="color:${m && m.color ? m.color : 'var(--gold)'};border-color:${m && m.color ? m.color + '50' : 'var(--border)'}">
-           ${esc(memberName.charAt(0).toUpperCase())}
-         </div>`;
-    portraitCol.innerHTML = `
-      <div class="mm-portrait">${avatar}</div>
-      <div class="mm-member-name">${esc(memberName)}</div>`;
-
-    // ── Build wallet from ledger ──
-    const wallet = {};
-    for (const tx of ledger) {
-      if (tx.member_name !== memberName) continue;
-      const sign = tx.type === 'spend' ? -1 : 1;
-      for (const [cid, amt] of Object.entries(tx.coins || {})) {
-        wallet[cid] = (wallet[cid] || 0) + sign * (amt || 0);
-      }
-    }
-
-    const holdingLines = currencies
-      .map(cur => ({ cur, amt: wallet[cur.id] || 0 }))
-      .filter(({ amt }) => amt !== 0);
-
-    // ── Holdings ──
-    const holdingsCol = document.getElementById('idxMmHoldings');
-    if (holdingLines.length) {
-      holdingsCol.innerHTML = `
-        <div class="mm-holdings-label">Currency Holdings</div>
-        <div class="mm-holdings-rows">
-          ${holdingLines.map(({ cur, amt }) => {
-            const isNeg = amt < 0;
-            return `<div class="mm-holding-row">
-              <span class="mm-h-symbol" style="color:${cur.color};text-shadow:0 0 8px ${cur.color}40">${esc(cur.symbol)}</span>
-              <span class="mm-h-name">${esc(cur.abbr)}</span>
-              <span class="mm-h-amt ${isNeg ? 'mm-h-neg' : ''}">${isNeg ? '−' : ''}${Math.abs(amt).toLocaleString(undefined,{maximumFractionDigits:2})}</span>
-            </div>`;
-          }).join('')}
-        </div>`;
-    } else {
-      holdingsCol.innerHTML = `<div class="mm-holdings-empty">No holdings recorded.</div>`;
-    }
-
-    // ── Total wealth bar ──
-    const totalBarEl  = document.getElementById('idxMmTotalBar');
-    const totalValEl  = document.getElementById('idxMmTotalVal');
-    const totalUnitEl = document.getElementById('idxMmTotalUnit');
-    const totalBdEl   = document.getElementById('idxMmTotalBreakdown');
-
-    let totalWealth = 0; let allRates = true;
-    const parts = [];
-    for (const cur of currencies) {
-      const amt = wallet[cur.id] || 0;
-      if (!amt) continue;
-      parts.push(`${amt < 0 ? '−' : ''}${Math.abs(amt).toLocaleString()} ${cur.abbr}`);
-      if (cur.rate != null) totalWealth += amt * cur.rate;
-      else allRates = false;
-    }
-
-    const isNeg = allRates && totalWealth < 0;
-    totalValEl.textContent      = allRates ? Math.abs(totalWealth).toLocaleString(undefined, { maximumFractionDigits: 2 }) : '—';
-    totalValEl.style.color      = isNeg ? 'var(--red)' : '';
-    totalValEl.style.textShadow = isNeg ? '0 0 20px rgba(224,60,60,0.5)' : '';
-    totalUnitEl.textContent     = (isNeg ? '-' : '') + (base ? base.abbr : '') + ' equiv.';
-    totalUnitEl.style.color     = isNeg ? 'var(--red)' : '';
-    totalBdEl.textContent       = parts.join('  ·  ') || '— no holdings —';
-    totalBarEl.classList.toggle('is-negative', isNeg);
-
-    // Animated gradient
-    const gradStyleId = 'idx-mm-grad-style';
-    let gradStyleEl = document.getElementById(gradStyleId);
-    if (!isNeg && holdingLines.length >= 2) {
-      const gradCurs = holdingLines.map(l => l.cur);
-      const doubled  = [...gradCurs, ...gradCurs];
-      const stops    = doubled.map((cur, i) =>
-        `${cur.color}22 ${(i / (doubled.length - 1) * 100).toFixed(1)}%`
-      ).join(', ');
-      if (!gradStyleEl) {
-        gradStyleEl = document.createElement('style');
-        gradStyleEl.id = gradStyleId;
-        document.head.appendChild(gradStyleEl);
-      }
-      gradStyleEl.textContent = ''; // keyframe is in css/nexus.css
-      totalBarEl.style.background     = `linear-gradient(135deg, ${stops})`;
-      totalBarEl.style.backgroundSize = '200% 200%';
-      totalBarEl.style.animation      = 'idxMmFlow 6s ease infinite';
-      totalBarEl.style.borderImage    = `linear-gradient(90deg, ${gradCurs[0].color}70, ${gradCurs[gradCurs.length-1].color}70) 1`;
-    } else {
-      if (gradStyleEl) gradStyleEl.remove();
-      totalBarEl.style.background     = '';
-      totalBarEl.style.backgroundSize = '';
-      totalBarEl.style.animation      = '';
-      totalBarEl.style.borderImage    = '';
-    }
-
-    // ── Ledger (member-tagged, newest-first, max 5) ──
-    const memberTxs = [...ledger]
-      .filter(tx => tx.member_name === memberName)
-      .sort((a, b) => b.ts - a.ts);
-
-    document.getElementById('idxMmTxCount').textContent =
-      memberTxs.length + ' entr' + (memberTxs.length === 1 ? 'y' : 'ies');
-
-    const tbody = document.getElementById('idxMmLedgerBody');
-    const shown = memberTxs.slice(0, 5);
-    if (!shown.length) {
-      tbody.innerHTML = `<tr><td colspan="4"><div class="empty-ledger" style="padding:0.75rem 0"><span class="empty-icon">⚙</span><p>No transactions for this member</p></div></td></tr>`;
-    } else {
-      const fmt = n => Number(n).toLocaleString();
-      tbody.innerHTML = shown.map(tx => {
-        const sign = tx.type === 'spend' ? -1 : 1;
-        let crTotal = 0; let allHaveRates = true;
-        const breakdown = [];
-        for (const [cid, amt] of Object.entries(tx.coins || {})) {
-          if (!amt) continue;
-          const cur = currencies.find(x => x.id === cid);
-          const label = cur ? cur.abbr : cid.toUpperCase();
-          breakdown.push(`${fmt(amt)} ${label}`);
-          if (cur && cur.rate != null) crTotal += amt * cur.rate;
-          else allHaveRates = false;
-        }
-        const amtDisplay = allHaveRates && breakdown.length
-          ? `${sign > 0 ? '+' : '−'}${crTotal.toLocaleString(undefined,{maximumFractionDigits:2})} ${base ? base.abbr : ''}`
-          : breakdown.map(b => `${sign>0?'+':'−'}${b}`).join(' / ') || '—';
-        const date = new Date(tx.ts).toLocaleDateString(undefined, { month:'short', day:'numeric' });
-        return `<tr>
-          <td><div class="tx-desc" style="font-size:0.8rem">${esc(tx.desc || '')}</div>${tx.note ? `<div class="tx-note">${esc(tx.note)}</div>` : ''}</td>
-          <td><span class="tx-type tx-${tx.type}" style="font-size:0.72rem">${tx.type.toUpperCase()}</span></td>
-          <td><div class="tx-amount ${sign > 0 ? 'positive' : 'negative'}" style="font-size:0.8rem">${amtDisplay}</div></td>
-          <td style="white-space:nowrap;font-size:0.72rem;color:var(--text-dim)">${date}</td>
-        </tr>`;
-      }).join('');
-    }
-
-    document.getElementById('idxMemberModal').classList.add('open');
-  }
-
-  document.addEventListener('keydown', e => {
-    if (e.key === 'Escape') closeIdxMemberModal();
-  });
-  loadModuleSettings().then(() => {
-    buildSidenav('index.html');
-    applyModuleVisibility();
-    loadTerms().then(() => applyTerms());
-  });
-  loadPartyStats();
-  loadTreasuryStats();
-  loadLootStats();
-  loadSessionStats();
-</script>
-
-
-<!-- MEMBER HOLDINGS MODAL (index.html) -->
-<div class="modal-backdrop" id="idxMemberModal" onclick="if(event.target===this)closeIdxMemberModal()">
-  <div class="modal modal-wide" style="max-width:640px">
-    <div class="modal-header">
-      <span class="modal-title" id="idxMemberTitle">⚙ MEMBER HOLDINGS</span>
-      <button class="btn-icon" onclick="closeIdxMemberModal()">✕</button>
-    </div>
-    <div class="modal-body" style="padding-top:0.75rem">
-      <div class="mm-top">
-        <div class="mm-portrait-col" id="idxMmPortrait"></div>
-        <div class="mm-holdings-col" id="idxMmHoldings"></div>
-      </div>
-      <div class="total-bar mm-total-bar" id="idxMmTotalBar">
-        <div>
-          <div class="total-label">⚙ Total Party Wealth</div>
-          <div style="display:flex;align-items:baseline;gap:4px;margin-top:4px">
-            <span class="total-value" id="idxMmTotalVal">—</span>
-            <span class="total-unit"  id="idxMmTotalUnit"></span>
-          </div>
+      <a class="project-card" href="https://github.com/nreaver1/nexus" target="_blank" rel="noopener">
+        <div class="project-top">
+          <span class="project-name">Nexus</span>
+          <span class="project-arrow">↗</span>
         </div>
-        <div class="total-breakdown" id="idxMmTotalBreakdown"></div>
-      </div>
-      <div class="mm-ledger-head">
-        <span class="section-title" style="font-size:0.8rem">Recent Transactions</span>
-        <span class="tx-count" id="idxMmTxCount"></span>
-      </div>
-      <div class="mm-ledger-wrap">
-        <table class="ledger-table mm-ledger-table">
-          <tbody id="idxMmLedgerBody"></tbody>
-        </table>
-      </div>
-    </div>
-    <div class="modal-footer">
-      <button class="btn btn-ghost" onclick="closeIdxMemberModal()">Close</button>
-      <a class="btn btn-cyan" href="treasury.html">View Full Treasury →</a>
-    </div>
+        <p class="project-desc">
+          A session tracker for Dungeons &amp; Dragons campaigns. Keeps a running record of sessions, characters, and story milestones in one place.
+        </p>
+        <div class="project-tags">
+          <span class="tag">D&amp;D</span>
+          <span class="tag">Session Tracker</span>
+        </div>
+      </a>
+
+      <a class="project-card" href="https://github.com/nreaver1/keeptrack" target="_blank" rel="noopener">
+        <div class="project-top">
+          <span class="project-name">KeepTrack</span>
+          <span class="project-arrow">↗</span>
+        </div>
+        <p class="project-desc">
+          A shared ledger for tracking wins and losses between friends across any game or competition. Simple, honest scorekeeping.
+        </p>
+        <div class="project-tags">
+          <span class="tag">Ledger</span>
+          <span class="tag">Multiplayer</span>
+        </div>
+      </a>
+
+    </section>
+
+    <footer>
+      <span class="footer-name">Nick Reaver</span>
+      <a class="footer-github" href="https://github.com/nreaver1" target="_blank" rel="noopener">github.com/nreaver1</a>
+    </footer>
+
   </div>
-</div>
 </body>
 </html>
