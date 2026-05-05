@@ -1,0 +1,709 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>NEXUS // Seed Tool — Session Log</title>
+  <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@400;700;900&family=Rajdhani:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:        #060809;
+      --panel:     #0d1117;
+      --border:    rgba(255,255,255,0.08);
+      --text:      #e6edf3;
+      --text-dim:  #8b949e;
+      --cyan:      #0ef0d0;
+      --violet:    #a78bfa;
+      --green:     #3ce08a;
+      --amber:     #f0a832;
+      --red:       #ef4444;
+      --red-dim:   rgba(239,68,68,0.15);
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Rajdhani', sans-serif;
+      font-size: 1rem;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 2.5rem 1rem 4rem;
+    }
+
+    /* ── Header ── */
+    .tool-header {
+      text-align: center;
+      margin-bottom: 2.5rem;
+    }
+    .tool-eyebrow {
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 0.65rem;
+      color: var(--violet);
+      letter-spacing: 0.3em;
+      text-transform: uppercase;
+      margin-bottom: 0.4rem;
+      opacity: 0.7;
+    }
+    .tool-title {
+      font-family: 'Orbitron', sans-serif;
+      font-size: 1.6rem;
+      font-weight: 900;
+      color: var(--violet);
+      letter-spacing: 0.12em;
+      text-shadow: 0 0 30px rgba(167,139,250,0.4), 0 0 70px rgba(167,139,250,0.1);
+    }
+    .tool-sub {
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 0.65rem;
+      color: var(--text-dim);
+      letter-spacing: 0.2em;
+      margin-top: 0.3rem;
+    }
+    .hline {
+      width: 100%;
+      max-width: 640px;
+      height: 1px;
+      background: linear-gradient(90deg, transparent, var(--border), transparent);
+      margin: 1.2rem auto 0;
+    }
+
+    /* ── Card ── */
+    .card {
+      width: 100%;
+      max-width: 640px;
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 1.6rem;
+      margin-bottom: 1.2rem;
+    }
+    .card-title {
+      font-family: 'Orbitron', sans-serif;
+      font-size: 0.65rem;
+      font-weight: 700;
+      letter-spacing: 0.2em;
+      color: var(--text-dim);
+      text-transform: uppercase;
+      margin-bottom: 1rem;
+    }
+
+    /* ── Seed plan preview ── */
+    .plan-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 0.6rem;
+      margin-bottom: 0.5rem;
+    }
+    .plan-item {
+      background: rgba(167,139,250,0.04);
+      border: 1px solid rgba(167,139,250,0.12);
+      border-radius: 4px;
+      padding: 0.7rem 0.8rem;
+    }
+    .plan-count {
+      font-family: 'Orbitron', sans-serif;
+      font-size: 1.1rem;
+      font-weight: 700;
+      color: var(--violet);
+    }
+    .plan-label {
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 0.58rem;
+      color: var(--text-dim);
+      letter-spacing: 0.1em;
+      margin-top: 0.15rem;
+    }
+
+    .seed-warn {
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 0.62rem;
+      color: var(--amber);
+      background: rgba(240,168,50,0.07);
+      border: 1px solid rgba(240,168,50,0.2);
+      border-radius: 4px;
+      padding: 0.6rem 0.8rem;
+      line-height: 1.6;
+      margin-bottom: 1rem;
+    }
+
+    /* ── Buttons ── */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-family: 'Orbitron', sans-serif;
+      font-size: 0.62rem;
+      font-weight: 700;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      border: none;
+      border-radius: 4px;
+      padding: 0.7rem 1.4rem;
+      cursor: pointer;
+      transition: opacity 0.15s, transform 0.1s;
+    }
+    .btn:hover:not(:disabled) { opacity: 0.85; }
+    .btn:active:not(:disabled) { transform: scale(0.98); }
+    .btn:disabled { opacity: 0.35; cursor: not-allowed; }
+
+    .btn-primary {
+      background: rgba(167,139,250,0.15);
+      color: var(--violet);
+      border: 1px solid rgba(167,139,250,0.35);
+    }
+    .btn-danger {
+      background: var(--red-dim);
+      color: var(--red);
+      border: 1px solid rgba(239,68,68,0.3);
+    }
+    .btn-ghost {
+      background: transparent;
+      color: var(--text-dim);
+      border: 1px solid var(--border);
+    }
+    .btn-row {
+      display: flex;
+      gap: 0.7rem;
+      flex-wrap: wrap;
+    }
+
+    /* ── Progress log ── */
+    .log-wrap {
+      margin-top: 1rem;
+      max-height: 320px;
+      overflow-y: auto;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 0.8rem;
+      scroll-behavior: smooth;
+    }
+    .log-wrap:empty { display: none; }
+    .log-line {
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 0.68rem;
+      line-height: 1.8;
+      color: var(--text-dim);
+    }
+    .log-line.ok   { color: var(--green); }
+    .log-line.err  { color: var(--red);   }
+    .log-line.info { color: var(--violet); }
+    .log-line.warn { color: var(--amber);  }
+    .log-line.head {
+      color: var(--text);
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 0.3rem;
+      margin-bottom: 0.2rem;
+    }
+
+    /* ── Summary banner ── */
+    .summary-banner {
+      display: none;
+      width: 100%;
+      max-width: 640px;
+      border-radius: 4px;
+      padding: 1rem 1.2rem;
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 0.72rem;
+      line-height: 1.7;
+      margin-bottom: 1.2rem;
+    }
+    .summary-banner.ok  { background: rgba(60,224,138,0.07); border: 1px solid rgba(60,224,138,0.25); color: var(--green); }
+    .summary-banner.err { background: var(--red-dim); border: 1px solid rgba(239,68,68,0.3); color: var(--red); }
+
+    /* ── Spinner ── */
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .spinner {
+      display: inline-block;
+      width: 0.75em; height: 0.75em;
+      border: 2px solid rgba(167,139,250,0.3);
+      border-top-color: var(--violet);
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+      flex-shrink: 0;
+    }
+
+    /* ── Scrollbar ── */
+    .log-wrap::-webkit-scrollbar { width: 4px; }
+    .log-wrap::-webkit-scrollbar-track { background: transparent; }
+    .log-wrap::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+  </style>
+</head>
+<body>
+
+<div class="tool-header">
+  <div class="tool-eyebrow">⚙ nexus // dev utility</div>
+  <div class="tool-title">SEED TOOL</div>
+  <div class="tool-sub">session log &amp; npc index — test data generator</div>
+  <div class="hline"></div>
+</div>
+
+<!-- Seed plan -->
+<div class="card">
+  <div class="card-title">📋 Seed Plan</div>
+  <div class="plan-grid">
+    <div class="plan-item"><div class="plan-count">8</div><div class="plan-label">NPCs</div></div>
+    <div class="plan-item"><div class="plan-count">5</div><div class="plan-label">Sessions</div></div>
+    <div class="plan-item"><div class="plan-count">18</div><div class="plan-label">Moments</div></div>
+  </div>
+  <div class="plan-grid" style="margin-top:0.6rem">
+    <div class="plan-item"><div class="plan-count">12</div><div class="plan-label">Quests</div></div>
+    <div class="plan-item"><div class="plan-count">5</div><div class="plan-label">Dispositions</div></div>
+    <div class="plan-item"><div class="plan-count">^cites</div><div class="plan-label">In-text</div></div>
+  </div>
+
+  <div class="seed-warn" style="margin-top:1rem">
+    ⚠ This tool ADDS records — it does not clear existing data first.<br>
+    Use the Admin → Danger Zone to wipe tables before seeding a clean state.
+  </div>
+
+  <div class="btn-row">
+    <button class="btn btn-primary" id="btnSeed" onclick="runSeed()">
+      <span class="spinner" id="spinnerSeed" style="display:none"></span>
+      Run Seed
+    </button>
+    <button class="btn btn-danger" id="btnWipe" onclick="runWipe()">
+      <span class="spinner" id="spinnerWipe" style="display:none"></span>
+      Wipe &amp; Re-seed
+    </button>
+    <button class="btn btn-ghost" onclick="clearLog()">Clear Log</button>
+  </div>
+
+  <div id="summaryBanner" class="summary-banner"></div>
+  <div id="logWrap" class="log-wrap"></div>
+</div>
+
+<script>
+// ══════════════════════════════════════════════════════════════
+//  HELPERS
+// ══════════════════════════════════════════════════════════════
+function uid() { return '_' + Math.random().toString(36).slice(2, 11); }
+function slugify(s) {
+  return String(s||'').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'');
+}
+function isoToday() { return new Date().toISOString().slice(0,10); }
+function isoDate(daysAgo) {
+  const d = new Date(); d.setDate(d.getDate() - daysAgo);
+  return d.toISOString().slice(0,10);
+}
+
+// ── DB wrapper (mirrors nexus-config.js) ──────────────────────
+function makeDB(url, key) {
+  const headers = () => ({
+    'Content-Type':  'application/json',
+    'apikey':         key,
+    'Authorization': `Bearer ${key}`,
+    'Prefer':        'return=representation',
+  });
+  async function req(path, opts = {}) {
+    const r = await fetch(url + '/rest/v1/' + path, { headers: headers(), ...opts });
+    const text = await r.text();
+    if (!r.ok) throw new Error(`${opts.method||'GET'} ${path}: ${text}`);
+    return text ? JSON.parse(text) : [];
+  }
+  return {
+    select:   (t, q='') => req(`${t}?select=*${q}`),
+    upsert:   (t, rows) => req(t, {
+      method:  'POST',
+      headers: { ...headers(), Prefer: 'resolution=merge-duplicates,return=representation' },
+      body:    JSON.stringify(Array.isArray(rows) ? rows : [rows]),
+    }),
+    deleteWhere: (t, f) => req(`${t}?${f}`, { method: 'DELETE' }),
+  };
+}
+
+// ── Logging ───────────────────────────────────────────────────
+const logEl    = () => document.getElementById('logWrap');
+const bannerEl = () => document.getElementById('summaryBanner');
+function log(msg, cls = '') {
+  const wrap = logEl();
+  const line = document.createElement('div');
+  line.className = 'log-line' + (cls ? ' ' + cls : '');
+  line.textContent = msg;
+  wrap.appendChild(line);
+  wrap.scrollTop = wrap.scrollHeight;
+}
+function clearLog() {
+  logEl().innerHTML = '';
+  const b = bannerEl();
+  b.style.display = 'none';
+  b.className = 'summary-banner';
+}
+function banner(msg, isOk) {
+  const b = bannerEl();
+  b.style.display = 'block';
+  b.className = 'summary-banner ' + (isOk ? 'ok' : 'err');
+  b.textContent = msg;
+}
+function setBusy(id, on) {
+  document.getElementById('btnSeed').disabled = on;
+  document.getElementById('btnWipe').disabled = on;
+  document.getElementById('spinner' + id).style.display = on ? 'inline-block' : 'none';
+}
+
+// ══════════════════════════════════════════════════════════════
+//  SEED DATA
+//  A self-contained fictional campaign — "The Ashenveil Chronicle"
+//  Five sessions, eight NPCs, cross-linked via ^slug citations.
+// ══════════════════════════════════════════════════════════════
+function buildSeedData() {
+  // ── NPC definitions ────────────────────────────────────────
+  const NPCS_DEF = [
+    {
+      name: 'Commander Varek Stoneholm',
+      role: 'City Watch Commander, Ashenveil Gate',
+      disposition: 'hostile',
+      notes: 'Broad-shouldered, perpetually scowling. Has been paid off by the Merchant\'s Compact to look the other way. Deeply suspicious of the party after the warehouse incident. Carries a signet ring that matches one found on a body in Session 2.',
+    },
+    {
+      name: 'Sister Maela',
+      role: 'Healer, Temple of the Pale Flame',
+      disposition: 'allied',
+      notes: 'Young, earnest, dangerous idealist. She believes the Pale Flame will "cleanse" the corruption in Ashenveil — her definition of cleanse worries the party. Has stitched the party back together three times now. Knows more about the Compact than she lets on.',
+    },
+    {
+      name: 'Drav the Fence',
+      role: 'Black-market broker, Dockside Quarter',
+      disposition: 'neutral',
+      notes: 'Short, quick-eyed halfling. Operates out of a chandlery as cover. Will sell anything to anyone but refuses to deal in "cursed goods" — he lost a brother that way. Owes the party a favour since Session 1. Can be flipped with enough coin.',
+    },
+    {
+      name: 'Magistrix Orvenne Lhast',
+      role: 'Head of the Merchant\'s Compact, Ashenveil',
+      disposition: 'hostile',
+      notes: 'Cold, methodical, never raises her voice. Runs the Compact like a ledger — everything has a price. Has hired at least two separate groups to follow the party. The party has never met her face-to-face; they know her only by reputation and the calling cards she leaves at crime scenes.',
+    },
+    {
+      name: 'Pip',
+      role: 'Street informant, urchin network',
+      disposition: 'friendly',
+      notes: 'Twelve years old, wildly overconfident. Runs a network of child informants across the market district. Will trade information for food, coin, or a good story. Called in a warning that saved the party in Session 3. Should not be in danger but keeps ending up there.',
+    },
+    {
+      name: 'Lord Aldric Thane',
+      role: 'Disgraced noble, exile at the Sunken Hearth inn',
+      disposition: 'neutral',
+      notes: 'Former city councillor removed under suspicious circumstances three years ago. Drinks heavily and claims the Compact framed him. Some of what he says checks out. Knows the layout of the Compact\'s headquarters from his time on the council.',
+    },
+    {
+      name: 'The Hollow Man',
+      role: 'Compact enforcer, identity unknown',
+      disposition: 'hostile',
+      notes: 'Always masked. Never speaks — communicates via written notes. Has appeared at the scene of every Compact operation the party has disrupted. The party believes he is magically compelled to serve, not a willing agent. No one has seen his face.',
+    },
+    {
+      name: 'Wren Ashford',
+      role: 'Archivist, Hall of Records',
+      disposition: 'friendly',
+      notes: 'Meticulous, anxious, brilliant. Has access to land deeds, tax records, and guild charters going back 200 years. Helped the party trace Compact property holdings in Session 4. Terrified of the Compact finding out she helped. Keeps detailed notes in a cipher the party can\'t read.',
+    },
+  ];
+
+  // ── Session definitions ────────────────────────────────────
+  // NPCs are referenced by their index into NPCS_DEF (0-based)
+  // so we can stitch up the IDs after building them.
+  const SESSIONS_DEF = [
+    {
+      number:     1,
+      title:      'Rats in the Warehouse',
+      real_date:  isoDate(28),
+      world_date: '3rd of Ashfall, Year 412',
+      status:     'complete',
+      summary:    'The party arrived in Ashenveil following a tip about a shipment of stolen artefacts passing through the docks. They tracked the delivery to a warehouse in the Dockside Quarter, where they found crates stamped with the Merchant\'s Compact seal. ^drav-the-fence gave them the initial lead in exchange for clearing a debt with a local tanner. The warehouse was guarded by men working for ^commander-varek-stoneholm — the party slipped past them using a combination of distraction and a well-placed sleep spell. They recovered one artefact (a brass cylinder covered in Primordial script) before the alarm was raised and they were forced to flee across the rooftops.',
+      npc_indices: [0, 2],
+      quests: [
+        { text: 'Identify the brass cylinder recovered from the warehouse', status: 'active' },
+        { text: 'Find out who owns the Compact warehouse on Salter\'s Row', status: 'completed' },
+      ],
+      moments: [
+        { text: 'Zyx rolled a natural 20 to fast-talk the gate guard — improvised a story about a lost cat', members: ['Zyx'] },
+        { text: 'Mira\'s sleep spell dropped three guards simultaneously; the party had 4 minutes before the next patrol', members: ['Mira'] },
+        { text: 'Brass cylinder recovered — it hums faintly and makes compass needles spin', members: [] },
+        { text: 'Varek\'s men spotted Theron on the rooftop; he is now a wanted face in the Dockside', members: ['Theron'] },
+      ],
+    },
+    {
+      number:     2,
+      title:      'The Body at the Crossroads',
+      real_date:  isoDate(21),
+      world_date: '7th of Ashfall, Year 412',
+      status:     'complete',
+      summary:    'A corpse was found at the crossroads outside the East Gate — a Compact courier, throat cut, signet ring missing. ^commander-varek-stoneholm arrived before the party could examine the body properly and confiscated what little evidence remained. ^sister-maela tended to the body and slipped the party a detail the Watch missed: a second set of boot prints, child-sized, leading toward the market. Following the trail, the party located ^pip, who had witnessed the murder from a drainpipe. Pip described the killer as "a man with no face" — the first confirmed sighting of ^the-hollow-man. The missing signet ring matches one Varek wears.',
+      npc_indices: [0, 1, 4, 6],
+      quests: [
+        { text: 'Identify the brass cylinder recovered from the warehouse', status: 'active' },
+        { text: 'Discover who killed the Compact courier and why', status: 'active' },
+        { text: 'Learn more about the Hollow Man', status: 'active' },
+      ],
+      moments: [
+        { text: 'Varek confiscated the body before the party could perform a proper examination — very deliberate', members: [] },
+        { text: 'Sister Maela noted a faint Pale Flame glyph burned into the courier\'s palm — not the cause of death', members: ['Mira'] },
+        { text: 'Pip confirmed the killer left in a closed carriage bearing no markings', members: [] },
+        { text: 'The signet ring match to Varek\'s ring — either he was there or someone stole his identity', members: ['Zyx', 'Theron'] },
+      ],
+    },
+    {
+      number:     3,
+      title:      'Fire at the Pale Flame',
+      real_date:  isoDate(14),
+      world_date: '12th of Ashfall, Year 412',
+      status:     'complete',
+      summary:    'The Temple of the Pale Flame was set alight in the early hours. ^sister-maela sent a runner to warn the party twenty minutes before it happened — she had intercepted a Compact note. The party reached the temple as the fire was spreading. They evacuated three acolytes and a collection of irreplaceable texts before the east wing collapsed. ^the-hollow-man was observed watching the fire from across the street but disappeared before the party could confront him. ^pip appeared uninvited in the middle of the evacuation and nearly got herself killed retrieving a small silver box that Maela had specifically asked her to protect. The box was delivered safely. Maela has not explained its contents.',
+      npc_indices: [1, 4, 6],
+      quests: [
+        { text: 'Find out what is inside the silver box Pip retrieved from the Temple', status: 'active' },
+        { text: 'Discover who killed the Compact courier and why', status: 'active' },
+        { text: 'Learn more about the Hollow Man', status: 'active' },
+        { text: 'Identify the brass cylinder recovered from the warehouse', status: 'completed' },
+      ],
+      moments: [
+        { text: 'Theron entered a collapsing corridor to recover the last acolyte — DC 14 Athletics, rolled 17', members: ['Theron'] },
+        { text: 'Pip appeared in the burning library — "Maela said this box was important" — nearly died', members: [] },
+        { text: 'The Hollow Man was seen watching from the alley opposite. Did not intervene in either direction.', members: [] },
+      ],
+    },
+    {
+      number:     4,
+      title:      'Ledgers and Lies',
+      real_date:  isoDate(7),
+      world_date: '18th of Ashfall, Year 412',
+      status:     'complete',
+      summary:    'Acting on a suggestion from ^lord-aldric-thane, the party visited the Hall of Records and enlisted the help of archivist ^wren-ashford. Cross-referencing Compact property filings with tax exemptions Thane remembered approving, Wren identified three properties registered under shell names that all trace back to a single solicitor — one known to work exclusively for ^magistrix-orvenne-lhast. One of the properties is a decommissioned customs house on the north wharf. ^drav-the-fence confirmed that the customs house had been "very busy" for the past six months. ^commander-varek-stoneholm issued a warrant for Theron\'s arrest on a charge of "arson and civil disruption" — almost certainly connected to the warehouse job from Session 1.',
+      npc_indices: [0, 2, 3, 5, 7],
+      quests: [
+        { text: 'Investigate the decommissioned customs house on the north wharf', status: 'active' },
+        { text: 'Find out what is inside the silver box Pip retrieved from the Temple', status: 'active' },
+        { text: 'Discover who killed the Compact courier and why', status: 'completed' },
+        { text: 'Expose the Merchant\'s Compact\'s role in the artefact smuggling network', status: 'active' },
+      ],
+      moments: [
+        { text: 'Wren found the shell company chain in under an hour — "this is not subtle, whoever filed this was arrogant"', members: [] },
+        { text: 'Thane identified his own signature on one of the fraudulent exemptions — he was framed three years ago', members: [] },
+        { text: 'Varek\'s arrest warrant for Theron is nailed to the door of the Sunken Hearth by morning', members: ['Theron'] },
+        { text: 'Drav raised his price — "warrants are bad for business and you\'re becoming a liability"', members: [] },
+      ],
+    },
+    {
+      number:     5,
+      title:      'The Customs House',
+      real_date:  isoDate(0),
+      world_date: '22nd of Ashfall, Year 412',
+      status:     'draft',
+      summary:    'The party conducted a reconnaissance of the north wharf customs house before committing to entry. ^pip had already scouted the exterior and identified two guard rotations and a light in the upper floor that never goes out. The plan: enter through the collapsed sea-gate, reach the upper floor, and find proof linking ^magistrix-orvenne-lhast directly to the artefact network. ^wren-ashford provided forged dock-worker credentials as a fallback cover. ^the-hollow-man was sighted on the roof as the party entered — this time he appeared to step aside deliberately rather than raise the alarm. Unclear whose side he is on.',
+      npc_indices: [3, 4, 6, 7],
+      quests: [
+        { text: 'Investigate the decommissioned customs house on the north wharf', status: 'active' },
+        { text: 'Find out what is inside the silver box Pip retrieved from the Temple', status: 'active' },
+        { text: 'Expose the Merchant\'s Compact\'s role in the artefact smuggling network', status: 'active' },
+        { text: 'Determine the Hollow Man\'s true allegiance', status: 'active' },
+      ],
+      moments: [
+        { text: 'Pip\'s scouting report was impeccably detailed — she drew a floor plan from memory', members: [] },
+        { text: 'The Hollow Man stepped aside at the sea-gate. Made eye contact with Zyx before disappearing.', members: ['Zyx'] },
+        { text: 'Session ended mid-infiltration — party is inside the customs house, second floor, guards unaware', members: [] },
+      ],
+    },
+  ];
+
+  return { NPCS_DEF, SESSIONS_DEF };
+}
+
+// ══════════════════════════════════════════════════════════════
+//  SEED RUNNER
+// ══════════════════════════════════════════════════════════════
+// ── Supabase credentials (from nexus-config.js) ──────────────
+const SEED_URL = 'https://qlckogwtpfznjsnjpqlx.supabase.co';
+const SEED_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFsY2tvZ3d0cGZ6bmpzbmpwcWx4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI3OTc0OTksImV4cCI6MjA4ODM3MzQ5OX0.fokbNPnEF0fBSj_GYc6XOzd4oXQd10lNuaLdCSKXMmM';
+
+async function runSeed() {
+  clearLog();
+  setBusy('Seed', true);
+  const db = makeDB(SEED_URL, SEED_KEY);
+  await _doSeed(db);
+  setBusy('Seed', false);
+}
+
+async function runWipe() {
+  const confirmed = confirm(
+    'WIPE + RE-SEED\n\n' +
+    'This will DELETE all existing rows in:\n' +
+    '  • session_events\n  • session_log\n  • npcs\n\n' +
+    'Then insert fresh seed data.\n\nContinue?'
+  );
+  if (!confirmed) return;
+
+  clearLog();
+  setBusy('Wipe', true);
+  const db = makeDB(SEED_URL, SEED_KEY);
+
+  log('── Wiping existing data ──────────────────────', 'head');
+  try {
+    // Delete in FK-safe order: events first, then sessions, then npcs
+    await db.deleteWhere('session_events', 'id=gt.'); log('  ✓ session_events cleared', 'ok');
+    await db.deleteWhere('session_log',    'id=gt.'); log('  ✓ session_log cleared',    'ok');
+    await db.deleteWhere('npcs',           'id=gt.'); log('  ✓ npcs cleared',            'ok');
+  } catch(e) {
+    log('  ✗ Wipe failed: ' + e.message, 'err');
+    banner('✗ Wipe failed — see log for details.', false);
+    setBusy('Wipe', false);
+    return;
+  }
+
+  await _doSeed(db);
+  setBusy('Wipe', false);
+}
+
+async function _doSeed(db) {
+  const { NPCS_DEF, SESSIONS_DEF } = buildSeedData();
+
+  let npcRows      = [];
+  let sessionRows  = [];
+  let eventRows    = [];
+  let errors       = 0;
+
+  // ── 1. Insert NPCs ─────────────────────────────────────────
+  log('── Seeding NPCs ──────────────────────────────', 'head');
+  const npcIds = [];    // parallel to NPCS_DEF by index
+
+  for (const def of NPCS_DEF) {
+    const id   = uid();
+    const slug = slugify(def.name);
+    npcIds.push(id);
+    npcRows.push({
+      id, slug,
+      name:        def.name,
+      role:        def.role,
+      disposition: def.disposition,
+      notes:       def.notes,
+      first_seen:  null,   // patched after sessions are inserted
+    });
+    log(`  + NPC: ${def.name} (^${slug}, ${def.disposition})`, 'info');
+  }
+
+  try {
+    await db.upsert('npcs', npcRows);
+    log(`  ✓ ${npcRows.length} NPCs inserted`, 'ok');
+  } catch(e) {
+    log('  ✗ NPC insert failed: ' + e.message, 'err');
+    errors++;
+  }
+
+  // Build slug → id map for citation injection
+  const slugToId = {};
+  NPCS_DEF.forEach((def, i) => {
+    slugToId[slugify(def.name)] = npcIds[i];
+  });
+
+  // ── 2. Insert Sessions + Events ────────────────────────────
+  log('── Seeding Sessions ──────────────────────────', 'head');
+  const sessionIds = [];   // parallel to SESSIONS_DEF
+
+  for (const def of SESSIONS_DEF) {
+    const sessionId   = uid();
+    sessionIds.push(sessionId);
+
+    const linkedNpcIds = (def.npc_indices || []).map(i => npcIds[i]);
+
+    const sessionRow = {
+      id:           sessionId,
+      number:       def.number,
+      title:        def.title,
+      real_date:    def.real_date,
+      world_date:   def.world_date,
+      status:       def.status,
+      summary:      def.summary,
+      session_npcs: linkedNpcIds,
+      quests:       (def.quests || []).map(q => ({ _key: uid(), text: q.text, status: q.status })),
+    };
+
+    sessionRows.push(sessionRow);
+    log(`  + Session ${def.number}: "${def.title}" (${def.status}, ${linkedNpcIds.length} NPCs)`, 'info');
+
+    // Build event rows
+    (def.moments || []).forEach((m, i) => {
+      eventRows.push({
+        id:         uid(),
+        session_id: sessionId,
+        text:       m.text,
+        members:    m.members || [],
+        sort_order: i,
+      });
+    });
+  }
+
+  try {
+    await db.upsert('session_log', sessionRows);
+    log(`  ✓ ${sessionRows.length} sessions inserted`, 'ok');
+  } catch(e) {
+    log('  ✗ Session insert failed: ' + e.message, 'err');
+    errors++;
+  }
+
+  // ── 3. Insert Events ───────────────────────────────────────
+  log('── Seeding Moments ───────────────────────────', 'head');
+  log(`  Inserting ${eventRows.length} moments across ${sessionRows.length} sessions…`, 'info');
+  try {
+    await db.upsert('session_events', eventRows);
+    log(`  ✓ ${eventRows.length} moments inserted`, 'ok');
+  } catch(e) {
+    log('  ✗ Moment insert failed: ' + e.message, 'err');
+    errors++;
+  }
+
+  // ── 4. Patch NPC first_seen ────────────────────────────────
+  // For each NPC, find the earliest session it appears in and set first_seen
+  log('── Patching NPC first_seen ────────────────────', 'head');
+  const npcFirstSeen = {};   // npcId → sessionId of first appearance
+
+  for (let si = 0; si < SESSIONS_DEF.length; si++) {
+    const def       = SESSIONS_DEF[si];
+    const sessionId = sessionIds[si];
+    for (const npcIdx of (def.npc_indices || [])) {
+      const npcId = npcIds[npcIdx];
+      if (!npcFirstSeen[npcId]) npcFirstSeen[npcId] = sessionId;
+    }
+  }
+
+  let fsPatched = 0;
+  const fsRows = Object.entries(npcFirstSeen).map(([npcId, sessionId]) => {
+    const npcRow = npcRows.find(n => n.id === npcId);
+    fsPatched++;
+    return { ...npcRow, first_seen: sessionId };
+  });
+
+  if (fsRows.length) {
+    try {
+      await db.upsert('npcs', fsRows);
+      log(`  ✓ first_seen patched for ${fsPatched} NPCs`, 'ok');
+    } catch(e) {
+      log('  ✗ first_seen patch failed: ' + e.message, 'err');
+      errors++;
+    }
+  }
+
+  // ── Summary ────────────────────────────────────────────────
+  log('', '');
+  const totalMoments = eventRows.length;
+  const totalQuests  = sessionRows.reduce((sum, s) => sum + (s.quests||[]).length, 0);
+
+  if (errors === 0) {
+    log('✓ Seed complete', 'ok');
+    banner(
+      `✓ Seed complete — ${npcRows.length} NPCs · ${sessionRows.length} sessions · ${totalMoments} moments · ${totalQuests} quests\n` +
+      `Open session-log.html to see your data.`,
+      true
+    );
+  } else {
+    log(`⚠ Seed finished with ${errors} error(s) — see above`, 'warn');
+    banner(`⚠ Seed finished with ${errors} error(s). Some data may be missing — check the log.`, false);
+  }
+}
+</script>
+</body>
+</html>

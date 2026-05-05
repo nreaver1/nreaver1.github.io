@@ -1,0 +1,41 @@
+# ══════════════════════════════════════════════════════════════
+#  .github/workflows/test.yml
+#  NEXUS Campaign System — Automated Test Runner
+#
+#  Triggers: every push, from any branch, via GitHub Desktop or
+#  any other Git client.
+#
+#  To view results:
+#    GitHub → your repo → Actions tab
+#
+#  A green ✅ or red ❌ will also appear next to each commit
+#  in your repository's commit history.
+# ══════════════════════════════════════════════════════════════
+
+name: NEXUS Tests
+
+# ── When to run ──────────────────────────────────────────────
+on:
+  push:         # fires every time you push from GitHub Desktop
+  pull_request: # also fires on pull requests (if you ever use them)
+
+# ── What to do ───────────────────────────────────────────────
+jobs:
+  test:
+    name: Run test suite
+    runs-on: ubuntu-latest  # GitHub spins up a fresh Linux machine for each run
+
+    steps:
+      # 1. Download your repository files onto the machine
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # 2. Install Node.js 22 — matches the version the tests were written on
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      # 3. Run the tests using Node's built-in runner (no npm install needed)
+      - name: Run NEXUS tests
+        run: node --test tests/nexus.test.js

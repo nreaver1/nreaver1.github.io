@@ -1,0 +1,493 @@
+// ══════════════════════════════════════════════════════════════
+//  js/nexus-utils.js  —  Pure utility functions shared across all
+//  NEXUS modules. No DOM access, no Supabase, no side effects.
+//
+//  These functions are:
+//    1. Included in every page via <script src="js/nexus-utils.js">
+//    2. Exported via module.exports for the test suite (Node only)
+//
+//  If you add or change any function here, run the tests:
+//    node --test nexus.test.js
+// ══════════════════════════════════════════════════════════════
+
+
+// ──────────────────────────────────────────────────────────────
+//  GENERAL HELPERS
+// ──────────────────────────────────────────────────────────────
+
+/**
+ * uid()
+ * Generates a short random ID string prefixed with '_'.
+ * Used everywhere a new record needs a client-side id before
+ * it hits Supabase.
+ * Example: '_k7fzx2q4m'
+ */
+function uid() {
+  return '_' + Math.random().toString(36).slice(2, 11);
+}
+
+/**
+ * fmt(n)
+ * Formats a number with locale-appropriate thousand separators.
+ * Example: fmt(1234567) → "1,234,567"
+ */
+function fmt(n) {
+  return Number(n).toLocaleString();
+}
+
+/**
+ * esc(s)
+ * HTML-escapes a string so it can be safely injected into innerHTML
+ * or used inside HTML attribute values without XSS risk.
+ * Converts &, <, >, and " to their HTML entities.
+ * Example: esc('<b>"bold"</b>') → '&lt;b&gt;&quot;bold&quot;&lt;/b&gt;'
+ */
+function esc(s) {
+  return String(s || '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+
+// ──────────────────────────────────────────────────────────────
+//  D&D 5E MATH
+// ──────────────────────────────────────────────────────────────
+
+/**
+ * abilityMod(score)
+ * Computes the D&D 5e ability modifier from an ability score.
+ * Formula: floor((score - 10) / 2)
+ *
+ * Score → Modifier reference:
+ *   1  → -5    8  → -1    10 → +0    12 → +1
+ *   14 → +2    16 → +3    18 → +4    20 → +5
+ *
+ * If score is falsy (undefined, null, 0) it defaults to 10 (+0).
+ */
+function abilityMod(score) {
+  return Math.floor(((score || 10) - 10) / 2);
+}
+
+/**
+ * modStr(n)
+ * Formats a modifier number as a signed string for display.
+ * Positive and zero values get an explicit '+' prefix.
+ * Example: modStr(3) → "+3",  modStr(-1) → "-1",  modStr(0) → "+0"
+ */
+function modStr(n) {
+  return n >= 0 ? `+${n}` : String(n);
+}
+
+/**
+ * computeCheck(key, ability, member, net, profBonus)
+ * Calculates a saving throw or skill check value for a party member.
+ *
+ * Steps:
+ *   1. Start with the ability modifier for the relevant ability
+ *   2. Add proficiency bonus if the member is proficient in this check
+ *   3. Apply any item bonuses / penalties from the net effects map
+ *
+ * Parameters:
+ *   key       — the check key, e.g. 'athletics', 'save_str'
+ *   ability   — the governing ability, e.g. 'str', 'dex'
+ *   member    — party member object { abilities: {str:N,...}, proficiencies: {...} }
+ *   net       — item effects map from computeNetEffects()
+ *   profBonus — the member's proficiency bonus (e.g. 2 at levels 1–4)
+ */
+function computeCheck(key, ability, member, net, profBonus) {
+  let base = abilityMod(member.abilities?.[ability] || 10);
+  if (member.proficiencies?.[key]) base += profBonus;
+  const n = net[key];
+  if (n) { base += (n.bonus || 0); base -= (n.penalty || 0); }
+  return base;
+}
+
+/**
+ * DAMAGE_TYPES
+ * All 13 official D&D 5e damage types, used for the optional
+ * damageType field on stat effects (primarily damage_rolls /
+ * spell_damage effects). Exported so the loot tracker UI and
+ * any other page can build selects from the same canonical list.
+ */
+const DAMAGE_TYPES = [
+  'acid', 'bludgeoning', 'cold', 'fire', 'force',
+  'lightning', 'necrotic', 'piercing', 'poison',
+  'psychic', 'radiant', 'slashing', 'thunder',
+];
+
+/**
+ * computeNetEffects(memberName, items)
+ * Aggregates all stat effects from items held by a party member
+ * (or tagged as 'Party') into a net effects map.
+ *
+ * Returns: { net, relevant }
+ *   net — {
+ *     statKey: {
+ *       bonus:        number,   // total across ALL types (untyped + all damage types)
+ *       penalty:      number,   // total across ALL types
+ *       advantage:    number,   // count
+ *       disadvantage: number,   // count
+ *       sources:      array,
+ *       byType: {              // only present when any bonus/penalty effect exists
+ *         'acid':    { bonus: N, penalty: N },
+ *         'fire':    { bonus: N, penalty: N },
+ *         'untyped': { bonus: N, penalty: N },  // effects with no damageType
+ *       }
+ *     }
+ *   }
+ *   relevant — the filtered array of items that apply to this member
+ *
+ * Matching is case-insensitive. Items held by 'Party' apply to all members.
+ * The top-level bonus/penalty totals always reflect the grand total so
+ * existing code that reads net[stat].bonus continues to work unchanged.
+ */
+function computeNetEffects(memberName, items) {
+  const relevant = items.filter(it => {
+    const h = (it.holder || '').toLowerCase().trim();
+    const n = (memberName || '').toLowerCase().trim();
+    return h === n || h === 'party';
+  });
+
+  const net = {};
+  for (const item of relevant) {
+    for (const fx of (item.statEffects || [])) {
+      if (!fx.stat) continue;
+      if (!net[fx.stat]) net[fx.stat] = { bonus: 0, penalty: 0, advantage: 0, disadvantage: 0, sources: [] };
+
+      // ── Top-level totals (unchanged behaviour) ──
+      if (fx.type === 'bonus')        net[fx.stat].bonus       += (fx.value || 0);
+      if (fx.type === 'penalty')      net[fx.stat].penalty     += (fx.value || 0);
+      if (fx.type === 'advantage')    net[fx.stat].advantage++;
+      if (fx.type === 'disadvantage') net[fx.stat].disadvantage++;
+      net[fx.stat].sources.push({ itemName: item.name, itemRarity: item.rarity, fx });
+
+      // ── Per-damage-type breakdown (new) ──
+      // Track bonus/penalty in byType buckets keyed by damageType (or 'untyped').
+      // byType is always built for bonus/penalty effects so the display layer
+      // can show typed breakdowns when relevant.
+      if (fx.type === 'bonus' || fx.type === 'penalty') {
+        if (!net[fx.stat].byType) net[fx.stat].byType = {};
+        const bucket = fx.damageType
+          ? fx.damageType.toLowerCase()
+          : 'untyped';
+        if (!net[fx.stat].byType[bucket]) {
+          net[fx.stat].byType[bucket] = { bonus: 0, penalty: 0 };
+        }
+        if (fx.type === 'bonus')   net[fx.stat].byType[bucket].bonus   += (fx.value || 0);
+        if (fx.type === 'penalty') net[fx.stat].byType[bucket].penalty += (fx.value || 0);
+      }
+    }
+  }
+  return { net, relevant };
+}
+
+
+// ──────────────────────────────────────────────────────────────
+//  TREASURY MATH
+// ──────────────────────────────────────────────────────────────
+
+/**
+ * recalcVaultFromLedger(ledger)
+ * Pure version of recalcVault() — takes a ledger array and returns
+ * a fresh vault object without touching any global state.
+ *
+ * Each transaction contributes:
+ *   type === 'gain'  → positive amounts added to vault
+ *   type === 'spend' → amounts subtracted from vault
+ *
+ * Vault values can go negative (debt is allowed).
+ *
+ * Returns: { currencyId: number, ... }
+ */
+function recalcVaultFromLedger(ledger) {
+  const vault = {};
+  for (const tx of ledger) {
+    const sign = tx.type === 'spend' ? -1 : 1;
+    for (const [cid, amt] of Object.entries(tx.coins || {})) {
+      vault[cid] = (vault[cid] || 0) + sign * (amt || 0);
+    }
+  }
+  return vault;
+}
+
+/**
+ * calcSplitShares(coins, n)
+ * Given an amount of currency to distribute and a recipient count,
+ * calculates the integer per-share amount and remainder for each currency.
+ *
+ * Uses Math.trunc (truncates toward zero) so negative splits work
+ * correctly — debt shares are negative, and remainder matches sign.
+ *
+ * The invariant that MUST always hold:
+ *   perShare[cid] * n + remainder[cid] === coins[cid]
+ *
+ * Parameters:
+ *   coins — { currencyId: amount, ... }
+ *   n     — number of recipients (must be >= 1)
+ *
+ * Returns: { perShare: { cid: number }, remainder: { cid: number } }
+ */
+function calcSplitShares(coins, n) {
+  const perShare  = {};
+  const remainder = {};
+  for (const [cid, amt] of Object.entries(coins)) {
+    perShare[cid]  = Math.trunc(amt / n);
+    remainder[cid] = amt - perShare[cid] * n;
+  }
+  return { perShare, remainder };
+}
+
+/**
+ * getMemberNetWorth(memberName, memberVaults, currencies)
+ * Pure version of getMemberNetWorth() — calculates the total value
+ * of a party member's holdings converted to base currency units.
+ *
+ * Each currency's amount is multiplied by its exchange rate to get
+ * a comparable base-currency value, then all are summed.
+ *
+ * Returns null if no currency has a rate set (can't convert).
+ * Returns a number (possibly negative for indebted members) otherwise.
+ *
+ * Parameters:
+ *   memberName    — string
+ *   memberVaults  — { memberName: { currencyId: amount } }
+ *   currencies    — array of { id, rate } objects
+ */
+function getMemberNetWorth(memberName, memberVaults, currencies) {
+  const v = memberVaults[memberName] || {};
+  let total = 0;
+  let hasRate = false;
+  for (const cur of currencies) {
+    const amt = v[cur.id] || 0;
+    if (cur.rate != null) { total += amt * cur.rate; hasRate = true; }
+  }
+  return hasRate ? total : null;
+}
+
+
+// ──────────────────────────────────────────────────────────────
+//  LOOT TRACKER
+// ──────────────────────────────────────────────────────────────
+
+/**
+ * LOOT_GROUP_EMOJI
+ * Maps loot category names to their display emoji.
+ * Used in table rows, filter dropdowns, and optgroup labels.
+ */
+const LOOT_GROUP_EMOJI = {
+  'Weapon':            '⚔️',
+  'Armor & Shield':    '🛡️',
+  'Potion':            '🧪',
+  'Scroll':            '📜',
+  'Wand, Staff & Rod': '🪄',
+  'Worn / Carried':    '💍',
+  'Adventuring Gear':  '🎒',
+  'Other':             '✨',
+};
+
+/**
+ * lootTypeEmoji(type)
+ * Returns the emoji for a given item type string by substring-matching
+ * against known category keywords (case-insensitive).
+ * Falls back to the 'Other' emoji if no keywords match.
+ *
+ * Examples:
+ *   lootTypeEmoji('Melee Weapon')  → '⚔️'
+ *   lootTypeEmoji('Light Armor')   → '🛡️'
+ *   lootTypeEmoji('Healing Potion')→ '🧪'
+ *   lootTypeEmoji(null)            → '✨'
+ *   lootTypeEmoji('Weird Thing')   → '✨'
+ */
+function lootTypeEmoji(type) {
+  if (!type) return LOOT_GROUP_EMOJI['Other'];
+  const t = type.toLowerCase();
+  if (t.includes('weapon') || t.includes('melee') || t.includes('ranged') ||
+      t.includes('thrown') || t.includes('ammunition'))          return LOOT_GROUP_EMOJI['Weapon'];
+  if (t.includes('armor') || t.includes('armour') || t.includes('shield') ||
+      t.includes('light armor') || t.includes('medium armor') ||
+      t.includes('heavy armor'))                                  return LOOT_GROUP_EMOJI['Armor & Shield'];
+  if (t.includes('potion'))                                       return LOOT_GROUP_EMOJI['Potion'];
+  if (t.includes('scroll'))                                       return LOOT_GROUP_EMOJI['Scroll'];
+  if (t.includes('wand') || t.includes('staff') || t.includes('rod')) return LOOT_GROUP_EMOJI['Wand, Staff & Rod'];
+  if (t.includes('bag') || t.includes('container') || t.includes('instrument') ||
+      t.includes('tool') || t.includes('vehicle') || t.includes('gear'))
+                                                                  return LOOT_GROUP_EMOJI['Adventuring Gear'];
+  if (t.includes('ring') || t.includes('cloak') || t.includes('boots') ||
+      t.includes('gloves') || t.includes('helm') || t.includes('amulet') ||
+      t.includes('belt') || t.includes('bracers') || t.includes('wondrous') ||
+      t.includes('worn') || t.includes('carried'))               return LOOT_GROUP_EMOJI['Worn / Carried'];
+  return LOOT_GROUP_EMOJI['Other'];
+}
+
+
+// ──────────────────────────────────────────────────────────────
+//  SESSION LOG
+// ──────────────────────────────────────────────────────────────
+
+/**
+ * slugify(name)
+ * Converts a display name into a URL/citation-safe slug.
+ *
+ * Steps:
+ *   1. Lowercase
+ *   2. Replace any run of non-alphanumeric characters with a single hyphen
+ *   3. Strip leading/trailing hyphens
+ *
+ * Used to auto-generate the ^citation key for new NPCs.
+ *
+ * Examples:
+ *   slugify('Captain Draegar')  → 'captain-draegar'
+ *   slugify("Lord Kael'thas")   → 'lord-kael-thas'
+ *   slugify('  Baba Yaga  ')    → 'baba-yaga'
+ *   slugify('')                 → ''
+ */
+function slugify(name) {
+  return String(name || '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+}
+
+
+// ──────────────────────────────────────────────────────────────
+//  MODULE EXPORT (Node / test runner only)
+//  When loaded in a browser via <script>, module is undefined
+//  and this block is skipped safely.
+// ──────────────────────────────────────────────────────────────
+
+
+// ══════════════════════════════════════════════════════════════
+//  TOAST NOTIFICATION
+//  showToast(msg, dur?)
+//
+//  Shows a brief notification at the bottom of the screen.
+//  Injects the #toast div into the document body on first call
+//  so pages don't need to include the element themselves.
+// ══════════════════════════════════════════════════════════════
+
+function showToast(msg, dur = 2800) {
+  let t = document.getElementById('toast');
+  if (!t) {
+    t = document.createElement('div');
+    t.id = 'toast';
+    t.className = 'toast';
+    document.body.appendChild(t);
+  }
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(t._to);
+  t._to = setTimeout(() => t.classList.remove('show'), dur);
+}
+
+// ══════════════════════════════════════════════════════════════
+//  SIDENAV COMPONENT
+//  buildSidenav(activeHref)
+//
+//  Writes the full sidenav HTML into #nexus-nav-root and wires
+//  up the hamburger toggle and overlay.  Call once per page:
+//
+//    buildSidenav('party-roster.html');
+//
+//  Module links are hidden when their module is disabled via
+//  MODULE_ENABLED (set by loadModuleSettings in nexus-config.js).
+//  Admin and Dashboard are always visible.
+// ══════════════════════════════════════════════════════════════
+
+const NAV_LINKS = [
+  { href: 'index.html',        icon: '⬡',  label: 'Dashboard'    },
+  { href: 'party-roster.html', icon: '👥', label: 'Party Roster' },
+  { href: 'treasury.html',     icon: '💰', label: 'Treasury'     },
+  { href: 'loot-tracker.html', icon: '⚔️', label: 'Loot Tracker' },
+  { href: 'session-log.html',  icon: '📋', label: 'Session Log'  },
+  { href: 'admin.html',        icon: '⚙',  label: 'Admin'        },
+];
+
+// Maps page hrefs to their MODULE_ENABLED key (Dashboard+Admin have none)
+const NAV_MODULE_KEY = {
+  'party-roster.html': 'partyRoster',
+  'treasury.html':     'treasury',
+  'loot-tracker.html': 'lootTracker',
+  'session-log.html':  'sessionLog',
+};
+
+function buildSidenav(activeHref) {
+  const root = document.getElementById('nexus-nav-root');
+  if (!root) return;
+
+  const linksHtml = NAV_LINKS.map(link => {
+    const modKey = NAV_MODULE_KEY[link.href];
+    // Module links respect visibility; Dashboard + Admin always shown
+    const hidden = (modKey && typeof isModuleEnabled === 'function' && !isModuleEnabled(modKey))
+      ? ' style="display:none"' : '';
+    const active = link.href === activeHref ? ' active' : '';
+    return (
+      `    <a class="sidenav-link${active}" href="${link.href}"${hidden}>\n` +
+      `      <span class="nav-icon">${link.icon}</span>\n` +
+      `      <span class="nav-label">${link.label}</span>\n` +
+      `      <span class="nav-pip"></span>\n` +
+      `    </a>`
+    );
+  }).join('\n');
+
+  root.innerHTML =
+    `<button class="nav-toggle" id="navToggle" aria-label="Toggle navigation">\n` +
+    `  <span></span><span></span><span></span>\n` +
+    `</button>\n` +
+    `<div class="nav-overlay" id="navOverlay"></div>\n` +
+    `<nav class="sidenav" id="sidenav">\n` +
+    `  <a class="sidenav-logo" href="index.html">\n` +
+    `    <div class="sidenav-logo-top">⚙ nexus</div>\n` +
+    `    <div class="sidenav-logo-name">NEXUS</div>\n` +
+    `    <div class="sidenav-logo-sub">campaign system</div>\n` +
+    `  </a>\n` +
+    `  <div class="sidenav-section">Modules</div>\n` +
+    `  <div class="sidenav-links">\n` +
+    linksHtml + '\n' +
+    `  </div>\n` +
+    `  <div class="sidenav-bottom">nexus // v1.0.0</div>\n` +
+    `</nav>`;
+
+  // Wire toggle and overlay now that they exist in the DOM
+  document.getElementById('navToggle').addEventListener('click', () => {
+    document.getElementById('sidenav').classList.contains('nav-open')
+      ? closeNav() : openNav();
+  });
+  document.getElementById('navOverlay').addEventListener('click', closeNav);
+}
+
+function openNav() {
+  document.getElementById('sidenav').classList.add('nav-open');
+  document.getElementById('navOverlay').classList.add('nav-open');
+}
+
+function closeNav() {
+  document.getElementById('sidenav').classList.remove('nav-open');
+  document.getElementById('navOverlay').classList.remove('nav-open');
+}
+
+if (typeof module !== 'undefined') {
+  module.exports = {
+    uid,
+    fmt,
+    esc,
+    showToast,
+    openNav,
+    closeNav,
+    buildSidenav,
+    NAV_LINKS,
+    NAV_MODULE_KEY,
+    abilityMod,
+    modStr,
+    computeCheck,
+    computeNetEffects,
+    recalcVaultFromLedger,
+    calcSplitShares,
+    getMemberNetWorth,
+    LOOT_GROUP_EMOJI,
+    DAMAGE_TYPES,
+    lootTypeEmoji,
+    slugify,
+  };
+}

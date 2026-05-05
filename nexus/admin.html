@@ -1,0 +1,767 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>NEXUS // Admin</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="icon" type="image/x-icon" href="assets/favicon.ico" />
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Rajdhani:wght@400;500;600;700&family=Share+Tech+Mono&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/nexus.css" />
+  
+</head>
+<body class="has-sidenav page-admin">
+
+  <!-- Side Nav -->
+  <div id="nexus-nav-root"></div>
+
+  <!-- ══════════════════════════════════
+       PASSWORD GATE
+  ══════════════════════════════════ -->
+  <div id="adminGate" class="admin-gate">
+    <div class="gate-box">
+      <div class="gate-icon">🔐</div>
+      <div class="gate-title">ADMIN ACCESS</div>
+      <div class="gate-sub">nexus // restricted panel</div>
+      <input type="password" id="gatePassword" placeholder="Enter password"
+             autocomplete="current-password"
+             onkeydown="if(event.key==='Enter') checkPassword()" />
+      <button class="btn btn-primary" style="width:100%" onclick="checkPassword()">Authenticate</button>
+      <div class="gate-error" id="gateError"></div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════
+       ADMIN CONTENT (shown after auth)
+  ══════════════════════════════════ -->
+  <div id="adminContent">
+    <header>
+      <div class="brand">
+        <div class="brand-top">⚙ nexus // admin</div>
+        <div class="brand-name" style="color:var(--amber);text-shadow:0 0 20px var(--amber),0 0 40px rgba(212,134,10,0.3)">ADMIN PANEL</div>
+        <div class="brand-sub">system configuration</div>
+      </div>
+      <div class="header-actions">
+        <button class="btn btn-ghost" onclick="lockAdmin()">🔒 Lock</button>
+      </div>
+    </header>
+    <div class="hline"></div>
+
+    <div class="admin-main">
+
+      <!-- ── TERM MAPPINGS ── -->
+      <!-- ── MODULE VISIBILITY ── -->
+      <div class="admin-section-card">
+        <div class="admin-section-head">Module Visibility</div>
+        <div class="admin-section-desc">
+          Toggle modules on or off. Disabled modules are hidden from the nav and dashboard,
+          and their pages redirect to the dashboard if accessed directly.
+        </div>
+
+        <div id="moduleToggleGrid" style="display:flex;flex-direction:column;gap:0.6rem;margin-bottom:1rem">
+          <!-- Built by buildModuleToggleGrid() -->
+        </div>
+
+        <div class="admin-save-bar">
+          <span class="save-status" id="moduleSaveStatus">✓ Saved</span>
+          <button class="btn btn-primary" onclick="saveModuleVisibility()">Save Changes</button>
+        </div>
+      </div>
+
+      <div class="admin-section-card">
+        <div class="admin-section-head">Module &amp; Term Mappings</div>
+        <div class="admin-section-desc">
+          Rename any module or label to match your campaign's setting and tone.
+          Leave a field blank to keep the default name. Changes apply across all pages immediately after saving.
+        </div>
+
+        <div class="term-grid" id="termGrid">
+          <!-- Built by JS -->
+        </div>
+
+        <div class="admin-save-bar">
+          <span class="save-status" id="termSaveStatus">✓ Saved</span>
+          <button class="btn btn-ghost" onclick="resetTerms()">Reset to Defaults</button>
+          <button class="btn btn-primary" onclick="saveTermsAdmin()">Save Changes</button>
+        </div>
+      </div>
+
+      <!-- ── CAMPAIGN SNAPSHOT ── -->
+      <div class="admin-section-card">
+        <div class="admin-section-head">Campaign Snapshot</div>
+        <div class="admin-section-desc">
+          Export a complete backup of all campaign data — party members, treasury ledger, currencies,
+          loot items, and settings — as a single JSON file. Restore from a snapshot to replace all
+          data in one operation. Restore requires confirmation and cannot be undone.
+        </div>
+
+        <div class="snapshot-row">
+          <div class="snapshot-action">
+            <div class="snapshot-action-title">Export Everything</div>
+            <div class="snapshot-action-desc">Downloads a full snapshot of all 8 tables as one JSON file (party, treasury, loot, session log, NPCs, and settings).</div>
+          </div>
+          <button class="btn btn-cyan" id="btnExportSnapshot" onclick="exportSnapshot()">⬇ Export Snapshot</button>
+        </div>
+
+        <div class="snapshot-row" style="margin-top:0.6rem;">
+          <div class="snapshot-action">
+            <div class="snapshot-action-title">Restore from Snapshot</div>
+            <div class="snapshot-action-desc">Replaces all data from a previously exported snapshot file.</div>
+          </div>
+          <button class="btn" id="btnRestoreSnapshot"
+                  style="background:transparent;border:1px solid var(--amber);color:var(--amber);flex-shrink:0;opacity:0.85;transition:opacity 0.15s,box-shadow 0.15s;"
+                  onmouseover="this.style.opacity='1';this.style.boxShadow='0 0 12px rgba(240,168,50,0.3)'"
+                  onmouseout="this.style.opacity='0.85';this.style.boxShadow='none'"
+                  onclick="document.getElementById('snapshotFileInput').click()">⬆ Restore Snapshot</button>
+        </div>
+        <input type="file" id="snapshotFileInput" accept=".json" style="display:none" onchange="restoreSnapshot(event)" />
+
+        <div id="snapshotStatus" style="display:none;margin-top:0.9rem;font-family:'Share Tech Mono',monospace;font-size:0.65rem;letter-spacing:0.06em;line-height:1.7;padding:0.7rem 0.9rem;border-radius:4px;"></div>
+      </div>
+
+      <!-- ── CHANGE PASSWORD ── -->
+      <div class="admin-section-card">
+        <div class="admin-section-head">Admin Password</div>
+        <div class="admin-section-desc">
+          Change the admin panel password. The password is stored as a SHA-256 hash in <code style="font-family:'Share Tech Mono',monospace;color:var(--cyan);font-size:0.75rem">js/nexus-config.js</code> —
+          update that file after changing it here, or the new password only persists for this browser session.
+        </div>
+        <div class="pw-row">
+          <div class="field"><label>New Password</label><input type="password" id="newPw1" placeholder="New password" /></div>
+          <div class="field"><label>Confirm Password</label><input type="password" id="newPw2" placeholder="Confirm" /></div>
+          <button class="btn btn-ghost" onclick="changePassword()" style="margin-bottom:0.1rem">Update</button>
+        </div>
+        <div id="pwStatus" style="font-family:'Share Tech Mono',monospace;font-size:0.65rem;margin-top:0.6rem;min-height:1.2em;"></div>
+        <div style="margin-top:1rem;padding:0.8rem 1rem;background:rgba(240,168,50,0.05);border:1px solid rgba(240,168,50,0.2);border-radius:4px;">
+          <div style="font-family:'Share Tech Mono',monospace;font-size:0.62rem;color:var(--amber);letter-spacing:0.08em;line-height:1.7">
+            ⚠ &nbsp;To make a password change permanent: after clicking Update, copy the hash shown below into
+            <strong>js/nexus-config.js</strong> as the value of <code style="color:var(--cyan)">ADMIN_PW_HASH</code>.
+          </div>
+          <div id="newHashDisplay" style="display:none;margin-top:0.6rem;font-family:'Share Tech Mono',monospace;font-size:0.65rem;color:var(--cyan);word-break:break-all;"></div>
+        </div>
+      </div>
+
+      <!-- ── DANGER ZONE ── -->
+      <div class="admin-section-card" style="border-color:rgba(224,60,60,0.35);">
+        <div class="admin-section-head" style="color:var(--red);">
+          <span style="display:inline-block;width:10px;height:2px;background:var(--red);box-shadow:0 0 6px var(--red);margin-right:0.6rem;flex-shrink:0"></span>
+          Danger Zone
+        </div>
+        <div class="admin-section-desc">
+          Permanently delete all data from a module. These actions cannot be undone.
+          Each button requires a confirmation before anything is deleted.
+        </div>
+
+        <div id="dangerRowsContainer" style="display:flex;flex-direction:column;gap:0.75rem;">
+          <!-- Built by buildDangerZone() -->
+        </div></div>
+      </div><!-- /danger zone -->
+
+    </div><!-- /admin-main -->
+  </div><!-- /adminContent -->
+
+  <script src="js/nexus-config.js"></script>
+  <script src="js/nexus-utils.js"></script>
+<script>loadModuleSettings().then(() => { buildSidenav('admin.html'); applyModuleVisibility(); });</script>
+  <script>
+  // ══════════════════════════════════════════════════════════
+  //  PASSWORD GATE
+  //  SHA-256 hash of the admin password.
+  //  Default password: nexusadmin
+  //  To change: run  sha256("yournewpassword")  in the browser
+  //  console and paste the result here.
+  // ══════════════════════════════════════════════════════════
+  const ADMIN_PW_HASH = '1f8c16044419c48333715ae2a712e6e0a30722d3c56bc9f581496910af47df8d';
+
+  // Session flag — stays unlocked while the tab is open
+  let adminUnlocked = sessionStorage.getItem('nexus_admin') === '1';
+
+  async function sha256(str) {
+    const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(str));
+    return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2,'0')).join('');
+  }
+
+  async function checkPassword() {
+    const pw = document.getElementById('gatePassword').value;
+    const hash = await sha256(pw);
+    if (hash === ADMIN_PW_HASH) {
+      sessionStorage.setItem('nexus_admin', '1');
+      adminUnlocked = true;
+      document.getElementById('adminGate').style.display = 'none';
+      document.getElementById('adminContent').style.display = 'block';
+      loadAdminData();
+    } else {
+      const err = document.getElementById('gateError');
+      err.textContent = 'Incorrect password.';
+      document.getElementById('gatePassword').value = '';
+      document.getElementById('gatePassword').focus();
+      setTimeout(() => err.textContent = '', 2500);
+    }
+  }
+
+  function lockAdmin() {
+    sessionStorage.removeItem('nexus_admin');
+    adminUnlocked = false;
+    document.getElementById('adminContent').style.display = 'none';
+    document.getElementById('adminGate').style.display = 'flex';
+    document.getElementById('gatePassword').value = '';
+  }
+
+  // Auto-unlock if already authenticated this session
+  if (adminUnlocked) {
+    document.getElementById('adminGate').style.display = 'none';
+    document.getElementById('adminContent').style.display = 'block';
+  } else {
+    // Gate is visible — focus the password field immediately
+    document.addEventListener('DOMContentLoaded', () => {
+      document.getElementById('gatePassword').focus();
+    });
+    // DOMContentLoaded may have already fired if scripts are at bottom
+    if (document.readyState !== 'loading') {
+      document.getElementById('gatePassword').focus();
+    }
+  }
+
+  // ══════════════════════════════════════════════════════════
+  //  TERM MAPPING EDITOR
+  // ══════════════════════════════════════════════════════════
+
+  // Definition of every editable term, grouped for display
+  const TERM_DEFS = [
+    {
+      group: 'Module Names',
+      terms: [
+        { key: 'partyRoster',  label: 'Party Roster',  hint: 'Nav link, page title, dashboard card' },
+        { key: 'treasury',     label: 'Treasury',       hint: 'Nav link, page title, dashboard card' },
+        { key: 'lootTracker',  label: 'Loot Tracker',   hint: 'Nav link, page title, dashboard card' },
+        { key: 'sessionLog',   label: 'Session Log',    hint: 'Dashboard card (planned)' },
+        { key: 'worldMap',     label: 'World Map',      hint: 'Dashboard card (planned)' },
+        { key: 'bestiary',     label: 'Bestiary',       hint: 'Dashboard card (planned)' },
+        { key: 'diceRoller',   label: 'Dice Roller',    hint: 'Dashboard card (planned)' },
+      ]
+    },
+    {
+      group: 'Common Labels',
+      terms: [
+        { key: 'member',   label: 'Member (singular)',  hint: '"Add Member" buttons, toasts' },
+        { key: 'members',  label: 'Members (plural)',   hint: 'Stats bar, empty states' },
+        { key: 'currency', label: 'Currency',           hint: 'Treasury labels' },
+        { key: 'item',     label: 'Item (singular)',    hint: 'Loot tracker labels' },
+        { key: 'items',    label: 'Items (plural)',     hint: 'Stats bar, empty states' },
+        { key: 'session',  label: 'Session',            hint: 'Session Log labels' },
+        { key: 'creature', label: 'Creature',           hint: 'Bestiary labels' },
+        { key: 'partyInventory', label: 'Party Inventory', hint: 'Shared loot holder label in Loot Tracker' },
+        { key: 'partyVault',     label: 'Party Vault',     hint: 'Split remainder destination in Treasury' },
+      ]
+    },
+    {
+      group: 'Campaign Identity',
+      terms: [
+        { key: 'campaignName', label: 'Campaign Name',    hint: 'Site title, dashboard heading' },
+        { key: 'campaignSub',  label: 'Campaign Subtitle', hint: 'Tagline under campaign name' },
+      ]
+    },
+  ];
+
+  function buildTermGrid() {
+    const grid = document.getElementById('termGrid');
+    grid.innerHTML = TERM_DEFS.map(group => `
+      <div class="term-group-label">${group.group}</div>
+      ${group.terms.map(def => `
+        <div class="term-row">
+          <label>${def.label}</label>
+          <input type="text" id="term-${def.key}"
+                 value="${esc(TERMS[def.key] || '')}"
+                 placeholder="${esc(TERM_DEFAULTS[def.key])}" />
+          <span class="term-default">Default: ${esc(TERM_DEFAULTS[def.key])}</span>
+        </div>
+      `).join('')}
+    `).join('');
+  }
+
+  function buildModuleToggleGrid() {
+    const grid = document.getElementById('moduleToggleGrid');
+    if (!grid) return;
+    grid.innerHTML = MODULE_DEFS.map(mod => {
+      const enabled = isModuleEnabled(mod.key);
+      const checkedAttr = enabled ? 'checked' : '';
+      return `
+        <div class="module-toggle-row">
+          <div class="module-toggle-info">
+            <span class="module-toggle-icon">${mod.icon}</span>
+            <div>
+              <div class="module-toggle-name">${esc(t(mod.key))}</div>
+              <div class="module-toggle-hint">${esc(mod.href)}</div>
+            </div>
+          </div>
+          <label class="pill-toggle" title="Toggle ${esc(mod.label)}">
+            <input type="checkbox" id="modToggle-${mod.key}" ${checkedAttr}
+                   onchange="document.getElementById('moduleSaveStatus').classList.remove('show')" />
+            <span class="pill-track"></span>
+          </label>
+        </div>`;
+    }).join('');
+  }
+
+  async function saveModuleVisibility() {
+    const settings = {};
+    MODULE_DEFS.forEach(mod => {
+      const cb = document.getElementById('modToggle-' + mod.key);
+      settings[mod.key] = cb ? cb.checked : true;
+    });
+    try {
+      await saveModuleSettings(settings);
+      const status = document.getElementById('moduleSaveStatus');
+      status.classList.add('show');
+      setTimeout(() => status.classList.remove('show'), 2000);
+      showToast('Module visibility saved.');
+    } catch(e) {
+      console.error(e);
+      showToast('Save failed — check Supabase config.');
+    }
+  }
+
+
+  // ══════════════════════════════════════════════════════════
+  //  DANGER ZONE BUILDER
+  // ══════════════════════════════════════════════════════════
+  const DANGER_ROWS = [
+    {
+      id:    'btnClearMembers',
+      title: 'Clear All Party Members',
+      desc:  'Removes every member from the Party Roster. Treasury ledger entries and loot item holders are not affected.',
+      label: '🗑 Clear Members',
+      fn:    'clearAllMembers()',
+    },
+    {
+      id:    'btnClearTreasury',
+      title: 'Clear All Treasury Data',
+      desc:  'Deletes the entire transaction ledger and all currency types. Party member records are not affected.',
+      label: '🗑 Clear Treasury',
+      fn:    'clearAllTreasury()',
+    },
+    {
+      id:    'btnClearLoot',
+      title: 'Clear All Loot Items',
+      desc:  'Removes every item from the Loot Tracker. Party member records and treasury data are not affected.',
+      label: '🗑 Clear Loot',
+      fn:    'clearAllLoot()',
+    },
+    {
+      id:    'btnClearSessions',
+      title: 'Clear All Session Log Data',
+      desc:  'Deletes every session, all logged moments, and all quest entries. NPC records are not affected.',
+      label: '🗑 Clear Sessions',
+      fn:    'clearAllSessions()',
+    },
+    {
+      id:    'btnClearNpcs',
+      title: 'Clear All NPCs',
+      desc:  'Removes every NPC from the index. Session records and logged moments are not affected, but any ^slug citations in them will become unresolved.',
+      label: '🗑 Clear NPCs',
+      fn:    'clearAllNpcs()',
+    },
+  ];
+
+  function buildDangerZone() {
+    const container = document.getElementById('dangerRowsContainer');
+    if (!container) return;
+    container.innerHTML = DANGER_ROWS.map(row => `
+      <div class="danger-row">
+        <div>
+          <div class="danger-row-title">${esc(row.title)}</div>
+          <div class="danger-row-desc">${esc(row.desc)}</div>
+        </div>
+        <button class="btn btn-danger" id="${row.id}" onclick="${row.fn}">
+          ${row.label}
+        </button>
+      </div>`).join('\n');
+  }
+
+  async function loadAdminData() {
+    await Promise.all([loadTerms(), loadModuleSettings()]);
+    buildTermGrid();
+    buildModuleToggleGrid();
+    buildDangerZone();
+  }
+
+  async function saveTermsAdmin() {
+    const newTerms = {};
+    TERM_DEFS.forEach(group => {
+      group.terms.forEach(def => {
+        const val = document.getElementById('term-' + def.key)?.value?.trim();
+        newTerms[def.key] = val || TERM_DEFAULTS[def.key];
+      });
+    });
+    try {
+      await saveTerms(newTerms);
+      const status = document.getElementById('termSaveStatus');
+      status.classList.add('show');
+      setTimeout(() => status.classList.remove('show'), 2000);
+      showToast('Term mappings saved.');
+    } catch(e) {
+      console.error(e);
+      showToast('Save failed — check Supabase config.');
+    }
+  }
+
+  function resetTerms() {
+    TERM_DEFS.forEach(group => {
+      group.terms.forEach(def => {
+        const el = document.getElementById('term-' + def.key);
+        if (el) el.value = TERM_DEFAULTS[def.key];
+      });
+    });
+  }
+
+  // ══════════════════════════════════════════════════════════
+  //  PASSWORD CHANGE
+  // ══════════════════════════════════════════════════════════
+  async function changePassword() {
+    const p1 = document.getElementById('newPw1').value;
+    const p2 = document.getElementById('newPw2').value;
+    const status = document.getElementById('pwStatus');
+    const hashDisplay = document.getElementById('newHashDisplay');
+    if (!p1) { status.style.color='var(--red)'; status.textContent = 'Enter a new password.'; return; }
+    if (p1 !== p2) { status.style.color='var(--red)'; status.textContent = 'Passwords do not match.'; return; }
+    const hash = await sha256(p1);
+    // Update in-memory so it works for this session
+    // (ADMIN_PW_HASH is const, so we shadow it on window)
+    window._adminPwHash = hash;
+    status.style.color = 'var(--green)';
+    status.textContent = '✓ Password updated for this session. Copy the hash below into js/nexus-config.js to make it permanent.';
+    hashDisplay.style.display = 'block';
+    hashDisplay.textContent = 'ADMIN_PW_HASH = \'' + hash + '\'';
+    document.getElementById('newPw1').value = '';
+    document.getElementById('newPw2').value = '';
+  }
+
+  // ══════════════════════════════════════════════════════════
+  //  DANGER ZONE — CLEAR ALL FUNCTIONS
+  //  Each function:
+  //    1. Shows a nexusConfirm dialog with an acknowledgement
+  //       checkbox that must be checked before confirming.
+  //    2. Only proceeds if the user both checks the box AND
+  //       clicks the confirm button.
+  //    3. Deletes all rows from the relevant Supabase table(s)
+  //       using a filter that matches every row (id neq '').
+  //    4. Shows a toast and re-locks the button while running.
+  // ══════════════════════════════════════════════════════════
+
+  // Shared confirm helper — presents the "are you sure" dialog
+  // with a mandatory acknowledgement checkbox.
+  // Returns true only if the user checked the box AND confirmed.
+  async function dangerConfirm(title, name, message) {
+    const result = await nexusConfirm({
+      title,
+      name,
+      message,
+      danger:       true,
+      confirmLabel: 'Yes, Delete Everything',
+      cancelLabel:  'Cancel',
+      checkboxes: [{
+        id:       'ack',
+        label:    'I understand this cannot be undone',
+        checked:  false,
+        required: true,   // blocks confirm + shakes if unticked
+      }],
+    });
+    // result is false (cancelled) or { confirmed: true, checks: { ack: bool } }
+    return result && result.confirmed && result.checks?.ack === true;
+  }
+
+  async function clearAllMembers() {
+    const confirmed = await dangerConfirm(
+      'Clear All Party Members',
+      'Every member in the Party Roster',
+      'All party member records will be permanently deleted. ' +
+      'Treasury ledger entries tagged to members and loot item holders will not be changed.'
+    );
+    if (!confirmed) return;
+
+    const btn = document.getElementById('btnClearMembers');
+    setLoading(btn, true); btn.dataset.loadingText = 'Deleting…';
+    try {
+      // Delete all rows — PostgREST requires a filter for DELETE.
+      // id=gt. means "id greater than empty string", which matches
+      // every row since all our text PKs are non-empty strings.
+      await db.deleteWhere('party_members', 'id=gt.');
+      showToast('All party members deleted.');
+    } catch(e) {
+      console.error(e);
+      showToast('Delete failed — check Supabase config.');
+    } finally {
+      setLoading(btn, false);
+    }
+  }
+
+  async function clearAllTreasury() {
+    const confirmed = await dangerConfirm(
+      'Clear All Treasury Data',
+      'The entire ledger and all currency types',
+      'All transaction ledger entries and all currency definitions will be permanently deleted. ' +
+      'Party member records are not affected.'
+    );
+    if (!confirmed) return;
+
+    const btn = document.getElementById('btnClearTreasury');
+    setLoading(btn, true); btn.dataset.loadingText = 'Deleting…';
+    try {
+      // Delete ledger first (references currencies), then currency types
+      // id=gt. matches all rows with a non-empty text PK
+      await db.deleteWhere('treasury_ledger',     'id=gt.');
+      await db.deleteWhere('treasury_currencies', 'id=gt.');
+      showToast('All treasury data deleted.');
+    } catch(e) {
+      console.error(e);
+      showToast('Delete failed — check Supabase config.');
+    } finally {
+      setLoading(btn, false);
+    }
+  }
+
+  async function clearAllLoot() {
+    const confirmed = await dangerConfirm(
+      'Clear All Loot Items',
+      'Every item in the Loot Tracker',
+      'All loot items will be permanently deleted. ' +
+      'Party member records and treasury data are not affected.'
+    );
+    if (!confirmed) return;
+
+    const btn = document.getElementById('btnClearLoot');
+    setLoading(btn, true); btn.dataset.loadingText = 'Deleting…';
+    try {
+      // id=gt. matches all rows with a non-empty text PK
+      await db.deleteWhere('loot_items', 'id=gt.');
+      showToast('All loot items deleted.');
+    } catch(e) {
+      console.error(e);
+      showToast('Delete failed — check Supabase config.');
+    } finally {
+      setLoading(btn, false);
+    }
+  }
+
+  async function clearAllSessions() {
+    const confirmed = await dangerConfirm(
+      'Clear All Session Log Data',
+      'Every session, moment, and quest entry',
+      'All sessions, logged moments, and quest entries will be permanently deleted. ' +
+      'NPC records in the index are not affected.'
+    );
+    if (!confirmed) return;
+
+    const btn = document.getElementById('btnClearSessions');
+    setLoading(btn, true); btn.dataset.loadingText = 'Deleting…';
+    try {
+      // session_events has FK → session_log (CASCADE), so delete events first
+      await db.deleteWhere('session_events', 'id=gt.');
+      await db.deleteWhere('session_log',    'id=gt.');
+      showToast('All session log data deleted.');
+    } catch(e) {
+      console.error(e);
+      showToast('Delete failed — check Supabase config.');
+    } finally {
+      setLoading(btn, false);
+    }
+  }
+
+  async function clearAllNpcs() {
+    const confirmed = await dangerConfirm(
+      'Clear All NPCs',
+      'Every NPC in the index',
+      'All NPC records will be permanently deleted. ' +
+      'Session records and logged moments are not affected, but any ^slug citations in them will become unresolved.'
+    );
+    if (!confirmed) return;
+
+    const btn = document.getElementById('btnClearNpcs');
+    setLoading(btn, true); btn.dataset.loadingText = 'Deleting…';
+    try {
+      // npcs.first_seen is SET NULL on session delete, so no FK concern here.
+      // id=gt. matches all rows with a non-empty text PK.
+      await db.deleteWhere('npcs', 'id=gt.');
+      showToast('All NPCs deleted.');
+    } catch(e) {
+      console.error(e);
+      showToast('Delete failed — check Supabase config.');
+    } finally {
+      setLoading(btn, false);
+    }
+  }
+
+  // ══════════════════════════════════════════════════════════
+  //  CAMPAIGN SNAPSHOT — EXPORT / RESTORE
+  // ══════════════════════════════════════════════════════════
+
+  const SNAPSHOT_TABLES = [
+    'party_members',
+    'treasury_currencies',
+    'treasury_ledger',
+    'loot_items',
+    'session_log',
+    'session_events',
+    'npcs',
+    'nexus_settings',
+  ];
+
+  // Tables that must be restored in dependency order:
+  //   session_log before session_events (FK: session_events.session_id → session_log.id)
+  //   session_log before npcs (FK: npcs.first_seen → session_log.id)
+  // SNAPSHOT_TABLES is already ordered correctly for this.
+  //
+  // session_events uses CASCADE delete — restore session_log first,
+  // then session_events, so FKs resolve cleanly.
+
+  function snapshotStatus(msg, isError = false) {
+    const el = document.getElementById('snapshotStatus');
+    if (!el) return;
+    el.style.display = 'block';
+    el.style.color      = isError ? 'var(--red)'   : 'var(--cyan)';
+    el.style.background = isError ? 'rgba(224,60,60,0.06)' : 'rgba(14,240,208,0.04)';
+    el.style.border     = isError ? '1px solid rgba(224,60,60,0.25)' : '1px solid rgba(14,240,208,0.15)';
+    el.textContent = msg;
+  }
+
+  async function exportSnapshot() {
+    const btn = document.getElementById('btnExportSnapshot');
+    btn.dataset.loadingText = 'Fetching…';
+    setLoading(btn, true);
+    snapshotStatus('');
+    document.getElementById('snapshotStatus').style.display = 'none';
+
+    try {
+      // Fetch all tables in parallel
+      const results = await Promise.all(
+        SNAPSHOT_TABLES.map(tbl => db.select(tbl).catch(() => []))
+      );
+
+      const tables = {};
+      let totalRows = 0;
+      SNAPSHOT_TABLES.forEach((tbl, i) => {
+        tables[tbl] = results[i];
+        totalRows += results[i].length;
+      });
+
+      const snapshot = {
+        version:     1,
+        exported_at: Date.now(),
+        campaign:    (typeof t === 'function') ? t('campaignName') : 'NEXUS',
+        tables,
+      };
+
+      const blob = new Blob([JSON.stringify(snapshot, null, 2)], { type: 'application/json' });
+      const date = new Date().toISOString().slice(0, 10);
+      const a    = document.createElement('a');
+      a.href     = URL.createObjectURL(blob);
+      a.download = `nexus-snapshot-${date}.json`;
+      a.click();
+      URL.revokeObjectURL(a.href);
+
+      snapshotStatus(`✓ Snapshot exported — ${totalRows} records across ${SNAPSHOT_TABLES.length} tables.`);
+      showToast(`Snapshot exported — ${totalRows} records.`);
+    } catch (e) {
+      console.error(e);
+      snapshotStatus('✗ Export failed — check Supabase config.', true);
+      showToast('Export failed.');
+    } finally {
+      setLoading(btn, false);
+    }
+  }
+
+  async function restoreSnapshot(event) {
+    const file = event.target.files[0];
+    event.target.value = ''; // reset so same file can be chosen again
+    if (!file) return;
+
+    // ── Parse + validate ──
+    let snapshot;
+    try {
+      const text = await file.text();
+      snapshot = JSON.parse(text);
+    } catch {
+      snapshotStatus('✗ Invalid snapshot file — could not parse JSON.', true);
+      showToast('Invalid file.'); return;
+    }
+
+    if (!snapshot.tables || typeof snapshot.tables !== 'object') {
+      snapshotStatus('✗ Unrecognised snapshot format — missing "tables" key.', true);
+      showToast('Unrecognised snapshot format.'); return;
+    }
+
+    // ── Build summary for confirm dialog ──
+    const counts = SNAPSHOT_TABLES.map(tbl => {
+      const rows = snapshot.tables[tbl];
+      const n    = Array.isArray(rows) ? rows.length : 0;
+      return `${n} ${tbl.replace(/_/g,' ')}`;
+    });
+
+    const versionWarn = snapshot.version !== 1
+      ? `\n⚠ Snapshot version is ${snapshot.version} (expected 1) — data may not restore correctly.\n`
+      : '';
+
+    const confirmed = await dangerConfirm(
+      'Restore Campaign Snapshot',
+      file.name,
+      `${versionWarn}All existing data in ${SNAPSHOT_TABLES.length} tables will be deleted and replaced:\n${counts.join(' · ')}\n\nThis cannot be undone.`
+    );
+    if (!confirmed) return;
+
+    const btn = document.getElementById('btnRestoreSnapshot');
+    btn.dataset.loadingText = 'Restoring…';
+    setLoading(btn, true);
+
+    const errors = [];
+    let totalRestored = 0;
+
+    for (const tbl of SNAPSHOT_TABLES) {
+      const rows = snapshot.tables[tbl];
+      if (!Array.isArray(rows)) { errors.push(`${tbl}: not an array`); continue; }
+
+      try {
+        if (tbl === 'nexus_settings') {
+          // Key-value store — upsert by key, no blanket delete
+          if (rows.length) await db.upsertMany(tbl, rows);
+        } else if (tbl === 'session_events') {
+          // session_events has FK → session_log (already restored above in loop order).
+          // CASCADE delete on session_log would wipe events, but we delete session_log
+          // first then re-seed both, so we delete session_events explicitly here too.
+          await db.deleteWhere(tbl, 'id=gt.').catch(() => {});
+          if (rows.length) await db.upsertMany(tbl, rows);
+        } else {
+          // Delete all existing rows, then re-seed
+          await db.deleteWhere(tbl, 'id=gt.').catch(() => {}); // ignore if table is empty
+          if (rows.length) await db.upsertMany(tbl, rows);
+        }
+        totalRestored += rows.length;
+      } catch (e) {
+        console.error(`Restore failed for ${tbl}:`, e);
+        errors.push(`${tbl}: ${e.message || 'unknown error'}`);
+      }
+    }
+
+    setLoading(btn, false);
+
+    if (errors.length) {
+      snapshotStatus(`⚠ Restore partially completed — ${totalRestored} records written.\nErrors: ${errors.join('; ')}`, true);
+      showToast('Restore partially failed — check console.');
+    } else {
+      const exportDate = snapshot.exported_at
+        ? new Date(snapshot.exported_at).toLocaleDateString(undefined, { dateStyle: 'medium' })
+        : 'unknown date';
+      snapshotStatus(`✓ Restore complete — ${totalRestored} records across ${SNAPSHOT_TABLES.length} tables restored from snapshot dated ${exportDate}.`);
+      showToast(`Restore complete — ${totalRestored} records.`);
+    }
+  }
+
+  // ══════════════════════════════════════════════════════════
+  //  UTILS
+  // ══════════════════════════════════════════════════════════
+  // If already unlocked on load, populate the grid
+  if (adminUnlocked) loadAdminData();
+  </script>
+
+</body>
+</html>

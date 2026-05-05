@@ -1,0 +1,2151 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>VAULT-LEDGER // Party Treasury</title>
+  <script src="js/nexus-config.js"></script>
+  <script src="js/nexus-utils.js"></script>
+  <link rel="icon" type="image/x-icon" href="assets/favicon.ico" />
+  <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@400;700;900&family=Rajdhani:wght@400;500;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/nexus.css" />
+</head>
+<body class="has-sidenav page-treasury">
+
+<div id="loadingOverlay">
+  <div class="loading-text">LOADING…</div>
+</div>
+<div id="nexus-nav-root"></div>
+
+
+<header>
+  <div class="brand">
+    <div class="brand-top">⚙ vault-ledger // v3.0.0</div>
+    <div class="brand-name">COIN ENGINE</div>
+    <div class="brand-sub">party treasury management system</div>
+  </div>
+  <div class="header-actions">
+    <!-- Import / Export hidden for now -->
+    <button class="btn btn-cyan" onclick="openSplitModal()">⚙ Split</button>
+    <button class="btn btn-primary" onclick="openTxModal()">+ Log Currency</button>
+  </div>
+</header>
+
+<div class="hline"></div>
+
+<main>
+  <div class="currency-grid" id="currencyGrid"></div>
+
+  <!-- Per-member wealth strip -->
+  <div class="member-wealth-row" id="memberWealthRow"></div>
+
+  <div class="total-bar" id="totalBar">
+    <div>
+      <div class="total-label">⚙ Total Party Wealth</div>
+      <div style="display:flex;align-items:baseline;gap:4px;margin-top:4px">
+        <span class="total-value" id="totalVal">0</span>
+        <span class="total-unit" id="totalUnit">CR equiv.</span>
+      </div>
+    </div>
+    <div class="total-breakdown" id="totalBreakdown">— treasury empty —</div>
+    <div class="total-debt-warning" id="totalDebt" style="display:none"></div>
+  </div>
+
+  <div class="section-head">
+    <div class="section-title">Transaction Ledger</div>
+    <span class="tx-count" id="txCount">0 entries</span>
+  </div>
+
+  <!-- ── Ledger search / date-range filter toolbar ── -->
+  <div class="ledger-toolbar">
+    <div class="ledger-search-wrap">
+      <input
+        type="text"
+        id="ledgerSearch"
+        class="ledger-search"
+        placeholder="⌕  Search description, note, member…"
+        oninput="applyLedgerFilter()"
+        autocomplete="off"
+      />
+      <button class="ledger-search-clear" id="ledgerSearchClear" onclick="clearLedgerSearch()" title="Clear" style="display:none">✕</button>
+    </div>
+    <div class="ledger-filter-group">
+      <label class="ledger-date-label">From</label>
+      <input type="date" id="ledgerDateFrom" class="ledger-date-inp" onchange="applyLedgerFilter()" />
+      <label class="ledger-date-label">To</label>
+      <input type="date" id="ledgerDateTo"   class="ledger-date-inp" onchange="applyLedgerFilter()" />
+    </div>
+    <div class="ledger-filter-group">
+      <select id="ledgerTypeFilter" class="ledger-type-sel" onchange="applyLedgerFilter()">
+        <option value="">All Types</option>
+        <option value="gain">Gain</option>
+        <option value="spend">Spend</option>
+        <option value="convert">Convert</option>
+      </select>
+    </div>
+    <div id="ledgerFilterBadge" class="ledger-filter-badge" style="display:none"></div>
+    <button class="ledger-filter-clear-all" id="ledgerClearAll" onclick="clearAllLedgerFilters()" style="display:none" title="Clear all filters">✕ Clear</button>
+  </div>
+
+  <div class="ledger-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th onclick="sortLedger('id')"># <span class="sort-arrow" id="sort-id"></span></th>
+          <th onclick="sortLedger('desc')">Description <span class="sort-arrow" id="sort-desc"></span></th>
+          <th onclick="sortLedger('type')" class="hide-sm">Type <span class="sort-arrow" id="sort-type"></span></th>
+          <th onclick="sortLedger('amount')">Amount <span class="sort-arrow" id="sort-amount"></span></th>
+          <th onclick="sortLedger('member')" class="hide-sm">Who <span class="sort-arrow" id="sort-member"></span></th>
+          <th class="hide-sm">Breakdown</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody id="ledgerBody"></tbody>
+    </table>
+  </div>
+</main>
+
+<!-- TRANSACTION MODAL -->
+<div class="modal-backdrop" id="txModal" onclick="backdropClose(event,'txModal')">
+  <div class="modal">
+    <div class="modal-header">
+      <span class="modal-title" id="txModalTitle">⚙ LOG TRANSACTION</span>
+      <button class="btn-icon" onclick="closeModal('txModal')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="field">
+        <label>Assigned To <span class="optional">(optional)</span></label>
+        <div class="holder-select-wrap" id="txHolderWrap">
+          <div class="holder-selected" id="txHolderSelected" onclick="toggleTxHolderDropdown()">
+            <span class="holder-sel-avatar" id="txHolderAvatar"></span>
+            <span class="holder-sel-name placeholder" id="txHolderName">— Party Shared —</span>
+            <span class="holder-sel-arrow">▾</span>
+          </div>
+          <div class="holder-dropdown" id="txHolderDropdown"></div>
+        </div>
+        <input type="hidden" id="txMember" />
+      </div>
+      <div class="field">
+        <label>Transaction Type</label>
+        <div class="type-row">
+          <button class="type-btn gain active" data-type="gain"    onclick="setType('gain')">⬆ Gain</button>
+          <button class="type-btn spend"        data-type="spend"   onclick="setType('spend')">⬇ Spend</button>
+          <button class="type-btn convert"      data-type="convert" onclick="setType('convert')">⇄ Convert</button>
+        </div>
+      </div>
+      <div class="field">
+        <label>Description <span class="field-required">(required)</span></label>
+        <input type="text" id="txDesc" placeholder="e.g. Contract payout, Equipment purchase…" oninput="(function(){var e=document.getElementById('txDescError');if(e&&this.value.trim())e.textContent='';}).call(this)" />
+      </div>
+      <div class="field">
+        <label>Amounts</label>
+        <div class="coin-inputs-dynamic" id="txCoinInputs"></div>
+      </div>
+      <div class="field">
+        <label>Notes <span class="optional">(optional)</span></label>
+        <textarea id="txNote" placeholder="Session notes, source, vendor…"></textarea>
+      </div>
+    </div>
+    <div class="tx-desc-error" id="txDescError" aria-live="polite"></div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('txModal')">Cancel</button>
+      <button class="btn btn-primary" id="btnSaveTx" onclick="saveTx()">Commit Entry</button>
+    </div>
+  </div>
+</div>
+
+<!-- ADD CURRENCY MODAL -->
+<div class="modal-backdrop" id="addCurrencyModal" onclick="backdropClose(event,'addCurrencyModal')">
+  <div class="modal">
+    <div class="modal-header">
+      <span class="modal-title" id="currencyModalTitle">⚙ ADD CURRENCY TYPE</span>
+      <button class="btn-icon" onclick="closeModal('addCurrencyModal')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="field">
+        <label>Currency Name <span class="field-required">(required)</span></label>
+        <input type="text" id="nc-name" placeholder="e.g. Void Shards" oninput="updatePreview();(function(){var e=document.getElementById('ncNameError');if(e&&this.value.trim())e.textContent='';}).call(this)" />
+        <div class="tx-desc-error" id="ncNameError" aria-live="polite"></div>
+      </div>
+      <div class="field-row">
+        <div class="field">
+          <label>Abbreviation <span class="field-required">(required)</span></label>
+          <input type="text" id="nc-abbr" placeholder="e.g. VS" maxlength="4" oninput="updatePreview();(function(){var e=document.getElementById('ncAbbrError');if(e&&this.value.trim())e.textContent='';}).call(this)" />
+          <div class="tx-desc-error" id="ncAbbrError" aria-live="polite"></div>
+          <div class="hint-text" style="padding-top:0.15rem">2–4 characters</div>
+        </div>
+        <div class="field">
+          <label>Symbol <span class="field-required">(required)</span></label>
+          <input type="text" id="nc-symbol" placeholder="e.g.  ◆  ⬡  Ω  §  ★  💎" maxlength="3" oninput="updatePreview();(function(){var e=document.getElementById('ncSymbolError');if(e&&this.value.trim())e.textContent='';}).call(this)" />
+          <div class="tx-desc-error" id="ncSymbolError" aria-live="polite"></div>
+          <div class="hint-text" style="padding-top:0.15rem">Any character, emoji, or icon</div>
+        </div>
+      </div>
+      <div class="field">
+        <label>Color</label>
+        <div class="color-row" id="colorSwatches"></div>
+      </div>
+      <div class="field" id="rateField">
+        <label>Transfer Rate to Credits <span class="optional">optional</span></label>
+        <input type="number" id="nc-rate" placeholder="e.g. 10 means 1 of this = 10 CR" min="0.001" step="any" oninput="updatePreview()" />
+        <div class="hint-text" id="rateHint">Leave blank if unknown — this currency will be excluded from the CR total</div>
+      </div>
+      <div class="field" id="rateLockedField" style="display:none">
+        <label>Transfer Rate to Credits</label>
+        <div class="hint-text" style="color:var(--cyan-dim);border:1px solid var(--border);padding:0.5rem 0.7rem;border-radius:4px;">
+          ⚙ Base currency is always 1 : 1 — this cannot be changed.
+        </div>
+      </div>
+      <div class="field">
+        <label>Preview</label>
+        <div class="currency-preview">
+          <div class="preview-symbol" id="prev-symbol" style="color:#f0a832;text-shadow:0 0 10px #f0a832">¤</div>
+          <div class="preview-info">
+            <div class="preview-name" id="prev-name">NEW CURRENCY</div>
+            <div class="preview-abbr" id="prev-abbr" style="color:#f0a832">???</div>
+            <div class="preview-rate" id="prev-rate">No transfer rate set</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('addCurrencyModal');editCurrencyId=null;">Cancel</button>
+      <button class="btn btn-primary" id="btnSaveCurrency" onclick="saveNewCurrency()">Add Currency</button>
+    </div>
+  </div>
+</div>
+
+<!-- SPLIT MODAL -->
+<div class="modal-backdrop" id="splitModal" onclick="backdropClose(event,'splitModal')">
+  <div class="modal modal-wide">
+    <div class="modal-header">
+      <span class="modal-title">⚙ SPLIT LOOT</span>
+      <button class="btn-icon" onclick="closeModal('splitModal')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="field">
+        <label>Amounts to Split</label>
+        <div class="coin-inputs-dynamic" id="splitCoinInputs"></div>
+      </div>
+
+      <!-- Split mode toggle -->
+      <div class="field">
+        <label>Split Method</label>
+        <div class="split-mode-row">
+          <button class="split-mode-btn active" data-mode="even"    onclick="setSplitMode('even')">⚖ Even</button>
+          <button class="split-mode-btn"        data-mode="percent" onclick="setSplitMode('percent')">% Percent</button>
+          <button class="split-mode-btn"        data-mode="flat"    onclick="setSplitMode('flat')">₵ Flat</button>
+        </div>
+        <div class="split-mode-hint" id="splitModeHint"></div>
+      </div>
+
+      <div class="field">
+        <label for="splitCount">Number of Recipients</label>
+        <div class="split-count-row">
+          <input type="number" id="splitCount" name="splitCount" min="1" max="20" placeholder="1" oninput="onSplitCountChange()" />
+          <span class="split-count-hint" id="splitCountHint"></span>
+        </div>
+      </div>
+      <div class="field" id="splitMembersField">
+        <label>Recipients</label>
+        <div class="split-member-cards" id="splitMemberCards"></div>
+      </div>
+      <div class="split-result" id="splitResult"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('splitModal')">Close</button>
+      <button class="btn btn-cyan" onclick="applySplit()">Apply &amp; Log Gains</button>
+    </div>
+  </div>
+</div>
+
+
+<!-- MEMBER DETAIL MODAL -->
+<div class="modal-backdrop" id="memberModal" onclick="backdropClose(event,'memberModal')">
+  <div class="modal modal-wide" style="max-width:640px">
+    <div class="modal-header">
+      <span class="modal-title" id="memberModalTitle">⚙ MEMBER HOLDINGS</span>
+      <button class="btn-icon" onclick="closeModal('memberModal')">✕</button>
+    </div>
+    <div class="modal-body" style="padding-top:0.75rem">
+      <!-- Top: portrait + currency holdings -->
+      <div class="mm-top">
+        <div class="mm-portrait-col" id="mmPortraitCol"></div>
+        <div class="mm-holdings-col" id="mmHoldingsCol"></div>
+      </div>
+      <!-- Total wealth bar -->
+      <div class="total-bar mm-total-bar" id="mmTotalBar">
+        <div>
+          <div class="total-label">⚙ Total Wealth</div>
+          <div style="display:flex;align-items:baseline;gap:4px;margin-top:4px">
+            <span class="total-value" id="mmTotalVal">—</span>
+            <span class="total-unit"  id="mmTotalUnit"></span>
+          </div>
+        </div>
+        <div class="total-breakdown" id="mmTotalBreakdown"></div>
+      </div>
+      <!-- Recent transactions -->
+      <div class="mm-ledger-head">
+        <span class="section-title" style="font-size:0.8rem">Recent Transactions</span>
+        <span class="tx-count" id="mmTxCount"></span>
+      </div>
+      <div class="mm-ledger-wrap">
+        <table class="ledger-table mm-ledger-table">
+          <tbody id="mmLedgerBody"></tbody>
+        </table>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('memberModal')">Close</button>
+    </div>
+  </div>
+</div>
+
+<input type="file" id="fileImport" accept=".json" style="display:none" onchange="handleImport(event)" />
+
+<script>
+// ══════════════════════════════════
+//  CONSTANTS
+// ══════════════════════════════════
+const PRESET_COLORS = [
+  '#f0a832','#0ef0d0','#3ce08a','#e03c3c','#c07de8',
+  '#6a9fe8','#ff7a50','#f0e050','#50e0c0','#e050a0',
+  '#80b0ff','#e8a050','#a0a0c0','#60e890','#ff6090'
+];
+
+const DEFAULT_CURRENCIES = [
+  { id: 'cr', name: 'Credits', abbr: 'CR', symbol: '₵', color: '#f0a832', rate: 1 }
+];
+
+let currencies = [];
+let vault = {};
+let ledger = [];
+let editId = null;
+let ledgerSortKey = 'id', ledgerSortDir = -1; // default: newest first
+let currentType = 'gain';
+let selectedColor = '#f0a832';
+let editCurrencyId = null;  // null = adding new, string = editing existing
+let _cachedTxMembers = null;   // party members cache for tx holder dropdown
+const currencyLabels = {};      // id → {name,abbr} — persists after currency deleted
+let memberVaultsCache = {};     // per-member vault totals, refreshed by renderMemberWealth
+
+// uid — defined in js/nexus-utils.js
+
+// ══════════════════════════════════
+//  PERSIST  (Supabase)
+// ══════════════════════════════════
+async function loadData() {
+  try {
+    showLoading(true);
+    const [curRows, ledgerRows] = await Promise.all([
+      db.select('treasury_currencies', { order: 'sort_order.asc,created_at.asc' }),
+      db.select('treasury_ledger',     { order: 'ts.asc' }),
+    ]);
+
+    if (curRows.length) {
+      currencies = curRows.map(r => ({
+        id: r.id, name: r.name, abbr: r.abbr,
+        symbol: r.symbol, color: r.color, rate: r.rate,
+      }));
+      // Snapshot labels so deleted currencies still display correctly
+      currencies.forEach(cur => { currencyLabels[cur.id] = { name: cur.name, abbr: cur.abbr }; });
+    } else {
+      // First run — seed default currency
+      currencies = JSON.parse(JSON.stringify(DEFAULT_CURRENCIES));
+      await db.upsert('treasury_currencies', {
+        id: 'cr', name: 'Credits', abbr: 'CR', symbol: '\u20B5',
+        color: '#f0a832', rate: 1, sort_order: 0,
+      });
+    }
+
+    if (ledgerRows.length) {
+      ledger = ledgerRows.map(r => ({
+        id: r.id, type: r.type, desc: r.description,
+        note: r.note, ts: r.ts, coins: r.coins || {}, member: r.member_name || null,
+      }));
+    }
+    recalcVault();
+  } catch(e) {
+    console.error(e);
+    showToast('Could not load treasury — check your Supabase config.');
+    currencies = JSON.parse(JSON.stringify(DEFAULT_CURRENCIES));
+    vault = {}; ledger = [];
+  } finally { showLoading(false); }
+}
+
+function txToRow(tx) {
+  return {
+    id: tx.id, type: tx.type,
+    description: tx.desc || null,
+    note: tx.note || null,
+    ts: tx.ts || Date.now(),
+    coins: tx.coins || {},
+    member_name: tx.member || null,
+  };
+}
+
+async function saveTxToDB(tx)        { await db.upsert('treasury_ledger', txToRow(tx)); }
+async function deleteTxFromDB(id)    { await db.delete('treasury_ledger', id); }
+async function saveCurrencyToDB(cur) {
+  await db.upsert('treasury_currencies', {
+    id: cur.id, name: cur.name, abbr: cur.abbr,
+    symbol: cur.symbol, color: cur.color, rate: cur.rate,
+    sort_order: currencies.indexOf(cur),
+  });
+}
+async function deleteCurrencyFromDB(id) { await db.delete('treasury_currencies', id); }
+
+function showLoading(on) {
+  const el = document.getElementById('loadingOverlay');
+  if (el) el.style.display = on ? 'flex' : 'none';
+}
+
+function recalcVault() {
+  vault = {};
+  for (const tx of ledger) {
+    const sign = tx.type === 'spend' ? -1 : 1;
+    for (const [cid, amt] of Object.entries(tx.coins || {})) {
+      vault[cid] = (vault[cid] || 0) + sign * (amt || 0); // allow negatives
+    }
+  }
+}
+
+// ══════════════════════════════════
+//  RENDER
+// ══════════════════════════════════
+function render() {
+  renderGrid();
+  renderMemberWealth().then(() => renderTotal()); // wealth cache must be ready before total debt calc
+  renderLedger();
+}
+
+function renderGrid() {
+  const base = currencies.find(c => c.id === 'cr') || currencies[0];
+  document.getElementById('currencyGrid').innerHTML =
+    currencies.map(c => {
+      const amt = vault[c.id] || 0;
+      const isBase = c.id === base.id;
+      let equivLine = '';
+      if (!isBase && c.rate != null)
+        equivLine = `= ${(amt * c.rate).toLocaleString(undefined,{maximumFractionDigits:2})} ${base.abbr}`;
+      else if (!isBase)
+        equivLine = 'no rate set';
+      return `
+      <div class="coin-panel">
+        <div class="coin-panel-actions">
+          <button class="panel-edit" onclick="openEditCurrencyModal('${c.id}')" title="Edit">✎</button>
+          ${!isBase ? `<button class="panel-delete" onclick="deleteCurrency('${c.id}')" title="Remove">✕</button>` : ''}
+        </div>
+        <div class="coin-panel-body" onclick="openEditCurrencyModal('${c.id}')" title="Click to edit">
+          <div class="coin-symbol" style="color:${c.color};text-shadow:0 0 12px ${c.color}">${esc(c.symbol)}</div>
+          <div class="coin-label">${esc(c.name)}</div>
+          <div class="coin-amount" style="color:${c.color}">${fmt(amt)}</div>
+          <div class="coin-equiv">${equivLine}</div>
+        </div>
+      </div>`;
+    }).join('') +
+    `<div class="coin-panel-add" onclick="openAddCurrencyModal()">
+      <div class="add-icon">+</div>
+      <div class="add-label">Add Currency</div>
+    </div>`;
+}
+
+function renderTotal() {
+  const base = currencies.find(c => c.id === 'cr') || currencies[0];
+  let total = 0; let anyRate = false;
+  const parts = []; const negParts = [];
+  for (const c of currencies) {
+    const amt = vault[c.id] || 0;
+    if (amt !== 0) {
+      const str = `${fmt(Math.abs(amt))} ${c.abbr}`;
+      if (amt < 0) negParts.push(str);
+      else parts.push(str);
+    }
+    if (c.rate != null) { total += amt * c.rate; anyRate = true; }
+  }
+
+  const totalEl    = document.getElementById('totalVal');
+  const unitEl     = document.getElementById('totalUnit');
+  const breakdownEl= document.getElementById('totalBreakdown');
+  const debtEl     = document.getElementById('totalDebt');
+
+  const isNeg = anyRate && total < 0;
+  const totalBarEl = document.getElementById('totalBar');
+  totalBarEl?.classList.toggle('is-negative', isNeg);
+
+  totalEl.textContent = anyRate
+    ? Math.abs(total).toLocaleString(undefined, { maximumFractionDigits: 2 })
+    : '—';
+  totalEl.style.color = isNeg ? 'var(--red)' : '';
+  totalEl.style.textShadow = isNeg ? '0 0 20px rgba(224,60,60,0.5)' : '';
+
+  unitEl.textContent  = (isNeg ? '-' : '') + base.abbr + ' equiv.';
+  unitEl.style.color  = isNeg ? 'var(--red)' : '';
+
+  // ── Multi-currency animated gradient on the total bar ──
+  if (totalBarEl && !isNeg) {
+    const activeCurs = currencies.filter(cur => (vault[cur.id] || 0) !== 0 || currencies.length <= 1);
+    const gradCurs = activeCurs.length >= 2 ? activeCurs : currencies;
+    if (gradCurs.length >= 2) {
+      // Build a doubled color list so the animation loops seamlessly:
+      // [A, B, C, A, B, C] — background-size 200% lets it scroll left→right
+      const doubled = [...gradCurs, ...gradCurs];
+      const stops = doubled.map((cur, i) => {
+        const pct = (i / (doubled.length - 1) * 100).toFixed(1);
+        return `${cur.color}22 ${pct}%`;
+      });
+      // Inject the keyframe + style via a dynamic <style> tag keyed to this render
+      // keyframe wealthFlow is in css/nexus.css — just set the gradient
+      totalBarEl.style.background = `linear-gradient(135deg, ${stops.join(', ')})`;
+      totalBarEl.style.backgroundSize = '200% 200%';
+      totalBarEl.style.animation = 'wealthFlow 6s ease infinite';
+      // Border: gradient from first to last currency
+      totalBarEl.style.borderColor = '';
+      totalBarEl.style.borderImage =
+        `linear-gradient(90deg, ${gradCurs[0].color}70, ${gradCurs[gradCurs.length-1].color}70) 1`;
+    } else {
+      totalBarEl.style.background = '';
+      totalBarEl.style.backgroundSize = '';
+      totalBarEl.style.animation = '';
+      totalBarEl.style.borderImage = '';
+    }
+  } else if (totalBarEl && isNeg) {
+    totalBarEl.style.background = '';
+    totalBarEl.style.backgroundSize = '';
+    totalBarEl.style.animation = '';
+    totalBarEl.style.borderImage = '';
+  }
+
+  const allParts = [...parts, ...negParts.map(p => '−' + p)];
+  breakdownEl.textContent = allParts.length ? allParts.join('  ·  ') : '— treasury empty —';
+
+  // Debt breakdown — which members are in the red
+  if (debtEl) {
+    if (isNeg && _cachedTxMembers && _cachedTxMembers.length) {
+      const debtors = _cachedTxMembers
+        .map(m => {
+          let mv = 0; let mHasRate = false;
+          for (const cur of currencies) {
+            const v = (memberVaultsCache[m.name] || {})[cur.id] || 0;
+            if (cur.rate != null) { mv += v * cur.rate; mHasRate = true; }
+          }
+          return { name: m.name, val: mv, hasRate: mHasRate };
+        })
+        .filter(d => d.hasRate && d.val < 0);
+
+      if (debtors.length) {
+        debtEl.innerHTML = `
+          <span class="debt-icon">⚠</span>
+          <span class="debt-label">Negative balance caused by:</span>
+          ${debtors.map(d =>
+            `<span class="debt-member">${esc(d.name)}
+              <span class="debt-amount">${d.val.toLocaleString(undefined,{maximumFractionDigits:1})} ${base.abbr}</span>
+            </span>`
+          ).join('')}`;
+        debtEl.style.display = 'flex';
+      } else {
+        debtEl.style.display = 'none';
+        debtEl.innerHTML = '';
+      }
+    } else {
+      debtEl.style.display = 'none';
+      debtEl.innerHTML = '';
+    }
+  }
+}
+
+function sortLedger(key) {
+  if (ledgerSortKey === key) ledgerSortDir *= -1;
+  else { ledgerSortKey = key; ledgerSortDir = key === 'id' ? -1 : 1; }
+  document.querySelectorAll('thead th').forEach(th => th.classList.remove('sorted'));
+  document.querySelectorAll('.sort-arrow').forEach(el => el.textContent = '');
+  const arrow = document.getElementById('sort-' + key);
+  if (arrow) { arrow.textContent = ledgerSortDir === 1 ? ' ▲' : ' ▼'; }
+  document.querySelectorAll('thead th').forEach(th => {
+    if (th.querySelector('#sort-' + key)) th.classList.add('sorted');
+  });
+  renderLedger();
+}
+
+function renderLedger() {
+  const base = currencies.find(c => c.id === 'cr') || currencies[0];
+  const filtered = _getFilteredLedger();
+  const isFiltered = filtered.length !== ledger.length;
+  document.getElementById('txCount').textContent =
+    isFiltered
+      ? `${filtered.length} of ${ledger.length} entr${ledger.length === 1 ? 'y' : 'ies'}`
+      : `${ledger.length} entr${ledger.length === 1 ? 'y' : 'ies'}`;
+
+  const tbody = document.getElementById('ledgerBody');
+  if (!ledger.length) {
+    tbody.innerHTML = `<tr><td colspan="7"><div class="empty-ledger"><span class="empty-icon">⚙</span><p>No transactions logged</p></div></td></tr>`;
+    return;
+  }
+  if (!filtered.length) {
+    tbody.innerHTML = `<tr><td colspan="7"><div class="empty-ledger"><span class="empty-icon">⌕</span><p>No transactions match the current filter</p><button class="btn btn-ghost" style="margin-top:0.5rem;font-size:0.75rem" onclick="clearAllLedgerFilters()">Clear Filters</button></div></td></tr>`;
+    return;
+  }
+  // Pre-build lookup maps once (O(n)) — used in sort comparator AND row renderer
+  const ledgerPosMap = new Map(ledger.map((t, i) => [t.id, i + 1]));
+  const currencyMap  = new Map(currencies.map(c => [c.id, c]));
+  const memberMap    = new Map((_cachedTxMembers || []).map(m => [m.name, m]));
+
+  const sorted = [...filtered].sort((a, b) => {
+    if (ledgerSortKey === 'id') {
+      return (a.ts - b.ts) * ledgerSortDir;
+    } else if (ledgerSortKey === 'desc') {
+      return (a.desc || '').localeCompare(b.desc || '') * ledgerSortDir;
+    } else if (ledgerSortKey === 'type') {
+      return (a.type || '').localeCompare(b.type || '') * ledgerSortDir;
+    } else if (ledgerSortKey === 'amount') {
+      // sort by base-currency equivalent
+      const getVal = tx => {
+        let tot = 0;
+        for (const [cid, amt] of Object.entries(tx.coins || {})) {
+          const cur = currencyMap.get(cid);
+          if (cur) tot += (amt || 0) * (cur.rate || 1);
+        }
+        return (tx.type === 'spend' ? -1 : 1) * tot;
+      };
+      return (getVal(a) - getVal(b)) * ledgerSortDir;
+    } else if (ledgerSortKey === 'member') {
+      // unassigned entries sort to the bottom
+      const am = a.member || '￿';
+      const bm = b.member || '￿';
+      return am.localeCompare(bm) * ledgerSortDir;
+    }
+    return 0;
+  });
+  tbody.innerHTML = sorted.map((tx, i) => {
+    const sign = tx.type === 'spend' ? -1 : 1;
+    let crTotal = 0; let allHaveRates = true;
+    const breakdown = [];
+    for (const [cid, amt] of Object.entries(tx.coins || {})) {
+      if (!amt) continue;
+      const c = currencyMap.get(cid);
+      const label = c ? c.abbr : (currencyLabels[cid]?.abbr || cid.toUpperCase());
+      breakdown.push(`${fmt(amt)} ${label}`);
+      if (c && c.rate != null) crTotal += amt * c.rate;
+      else allHaveRates = false;
+    }
+    let amtDisplay;
+    if (allHaveRates && breakdown.length) {
+      amtDisplay = `${sign > 0 ? '+' : '-'}${crTotal.toLocaleString(undefined,{maximumFractionDigits:2})} ${base.abbr}`;
+    } else {
+      amtDisplay = breakdown.map(b => `${sign>0?'+':'-'}${b}`).join('<br>') || '—';
+    }
+    // Build Who cell — look up member photo from cache
+    let whoCell = '<td class="hide-sm"><div class="tx-who-empty">—</div></td>';
+    if (tx.member) {
+      const mp = memberMap.get(tx.member);
+      const avatar = mp && mp.photo
+        ? `<img src="${mp.photo}" alt="${esc(tx.member)}" class="tx-who-img" />`
+        : `<div class="tx-who-initial" style="color:${mp && mp.color ? mp.color : 'var(--gold)'};border-color:${mp && mp.color ? mp.color + '50' : 'var(--border)'}">
+             ${esc(tx.member.charAt(0).toUpperCase())}
+           </div>`;
+      whoCell = `<td class="hide-sm">
+        <div class="tx-who">
+          ${avatar}
+          <span class="tx-who-name">${esc(tx.member)}</span>
+        </div>
+      </td>`;
+    }
+    return `<tr>
+      <td><div class="tx-id">#${String(ledgerPosMap.get(tx.id) || i + 1).padStart(3,'0')}</div></td>
+      <td>
+        <div class="tx-desc">${esc(tx.desc)}</div>
+        ${tx.note ? `<div class="tx-note">${esc(tx.note)}</div>` : ''}
+      </td>
+      <td class="hide-sm"><span class="tx-type tx-${tx.type}">${tx.type.toUpperCase()}</span></td>
+      <td><div class="tx-amount ${sign > 0 ? 'positive' : 'negative'}">${amtDisplay}</div></td>
+      ${whoCell}
+      <td class="hide-sm"><div class="tx-coins">${breakdown.join(' / ') || '—'}</div></td>
+      <td style="white-space:nowrap">
+        <button class="btn-icon" onclick="openTxModal('${tx.id}')" title="Edit">✎</button>
+        <button class="btn-icon delete" onclick="deleteTx('${tx.id}')" title="Delete">🗑</button>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+// fmt, esc — defined in js/nexus-utils.js
+
+// ══════════════════════════════════
+//  COIN INPUT HELPERS
+// ══════════════════════════════════
+function buildCoinInputs(containerId, values = {}, oninput = '') {
+  const inputHandler = oninput ? ` oninput="${oninput}"` : '';
+  document.getElementById(containerId).innerHTML = currencies.map(c => {
+    const saved = values[c.id];
+    const valueAttr = (saved !== undefined && saved !== null && saved !== 0) ? ` value="${saved}"` : '';
+    return `
+    <div class="coin-input-row">
+      <span class="cir-symbol" style="color:${c.color};text-shadow:0 0 8px ${c.color}">${esc(c.symbol)}</span>
+      <span class="cir-name">${esc(c.abbr)}</span>
+      <input type="number" class="cir-input" id="${containerId}-${c.id}" name="${containerId}-${c.id}"${valueAttr} placeholder="0" step="1"${inputHandler} />
+    </div>`;
+  }).join('');
+}
+
+function readCoinInputs(containerId) {
+  const coins = {};
+  for (const c of currencies) {
+    const el = document.getElementById(`${containerId}-${c.id}`);
+    if (!el) continue;
+    const raw = el.value.trim();
+    if (raw === '' || raw === '0') continue;  // truly empty / zero = skip
+    const v = parseFloat(raw);
+    if (!isNaN(v) && v !== 0) coins[c.id] = v;
+  }
+  return coins;
+}
+
+// ══════════════════════════════════
+//  TRANSACTION MODAL
+// ══════════════════════════════════
+function openTxModal(id) {
+  editId = id || null;
+  document.getElementById('txModalTitle').textContent = id ? '⚙ EDIT TRANSACTION' : '⚙ LOG TRANSACTION';
+  // Always clear inline error on open
+  const descError = document.getElementById('txDescError');
+  if (descError) descError.textContent = '';
+  let values = {};
+  if (id) {
+    const tx = ledger.find(t => t.id === id);
+    if (!tx) return;
+    document.getElementById('txDesc').value = tx.desc;
+    document.getElementById('txNote').value = tx.note || '';
+    setType(tx.type);
+    values = tx.coins || {};
+  } else {
+    document.getElementById('txDesc').value = '';
+    document.getElementById('txNote').value = '';
+    setType('gain');
+  }
+  buildCoinInputs('txCoinInputs', values);
+  openModal('txModal');
+  // Build holder dropdown async — pre-select member if editing
+  const preselect = id ? (ledger.find(t=>t.id===id)?.member || '') : '';
+  buildTxHolderDropdown(preselect);
+  setTimeout(() => document.getElementById('txDesc').focus(), 150);
+}
+
+function setType(t) {
+  currentType = t;
+  document.querySelectorAll('.type-btn').forEach(b => b.classList.toggle('active', b.dataset.type === t));
+}
+
+async function saveTx() {
+  const desc = document.getElementById('txDesc').value.trim();
+  const descError = document.getElementById('txDescError');
+  if (!desc) {
+    if (descError) { descError.textContent = '⚠ Description is required before committing.'; }
+    document.getElementById('txDesc').focus();
+    return;
+  }
+  if (descError) descError.textContent = '';
+  const coins = readCoinInputs('txCoinInputs');
+  if (!Object.keys(coins).length) { showToast('Enter at least one amount.'); return; }
+  const tx = { id: editId || uid(), type: currentType, desc,
+    note: document.getElementById('txNote').value.trim(),
+    member: document.getElementById('txMember').value.trim() || null,
+    ts: Date.now(), coins };
+  if (editId) { const orig = ledger.find(t=>t.id===editId); if(orig) tx.ts = orig.ts; }
+  const btn = document.getElementById('btnSaveTx');
+  const modal = document.getElementById('txModal');
+  btn.dataset.loadingText = editId ? 'Updating…' : 'Committing…';
+  setLoading(btn, true); setModalLoading(modal, true);
+  try {
+    await saveTxToDB(tx);
+    if (editId) {
+      const i = ledger.findIndex(t => t.id === editId);
+      if (i >= 0) ledger[i] = tx;
+      showToast('Entry updated.');
+    } else {
+      ledger.push(tx);
+      showToast('Transaction committed.');
+    }
+    recalcVault(); renderTotal(); renderLedger(); closeModal('txModal');
+  } catch(e) { console.error(e); showToast('Save failed — check Supabase config.');
+  } finally { setLoading(btn, false); setModalLoading(modal, false); }
+}
+
+async function deleteTx(id) {
+  const tx = ledger.find(t => t.id === id);
+  const label = tx ? (tx.desc || 'Unnamed Entry') : 'Ledger Entry';
+  const typeLabel = tx ? tx.type.charAt(0).toUpperCase() + tx.type.slice(1) : '';
+  const ok = await nexusConfirm({
+    title:        'Remove Ledger Entry',
+    name:         label,
+    message:      `${typeLabel ? typeLabel + ' — ' : ''}This transaction will be permanently deleted and the vault total will update.`,
+    confirmLabel: 'Delete',
+  });
+  if (!ok) return;
+  const delBtn = document.querySelector(`.btn-icon.delete[onclick*="${id}"]`);
+  if (delBtn) { setLoading(delBtn, true); delBtn.dataset.loadingText = ''; }
+  try {
+    await deleteTxFromDB(id);
+    ledger = ledger.filter(t => t.id !== id);
+    recalcVault();
+    await renderMemberWealth();
+    renderTotal(); renderGrid(); renderLedger(); showToast('Entry removed.');
+  } catch(e) {
+    console.error(e); showToast('Delete failed.');
+    if (delBtn) setLoading(delBtn, false);
+  }
+}
+
+function quickAdd(cid) {
+  openTxModal();
+  setType('gain');
+  const c = currencies.find(x => x.id === cid);
+  if (c) document.getElementById('txDesc').value = `Added ${c.name}`;
+  setTimeout(() => {
+    const inp = document.getElementById(`txCoinInputs-${cid}`);
+    if (inp) { inp.value = ''; inp.focus(); }
+  }, 180);
+}
+
+// ══════════════════════════════════
+//  ADD / EDIT CURRENCY MODAL
+// ══════════════════════════════════
+function openAddCurrencyModal() {
+  editCurrencyId = null;
+  selectedColor = PRESET_COLORS[0];
+  ['nc-name','nc-abbr','nc-symbol','nc-rate'].forEach(id => document.getElementById(id).value = '');
+  ['ncNameError','ncAbbrError','ncSymbolError'].forEach(id => { const el=document.getElementById(id); if(el) el.textContent=''; });
+  document.getElementById('currencyModalTitle').textContent = '⚙ ADD CURRENCY TYPE';
+  document.getElementById('btnSaveCurrency').textContent = 'Add Currency';
+  document.getElementById('rateField').style.display = '';
+  document.getElementById('rateLockedField').style.display = 'none';
+  document.getElementById('nc-abbr').readOnly = false;
+  buildColorSwatches();
+  updatePreview();
+  openModal('addCurrencyModal');
+  setTimeout(() => document.getElementById('nc-name').focus(), 150);
+}
+
+function openEditCurrencyModal(id) {
+  const cur = currencies.find(x => x.id === id);
+  if (!cur) return;
+  editCurrencyId = id;
+  const isBase = id === currencies.find(c => c.rate === 1 && currencies.indexOf(c) === 0)?.id
+               || id === 'cr'
+               || (currencies[0] && currencies[0].id === id && currencies[0].rate === 1);
+
+  // Pre-fill fields
+  document.getElementById('nc-name').value   = cur.name;
+  document.getElementById('nc-abbr').value   = cur.abbr;
+  document.getElementById('nc-symbol').value = cur.symbol;
+  document.getElementById('nc-rate').value   = cur.rate != null ? cur.rate : '';
+
+  // Title and button
+  document.getElementById('currencyModalTitle').textContent = '⚙ EDIT CURRENCY';
+  document.getElementById('btnSaveCurrency').textContent = 'Save Changes';
+
+  // Rate field: lock for base currency
+  if (isBase) {
+    document.getElementById('rateField').style.display = 'none';
+    document.getElementById('rateLockedField').style.display = '';
+  } else {
+    document.getElementById('rateField').style.display = '';
+    document.getElementById('rateLockedField').style.display = 'none';
+  }
+
+  // Set color
+  selectedColor = cur.color || PRESET_COLORS[0];
+  buildColorSwatches();
+  updatePreview();
+  openModal('addCurrencyModal');
+  setTimeout(() => document.getElementById('nc-name').focus(), 150);
+}
+
+function buildColorSwatches() {
+  document.getElementById('colorSwatches').innerHTML =
+    PRESET_COLORS.map(c => `
+      <div class="color-swatch ${c === selectedColor ? 'selected' : ''}"
+           style="background:${c}"
+           onclick="selectColor('${c}')"
+           title="${c}"></div>
+    `).join('') +
+    `<div class="color-custom-wrap" title="Custom color">
+      <div class="custom-bg">+</div>
+      <input type="color" value="${selectedColor}" oninput="selectColor(this.value)" onchange="selectColor(this.value)" />
+    </div>`;
+}
+
+function selectColor(c) {
+  selectedColor = c;
+  document.querySelectorAll('.color-swatch').forEach(s => {
+    // normalize both to lowercase hex for comparison
+    s.classList.toggle('selected', s.style.backgroundColor === hexToRgb(c) || s.getAttribute('onclick') === `selectColor('${c}')`);
+  });
+  updatePreview();
+}
+
+function hexToRgb(hex) {
+  // rough rgb string for comparison — not critical, selectedColor tracks truth
+  return hex;
+}
+
+function updatePreview() {
+  const symbol = document.getElementById('nc-symbol').value || '¤';
+  const name   = document.getElementById('nc-name').value   || 'New Currency';
+  const abbr   = document.getElementById('nc-abbr').value   || '???';
+  const rateRaw = parseFloat(document.getElementById('nc-rate').value);
+  const base = currencies.find(c => c.id === 'cr') || currencies[0];
+
+  document.getElementById('prev-symbol').textContent = symbol;
+  document.getElementById('prev-symbol').style.color = selectedColor;
+  document.getElementById('prev-symbol').style.textShadow = `0 0 12px ${selectedColor}`;
+  document.getElementById('prev-name').textContent = name.toUpperCase();
+  document.getElementById('prev-abbr').textContent = abbr.toUpperCase();
+  document.getElementById('prev-abbr').style.color = selectedColor;
+
+  const hasRate = !isNaN(rateRaw) && rateRaw > 0;
+  document.getElementById('prev-rate').textContent = hasRate
+    ? `1 ${abbr.toUpperCase() || '?'} = ${rateRaw} ${base.abbr}`
+    : 'No transfer rate set';
+  document.getElementById('rateHint').textContent = hasRate
+    ? `This currency will be included in the ${base.abbr} wealth total`
+    : `Leave blank if unknown — excluded from ${base.abbr} total`;
+}
+
+async function saveNewCurrency() {
+  const name   = document.getElementById('nc-name').value.trim();
+  const abbr   = document.getElementById('nc-abbr').value.trim().toUpperCase();
+  const symbol = document.getElementById('nc-symbol').value.trim();
+  const ncNameError   = document.getElementById('ncNameError');
+  const ncAbbrError   = document.getElementById('ncAbbrError');
+  const ncSymbolError = document.getElementById('ncSymbolError');
+  if(ncNameError)   ncNameError.textContent   = '';
+  if(ncAbbrError)   ncAbbrError.textContent   = '';
+  if(ncSymbolError) ncSymbolError.textContent = '';
+  let hasError = false;
+  if (!symbol) { if(ncSymbolError) ncSymbolError.textContent = '⚠ Symbol is required.'; hasError = true; }
+  if (!abbr)   { if(ncAbbrError)   ncAbbrError.textContent   = '⚠ Abbreviation is required.'; hasError = true; }
+  if (!name)   { if(ncNameError)   ncNameError.textContent   = '⚠ Currency name is required.'; document.getElementById('nc-name').focus(); hasError = true; }
+  if (hasError) return;
+
+  // Abbr dupe check — skip self when editing
+  const abbrConflict = currencies.find(c => c.abbr === abbr && c.id !== editCurrencyId);
+  if (abbrConflict) { if(ncAbbrError) ncAbbrError.textContent = `⚠ "${abbr}" is already in use.`; document.getElementById('nc-abbr').focus(); return; }
+
+  const btn   = document.getElementById('btnSaveCurrency');
+  const modal = document.getElementById('addCurrencyModal');
+
+  if (editCurrencyId) {
+    // ── EDIT path ──
+    const existing = currencies.find(c => c.id === editCurrencyId);
+    if (!existing) return;
+    const isBase = editCurrencyId === (currencies[0]?.id) && (existing.rate === 1 || existing.id === 'cr');
+
+    // Rate: keep 1 for base, otherwise read field
+    let rate;
+    if (isBase) {
+      rate = 1;
+    } else {
+      const rateRaw = parseFloat(document.getElementById('nc-rate').value);
+      rate = (!isNaN(rateRaw) && rateRaw > 0) ? rateRaw : null;
+    }
+
+    existing.name   = name;
+    existing.abbr   = abbr;
+    existing.symbol = symbol;
+    existing.color  = selectedColor;
+    existing.rate   = rate;
+
+    btn.dataset.loadingText = 'Saving…';
+    setLoading(btn, true); setModalLoading(modal, true);
+    try {
+      await saveCurrencyToDB(existing);
+      currencyLabels[existing.id] = { name: existing.name, abbr: existing.abbr };
+      // Invalidate tx member cache so holder dropdown picks up new name if needed
+      _cachedTxMembers = null;
+      render(); closeModal('addCurrencyModal');
+      showToast(`${name} updated.`);
+    } catch(e) { console.error(e); showToast('Save failed.');
+    } finally { setLoading(btn, false); setModalLoading(modal, false); }
+
+  } else {
+    // ── ADD path ──
+    const rateRaw = parseFloat(document.getElementById('nc-rate').value);
+    const rate = (!isNaN(rateRaw) && rateRaw > 0) ? rateRaw : null;
+    const cur = { id: uid(), name, abbr, symbol, color: selectedColor, rate };
+    currencies.push(cur);
+    vault[cur.id] = 0;
+    btn.dataset.loadingText = 'Adding…';
+    setLoading(btn, true); setModalLoading(modal, true);
+    try {
+      await saveCurrencyToDB(cur);
+      currencyLabels[cur.id] = { name: cur.name, abbr: cur.abbr };
+      render(); closeModal('addCurrencyModal');
+      showToast(`${name} (${abbr}) added to treasury.`);
+    } catch(e) { console.error(e); showToast('Save failed.');
+    } finally { setLoading(btn, false); setModalLoading(modal, false); }
+  }
+}
+
+async function deleteCurrency(id) {
+  const cur = currencies.find(x => x.id === id);
+  if (!cur) return;
+  if (id === 'cr') { showToast('Cannot remove the base currency.'); return; }
+
+  // Count how many transactions reference this currency
+  const txWithCurrency = ledger.filter(tx => tx.coins && tx.coins[id] != null);
+  const txCount = txWithCurrency.length;
+
+  const result = await nexusConfirm({
+    title:        'Remove Currency',
+    name:         cur.name,
+    message:      `The currency panel will be removed.${txCount > 0 ? ` ${txCount} transaction${txCount !== 1 ? 's' : ''} reference this currency.` : ''}`,
+    confirmLabel: 'Remove',
+    checkboxes: [
+      {
+        id:      'removeTx',
+        label:   `Also delete all ${txCount} transaction${txCount !== 1 ? 's' : ''} containing ${cur.abbr}`,
+        checked: false,
+      },
+      {
+        id:      'removeHoldings',
+        label:   `Strip ${cur.abbr} from all party member and vault holdings`,
+        checked: false,
+      },
+    ],
+  });
+
+  if (!result || !result.confirmed) return;
+
+  const removeTx       = result.checks.removeTx;
+  const removeHoldings = result.checks.removeHoldings;
+
+  const delBtn = document.querySelector(`.panel-delete[onclick*="${id}"]`);
+  if (delBtn) { setLoading(delBtn, true); delBtn.dataset.loadingText = ''; }
+
+  try {
+    // ── Step 1: optionally remove transactions that contain this currency ──
+    if (removeTx) {
+      const toDelete = ledger.filter(tx => tx.coins && tx.coins[id] != null);
+      await Promise.all(toDelete.map(tx => deleteTxFromDB(tx.id)));
+      ledger = ledger.filter(tx => !(tx.coins && tx.coins[id] != null));
+    }
+
+    // ── Step 2: optionally strip currency from remaining transactions' coin objects ──
+    if (removeHoldings) {
+      // Find transactions that still have this currency in coins (after optional tx delete)
+      const toStrip = ledger.filter(tx => tx.coins && tx.coins[id] != null);
+      await Promise.all(toStrip.map(async tx => {
+        const newCoins = { ...tx.coins };
+        delete newCoins[id];
+        tx.coins = newCoins;
+        // If the tx now has no coins at all, delete it entirely
+        if (Object.keys(newCoins).length === 0) {
+          await deleteTxFromDB(tx.id);
+          return null;
+        } else {
+          await saveTxToDB(tx);
+          return tx;
+        }
+      }));
+      // Remove empty-coin transactions from local ledger
+      ledger = ledger.filter(tx => tx.coins && Object.keys(tx.coins).length > 0);
+    }
+
+    // ── Step 3: remove the currency itself ──
+    await deleteCurrencyFromDB(id);
+    currencies = currencies.filter(x => x.id !== id);
+
+    recalcVault();
+    await renderMemberWealth();
+    renderTotal();
+    renderGrid();
+    renderLedger();
+
+    const parts = ['removed'];
+    if (removeTx) parts.push(`${txCount} transaction${txCount !== 1 ? 's' : ''} deleted`);
+    if (removeHoldings) parts.push('holdings stripped');
+    showToast(`${cur.name} ${parts.join(' · ')}.`);
+
+  } catch(e) {
+    console.error(e); showToast('Delete failed.');
+    if (delBtn) setLoading(delBtn, false);
+  }
+}
+
+// ══════════════════════════════════
+//  LEDGER FILTER STATE
+// ══════════════════════════════════
+let _ledgerFilter = { search: '', dateFrom: '', dateTo: '', type: '', _from: null, _to: null };
+
+function applyLedgerFilter() {
+  _ledgerFilter.search   = (document.getElementById('ledgerSearch')?.value || '').toLowerCase().trim();
+  _ledgerFilter.dateFrom = document.getElementById('ledgerDateFrom')?.value || '';
+  _ledgerFilter.dateTo   = document.getElementById('ledgerDateTo')?.value   || '';
+  _ledgerFilter.type     = document.getElementById('ledgerTypeFilter')?.value || '';
+  // Pre-parse dates once here so _getFilteredLedger doesn't allocate Date objects per call
+  _ledgerFilter._from = _ledgerFilter.dateFrom ? new Date(_ledgerFilter.dateFrom).setHours(0,0,0,0)       : null;
+  _ledgerFilter._to   = _ledgerFilter.dateTo   ? new Date(_ledgerFilter.dateTo).setHours(23,59,59,999)    : null;
+
+  // Clear button on search input
+  const clearBtn = document.getElementById('ledgerSearchClear');
+  if (clearBtn) clearBtn.style.display = _ledgerFilter.search ? '' : 'none';
+
+  // Active-filter badge + clear-all button
+  const isFiltered = _ledgerFilter.search || _ledgerFilter.dateFrom || _ledgerFilter.dateTo || _ledgerFilter.type;
+  const badge   = document.getElementById('ledgerFilterBadge');
+  const clearAll= document.getElementById('ledgerClearAll');
+  if (badge)    { badge.style.display    = isFiltered ? '' : 'none'; }
+  if (clearAll) { clearAll.style.display = isFiltered ? '' : 'none'; }
+
+  renderLedger();
+}
+
+function clearLedgerSearch() {
+  const inp = document.getElementById('ledgerSearch');
+  if (inp) inp.value = '';
+  applyLedgerFilter();
+}
+
+function clearAllLedgerFilters() {
+  const ids = ['ledgerSearch','ledgerDateFrom','ledgerDateTo'];
+  ids.forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+  const sel = document.getElementById('ledgerTypeFilter');
+  if (sel) sel.value = '';
+  _ledgerFilter = { search: '', dateFrom: '', dateTo: '', type: '', _from: null, _to: null };
+  const clearBtn = document.getElementById('ledgerSearchClear');
+  if (clearBtn) clearBtn.style.display = 'none';
+  const badge   = document.getElementById('ledgerFilterBadge');
+  const clearAll= document.getElementById('ledgerClearAll');
+  if (badge)    badge.style.display    = 'none';
+  if (clearAll) clearAll.style.display = 'none';
+  renderLedger();
+}
+
+// Returns a filtered subset of ledger[] according to _ledgerFilter.
+// Pure function — no side effects, no DOM writes.
+function _getFilteredLedger() {
+  const { search, _from, _to, type } = _ledgerFilter;
+
+  return ledger.filter(tx => {
+    if (type && tx.type !== type) return false;
+    if (_from && tx.ts < _from) return false;
+    if (_to   && tx.ts > _to)   return false;
+    if (search) {
+      const hay = [tx.desc, tx.note, tx.member, tx.type].filter(Boolean).join(' ').toLowerCase();
+      if (!hay.includes(search)) return false;
+    }
+    return true;
+  });
+}
+
+// ══════════════════════════════════
+//  SPLIT
+// ══════════════════════════════════
+// ── Split modal state ──
+let splitRecipients = []; // array of {type:'member'|'vault', member: obj|null, weight: number}
+let splitMode = 'even';   // 'even' | 'percent' | 'flat'
+
+// Defined as a function so t() is called at use-time (after loadModuleSettings),
+// not at parse-time when term mappings aren't loaded yet.
+function SPLIT_MODE_HINTS() {
+  return {
+    even:    `Each recipient receives an equal share. Any indivisible remainder goes to the ${t('partyVault').toLowerCase()}.`,
+    percent: `Assign a percentage to each recipient — must total 100%. Remainder goes to the ${t('partyVault').toLowerCase()}.`,
+    flat:    `Assign a fixed base-currency amount to each recipient. Any remainder goes to the ${t('partyVault').toLowerCase()}.`,
+  };
+}
+
+function setSplitMode(mode) {
+  splitMode = mode;
+  document.querySelectorAll('.split-mode-btn').forEach(b => b.classList.toggle('active', b.dataset.mode === mode));
+  const hint = document.getElementById('splitModeHint');
+  if (hint) hint.textContent = SPLIT_MODE_HINTS()[mode] || '';
+  renderSplitCards();
+  calcSplit();
+}
+
+// Compute a member's net worth in base-currency units from memberVaultsCache
+function getMemberNetWorth(memberName) {
+  const v = memberVaultsCache[memberName] || {};
+  let total = 0;
+  let hasRate = false;
+  for (const cur of currencies) {
+    const amt = v[cur.id] || 0;
+    if (cur.rate != null) { total += amt * cur.rate; hasRate = true; }
+  }
+  return hasRate ? total : null;
+}
+
+function buildSplitRecipientCard(recipient, index) {
+  const base = currencies.find(c => c.id === 'cr') || currencies[0];
+  const weightVal = recipient.weight != null ? recipient.weight : null;
+  const weightPlaceholder = splitMode === 'percent' ? (100 / splitRecipients.length).toFixed(1) : '0';
+  const unitLabel = splitMode === 'percent' ? '%' : (base ? base.abbr : '');
+  const weightInput = splitMode !== 'even'
+    ? `<div class="split-weight-wrap">
+         <input
+           type="number"
+           id="split-weight-${index}"
+           name="split-weight-${index}"
+           class="split-weight-inp"
+           ${weightVal !== null ? `value="${weightVal}"` : ''}
+           placeholder="${weightPlaceholder}"
+           min="0"
+           step="${splitMode === 'percent' ? '0.1' : '1'}"
+           oninput="setSplitWeight(${index}, parseFloat(this.value)||0)"
+         />
+         <span class="split-weight-unit">${unitLabel}</span>
+       </div>`
+    : '';
+
+  if (recipient.type === 'vault') {
+    return `<div class="split-member-card split-vault-card" data-idx="${index}">
+      <div class="split-card-avatar split-card-vault-icon">🎒</div>
+      <div class="split-card-info">
+        <div class="split-card-name">${t('partyVault')}</div>
+        <div class="split-card-wealth split-card-wealth-dim">shared</div>
+      </div>
+      ${weightInput}
+      <button class="split-card-remove" onclick="removeSplitRecipient(${index})" title="Remove">✕</button>
+    </div>`;
+  }
+  const m = recipient.member;
+  const wv = getMemberNetWorth(m.name);
+  const isNeg = wv !== null && wv < 0;
+  const wealthStr = wv === null ? '—'
+    : (isNeg ? '−' : '') + Math.abs(wv).toLocaleString(undefined, { maximumFractionDigits: 1 }) + ' ' + base.abbr;
+  const wealthClass = wv === null ? 'split-card-wealth-dim' : isNeg ? 'split-card-wealth-neg' : 'split-card-wealth-pos';
+  const avatar = m.photo
+    ? `<img src="${m.photo}" alt="${esc(m.name)}" class="split-card-avatar-img" />`
+    : `<div class="split-card-avatar split-card-avatar-initial"
+         style="color:${m.color || 'var(--gold)'};border-color:${m.color ? m.color + '50' : 'var(--border)'}">
+         ${esc(m.name.charAt(0).toUpperCase())}
+       </div>`;
+  return `<div class="split-member-card" data-idx="${index}">
+    <div class="split-card-avatar-wrap">${avatar}</div>
+    <div class="split-card-info">
+      <div class="split-card-name">${esc(m.name)}</div>
+      <div class="split-card-wealth ${wealthClass}">${wealthStr}</div>
+    </div>
+    ${weightInput}
+    <button class="split-card-remove" onclick="removeSplitRecipient(${index})" title="Remove">✕</button>
+  </div>`;
+}
+
+function setSplitWeight(index, val) {
+  if (!splitRecipients[index]) return;
+  splitRecipients[index].weight = isNaN(val) ? 0 : Math.max(0, val);
+
+  // Percent mode: redistribute the remainder evenly across all other recipients
+  if (splitMode === 'percent') {
+    const changed = splitRecipients[index].weight;
+    const others  = splitRecipients.filter((_, i) => i !== index);
+    if (others.length) {
+      const remaining = Math.max(0, 100 - changed);
+      const share     = parseFloat((remaining / others.length).toFixed(4));
+      // Give the last other any rounding dust
+      others.forEach((r, oi) => {
+        r.weight = oi < others.length - 1 ? share : parseFloat((remaining - share * (others.length - 1)).toFixed(4));
+      });
+    }
+    // Re-render cards so the other weight inputs reflect their new values
+    renderSplitCards();
+  }
+
+  calcSplit();
+}
+
+function renderSplitCards() {
+  const container = document.getElementById('splitMemberCards');
+  if (!container) return;
+  if (!splitRecipients.length) {
+    container.innerHTML = '<div class="split-cards-empty">No recipients — raise the count above.</div>';
+    return;
+  }
+  container.innerHTML = splitRecipients.map((r, i) => buildSplitRecipientCard(r, i)).join('');
+}
+
+function removeSplitRecipient(index) {
+  splitRecipients.splice(index, 1);
+  document.getElementById('splitCount').value = splitRecipients.length;
+  updateSplitHint();
+  renderSplitCards();
+  calcSplit();
+}
+
+function updateSplitHint() {
+  const hint = document.getElementById('splitCountHint');
+  if (!hint) return;
+  const members = (_cachedTxMembers || []).filter(m => (m.status || 'active') === 'active');
+  const n = splitRecipients.length;
+  const vaultSlots = splitRecipients.filter(r => r.type === 'vault').length;
+  hint.textContent = vaultSlots > 0
+    ? `${n - vaultSlots} member${n - vaultSlots !== 1 ? 's' : ''} + ${vaultSlots} vault slot${vaultSlots !== 1 ? 's' : ''}`
+    : `${n} of ${members.length} active member${members.length !== 1 ? 's' : ''}`;
+}
+
+function _defaultWeight(currentLength) {
+  // currentLength is the length AFTER the new recipient will be added
+  const n = (currentLength + 1) || 1;
+  if (splitMode === 'percent') return parseFloat((100 / n).toFixed(4));
+  return 0;
+}
+
+function onSplitCountChange() {
+  const members = (_cachedTxMembers || []).filter(m => (m.status || 'active') === 'active');
+  const newN = Math.max(1, Math.min(20, parseInt(document.getElementById('splitCount').value) || 1));
+  document.getElementById('splitCount').value = newN;
+
+  if (newN > splitRecipients.length) {
+    const usedNames = new Set(splitRecipients.filter(r => r.type === 'member').map(r => r.member.name));
+    const available = members.filter(m => !usedNames.has(m.name));
+    while (splitRecipients.length < newN) {
+      if (available.length > 0) {
+        splitRecipients.push({ type: 'member', member: available.shift(), weight: _defaultWeight(splitRecipients.length) });
+      } else {
+        splitRecipients.push({ type: 'vault', member: null, weight: _defaultWeight(splitRecipients.length) });
+      }
+    }
+  } else {
+    splitRecipients = splitRecipients.slice(0, newN);
+  }
+
+  updateSplitHint();
+  renderSplitCards();
+  calcSplit();
+}
+
+async function openSplitModal() {
+  await loadTxMembers();
+  const members = (_cachedTxMembers || []).filter(m => (m.status || 'active') === 'active');
+  splitMode = 'even';
+  document.querySelectorAll('.split-mode-btn').forEach(b => b.classList.toggle('active', b.dataset.mode === 'even'));
+  const hint = document.getElementById('splitModeHint');
+  if (hint) hint.textContent = SPLIT_MODE_HINTS().even;
+
+  splitRecipients = members.map(m => ({ type: 'member', member: m, weight: 0 }));
+  if (!splitRecipients.length) splitRecipients = [{ type: 'vault', member: null, weight: 0 }];
+
+  // Auto-assign even percent weights
+  _rebalanceDefaultWeights();
+
+  document.getElementById('splitCount').value = splitRecipients.length;
+  buildCoinInputs('splitCoinInputs', {}, 'calcSplit()');
+  document.getElementById('splitResult').classList.remove('visible');
+  updateSplitHint();
+  renderSplitCards();
+  calcSplit();
+  openModal('splitModal');
+}
+
+// Set default weights evenly across recipients (used when opening or adding members)
+function _rebalanceDefaultWeights() {
+  const n = splitRecipients.length;
+  if (!n) return;
+  if (splitMode === 'percent') {
+    const base = parseFloat((100 / n).toFixed(4));
+    splitRecipients.forEach((r, i) => { r.weight = base; });
+  }
+  // flat and even: leave weight as-is (flat = user-entered, even = ignored)
+}
+
+// ── calcSplit: preview the result before committing ──────────
+function calcSplit() {
+  const coins  = readCoinInputs('splitCoinInputs');
+  const n      = splitRecipients.length || 1;
+  const base   = currencies.find(c => c.id === 'cr') || currencies[0];
+  const lines  = [];
+
+  // Totals line
+  let baseTotal = 0; let allRates = true;
+  const parts = [];
+  for (const [cid, amt] of Object.entries(coins)) {
+    const cur = currencies.find(x => x.id === cid);
+    if (!cur) continue;
+    parts.push(`${amt < 0 ? '−' : '+'}${fmt(Math.abs(amt))} ${cur.abbr}`);
+    if (cur.rate != null) baseTotal += amt * cur.rate;
+    else allRates = false;
+  }
+
+  lines.push(`TO SPLIT  : ${parts.length ? parts.join('  ') : 'nothing entered'}`);
+  lines.push(`RECIPIENTS: ${n}  MODE: ${splitMode.toUpperCase()}`);
+  lines.push('─────────────────────────────────────────');
+
+  if (!Object.keys(coins).length) {
+    document.getElementById('splitResult').textContent = lines.join('\n');
+    document.getElementById('splitResult').classList.add('visible');
+    return;
+  }
+
+  // ── EVEN ────────────────────────────────────────────────────
+  if (splitMode === 'even') {
+    if (allRates) {
+      const perShare = baseTotal / n;
+      lines.push(`TOTAL     : ${baseTotal < 0 ? '−' : ''}${fmt(Math.abs(baseTotal))} ${base.abbr}`);
+      lines.push(`PER SHARE : ${perShare < 0 ? '−' : ''}${fmt(Math.abs(perShare))} ${base.abbr}`);
+    } else {
+      lines.push('(some currencies have no rate — base total N/A)');
+    }
+    lines.push('');
+    lines.push('PER-CURRENCY SHARE:');
+    for (const [cid, amt] of Object.entries(coins)) {
+      const cur = currencies.find(x => x.id === cid);
+      if (!cur) continue;
+      const each = Math.trunc(amt / n);
+      const rem  = amt - each * n;
+      const remStr = rem !== 0 ? `  (${rem > 0 ? '+' : ''}${rem} → vault)` : '';
+      lines.push(`  ${cur.abbr.padEnd(6)}: ${each >= 0 ? '+' : ''}${fmt(each)} each${remStr}`);
+    }
+
+  // ── PERCENT ─────────────────────────────────────────────────
+  } else if (splitMode === 'percent') {
+    const weights = splitRecipients.map(r => Math.max(0, r.weight || 0));
+    const totalPct = weights.reduce((a, b) => a + b, 0);
+    const pctOk = Math.abs(totalPct - 100) < 0.01;
+
+    if (!pctOk) {
+      lines.push(`⚠ PERCENTAGES SUM TO ${totalPct.toFixed(1)}% — must equal 100%`);
+      document.getElementById('splitResult').textContent = lines.join('\n');
+      document.getElementById('splitResult').classList.add('visible');
+      return;
+    }
+
+    if (allRates) lines.push(`TOTAL: ${baseTotal < 0 ? '−' : ''}${fmt(Math.abs(baseTotal))} ${base.abbr}`);
+    lines.push('');
+    splitRecipients.forEach((r, i) => {
+      const pct = weights[i];
+      const name = r.type === 'vault' ? t('partyVault') : r.member.name;
+      const nameStr = name.padEnd(16).slice(0, 16);
+      if (allRates) {
+        const share = (baseTotal * pct / 100);
+        lines.push(`  ${nameStr}: ${share >= 0 ? '+' : ''}${fmt(share)} ${base.abbr}  (${pct.toFixed(1)}%)`);
+      } else {
+        lines.push(`  ${nameStr}: ${pct.toFixed(1)}%`);
+      }
+    });
+    lines.push('');
+    lines.push('(per-currency amounts rounded; remainder → vault)');
+
+  // ── FLAT ────────────────────────────────────────────────────
+  } else if (splitMode === 'flat') {
+    const weights = splitRecipients.map(r => Math.max(0, r.weight || 0));
+    const allocatedBase = weights.reduce((a, b) => a + b, 0);
+    const remainder = allRates ? (baseTotal - allocatedBase) : null;
+
+    if (allRates && remainder !== null && remainder < 0) {
+      lines.push(`⚠ OVER-ALLOCATED: ${fmt(allocatedBase)} ${base.abbr} assigned but only ${fmt(baseTotal)} ${base.abbr} available`);
+      lines.push(`  Reduce allocations by ${fmt(Math.abs(remainder))} ${base.abbr}`);
+      document.getElementById('splitResult').textContent = lines.join('\n');
+      document.getElementById('splitResult').classList.add('visible');
+      return;
+    }
+
+    if (allRates) {
+      lines.push(`TOTAL     : ${fmt(baseTotal)} ${base.abbr}`);
+      lines.push(`ALLOCATED : ${fmt(allocatedBase)} ${base.abbr}`);
+      lines.push(`TO VAULT  : +${fmt(remainder)} ${base.abbr}`);
+    }
+    lines.push('');
+    splitRecipients.forEach((r, i) => {
+      const flat = weights[i];
+      const name = r.type === 'vault' ? t('partyVault') : r.member.name;
+      const nameStr = name.padEnd(16).slice(0, 16);
+      lines.push(`  ${nameStr}: +${fmt(flat)} ${base ? base.abbr : ''}`);
+    });
+    if (allRates && remainder > 0) {
+      const vaultName = t('partyVault').padEnd(16).slice(0, 16);
+      lines.push(`  ${vaultName}: +${fmt(remainder)} ${base.abbr}  (remainder)`);
+    }
+  } // end splitMode === 'flat'
+
+  if (splitRecipients.some(r => r.type === 'vault')) {
+    lines.push('');
+    lines.push(`⚙ vault slots receive their share as ${t('partyVault').toLowerCase()}`);
+  }
+
+  document.getElementById('splitResult').textContent = lines.join('\n');
+  document.getElementById('splitResult').classList.add('visible');
+}
+
+// ── applySplit: write transactions for each recipient ─────────
+async function applySplit() {
+  const n = splitRecipients.length;
+  if (!n) { showToast('Add at least one recipient.'); return; }
+  const coins = readCoinInputs('splitCoinInputs');
+  if (!Object.keys(coins).length) { showToast('Enter amounts to split.'); return; }
+  const base = currencies.find(c => c.id === 'cr') || currencies[0];
+
+  // Validate percent mode
+  if (splitMode === 'percent') {
+    const totalPct = splitRecipients.reduce((a, r) => a + Math.max(0, r.weight || 0), 0);
+    if (Math.abs(totalPct - 100) >= 0.01) {
+      showToast(`Percentages sum to ${totalPct.toFixed(1)}% — must equal 100%.`); return;
+    }
+  }
+
+  const ts = Date.now();
+  const recipientTxs = [];
+
+  if (splitMode === 'even') {
+    // ── EVEN: integer truncation per-currency ──
+    const perShare = {}, remainder = {};
+    for (const [cid, amt] of Object.entries(coins)) {
+      perShare[cid]  = Math.trunc(amt / n);
+      remainder[cid] = amt - perShare[cid] * n;
+    }
+    // Verify math
+    for (const [cid, amt] of Object.entries(coins)) {
+      if (perShare[cid] * n + remainder[cid] !== amt) {
+        showToast('Internal math error — split aborted.'); return;
+      }
+    }
+    for (const recipient of splitRecipients) {
+      const memberName = recipient.type === 'member' ? recipient.member.name : null;
+      const gainShare = {}, spendShare = {};
+      for (const [cid, each] of Object.entries(perShare)) {
+        if (each > 0) gainShare[cid]  = each;
+        else if (each < 0) spendShare[cid] = Math.abs(each);
+      }
+      if (Object.keys(gainShare).length)
+        recipientTxs.push({ id: uid(), type: 'gain',  desc: `Loot share — split ${n} ways`, note: 'Auto-logged from split calculator', ts: ts + 1, coins: gainShare,  member: memberName });
+      if (Object.keys(spendShare).length)
+        recipientTxs.push({ id: uid(), type: 'spend', desc: `Debt share — split ${n} ways`,  note: 'Auto-logged from split calculator', ts: ts + 2, coins: spendShare, member: memberName });
+    }
+    // Remainder to vault
+    const remGain = {}, remSpend = {};
+    for (const [cid, rem] of Object.entries(remainder)) {
+      if (rem > 0) remGain[cid] = rem;
+      else if (rem < 0) remSpend[cid] = Math.abs(rem);
+    }
+    if (Object.keys(remGain).length)
+      recipientTxs.push({ id: uid(), type: 'gain',  desc: `Split remainder — returned to ${t('partyVault')}`, note: 'Auto-logged', ts: ts + 3, coins: remGain,  member: null });
+    if (Object.keys(remSpend).length)
+      recipientTxs.push({ id: uid(), type: 'spend', desc: `Split remainder (debt) — ${t('partyVault')}`, note: 'Auto-logged', ts: ts + 4, coins: remSpend, member: null });
+
+  } else if (splitMode === 'percent') {
+    // ── PERCENT: allocate proportionally in base currency, convert back per-cur ──
+    let baseTotal = 0; let allRates = true;
+    for (const [cid, amt] of Object.entries(coins)) {
+      const cur = currencies.find(x => x.id === cid);
+      if (cur?.rate != null) baseTotal += amt * cur.rate;
+      else allRates = false;
+    }
+    if (!allRates) { showToast('Percent split requires all currencies to have exchange rates.'); return; }
+
+    const weights = splitRecipients.map(r => Math.max(0, r.weight || 0));
+    let allocated = 0;
+    splitRecipients.forEach((recipient, i) => {
+      const memberName = recipient.type === 'member' ? recipient.member.name : null;
+      const shareBase = baseTotal * weights[i] / 100;
+      allocated += shareBase;
+      // Convert back to per-currency proportionally
+      const shareCoins = {};
+      for (const [cid, amt] of Object.entries(coins)) {
+        const cur = currencies.find(x => x.id === cid);
+        if (!cur) continue;
+        const shareCur = Math.round(amt * weights[i] / 100);
+        if (shareCur > 0) shareCoins[cid] = shareCur;
+        else if (shareCur < 0) shareCoins[cid] = shareCur; // negative = debt
+      }
+      if (Object.keys(shareCoins).length) {
+        const hasPositive = Object.values(shareCoins).some(v => v > 0);
+        recipientTxs.push({
+          id: uid(), type: hasPositive ? 'gain' : 'spend',
+          desc: `Loot share — ${weights[i].toFixed(1)}% split`,
+          note: 'Auto-logged from split calculator', ts: ts + i + 1,
+          coins: Object.fromEntries(Object.entries(shareCoins).map(([k,v]) => [k, Math.abs(v)])),
+          member: memberName,
+        });
+      }
+    });
+    // Remainder = rounding dust → vault
+    const remCoins = {};
+    for (const [cid, amt] of Object.entries(coins)) {
+      const used = splitRecipients.reduce((a, r, i) => a + Math.round(amt * (r.weight || 0) / 100), 0);
+      const rem  = amt - used;
+      if (rem !== 0) remCoins[cid] = rem;
+    }
+    if (Object.keys(remCoins).length) {
+      const pos = Object.fromEntries(Object.entries(remCoins).filter(([,v]) => v > 0));
+      const neg = Object.fromEntries(Object.entries(remCoins).filter(([,v]) => v < 0).map(([k,v]) => [k, Math.abs(v)]));
+      if (Object.keys(pos).length) recipientTxs.push({ id: uid(), type: 'gain',  desc: `Split remainder — ${t('partyVault')}`, note: 'Auto-logged', ts: ts + n + 1, coins: pos, member: null });
+      if (Object.keys(neg).length) recipientTxs.push({ id: uid(), type: 'spend', desc: `Split remainder — ${t('partyVault')}`, note: 'Auto-logged', ts: ts + n + 2, coins: neg, member: null });
+    }
+
+  } else if (splitMode === 'flat') {
+    // ── FLAT: each recipient gets an exact base-currency amount ──
+    let baseTotal = 0; let allRates = true;
+    for (const [cid, amt] of Object.entries(coins)) {
+      const cur = currencies.find(x => x.id === cid);
+      if (cur?.rate != null) baseTotal += amt * cur.rate;
+      else allRates = false;
+    }
+    if (!allRates) { showToast('Flat split requires all currencies to have exchange rates.'); return; }
+
+    const totalAllocated = splitRecipients.reduce((a, r) => a + Math.max(0, r.weight || 0), 0);
+    if (totalAllocated > baseTotal + 0.001) {
+      showToast(`Over-allocated: ${fmt(totalAllocated)} ${base.abbr} assigned but only ${fmt(baseTotal)} ${base.abbr} available.`); return;
+    }
+
+    // Distribute per-currency amounts proportionally per recipient, tracking used totals
+    const usedPerCur = {};
+    splitRecipients.forEach((recipient, i) => {
+      const memberName = recipient.type === 'member' ? recipient.member.name : null;
+      const flatBase   = Math.max(0, recipient.weight || 0);
+      const shareCoins = {};
+      for (const [cid, amt] of Object.entries(coins)) {
+        const cur = currencies.find(x => x.id === cid);
+        if (!cur || !cur.rate || !baseTotal) continue;
+        // Last recipient gets whatever is left to avoid rounding loss
+        const isLast = (i === splitRecipients.length - 1);
+        const shareCur = isLast
+          ? amt - (usedPerCur[cid] || 0)
+          : Math.round((flatBase / baseTotal) * amt);
+        if (shareCur > 0) shareCoins[cid] = shareCur;
+        usedPerCur[cid] = (usedPerCur[cid] || 0) + (shareCur > 0 ? shareCur : 0);
+      }
+      if (Object.keys(shareCoins).length) {
+        recipientTxs.push({
+          id: uid(), type: 'gain',
+          desc: `Loot share — ${fmt(flatBase)} ${base.abbr} flat`,
+          note: 'Auto-logged from split calculator', ts: ts + i + 1,
+          coins: shareCoins, member: memberName,
+        });
+      }
+    });
+    // Remainder (always >= 0 after over-allocation guard) → vault
+    const remBase = baseTotal - totalAllocated;
+    if (remBase > 0.01) {
+      const remCoins = {};
+      for (const [cid, amt] of Object.entries(coins)) {
+        const cur = currencies.find(x => x.id === cid);
+        if (!cur || !cur.rate || !baseTotal) continue;
+        const rem = amt - (usedPerCur[cid] || 0);
+        if (rem > 0) remCoins[cid] = rem;
+      }
+      if (Object.keys(remCoins).length) {
+        recipientTxs.push({
+          id: uid(), type: 'gain',
+          desc: `Split remainder — returned to ${t('partyVault')}`,
+          note: 'Auto-logged', ts: ts + n + 1,
+          coins: remCoins, member: null,
+        });
+      }
+    }
+  } // end splitMode === 'flat'
+
+  try {
+    if (!recipientTxs.length) { showToast('Nothing to log.'); return; }
+    await Promise.all(recipientTxs.map(tx => saveTxToDB(tx)));
+    ledger.push(...recipientTxs);
+    recalcVault();
+    await renderMemberWealth();
+    renderTotal(); renderGrid(); renderLedger();
+    closeModal('splitModal');
+    showToast(`Split logged — ${n} recipient${n !== 1 ? 's' : ''}.`);
+  } catch(e) {
+    console.error(e);
+    showToast('Save failed — check Supabase config.');
+  }
+}
+
+// ══════════════════════════════════
+//  EXPORT / IMPORT
+// ══════════════════════════════════
+function exportJSON() {
+  const blob = new Blob([JSON.stringify({ version: 3, currencies, vault, ledger }, null, 2)], { type: 'application/json' });
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'vault-ledger.json'; a.click();
+  showToast('Ledger exported.');
+}
+function importJSON() { document.getElementById('fileImport').click(); }
+function handleImport(e) {
+  const file = e.target.files[0]; if (!file) return;
+  const r = new FileReader();
+  r.onload = async ev => {
+    try {
+      const d = JSON.parse(ev.target.result);
+      if (!Array.isArray(d.ledger)) throw new Error();
+      if (confirm(`Import ${d.ledger.length} transactions + ${(d.currencies||[]).length} currency types?\nThis replaces your current data.`)) {
+        currencies = d.currencies || JSON.parse(JSON.stringify(DEFAULT_CURRENCIES));
+        ledger = d.ledger; vault = d.vault || {};
+        recalcVault();
+        try {
+          await db.upsertMany('treasury_currencies', currencies.map((cur,i) => ({
+            id: cur.id, name: cur.name, abbr: cur.abbr,
+            symbol: cur.symbol, color: cur.color, rate: cur.rate, sort_order: i,
+          })));
+          await db.upsertMany('treasury_ledger', ledger.map(txToRow));
+          render(); showToast('Imported successfully.');
+        } catch(e) { console.error(e); showToast('Import failed.'); }
+      }
+    } catch { showToast('Invalid file.'); }
+  };
+  r.readAsText(file); e.target.value = '';
+}
+
+// ══════════════════════════════════
+//  TX HOLDER DROPDOWN  (mirrors loot tracker pattern)
+// ══════════════════════════════════
+async function loadTxMembers() {
+  if (_cachedTxMembers) return _cachedTxMembers;
+  try {
+    _cachedTxMembers = await db.select('party_members', { order: 'created_at.asc' });
+    return _cachedTxMembers;
+  } catch { return []; }
+}
+
+async function buildTxHolderDropdown(currentValue) {
+  const members  = await loadTxMembers();
+  const wrap     = document.getElementById('txHolderWrap');
+  const dropdown = document.getElementById('txHolderDropdown');
+
+  const options = [
+    { value: '', name: '— Party Shared —', photo: null, sub: `goes to ${t('partyVault').toLowerCase()}`, isBlank: true },
+    ...members.map(m => ({
+      value: m.name,
+      name:  m.name,
+      photo: m.photo || null,
+      color: m.color || null,
+      sub:   [m.class, m.race].filter(Boolean).join(' · ') || '',
+    })),
+  ];
+
+  wrap._txHolderOptions = options;
+
+  // Only rebuild dropdown HTML when member list has changed (skips full re-render on every modal open)
+  const optionsKey = members.map(m => m.name + (m.photo || '') + (m.color || '')).join('|');
+  if (dropdown._optionsKey !== optionsKey) {
+    dropdown._optionsKey = optionsKey;
+
+    dropdown.innerHTML = options.map((opt, i) => {
+      const divider = i === 1 && members.length
+        ? `<div class="holder-opt-divider">Party Members</div>`
+        : '';
+      const avatarContent = opt.photo
+        ? `<img src="${opt.photo}" alt="${esc(opt.name)}" />`
+        : opt.isBlank
+          ? `<span style="color:var(--text-dim);font-size:0.7rem">⚙</span>`
+          : `<span style="color:${opt.color || 'var(--gold)'}">${esc(opt.name.charAt(0).toUpperCase())}</span>`;
+      return `${divider}<div class="holder-opt" data-tx-holder-idx="${i}">
+        <div class="holder-opt-avatar" style="${opt.color && !opt.photo ? `border-color:${opt.color}40` : ''}">${avatarContent}</div>
+        <div class="holder-opt-info">
+          <div class="holder-opt-name">${esc(opt.name)}</div>
+          ${opt.sub ? `<div class="holder-opt-sub">${esc(opt.sub)}</div>` : ''}
+        </div>
+      </div>`;
+    }).join('');
+
+    // Attach click handlers once, on the newly built HTML
+    dropdown.querySelectorAll('.holder-opt').forEach(el => {
+      el.addEventListener('click', function(e) {
+        e.stopPropagation();
+        const idx = parseInt(this.getAttribute('data-tx-holder-idx'));
+        const opt = wrap._txHolderOptions[idx];
+        if (opt) selectTxHolder(opt.value, opt.name, opt.photo || '', opt.color || '');
+      });
+    });
+  }
+
+  // Always sync selection highlight and display (cheap — just class toggles)
+  dropdown.querySelectorAll('.holder-opt').forEach((el, i) => {
+    el.classList.toggle('selected', options[i]?.value === currentValue);
+  });
+  setTxHolderDisplay(currentValue, options);
+}
+
+function setTxHolderDisplay(value, optionsList) {
+  const opt = optionsList ? optionsList.find(o => o.value === value) : null;
+  const avatar = document.getElementById('txHolderAvatar');
+  const nameEl = document.getElementById('txHolderName');
+
+  if (!value || !opt) {
+    avatar.className = 'holder-sel-avatar hidden';
+    avatar.innerHTML = '';
+    nameEl.textContent = '— Party Shared —';
+    nameEl.className = 'holder-sel-name placeholder';
+    document.getElementById('txMember').value = '';
+    return;
+  }
+
+  nameEl.className = 'holder-sel-name';
+  nameEl.textContent = opt.name;
+  document.getElementById('txMember').value = value;
+
+  if (opt.photo) {
+    avatar.className = 'holder-sel-avatar';
+    avatar.innerHTML = `<img src="${opt.photo}" alt="${esc(opt.name)}" />`;
+  } else if (opt.isBlank) {
+    avatar.className = 'holder-sel-avatar hidden';
+    avatar.innerHTML = '';
+  } else {
+    avatar.className = 'holder-sel-avatar';
+    avatar.style.borderColor = opt.color ? `${opt.color}60` : 'var(--border)';
+    avatar.innerHTML = `<span style="color:${opt.color || 'var(--gold)'}">${esc((opt.name || '?').charAt(0).toUpperCase())}</span>`;
+  }
+}
+
+function selectTxHolder(value, name, photo, color) {
+  document.getElementById('txMember').value = value;
+  const avatar = document.getElementById('txHolderAvatar');
+  const nameEl = document.getElementById('txHolderName');
+
+  nameEl.textContent = value ? name : '— Party Shared —';
+  nameEl.className = 'holder-sel-name' + (value ? '' : ' placeholder');
+
+  if (!value) {
+    avatar.className = 'holder-sel-avatar hidden';
+    avatar.innerHTML = '';
+  } else if (photo) {
+    avatar.className = 'holder-sel-avatar';
+    avatar.innerHTML = `<img src="${photo}" alt="${esc(name)}" />`;
+  } else {
+    avatar.className = 'holder-sel-avatar';
+    avatar.style.borderColor = color ? `${color}60` : 'var(--border)';
+    avatar.innerHTML = `<span style="color:${color || 'var(--gold)'}">${esc((name || '?').charAt(0).toUpperCase())}</span>`;
+  }
+
+  document.querySelectorAll('#txHolderDropdown .holder-opt').forEach(el => el.classList.remove('selected'));
+  document.querySelectorAll('#txHolderDropdown .holder-opt').forEach(el => {
+    const n = el.querySelector('.holder-opt-name');
+    if (n && n.textContent === (value || '— Party Shared —')) el.classList.add('selected');
+  });
+
+  closeTxHolderDropdown();
+}
+
+async function toggleTxHolderDropdown() {
+  const wrap = document.getElementById('txHolderWrap');
+  if (wrap.classList.contains('open')) { closeTxHolderDropdown(); return; }
+  const currentVal = document.getElementById('txMember').value;
+  await buildTxHolderDropdown(currentVal);
+  wrap.classList.add('open');
+}
+
+function closeTxHolderDropdown() {
+  document.getElementById('txHolderWrap').classList.remove('open');
+}
+
+document.addEventListener('click', e => {
+  const wrap = document.getElementById('txHolderWrap');
+  if (wrap && !wrap.contains(e.target)) closeTxHolderDropdown();
+});
+
+// ══════════════════════════════════
+//  MEMBER WEALTH SECTION
+// ══════════════════════════════════
+
+// ══════════════════════════════════
+//  MEMBER DETAIL MODAL
+// ══════════════════════════════════
+function openMemberModal(memberName) {
+  const m = (_cachedTxMembers || []).find(x => x.name === memberName);
+  const base = currencies.find(c => c.id === 'cr') || currencies[0];
+  const wallet = memberVaultsCache[memberName] || {};
+
+  // ── Title ──
+  document.getElementById('memberModalTitle').textContent = '⚙ ' + memberName.toUpperCase();
+
+  // ── Portrait ──
+  const portraitCol = document.getElementById('mmPortraitCol');
+  const avatar = m && m.photo
+    ? `<img src="${m.photo}" alt="${esc(memberName)}" class="mm-portrait-img" />`
+    : `<div class="mm-portrait-initial" style="color:${m && m.color ? m.color : 'var(--gold)'};border-color:${m && m.color ? m.color + '50' : 'var(--border)'}">
+         ${esc(memberName.charAt(0).toUpperCase())}
+       </div>`;
+  portraitCol.innerHTML = `
+    <div class="mm-portrait">${avatar}</div>
+    <div class="mm-member-name">${esc(memberName)}</div>`;
+
+  // ── Holdings ──
+  const holdingsCol = document.getElementById('mmHoldingsCol');
+  const holdingLines = currencies
+    .map(cur => ({ cur, amt: wallet[cur.id] || 0 }))
+    .filter(({ amt }) => amt !== 0);
+
+  if (holdingLines.length) {
+    holdingsCol.innerHTML = `
+      <div class="mm-holdings-label">Currency Holdings</div>
+      <div class="mm-holdings-rows">
+        ${holdingLines.map(({ cur, amt }) => {
+          const isNeg = amt < 0;
+          return `<div class="mm-holding-row">
+            <span class="mm-h-symbol" style="color:${cur.color};text-shadow:0 0 8px ${cur.color}40">${esc(cur.symbol)}</span>
+            <span class="mm-h-name">${esc(cur.abbr)}</span>
+            <span class="mm-h-amt ${isNeg ? 'mm-h-neg' : ''}">${isNeg ? '−' : ''}${Math.abs(amt).toLocaleString(undefined,{maximumFractionDigits:2})}</span>
+          </div>`;
+        }).join('')}
+      </div>`;
+  } else {
+    holdingsCol.innerHTML = `<div class="mm-holdings-empty">No holdings recorded.</div>`;
+  }
+
+  // ── Total wealth bar ──
+  const totalBarEl = document.getElementById('mmTotalBar');
+  const totalValEl = document.getElementById('mmTotalVal');
+  const totalUnitEl = document.getElementById('mmTotalUnit');
+  const totalBdEl  = document.getElementById('mmTotalBreakdown');
+
+  let totalWealth = 0; let allRates = true;
+  const parts = [];
+  for (const cur of currencies) {
+    const amt = wallet[cur.id] || 0;
+    if (!amt) continue;
+    parts.push(`${amt < 0 ? '−' : ''}${Math.abs(amt).toLocaleString()} ${cur.abbr}`);
+    if (cur.rate != null) totalWealth += amt * cur.rate;
+    else allRates = false;
+  }
+
+  const isNeg = allRates && totalWealth < 0;
+  totalValEl.textContent = allRates
+    ? Math.abs(totalWealth).toLocaleString(undefined, { maximumFractionDigits: 2 })
+    : '—';
+  totalValEl.style.color      = isNeg ? 'var(--red)' : '';
+  totalValEl.style.textShadow = isNeg ? '0 0 20px rgba(224,60,60,0.5)' : '';
+  totalUnitEl.textContent     = (isNeg ? '-' : '') + (base ? base.abbr : '') + ' equiv.';
+  totalUnitEl.style.color     = isNeg ? 'var(--red)' : '';
+  totalBdEl.textContent       = parts.join('  ·  ') || '— no holdings —';
+
+  totalBarEl.classList.toggle('is-negative', isNeg);
+
+  // Animated gradient — same logic as main total bar
+  const gradStyleId = 'mm-wealth-grad-style';
+  let gradStyleEl = document.getElementById(gradStyleId);
+  if (!isNeg && holdingLines.length >= 2) {
+    const gradCurs = holdingLines.map(l => l.cur);
+    const doubled  = [...gradCurs, ...gradCurs];
+    const stops    = doubled.map((cur, i) =>
+      `${cur.color}22 ${(i / (doubled.length - 1) * 100).toFixed(1)}%`
+    ).join(', ');
+    if (!gradStyleEl) {
+      gradStyleEl = document.createElement('style');
+      gradStyleEl.id = gradStyleId;
+      document.head.appendChild(gradStyleEl);
+    }
+    gradStyleEl.textContent = ''; // keyframe is in css/nexus.css
+    totalBarEl.style.background    = `linear-gradient(135deg, ${stops})`;
+    totalBarEl.style.backgroundSize = '200% 200%';
+    totalBarEl.style.animation     = 'mmWealthFlow 6s ease infinite';
+    totalBarEl.style.borderImage   =
+      `linear-gradient(90deg, ${gradCurs[0].color}70, ${gradCurs[gradCurs.length-1].color}70) 1`;
+  } else {
+    if (gradStyleEl) gradStyleEl.remove();
+    totalBarEl.style.background    = '';
+    totalBarEl.style.backgroundSize = '';
+    totalBarEl.style.animation     = '';
+    totalBarEl.style.borderImage   = '';
+  }
+
+  // ── Ledger (member-tagged, newest-first, max 5 shown, scroll if more) ──
+  const memberTxs = [...ledger]
+    .filter(tx => tx.member === memberName)
+    .sort((a, b) => b.ts - a.ts);
+
+  const txCountEl = document.getElementById('mmTxCount');
+  txCountEl.textContent = memberTxs.length + ' entr' + (memberTxs.length === 1 ? 'y' : 'ies');
+
+  const shown = memberTxs.slice(0, 5);
+  const tbody = document.getElementById('mmLedgerBody');
+
+  if (!shown.length) {
+    tbody.innerHTML = `<tr><td colspan="4"><div class="empty-ledger" style="padding:0.75rem 0"><span class="empty-icon">⚙</span><p>No transactions for this member</p></div></td></tr>`;
+  } else {
+    tbody.innerHTML = shown.map(tx => {
+      const sign = tx.type === 'spend' ? -1 : 1;
+      let crTotal = 0; let allHaveRates = true;
+      const breakdown = [];
+      for (const [cid, amt] of Object.entries(tx.coins || {})) {
+        if (!amt) continue;
+        const cur = currencies.find(x => x.id === cid);
+        const label = cur ? cur.abbr : (currencyLabels[cid]?.abbr || cid.toUpperCase());
+        breakdown.push(`${fmt(amt)} ${label}`);
+        if (cur && cur.rate != null) crTotal += amt * cur.rate;
+        else allHaveRates = false;
+      }
+      const amtDisplay = allHaveRates && breakdown.length
+        ? `${sign > 0 ? '+' : '−'}${crTotal.toLocaleString(undefined,{maximumFractionDigits:2})} ${base.abbr}`
+        : breakdown.map(b => `${sign>0?'+':'−'}${b}`).join(' / ') || '—';
+      const date = new Date(tx.ts).toLocaleDateString(undefined, { month:'short', day:'numeric' });
+      return `<tr>
+        <td><div class="tx-desc" style="font-size:0.8rem">${esc(tx.desc)}</div>${tx.note ? `<div class="tx-note">${esc(tx.note)}</div>` : ''}</td>
+        <td><span class="tx-type tx-${tx.type}" style="font-size:0.72rem">${tx.type.toUpperCase()}</span></td>
+        <td><div class="tx-amount ${sign > 0 ? 'positive' : 'negative'}" style="font-size:0.8rem">${amtDisplay}</div></td>
+        <td style="white-space:nowrap;font-size:0.72rem;color:var(--text-dim)">${date}</td>
+      </tr>`;
+    }).join('');
+  }
+
+  openModal('memberModal');
+}
+
+async function renderMemberWealth() {
+  const row = document.getElementById('memberWealthRow');
+  if (!row) return;
+
+  const members = await loadTxMembers();
+  if (!members.length) { row.innerHTML = ''; return; }
+
+  const base = currencies.find(c => c.id === 'cr') || currencies[0];
+
+  // Per-member vault: sum only transactions tagged to that member
+  memberVaultsCache = {};
+  const memberVaults = memberVaultsCache;
+  for (const tx of ledger) {
+    if (!tx.member) continue;
+    const sign = tx.type === 'spend' ? -1 : 1;
+    if (!memberVaults[tx.member]) memberVaults[tx.member] = {};
+    for (const [cid, amt] of Object.entries(tx.coins || {})) {
+      memberVaults[tx.member][cid] =
+        (memberVaults[tx.member][cid] || 0) + sign * (amt || 0);
+    }
+  }
+
+  function memberWealthVal(name) {
+    const v = memberVaults[name] || {};
+    let total = 0; let hasRate = false;
+    for (const cur of currencies) {
+      const amt = v[cur.id] || 0;
+      if (cur.rate != null) { total += amt * cur.rate; hasRate = true; }
+    }
+    return hasRate ? total : null;
+  }
+
+  // Sort members by net worth descending (null wealth sorts to end)
+  const sorted = [...members].sort((a, b) => {
+    const av = memberWealthVal(a.name), bv = memberWealthVal(b.name);
+    if (av === null && bv === null) return 0;
+    if (av === null) return 1;
+    if (bv === null) return -1;
+    return bv - av;
+  });
+
+  // Medal config: [borderGlow, bgColor, boxShadow, rank label]
+  const MEDALS = [
+    { border: 'rgba(255,215,0,0.7)',   bg: 'rgba(255,215,0,0.07)',   shadow: '0 0 18px rgba(255,215,0,0.3), 0 0 40px rgba(255,215,0,0.12)', label: '🥇', cls: 'mw-medal-gold'   },
+    { border: 'rgba(192,192,192,0.6)', bg: 'rgba(192,192,192,0.06)', shadow: '0 0 14px rgba(192,192,192,0.25), 0 0 30px rgba(192,192,192,0.08)', label: '🥈', cls: 'mw-medal-silver' },
+    { border: 'rgba(205,127,50,0.6)',  bg: 'rgba(205,127,50,0.07)',  shadow: '0 0 14px rgba(205,127,50,0.28), 0 0 30px rgba(205,127,50,0.08)', label: '🥉', cls: 'mw-medal-bronze' },
+  ];
+
+  // ── Compute Olympic-style dense ranks for medal assignment ─────────────────
+  // Rules: ties share the same rank. Next rank after a tie group is skipped by
+  // the size of the group (e.g. two-way tie for 1st → both get rank 1, next is rank 3).
+  // Members with null or negative wealth are never ranked.
+  const rankMap = {}; // name → 0-based MEDALS index (0=gold,1=silver,2=bronze), or null
+  {
+    let rank = 0; // 0-based position in MEDALS array
+    let i    = 0;
+    while (i < sorted.length && rank < MEDALS.length) {
+      const wv = memberWealthVal(sorted[i].name);
+      // Skip members with no ratable wealth or in debt
+      if (wv === null || wv <= 0) { i++; continue; }
+      // Find the end of the tie group that shares this wv
+      let j = i;
+      while (j < sorted.length) {
+        const wvj = memberWealthVal(sorted[j].name);
+        if (wvj === null || Math.abs(wvj - wv) > 0.001) break;
+        j++;
+      }
+      // sorted[i..j-1] all tie → assign same medal rank to each
+      const tieSize = j - i;
+      if (rank < MEDALS.length) {
+        for (let k = i; k < j; k++) {
+          rankMap[sorted[k].name] = rank; // all tie-members share this medal
+        }
+      }
+      rank += tieSize; // skip past the entire tie group for the next rank
+      i = j;
+    }
+  }
+
+  row.innerHTML = `
+    <div class="mw-label">⚙ ${t('members')} Wealth</div>
+    <div class="mw-cards">
+      ${sorted.map((m, i) => {
+        const wv = memberWealthVal(m.name);
+        const isNegMember = wv !== null && wv < 0;
+        const wealthStr = wv === null ? '—'
+          : Math.abs(wv).toLocaleString(undefined, { maximumFractionDigits: 1 }) + ' ' + base.abbr;
+        const wealthClass = wv === null ? 'mw-empty' : isNegMember ? 'mw-neg' : '';
+        const prefix = isNegMember ? '−' : '';
+
+        // Medal: use pre-computed dense rank (handles ties correctly)
+        const medalIdx = rankMap[m.name] ?? null;
+        const medal = (medalIdx !== null && medalIdx < MEDALS.length) ? MEDALS[medalIdx] : null;
+
+        const medalBadge = medal ? `<div class="mw-medal-badge">${medal.label}</div>` : '';
+        const medalClass = medal ? medal.cls : '';
+        const medalStyle = medal
+          ? `border-color:${medal.border};background:${medal.bg};box-shadow:${medal.shadow};`
+          : '';
+
+        const avatar = m.photo
+          ? `<img src="${m.photo}" alt="${esc(m.name)}" class="mw-avatar-img" />`
+          : `<div class="mw-avatar-initial" style="color:${m.color||'var(--gold)'};border-color:${m.color||'var(--border)'}40;text-shadow:0 0 8px ${m.color||'var(--amber)'}">
+               ${esc(m.name.charAt(0).toUpperCase())}
+             </div>`;
+
+        return `<div class="mw-card ${medalClass} ${isNegMember ? 'mw-card-neg' : ''}" onclick="openMemberModal('${esc(m.name)}')" style="cursor:pointer;${medalStyle}" title="View ${esc(m.name)}'s holdings">
+          ${medalBadge}
+          <div class="mw-avatar">${avatar}</div>
+          <div class="mw-info">
+            <div class="mw-name">${esc(m.name)}</div>
+            <div class="mw-wealth ${wealthClass}">${prefix}${wealthStr}</div>
+            ${isNegMember ? `<div class="mw-debt-badge">IN DEBT</div>` : ''}
+          </div>
+        </div>`;
+      }).join('')}
+    </div>`;
+}
+// ══════════════════════════════════
+//  MODAL HELPERS
+// ══════════════════════════════════
+function openModal(id)  { document.getElementById(id).classList.add('open'); }
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+function backdropClose(e, id) { const el = document.getElementById(id); if (e.target === el && el._mousedownOnBackdrop) { closeModal(id); if (id === 'addCurrencyModal') editCurrencyId = null; } }
+
+// ══════════════════════════════════
+//  TOAST
+// ══════════════════════════════════
+
+// ══════════════════════════════════
+//  KEYBOARD
+// ══════════════════════════════════
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') { ['txModal','addCurrencyModal','splitModal','memberModal'].forEach(closeModal); editCurrencyId = null; }
+  if (e.key === 'Enter' && document.getElementById('txModal').classList.contains('open') && document.activeElement.tagName !== 'TEXTAREA') saveTx();
+  if (e.key === 'Enter' && document.getElementById('addCurrencyModal').classList.contains('open') && document.activeElement.tagName !== 'TEXTAREA') saveNewCurrency();
+});
+
+// Track whether a drag started on the backdrop itself (not inside modal content).
+// Prevents closing the modal when the user clicks inside and drags outside.
+['txModal','addCurrencyModal','splitModal','memberModal'].forEach(id => {
+  document.getElementById(id).addEventListener('mousedown', function(e){
+    this._mousedownOnBackdrop = e.target === this;
+  });
+});
+
+// ══════════════════════════════════
+//  INIT
+// ══════════════════════════════════
+// Start module settings AND data fetches simultaneously — none depend on each other
+Promise.all([
+  loadModuleSettings(),
+  loadData(),
+  loadTxMembers(),
+]).then(([_settings]) => {
+  buildSidenav('treasury.html');
+  applyModuleVisibility();
+  if (!enforceModuleGuard('treasury')) return;
+  showLoading(false);
+  loadTerms().catch(() => {});
+  render();
+  // Set default sort indicator (newest first)
+  const arrow = document.getElementById('sort-id');
+  if (arrow) { arrow.textContent = ' ▼'; }
+  const th = arrow ? arrow.closest('th') : null;
+  if (th) th.classList.add('sorted');
+});
+</script>
+
+
+</body>
+</html>

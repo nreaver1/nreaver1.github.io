@@ -1,0 +1,1263 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>LOOT TRACKER // Item Registry</title>
+  <script src="js/nexus-config.js"></script>
+  <script src="js/nexus-utils.js"></script>
+  <link rel="icon" type="image/x-icon" href="assets/favicon.ico" />
+  <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@400;700;900&family=Rajdhani:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/nexus.css" />
+</head>
+<body class="has-sidenav page-loot">
+
+<div id="loadingOverlay">
+  <div class="loading-text">LOADING…</div>
+</div>
+<div id="nexus-nav-root"></div>
+
+<header>
+  <div class="brand">
+    <div class="brand-top">⚙ nexus // item registry</div>
+    <div class="brand-name">LOOT TRACKER</div>
+    <div class="brand-sub">party item manifest</div>
+  </div>
+  <div class="header-actions">
+    <!-- Import / Export hidden for now -->
+    <button class="btn btn-primary" onclick="openModal()">+ Add Item</button>
+  </div>
+</header>
+<div class="hline"></div>
+<main>
+  <div class="stats-bar">
+    <div class="stat"><span class="stat-val" id="statTotal">0</span><span class="stat-label">Total Items</span></div>
+    <div class="stat"><span class="stat-val" id="statAttuned">0</span><span class="stat-label">Attuned</span></div>
+    <div class="stat"><span class="stat-val" id="statWithFx">0</span><span class="stat-label">Has Stat Effects</span></div>
+    <div class="stat"><span class="stat-val" id="statLegendary">0</span><span class="stat-label">Legendary+</span></div>
+  </div>
+  <div class="attune-warning-bar" id="attuneWarningBar">
+    <div class="attune-warn-label">⚠ Attunement Over Limit</div>
+    <div id="attuneWarnRows"></div>
+  </div>
+  <div class="toolbar">
+    <div class="toolbar-left">
+      <input class="search-input" type="text" id="searchInput" placeholder="Search items, holders…" oninput="applyFilter()" />
+      <select id="filterRarity" onchange="applyFilter()">
+        <option value="">All Rarities</option>
+        <option value="common">Common</option><option value="uncommon">Uncommon</option>
+        <option value="rare">Rare</option><option value="very-rare">Very Rare</option>
+        <option value="legendary">Legendary</option><option value="artifact">Artifact</option>
+      </select>
+      <select id="filterType" onchange="applyFilter()">
+        <option value="">All Types</option>
+        <optgroup label="⚔️ Weapon">
+          <option value="Melee Weapon">Melee Weapon</option>
+          <option value="Ranged Weapon">Ranged Weapon</option>
+          <option value="Thrown Weapon">Thrown Weapon</option>
+          <option value="Ammunition">Ammunition</option>
+          <option value="Other Weapon">Other Weapon</option>
+        </optgroup>
+        <optgroup label="🛡️ Armor &amp; Shield">
+          <option value="Light Armor">Light Armor</option>
+          <option value="Medium Armor">Medium Armor</option>
+          <option value="Heavy Armor">Heavy Armor</option>
+          <option value="Shield">Shield</option>
+          <option value="Other Armor">Other Armor</option>
+        </optgroup>
+        <optgroup label="🧪 Potion">
+          <option value="Potion of Healing">Potion of Healing</option>
+          <option value="Potion of Greater Healing">Potion of Greater Healing</option>
+          <option value="Potion of Superior Healing">Potion of Superior Healing</option>
+          <option value="Potion of Supreme Healing">Potion of Supreme Healing</option>
+          <option value="Potion of Animal Friendship">Potion of Animal Friendship</option>
+          <option value="Potion of Clairvoyance">Potion of Clairvoyance</option>
+          <option value="Potion of Climbing">Potion of Climbing</option>
+          <option value="Potion of Diminution">Potion of Diminution</option>
+          <option value="Potion of Fire Breath">Potion of Fire Breath</option>
+          <option value="Potion of Flying">Potion of Flying</option>
+          <option value="Potion of Gaseous Form">Potion of Gaseous Form</option>
+          <option value="Potion of Giant Strength">Potion of Giant Strength</option>
+          <option value="Potion of Growth">Potion of Growth</option>
+          <option value="Potion of Heroism">Potion of Heroism</option>
+          <option value="Potion of Invisibility">Potion of Invisibility</option>
+          <option value="Potion of Invulnerability">Potion of Invulnerability</option>
+          <option value="Potion of Mind Reading">Potion of Mind Reading</option>
+          <option value="Potion of Poison">Potion of Poison</option>
+          <option value="Potion of Resistance">Potion of Resistance</option>
+          <option value="Potion of Speed">Potion of Speed</option>
+          <option value="Potion of Water Breathing">Potion of Water Breathing</option>
+          <option value="Other Potion">Other Potion</option>
+        </optgroup>
+        <optgroup label="📜 Scroll">
+          <option value="Spell Scroll">Spell Scroll</option>
+          <option value="Other Scroll">Other Scroll</option>
+        </optgroup>
+        <optgroup label="🪄 Wand, Staff &amp; Rod">
+          <option value="Wand">Wand</option>
+          <option value="Staff">Staff</option>
+          <option value="Rod">Rod</option>
+          <option value="Other Wand / Staff / Rod">Other Wand / Staff / Rod</option>
+        </optgroup>
+        <optgroup label="💍 Worn / Carried">
+          <option value="Ring">Ring</option>
+          <option value="Cloak">Cloak</option>
+          <option value="Boots">Boots</option>
+          <option value="Gloves">Gloves</option>
+          <option value="Helm">Helm</option>
+          <option value="Amulet">Amulet</option>
+          <option value="Belt">Belt</option>
+          <option value="Bracers">Bracers</option>
+          <option value="Wondrous Item">Wondrous Item</option>
+          <option value="Other Worn / Carried">Other Worn / Carried</option>
+        </optgroup>
+        <optgroup label="🎒 Adventuring Gear">
+          <option value="Bag">Bag</option>
+          <option value="Container">Container</option>
+          <option value="Instrument">Instrument</option>
+          <option value="Tool">Tool</option>
+          <option value="Vehicle">Vehicle</option>
+          <option value="Other Gear">Other Gear</option>
+        </optgroup>
+        <option value="Other">Other</option>
+      </select>
+    </div>
+    <div class="toolbar-right">
+      <select id="filterHolder" onchange="applyFilter()">
+        <option value="">All Holders</option>
+        <option value="Party Inventory">🎒 Party Inventory</option>
+      </select>
+      <select id="filterAttune" onchange="applyFilter()">
+        <option value="">All Attunement</option>
+        <option value="attuned">Attuned</option><option value="required">Required</option><option value="none">None</option>
+      </select>
+      <select id="filterFx" onchange="applyFilter()">
+        <option value="">All Items</option>
+        <option value="yes">Has Stat Effects</option>
+        <option value="no">No Stat Effects</option>
+      </select>
+    </div>
+  </div>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th onclick="sortBy('name')">Item <span class="sort-arrow" id="sort-name"></span></th>
+          <th onclick="sortBy('qty')" class="hide-mobile" title="Quantity">Qty <span class="sort-arrow" id="sort-qty"></span></th>
+          <th onclick="sortBy('type')" class="hide-mobile">Type <span class="sort-arrow" id="sort-type"></span></th>
+          <th onclick="sortBy('rarity')">Rarity <span class="sort-arrow" id="sort-rarity"></span></th>
+          <th onclick="sortBy('holder')" class="hide-mobile">Held By <span class="sort-arrow" id="sort-holder"></span></th>
+          <th class="hide-mobile">Stat Effects</th>
+          <th onclick="sortBy('attunement')" class="hide-mobile">Attune <span class="sort-arrow" id="sort-attunement"></span></th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody id="itemTableBody"></tbody>
+    </table>
+  </div>
+</main>
+
+<!-- Add/Edit Modal -->
+<div class="modal-backdrop" id="modalBackdrop" onclick="backdropClose(event)">
+  <div class="modal">
+    <div class="modal-header">
+      <span class="modal-title" id="modalTitle">⚙ ADD LOOT ITEM</span>
+      <button class="btn-icon" onclick="closeModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="field">
+        <label>Item Name <span class="field-required">(required)</span></label>
+        <input type="text" class="mi" id="fieldName" placeholder="e.g. Plasma Sword, Shadow Cloak…" oninput="(function(){var e=document.getElementById('fieldNameError');if(e&&this.value.trim())e.textContent='';}).call(this)" />
+        <div class="tx-desc-error" id="fieldNameError" aria-live="polite"></div>
+      </div>
+      <div class="field-row">
+        <div class="field">
+          <label>Type</label>
+          <select class="mi" id="fieldType">
+            <option value="">All Types</option>
+        <optgroup label="⚔️ Weapon">
+          <option value="Melee Weapon">Melee Weapon</option>
+          <option value="Ranged Weapon">Ranged Weapon</option>
+          <option value="Thrown Weapon">Thrown Weapon</option>
+          <option value="Ammunition">Ammunition</option>
+          <option value="Other Weapon">Other Weapon</option>
+        </optgroup>
+        <optgroup label="🛡️ Armor &amp; Shield">
+          <option value="Light Armor">Light Armor</option>
+          <option value="Medium Armor">Medium Armor</option>
+          <option value="Heavy Armor">Heavy Armor</option>
+          <option value="Shield">Shield</option>
+          <option value="Other Armor">Other Armor</option>
+        </optgroup>
+        <optgroup label="🧪 Potion">
+          <option value="Potion of Healing">Potion of Healing</option>
+          <option value="Potion of Greater Healing">Potion of Greater Healing</option>
+          <option value="Potion of Superior Healing">Potion of Superior Healing</option>
+          <option value="Potion of Supreme Healing">Potion of Supreme Healing</option>
+          <option value="Potion of Animal Friendship">Potion of Animal Friendship</option>
+          <option value="Potion of Clairvoyance">Potion of Clairvoyance</option>
+          <option value="Potion of Climbing">Potion of Climbing</option>
+          <option value="Potion of Diminution">Potion of Diminution</option>
+          <option value="Potion of Fire Breath">Potion of Fire Breath</option>
+          <option value="Potion of Flying">Potion of Flying</option>
+          <option value="Potion of Gaseous Form">Potion of Gaseous Form</option>
+          <option value="Potion of Giant Strength">Potion of Giant Strength</option>
+          <option value="Potion of Growth">Potion of Growth</option>
+          <option value="Potion of Heroism">Potion of Heroism</option>
+          <option value="Potion of Invisibility">Potion of Invisibility</option>
+          <option value="Potion of Invulnerability">Potion of Invulnerability</option>
+          <option value="Potion of Mind Reading">Potion of Mind Reading</option>
+          <option value="Potion of Poison">Potion of Poison</option>
+          <option value="Potion of Resistance">Potion of Resistance</option>
+          <option value="Potion of Speed">Potion of Speed</option>
+          <option value="Potion of Water Breathing">Potion of Water Breathing</option>
+          <option value="Other Potion">Other Potion</option>
+        </optgroup>
+        <optgroup label="📜 Scroll">
+          <option value="Spell Scroll">Spell Scroll</option>
+          <option value="Other Scroll">Other Scroll</option>
+        </optgroup>
+        <optgroup label="🪄 Wand, Staff &amp; Rod">
+          <option value="Wand">Wand</option>
+          <option value="Staff">Staff</option>
+          <option value="Rod">Rod</option>
+          <option value="Other Wand / Staff / Rod">Other Wand / Staff / Rod</option>
+        </optgroup>
+        <optgroup label="💍 Worn / Carried">
+          <option value="Ring">Ring</option>
+          <option value="Cloak">Cloak</option>
+          <option value="Boots">Boots</option>
+          <option value="Gloves">Gloves</option>
+          <option value="Helm">Helm</option>
+          <option value="Amulet">Amulet</option>
+          <option value="Belt">Belt</option>
+          <option value="Bracers">Bracers</option>
+          <option value="Wondrous Item">Wondrous Item</option>
+          <option value="Other Worn / Carried">Other Worn / Carried</option>
+        </optgroup>
+        <optgroup label="🎒 Adventuring Gear">
+          <option value="Bag">Bag</option>
+          <option value="Container">Container</option>
+          <option value="Instrument">Instrument</option>
+          <option value="Tool">Tool</option>
+          <option value="Vehicle">Vehicle</option>
+          <option value="Other Gear">Other Gear</option>
+        </optgroup>
+        <option value="Other">Other</option>
+          </select>
+        </div>
+        <div class="field" style="max-width:80px;">
+          <label>Qty</label>
+          <input type="number" class="mi" id="fieldQty" min="1" max="999" value="1" />
+        </div>
+        <div class="field">
+          <label>Rarity</label>
+          <select class="mi" id="fieldRarity">
+            <option value="common">Common</option><option value="uncommon">Uncommon</option>
+            <option value="rare" selected>Rare</option><option value="very-rare">Very Rare</option>
+            <option value="legendary">Legendary</option><option value="artifact">Artifact</option>
+          </select>
+        </div>
+      </div>
+      <div class="field-row">
+        <div class="field">
+          <label>Held By</label>
+          <div class="holder-select-wrap" id="holderSelectWrap">
+            <div class="holder-selected" id="holderSelected" onclick="toggleHolderDropdown()">
+              <span class="holder-sel-avatar" id="holderSelAvatar"></span>
+              <span class="holder-sel-name" id="holderSelName">— Unassigned —</span>
+              <span class="holder-sel-arrow">▾</span>
+            </div>
+            <div class="holder-dropdown" id="holderDropdown"></div>
+          </div>
+          <!-- hidden value carrier -->
+          <input type="hidden" id="fieldHolder" />
+        </div>
+        <div class="field">
+          <label>Attunement</label>
+          <select class="mi" id="fieldAttunement" onchange="checkAttuneWarn()">
+            <option value="none">Not required</option>
+            <option value="required">Required</option>
+            <option value="attuned">Attuned</option>
+          </select>
+          <div class="field-attune-warn" id="fieldAttuneWarn"></div>
+        </div>
+      </div>
+      <div class="field">
+        <label>Description / Notes</label>
+        <textarea class="mi" id="fieldDesc" placeholder="Item description, acquisition notes…"></textarea>
+      </div>
+
+      <!-- STAT EFFECTS SECTION -->
+      <div class="field">
+        <div class="fx-section-label">
+          <span>Stat Effects</span>
+          <button class="btn btn-ghost" style="font-size:0.52rem;padding:0.3rem 0.7rem;" onclick="addFxRow()">+ Add Effect</button>
+        </div>
+        <div class="fx-hint">Add any bonuses, penalties, advantage, or disadvantage this item grants.</div>
+        <div class="fx-rows" id="fxRows"></div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
+      <button class="btn btn-primary" id="btnSaveItem" onclick="saveItem()">Save Item</button>
+    </div>
+  </div>
+</div>
+
+<input type="file" id="fileImport" accept=".json" style="display:none" onchange="handleImport(event)" />
+
+<script>
+// ══════════════════════════════════════════
+//  STAT DEFINITIONS (full D&D 5e set)
+// ══════════════════════════════════════════
+const ALL_STATS = [
+  // Core ability scores
+  { key:'str',    label:'STR – Strength' },
+  { key:'dex',    label:'DEX – Dexterity' },
+  { key:'con',    label:'CON – Constitution' },
+  { key:'int',    label:'INT – Intelligence' },
+  { key:'wis',    label:'WIS – Wisdom' },
+  { key:'cha',    label:'CHA – Charisma' },
+  // Combat
+  { key:'ac',         label:'AC – Armor Class' },
+  { key:'hp',         label:'HP – Hit Points (Max)' },
+  { key:'speed',      label:'Speed (ft)' },
+  { key:'initiative', label:'Initiative' },
+  { key:'prof_bonus', label:'Proficiency Bonus' },
+  // Saving throws
+  { key:'save_str',   label:'Save – Strength' },
+  { key:'save_dex',   label:'Save – Dexterity' },
+  { key:'save_con',   label:'Save – Constitution' },
+  { key:'save_int',   label:'Save – Intelligence' },
+  { key:'save_wis',   label:'Save – Wisdom' },
+  { key:'save_cha',   label:'Save – Charisma' },
+  // Skills
+  { key:'acrobatics',      label:'Skill – Acrobatics (DEX)' },
+  { key:'animal_handling', label:'Skill – Animal Handling (WIS)' },
+  { key:'arcana',          label:'Skill – Arcana (INT)' },
+  { key:'athletics',       label:'Skill – Athletics (STR)' },
+  { key:'deception',       label:'Skill – Deception (CHA)' },
+  { key:'history',         label:'Skill – History (INT)' },
+  { key:'insight',         label:'Skill – Insight (WIS)' },
+  { key:'intimidation',    label:'Skill – Intimidation (CHA)' },
+  { key:'investigation',   label:'Skill – Investigation (INT)' },
+  { key:'medicine',        label:'Skill – Medicine (WIS)' },
+  { key:'nature',          label:'Skill – Nature (INT)' },
+  { key:'perception',      label:'Skill – Perception (WIS)' },
+  { key:'performance',     label:'Skill – Performance (CHA)' },
+  { key:'persuasion',      label:'Skill – Persuasion (CHA)' },
+  { key:'religion',        label:'Skill – Religion (INT)' },
+  { key:'sleight_of_hand', label:'Skill – Sleight of Hand (DEX)' },
+  { key:'stealth',         label:'Skill – Stealth (DEX)' },
+  { key:'survival',        label:'Skill – Survival (WIS)' },
+  // Attack / Spell
+  { key:'attack_rolls',    label:'Attack Rolls' },
+  { key:'spell_attack',    label:'Spell Attack Rolls' },
+  { key:'spell_dc',        label:'Spell Save DC' },
+  { key:'damage_rolls',    label:'Damage Rolls' },
+  { key:'spell_damage',    label:'Spell Damage Rolls' },
+];
+
+const FX_TYPES = [
+  { key:'bonus',       label:'+Bonus',       cls:'fx-pos' },
+  { key:'penalty',     label:'−Penalty',     cls:'fx-neg' },
+  { key:'advantage',   label:'Advantage',    cls:'fx-adv' },
+  { key:'disadvantage',label:'Disadvantage', cls:'fx-dis' },
+];
+
+// All 13 D&D 5e damage types — used for the optional damage type
+// selector on damage_rolls and spell_damage stat effects.
+// Sourced from nexus-utils.js (DAMAGE_TYPES) at runtime; this list
+// must stay in sync. We reference window.DAMAGE_TYPES below.
+const DAMAGE_STATS = new Set(['damage_rolls', 'spell_damage', 'attack_rolls']);
+
+// Pre-built O(1) lookup maps — built once at parse time, not on every pill render
+const _STAT_LABEL_MAP = new Map(ALL_STATS.map(s => [s.key, s.label.split(' – ')[0]]));
+const _FX_CLASS_MAP   = new Map(FX_TYPES.map(t => [t.key, t.cls]));
+
+function statLabel(key){ return _STAT_LABEL_MAP.get(key) || key; }
+function fxClass(type){  return _FX_CLASS_MAP.get(type)  || 'fx-pos'; }
+function fxShort(fx){
+  // Include damage type label in pill when set (e.g. "+2 Dmg [acid]")
+  const dmgLabel = fx.damageType ? ` [${fx.damageType}]` : '';
+  if(fx.type==='bonus')        return `+${fx.value} ${statLabel(fx.stat)}${dmgLabel}`;
+  if(fx.type==='penalty')      return `−${fx.value} ${statLabel(fx.stat)}${dmgLabel}`;
+  if(fx.type==='advantage')    return `Adv: ${statLabel(fx.stat)}`;
+  if(fx.type==='disadvantage') return `Dis: ${statLabel(fx.stat)}`;
+  return '';
+}
+
+// ══════════════════════════════════════════
+//  STATE
+// ══════════════════════════════════════════
+let items = [];
+let editingId = null;
+let sortKey = 'name', sortDir = 1;
+let pendingFx = [];   // effects being edited in modal
+
+const RARITY_ORDER = { common:0,uncommon:1,rare:2,'very-rare':3,legendary:4,artifact:5 };
+
+// Cached filter state — updated by applyFilter() so getFiltered() reads from
+// memory instead of querying DOM on every render/keypress
+let _lootFilter = { q:'', rarity:'', type:'', attune:'', fx:'', holder:'' };
+
+// Seed items kept for reference only — not written to DB on first load.
+const seedItems = [
+  { id:uid(), name:"Shadow Cloak",      type:"Wondrous", rarity:"rare",     holder:"Zyx",        attunement:"attuned",  desc:"Advantage on Stealth, disadvantage on Perception.", statEffects:[{stat:'stealth',type:'advantage',value:null},{stat:'perception',type:'disadvantage',value:null}] , qty:1},
+  { id:uid(), name:"Aegis Mk-II Armor", type:"Armor",    rarity:"rare",     holder:"Mira",       attunement:"none",     desc:"+2 AC. Disadvantage on Stealth checks.",              statEffects:[{stat:'ac',type:'bonus',value:2},{stat:'stealth',type:'disadvantage',value:null}] , qty:1},
+  { id:uid(), name:"Neural Spike +2",   type:"Weapon",   rarity:"uncommon", holder:"Mira",       attunement:"none",     desc:"+2 to attack and damage rolls.",                      statEffects:[{stat:'attack_rolls',type:'bonus',value:2},{stat:'damage_rolls',type:'bonus',value:2}] , qty:1},
+  { id:uid(), name:"Gauntlet of STR",   type:"Wondrous", rarity:"rare",     holder:"Theron",     attunement:"attuned",  desc:"Sets STR to 19.",                                    statEffects:[{stat:'str',type:'bonus',value:4}] , qty:1},
+  { id:uid(), name:"Ring of Data",      type:"Ring",     rarity:"rare",     holder:"Party",      attunement:"required", desc:"Stores up to 3 spells.",                             statEffects:[] , qty:1},
+  { id:uid(), name:"Orb of Old Code",   type:"Wondrous", rarity:"artifact", holder:"Party Vault",attunement:"required", desc:"Do NOT activate.",                                   statEffects:[] , qty:1},
+];
+
+// LOOT_GROUP_EMOJI, lootTypeEmoji, uid — defined in js/nexus-utils.js
+
+async function loadData(){
+  try{
+    showLoading(true);
+    const rows = await db.select('loot_items', { order: 'created_at.asc' });
+    if(rows.length){
+      items = rows.map(r=>({
+        id:          r.id,
+        name:        r.name,
+        type:        r.type,
+        rarity:      r.rarity,
+        holder:      r.holder,
+        attunement:  r.attunement,
+        desc:        r.description,
+        statEffects: r.stat_effects || [],
+        qty:         r.quantity ?? 1,
+      }));
+    }
+  } catch(e){
+    console.error(e);
+    showToast('Could not load items — check your Supabase config.');
+    items = [];
+  } finally{ showLoading(false); }
+}
+
+function itemToRow(it){
+  return {
+    id:          it.id,
+    name:        it.name,
+    type:        it.type        || 'Wondrous',
+    rarity:      it.rarity      || 'common',
+    holder:      it.holder      || null,
+    attunement:  it.attunement  || 'none',
+    description: it.desc        || null,
+    stat_effects: it.statEffects || [],
+    quantity:    it.qty         ?? 1,
+  };
+}
+
+async function saveItemToDB(item){
+  await db.upsert('loot_items', itemToRow(item));
+}
+
+async function deleteItemFromDB(id){
+  await db.delete('loot_items', id);
+}
+
+function showLoading(on){
+  let el=document.getElementById('loadingOverlay');
+  if(el) el.style.display=on?'flex':'none';
+}
+
+// ══════════════════════════════════════════
+//  RENDER
+// ══════════════════════════════════════════
+// Update cached filter state from DOM, then re-render.
+// All filter controls call this instead of renderTable() directly.
+function applyFilter(){
+  _lootFilter.q      = document.getElementById('searchInput').value.toLowerCase();
+  _lootFilter.rarity = document.getElementById('filterRarity').value;
+  _lootFilter.type   = document.getElementById('filterType').value;
+  _lootFilter.attune = document.getElementById('filterAttune').value;
+  _lootFilter.fx     = document.getElementById('filterFx').value;
+  _lootFilter.holder = document.getElementById('filterHolder').value;
+  renderTable();
+}
+
+function getFiltered(){
+  const {q,rarity,type,attune,fx,holder} = _lootFilter;
+  return items.filter(it=>{
+    if(q&&!it.name.toLowerCase().includes(q)&&!(it.desc||'').toLowerCase().includes(q)&&!(it.holder||'').toLowerCase().includes(q)) return false;
+    if(rarity&&it.rarity!==rarity) return false;
+    if(type&&it.type!==type) return false;
+    if(attune&&it.attunement!==attune) return false;
+    if(fx==='yes'&&!it.statEffects?.length) return false;
+    if(fx==='no'&&it.statEffects?.length) return false;
+    if(holder&&it.holder!==holder) return false;
+    return true;
+  }).sort((a,b)=>{
+    let av=a[sortKey]??'',bv=b[sortKey]??'';
+    if(sortKey==='rarity'){av=RARITY_ORDER[av]??99;bv=RARITY_ORDER[bv]??99;return(av-bv)*sortDir;}
+    return av.toString().localeCompare(bv.toString())*sortDir;
+  });
+}
+
+function renderTable(){
+  const tbody=document.getElementById('itemTableBody');
+  const rows=getFiltered();
+  updateStats();
+  if(!rows.length){
+    tbody.innerHTML=`<tr><td colspan="8"><div class="empty-state"><span class="empty-icon">⚔️</span><p>No items found in registry</p></div></td></tr>`;
+    return;
+  }
+  // Pre-build member name→obj Map once (O(members)) so renderHolderCell is O(1) per row
+  const memberMap = new Map((_cachedPartyMembers||[]).map(m=>[m.name, m]));
+  tbody.innerHTML=rows.map(it=>{
+    const fxHtml=(it.statEffects||[]).map(fx=>`<span class="fx-pill ${fxClass(fx.type)}">${esc(fxShort(fx))}</span>`).join('');
+    const qtyBadge = (it.qty??1)>1 ? `<span class="qty-badge">×${it.qty}</span>` : '';
+    return `<tr>
+      <td>
+        <div class="item-name">${esc(it.name)}${qtyBadge}</div>
+        ${it.desc?`<div class="item-desc">${esc(it.desc)}</div>`:''}
+      </td>
+      <td class="hide-mobile" style="text-align:center;font-family:'Share Tech Mono',monospace;font-size:0.8rem;color:${(it.qty??1)>1?'var(--cyan)':'var(--text-dim)'};">${it.qty??1}</td>
+      <td class="hide-mobile"><span class="loot-type-cell"><span class="loot-type-emoji">${lootTypeEmoji(it.type)}</span><span class="loot-type-label">${esc(it.type)}</span></span></td>
+      <td><span class="rarity-badge rarity-${it.rarity}">${rarityLabel(it.rarity)}</span></td>
+      <td class="hide-mobile">${renderHolderCell(it.holder, memberMap)}</td>
+      <td class="hide-mobile"><div class="fx-list">${fxHtml||'<span style="font-family:\'Share Tech Mono\',monospace;font-size:0.5rem;color:var(--text-dim);">—</span>'}</div></td>
+      <td class="hide-mobile"><span class="${it.attunement==='none'?'attunement no-attune':'attunement'}">${attuneLabel(it.attunement)}</span></td>
+      <td class="td-actions">
+        <button class="btn-icon" title="Edit" onclick="openModal('${it.id}')">✎</button>
+        <button class="btn-transfer" title="Quick Transfer" onclick="openTransferPopover('${it.id}',this,event)">⇄</button>
+        <button class="btn-icon delete" title="Delete" onclick="deleteItem('${it.id}')">🗑</button>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+function updateStats(){
+  // Single pass — all four counts in one loop
+  let attuned=0, withFx=0, legendary=0;
+  for(const i of items){
+    if(i.attunement==='attuned') attuned++;
+    if(i.statEffects?.length>0)  withFx++;
+    if(i.rarity==='legendary'||i.rarity==='artifact') legendary++;
+  }
+  document.getElementById('statTotal').textContent=items.length;
+  document.getElementById('statAttuned').textContent=attuned;
+  document.getElementById('statWithFx').textContent=withFx;
+  document.getElementById('statLegendary').textContent=legendary;
+  renderAttuneWarnings();
+}
+
+// ── ATTUNEMENT SLOT TRACKER ──────────────────────────────────
+// Returns a Map<holderName, count> of attuned items per holder.
+// Party Inventory and blank/null holders are excluded (not individuals).
+function getAttuneCounts(){
+  const counts = new Map();
+  for(const it of items){
+    if(it.attunement !== 'attuned') continue;
+    const h = (it.holder||'').trim();
+    // Only count named individuals — not party-wide holders
+    if(!h || h==='Party Inventory' || h.toLowerCase()==='party vault') continue;
+    counts.set(h, (counts.get(h)||0) + 1);
+  }
+  return counts;
+}
+
+function renderAttuneWarnings(){
+  const bar  = document.getElementById('attuneWarningBar');
+  const rows = document.getElementById('attuneWarnRows');
+  if(!bar||!rows) return;
+  const counts = getAttuneCounts();
+  const violations = [...counts.entries()].filter(([,n])=>n>3);
+  if(!violations.length){
+    bar.classList.remove('has-warnings');
+    rows.innerHTML='';
+    return;
+  }
+  bar.classList.add('has-warnings');
+  rows.innerHTML = violations
+    .sort((a,b)=>b[1]-a[1])
+    .map(([name,n])=>`<div class="attune-warn-row">⚠ ${esc(name)}: ${n} items attuned — 5e limit is 3. Remove attunement from ${n-3} item${n-3>1?'s':''}.</div>`)
+    .join('');
+}
+
+function rarityLabel(r){ return{common:'Common',uncommon:'Uncommon',rare:'Rare','very-rare':'Very Rare',legendary:'Legendary',artifact:'Artifact'}[r]||r; }
+function attuneLabel(a){ return{none:'—',required:'Required',attuned:'Attuned'}[a]||a; }
+
+function renderHolderCell(holder, memberMap){
+  if(!holder) return '<span style="color:var(--text-dim);font-size:0.85rem">—</span>';
+  // Use passed-in map when available (from renderTable), fall back to linear scan
+  const m = memberMap ? memberMap.get(holder) : (_cachedPartyMembers||[]).find(x=>x.name===holder);
+  const avatarStyle='width:20px;height:20px;border-radius:50%;object-fit:cover;vertical-align:middle;margin-right:5px;border:1px solid rgba(14,240,208,0.2);flex-shrink:0;';
+  if(holder==='Party Inventory'){
+    return `<span style="display:inline-flex;align-items:center;gap:5px;font-size:0.9rem"><span style="font-size:0.85rem">🎒</span>${esc(t('partyInventory'))}</span>`;
+  }
+  if(m&&m.photo){
+    return `<span style="display:inline-flex;align-items:center;gap:0;font-size:0.9rem"><img src="${m.photo}" style="${avatarStyle}" alt="${esc(holder)}" />${esc(holder)}</span>`;
+  }
+  if(m){
+    const c=m.color||'var(--gold)';
+    return `<span style="display:inline-flex;align-items:center;gap:5px;font-size:0.9rem"><span style="width:20px;height:20px;border-radius:50%;background:${c}22;border:1px solid ${c}55;display:inline-flex;align-items:center;justify-content:center;font-family:'Orbitron',sans-serif;font-size:0.55rem;font-weight:700;color:${c};flex-shrink:0;">${esc(holder.charAt(0).toUpperCase())}</span>${esc(holder)}</span>`;
+  }
+  return `<span style="font-size:0.9rem">${esc(holder)}</span>`;
+}
+
+function sortBy(key){
+  if(sortKey===key) sortDir*=-1; else{sortKey=key;sortDir=1;}
+  document.querySelectorAll('.sort-arrow').forEach(el=>el.textContent='');
+  const arrow=document.getElementById('sort-'+key);
+  if(arrow) arrow.textContent=sortDir===1?' ▲':' ▼';
+  document.querySelectorAll('thead th').forEach(th=>th.classList.remove('sorted'));
+  document.querySelectorAll('thead th').forEach(th=>{if(th.querySelector('#sort-'+key))th.classList.add('sorted');});
+  renderTable();
+}
+
+// ══════════════════════════════════════════
+//  HOLDER DROPDOWN
+// ══════════════════════════════════════════
+// Party members cache for the holder dropdown (loaded on demand)
+let _cachedPartyMembers = null;
+
+async function loadPartyMembersAsync(){
+  if(_cachedPartyMembers) return _cachedPartyMembers;
+  try{
+    _cachedPartyMembers = await db.select('party_members', { order: 'created_at.asc' });
+    return _cachedPartyMembers;
+  }catch{ return []; }
+}
+
+// Sync fallback used by renderHolderCell (called in table render)
+// Populated by the async version when dropdown is opened
+function loadPartyMembers(){
+  return _cachedPartyMembers || [];
+}
+
+async function buildHolderDropdown(currentValue){
+  const members=await loadPartyMembersAsync();
+  _cachedPartyMembers=members;
+  const wrap=document.getElementById('holderSelectWrap');
+  const dropdown=document.getElementById('holderDropdown');
+
+  const options=[
+    { value:'', name:'— Unassigned —', photo:null, sub:'', isBlank:true },
+    { value:'Party Inventory', name:t('partyInventory'), photo:null, sub:'shared loot', isSpecial:true },
+  ];
+  members.forEach(m=>{
+    options.push({ value:m.name, name:m.name, photo:m.photo||null, color:m.color||null,
+      sub:[m.class,m.race].filter(Boolean).join(' · ')||'' });
+  });
+  wrap._holderOptions = options;
+
+  // Only rebuild HTML when member list changes — skip on every modal open
+  const optKey = members.map(m=>m.name+(m.photo||'')+(m.color||'')).join('|');
+  if(dropdown._optKey !== optKey){
+    dropdown._optKey = optKey;
+    dropdown.innerHTML = options.map((opt,i)=>{
+      const divider=(i===2&&members.length)?`<div class="holder-opt-divider">Party Members</div>`:'';
+      const avatarContent = opt.photo
+        ? `<img src="${opt.photo}" alt="${esc(opt.name)}" />`
+        : opt.isBlank   ? `<span style="color:var(--text-dim);font-size:0.7rem">—</span>`
+        : opt.isSpecial ? `<span style="font-size:0.75rem">🎒</span>`
+        : `<span style="color:${opt.color||'var(--gold)'}">${esc(opt.name.charAt(0).toUpperCase())}</span>`;
+      return `${divider}<div class="holder-opt" data-holder-idx="${i}">
+        <div class="holder-opt-avatar" style="${opt.color&&!opt.photo?`border-color:${opt.color}40`:''}">${avatarContent}</div>
+        <div class="holder-opt-info">
+          <div class="holder-opt-name">${esc(opt.name)}</div>
+          ${opt.sub?`<div class="holder-opt-sub">${esc(opt.sub)}</div>`:''}
+        </div>
+      </div>`;
+    }).join('');
+    dropdown.querySelectorAll('.holder-opt').forEach(el=>{
+      el.addEventListener('click', function(e){
+        e.stopPropagation();
+        const idx=parseInt(this.getAttribute('data-holder-idx'));
+        const opt=wrap._holderOptions[idx];
+        if(opt) selectHolder(opt.value, opt.name, opt.photo||'', opt.color||'');
+      });
+    });
+  }
+  // Always sync selection highlight (cheap class toggles only)
+  dropdown.querySelectorAll('.holder-opt').forEach((el,i)=>{
+    el.classList.toggle('selected', options[i]?.value===currentValue);
+  });
+  setHolderDisplay(currentValue, options);
+}
+
+function setHolderDisplay(value, optionsList){
+  const opt = optionsList
+    ? optionsList.find(o=>o.value===value)
+    : null;
+
+  const selAvatar = document.getElementById('holderSelAvatar');
+  const selName   = document.getElementById('holderSelName');
+
+  if(!value || !opt){
+    selAvatar.className='holder-sel-avatar hidden';
+    selAvatar.innerHTML='';
+    selName.textContent='— Unassigned —';
+    selName.className='holder-sel-name placeholder';
+    document.getElementById('fieldHolder').value='';
+    return;
+  }
+
+  selName.className='holder-sel-name';
+  selName.textContent=opt.name;
+  document.getElementById('fieldHolder').value=value;
+
+  if(opt.photo){
+    selAvatar.className='holder-sel-avatar';
+    selAvatar.innerHTML=`<img src="${opt.photo}" alt="${esc(opt.name)}" />`;
+  } else if(opt.isBlank){
+    selAvatar.className='holder-sel-avatar hidden';
+    selAvatar.innerHTML='';
+  } else if(opt.isSpecial){
+    selAvatar.className='holder-sel-avatar';
+    selAvatar.innerHTML=`<span style="font-size:0.75rem">🎒</span>`;
+  } else {
+    selAvatar.className='holder-sel-avatar';
+    selAvatar.style.borderColor=(opt.color||'var(--border)');
+    selAvatar.innerHTML=`<span style="color:${opt.color||'var(--gold)'}">${esc((opt.name||'?').charAt(0).toUpperCase())}</span>`;
+  }
+}
+
+function selectHolder(value, name, photo, color){
+  document.getElementById('fieldHolder').value=value;
+  const selAvatar=document.getElementById('holderSelAvatar');
+  const selName=document.getElementById('holderSelName');
+  selName.textContent=value?name:'— Unassigned —';
+  selName.className='holder-sel-name'+(value?'':' placeholder');
+
+  if(!value){
+    selAvatar.className='holder-sel-avatar hidden';
+    selAvatar.innerHTML='';
+  } else if(photo){
+    selAvatar.className='holder-sel-avatar';
+    selAvatar.innerHTML=`<img src="${photo}" alt="${esc(name)}" />`;
+  } else if(value==='Party Inventory'){
+    selAvatar.className='holder-sel-avatar';
+    selAvatar.innerHTML=`<span style="font-size:0.75rem">🎒</span>`;
+  } else {
+    selAvatar.className='holder-sel-avatar';
+    selAvatar.style.borderColor=color?`${color}60`:'var(--border)';
+    selAvatar.innerHTML=`<span style="color:${color||'var(--gold)'}">${esc((name||'?').charAt(0).toUpperCase())}</span>`;
+  }
+
+  // mark selected in list
+  document.querySelectorAll('.holder-opt').forEach(el=>el.classList.remove('selected'));
+  document.querySelectorAll('.holder-opt').forEach(el=>{
+    const nameEl=el.querySelector('.holder-opt-name');
+    if(nameEl&&nameEl.textContent===(value||'— Unassigned —')) el.classList.add('selected');
+  });
+
+  closeHolderDropdown();
+}
+
+async function toggleHolderDropdown(){
+  const wrap=document.getElementById('holderSelectWrap');
+  if(wrap.classList.contains('open')){ closeHolderDropdown(); return; }
+  const currentVal=document.getElementById('fieldHolder').value;
+  await buildHolderDropdown(currentVal);
+  wrap.classList.add('open');
+}
+
+function closeHolderDropdown(){
+  document.getElementById('holderSelectWrap').classList.remove('open');
+}
+
+function closeHolderOnOutside(e){
+  const wrap=document.getElementById('holderSelectWrap');
+  if(wrap&&!wrap.contains(e.target)) closeHolderDropdown();
+}
+
+// attach one persistent document listener for outside-clicks
+document.addEventListener('click', function(e){
+  const wrap=document.getElementById('holderSelectWrap');
+  if(wrap&&wrap.classList.contains('open')&&!wrap.contains(e.target)){
+    closeHolderDropdown();
+  }
+});
+
+// ══════════════════════════════════════════
+//  STAT EFFECTS EDITOR
+// ══════════════════════════════════════════
+function buildStatSelect(){
+  const groups = [
+    { label: 'Main Stats',      keys: ['str','dex','con','int','wis','cha','ac','hp','speed','initiative','prof_bonus'] },
+    { label: 'Saving Throws',   keys: ['save_str','save_dex','save_con','save_int','save_wis','save_cha'] },
+    { label: 'Skills',          keys: ['acrobatics','animal_handling','arcana','athletics','deception','history','insight','intimidation','investigation','medicine','nature','perception','performance','persuasion','religion','sleight_of_hand','stealth','survival'] },
+    { label: 'Rolls',           keys: ['attack_rolls','spell_attack','spell_dc','damage_rolls','spell_damage'] },
+  ];
+  const statMap = {};
+  ALL_STATS.forEach(s => statMap[s.key] = s.label);
+  return `<option value="">\u2014 Stat \u2014</option>` +
+    groups.map(g =>
+      `<optgroup label="${g.label}">` +
+      g.keys.map(k => `<option value="${k}">${esc(statMap[k]||k)}</option>`).join('') +
+      `</optgroup>`
+    ).join('');
+}
+function buildTypeSelect(){
+  return FX_TYPES.map(t=>`<option value="${t.key}">${t.label}</option>`).join('');
+}
+
+function buildDmgTypeSelect(){
+  return `<option value="">— All / Untyped —</option>` +
+    (typeof DAMAGE_TYPES !== 'undefined' ? DAMAGE_TYPES : []).map(t =>
+      `<option value="${t}">${t.charAt(0).toUpperCase()+t.slice(1)}</option>`
+    ).join('');
+}
+
+function addFxRow(existing){
+  const container=document.getElementById('fxRows');
+  const idx=pendingFx.length;
+  const fx=existing||{stat:'',type:'bonus',value:null,damageType:''};
+  pendingFx.push(fx);
+  const row=document.createElement('div');
+  row.className='fx-row';
+  row.id=`fx-row-${idx}`;
+  const needsVal =(t)=>t==='bonus'||t==='penalty';
+  const showDmg  =(t,s)=>(t==='bonus'||t==='penalty')&&DAMAGE_STATS.has(s);
+  row.innerHTML=`
+    <select class="fx-stat-sel" onchange="pendingFx[${idx}].stat=this.value;fxUpdateDmgVis(${idx})">${buildStatSelect()}</select>
+    <select class="fx-type-sel" onchange="pendingFx[${idx}].type=this.value;document.getElementById('fx-val-${idx}').style.display=(this.value==='bonus'||this.value==='penalty')?'block':'none';fxUpdateDmgVis(${idx})">${buildTypeSelect()}</select>
+    <div class="fx-val-wrap">
+      <input  type="number" class="fx-val-inp" id="fx-val-${idx}" placeholder="±#" style="display:${needsVal(fx.type)?'block':'none'}" onchange="pendingFx[${idx}].value=parseFloat(this.value)||null" />
+      <select class="fx-dmg-sel" id="fx-dmg-${idx}" style="display:${showDmg(fx.type,fx.stat)?'block':'none'}" onchange="pendingFx[${idx}].damageType=this.value||null">${buildDmgTypeSelect()}</select>
+    </div>
+    <button class="fx-del-btn" onclick="removeFxRow(${idx})">✕</button>`;
+  container.appendChild(row);
+  // set saved values
+  row.querySelector('.fx-stat-sel').value=fx.stat||'';
+  row.querySelector('.fx-type-sel').value=fx.type||'bonus';
+  if(fx.value!=null) document.getElementById(`fx-val-${idx}`).value=fx.value;
+  document.getElementById(`fx-dmg-${idx}`).value=fx.damageType||'';
+}
+
+// Show/hide the damage type select based on current stat + type selections
+function fxUpdateDmgVis(idx){
+  const stat = pendingFx[idx]?.stat || '';
+  const type = pendingFx[idx]?.type || '';
+  const sel  = document.getElementById(`fx-dmg-${idx}`);
+  if(sel) sel.style.display = (type==='bonus'||type==='penalty') && DAMAGE_STATS.has(stat) ? 'block' : 'none';
+}
+
+function removeFxRow(idx){
+  pendingFx[idx]=null;
+  const row=document.getElementById(`fx-row-${idx}`);
+  if(row) row.remove();
+}
+
+function collectFx(){
+  return pendingFx.filter(f=>f&&f.stat).map(f=>{
+    const fx={
+      stat:  f.stat,
+      type:  f.type||'bonus',
+      value: (f.type==='bonus'||f.type==='penalty')?(f.value||0):null,
+    };
+    // Only include damageType when it's a damage-relevant stat and a value was chosen
+    if(f.damageType && DAMAGE_STATS.has(f.stat) && (f.type==='bonus'||f.type==='penalty')){
+      fx.damageType = f.damageType;
+    }
+    return fx;
+  });
+}
+
+// Sets the holder display to a saved value without opening the dropdown
+async function initHolderDisplay(value){
+  const members=await loadPartyMembersAsync();
+  const specialOpts=[
+    {value:'',name:'— Unassigned —',photo:null,isBlank:true},
+    {value:'Party Inventory',name:t('partyInventory'),photo:null,isSpecial:true},
+  ];
+  const memberOpts=members.map(m=>({value:m.name,name:m.name,photo:m.photo||null,color:m.color||null}));
+  const allOpts=[...specialOpts,...memberOpts];
+  setHolderDisplay(value, allOpts);
+}
+
+// ══════════════════════════════════════════
+//  MODAL
+// ══════════════════════════════════════════
+async function openModal(id){
+  editingId=id||null;
+  document.getElementById('modalTitle').textContent=id?'⚙ EDIT ITEM':'⚙ ADD LOOT ITEM';
+  const fieldNameError=document.getElementById('fieldNameError');
+  if(fieldNameError)fieldNameError.textContent='';
+  pendingFx=[];
+  document.getElementById('fxRows').innerHTML='';
+  if(id){
+    const it=items.find(i=>i.id===id); if(!it) return;
+    document.getElementById('fieldName').value=it.name;
+    document.getElementById('fieldType').value=it.type;
+    document.getElementById('fieldRarity').value=it.rarity;
+    document.getElementById('fieldAttunement').value=it.attunement;
+    document.getElementById('fieldQty').value=it.qty??1;
+    document.getElementById('fieldDesc').value=it.desc||'';
+    document.getElementById('fieldAttuneWarn').textContent='';
+    (it.statEffects||[]).forEach(fx=>addFxRow({...fx}));
+    // init holder dropdown with saved value
+    await initHolderDisplay(it.holder||'');
+    checkAttuneWarn();
+  } else {
+    ['fieldName','fieldDesc'].forEach(fid=>document.getElementById(fid).value='');
+    document.getElementById('fieldType').value='Wondrous Item';
+    document.getElementById('fieldRarity').value='rare';
+    document.getElementById('fieldAttunement').value='none';
+    document.getElementById('fieldQty').value='1';
+    document.getElementById('fieldAttuneWarn').textContent='';
+    await initHolderDisplay('');
+  }
+  document.getElementById('modalBackdrop').classList.add('open');
+  setTimeout(()=>document.getElementById('fieldName').focus(),150);
+}
+
+function closeModal(){ document.getElementById('modalBackdrop').classList.remove('open'); editingId=null; pendingFx=[]; }
+function backdropClose(e){ if(e.target===document.getElementById('modalBackdrop')&&document.getElementById('modalBackdrop')._mousedownOnBackdrop) closeModal(); }
+
+// ── INLINE ATTUNEMENT WARNING (modal) ───────────────────────
+// Called when attunement select changes or when editing an existing item.
+// Warns if the selected holder already has 3 attuned items AND
+// the user is setting this item to 'attuned' (and it isn't the item being edited).
+function checkAttuneWarn(){
+  const warn  = document.getElementById('fieldAttuneWarn');
+  if(!warn) return;
+  const val   = document.getElementById('fieldAttunement').value;
+  const holder= document.getElementById('fieldHolder').value.trim();
+  if(val !== 'attuned' || !holder || holder==='Party Inventory'){
+    warn.textContent=''; return;
+  }
+  const counts = getAttuneCounts();
+  // Count attuned items for this holder, excluding the item being edited
+  const existing = items.filter(it=>
+    it.attunement==='attuned' &&
+    it.holder===holder &&
+    it.id !== editingId
+  ).length;
+  if(existing >= 3){
+    warn.textContent=`⚠ ${holder} already has ${existing} attuned item${existing!==1?'s':''} — 5e limit is 3.`;
+  } else {
+    warn.textContent='';
+  }
+}
+
+// ── QUICK TRANSFER POPOVER ───────────────────────────────────
+let _transferItemId = null;
+let _transferPopoverEl = null;
+
+async function openTransferPopover(itemId, anchorEl, triggerEvent){
+  // Stop the triggering click from bubbling to the document-level close handler,
+  // which would immediately destroy the popover we're about to create.
+  if(triggerEvent) triggerEvent.stopPropagation();
+  // Close any existing popover first
+  closeTransferPopover();
+  _transferItemId = itemId;
+  const it = items.find(i=>i.id===itemId);
+  if(!it){ showToast('Item not found.'); return; }
+
+  // Build popover element
+  const pop = document.createElement('div');
+  pop.className = 'transfer-popover';
+  pop.id = 'transferPopover';
+  pop.innerHTML = `
+    <div class="transfer-popover-header">⇄ Quick Transfer</div>
+    <div class="transfer-popover-title">${esc(it.name)}</div>
+    <div id="transferHolderWrap">
+      <div class="holder-select-wrap" id="txHolderSelectWrap">
+        <div class="holder-selected" id="txHolderSelected" onclick="toggleTxHolderDropdown()">
+          <span class="holder-sel-avatar" id="txHolderSelAvatar"></span>
+          <span class="holder-sel-name"   id="txHolderSelName">— Unassigned —</span>
+          <span class="holder-sel-arrow">▾</span>
+        </div>
+        <div class="holder-dropdown" id="txHolderDropdown"></div>
+      </div>
+      <input type="hidden" id="txHolderValue" value="${esc(it.holder||'')}" />
+    </div>
+    <div class="transfer-popover-actions">
+      <button class="btn btn-ghost" style="font-size:0.72rem;padding:0.3rem 0.8rem;" onclick="closeTransferPopover()">Cancel</button>
+      <button class="btn btn-primary" id="btnConfirmTransfer" style="font-size:0.72rem;padding:0.3rem 0.8rem;" onclick="confirmTransfer()">Transfer</button>
+    </div>`;
+  document.body.appendChild(pop);
+  _transferPopoverEl = pop;
+  // Prevent clicks inside the popover from bubbling to the document close handler
+  pop.addEventListener('click', e => e.stopPropagation());
+
+  // Position near the anchor button
+  const rect = anchorEl.getBoundingClientRect();
+  const popW = 280;
+  let left = rect.right - popW;
+  if(left < 8) left = 8;
+  let top = rect.bottom + 6;
+  // Flip up if near bottom of viewport
+  if(top + 220 > window.innerHeight) top = rect.top - 220;
+  pop.style.left = `${left}px`;
+  pop.style.top  = `${top}px`;
+
+  // Build the holder dropdown inside the popover
+  await buildTxHolderDropdown(it.holder||'');
+}
+
+function closeTransferPopover(){
+  if(_transferPopoverEl){ _transferPopoverEl.remove(); _transferPopoverEl=null; }
+  _transferItemId=null;
+}
+
+// Shared holder dropdown for transfer popover (mirrors buildHolderDropdown but targets tx* elements)
+async function buildTxHolderDropdown(currentValue){
+  const members = await loadPartyMembersAsync();
+  const options = [
+    { value:'', name:'— Unassigned —', photo:null, sub:'', isBlank:true },
+    { value:'Party Inventory', name:t('partyInventory'), photo:null, sub:'shared loot', isSpecial:true },
+    ...members.map(m=>({ value:m.name, name:m.name, photo:m.photo||null, color:m.color||null, sub:[m.class,m.race].filter(Boolean).join(' · ')||'' })),
+  ];
+
+  const wrap     = document.getElementById('txHolderSelectWrap');
+  const dropdown = document.getElementById('txHolderDropdown');
+  if(!wrap||!dropdown) return;
+  wrap._holderOptions = options;
+
+  // Only rebuild HTML when member list changes
+  const optKey = members.map(m=>m.name+(m.photo||'')+(m.color||'')).join('|');
+  if(dropdown._optKey !== optKey){
+    dropdown._optKey = optKey;
+    dropdown.innerHTML = options.map((opt,i)=>{
+      const divider=(i===2&&members.length)?`<div class="holder-opt-divider">Party Members</div>`:'';
+      const avatarContent = opt.photo
+        ? `<img src="${esc(opt.photo)}" alt="${esc(opt.name)}" />`
+        : opt.isBlank  ? `<span style="color:var(--text-dim);font-size:0.7rem">—</span>`
+        : opt.isSpecial? `<span style="font-size:0.75rem">🎒</span>`
+        : `<span style="color:${opt.color||'var(--gold)'}"> ${esc(opt.name.charAt(0).toUpperCase())}</span>`;
+      return `${divider}<div class="holder-opt" data-tx-idx="${i}">
+        <div class="holder-opt-avatar" style="${opt.color&&!opt.photo?`border-color:${opt.color}40`:''}">${avatarContent}</div>
+        <div class="holder-opt-info">
+          <div class="holder-opt-name">${esc(opt.name)}</div>
+          ${opt.sub?`<div class="holder-opt-sub">${esc(opt.sub)}</div>`:''}
+        </div>
+      </div>`;
+    }).join('');
+    dropdown.querySelectorAll('.holder-opt').forEach(el=>{
+      el.addEventListener('click', function(e){
+        e.stopPropagation();
+        const idx=parseInt(this.getAttribute('data-tx-idx'));
+        const opt=wrap._holderOptions[idx];
+        if(opt) selectTxHolder(opt.value, opt.name, opt.photo||'', opt.color||'');
+      });
+    });
+  }
+  // Always sync selection highlight and display
+  dropdown.querySelectorAll('.holder-opt').forEach((el,i)=>{
+    el.classList.toggle('selected', options[i]?.value===currentValue);
+  });
+  const current = options.find(o=>o.value===currentValue);
+  const selName  = document.getElementById('txHolderSelName');
+  const selAvatar= document.getElementById('txHolderSelAvatar');
+  if(selName) selName.textContent = current ? current.name : '— Unassigned —';
+  document.getElementById('txHolderValue').value = currentValue;
+  _updateTxAvatar(selAvatar, current);
+}
+
+function _updateTxAvatar(selAvatar, opt){
+  if(!selAvatar) return;
+  if(!opt||opt.isBlank){ selAvatar.className='holder-sel-avatar hidden'; selAvatar.innerHTML=''; return; }
+  selAvatar.className='holder-sel-avatar';
+  if(opt.photo)       selAvatar.innerHTML=`<img src="${esc(opt.photo)}" alt="${esc(opt.name)}" />`;
+  else if(opt.isSpecial) selAvatar.innerHTML=`<span style="font-size:0.75rem">🎒</span>`;
+  else { selAvatar.style.borderColor=(opt.color||'var(--border)'); selAvatar.innerHTML=`<span style="color:${opt.color||'var(--gold)'}">${esc((opt.name||'?').charAt(0).toUpperCase())}</span>`; }
+}
+
+function selectTxHolder(value, name, photo, color){
+  document.getElementById('txHolderValue').value=value;
+  const selName  = document.getElementById('txHolderSelName');
+  const selAvatar= document.getElementById('txHolderSelAvatar');
+  if(selName){ selName.textContent=value?name:'— Unassigned —'; selName.className='holder-sel-name'+(value?'':' placeholder'); }
+  _updateTxAvatar(selAvatar, {value,name,photo,color,isBlank:!value,isSpecial:value==='Party Inventory'});
+  document.querySelectorAll('#txHolderDropdown .holder-opt').forEach(el=>el.classList.remove('selected'));
+  document.querySelectorAll('#txHolderDropdown .holder-opt').forEach(el=>{
+    if(el.querySelector('.holder-opt-name')?.textContent===(value||'— Unassigned —')) el.classList.add('selected');
+  });
+  closeTxHolderDropdown();
+}
+
+async function toggleTxHolderDropdown(){
+  const wrap=document.getElementById('txHolderSelectWrap');
+  if(!wrap) return;
+  if(wrap.classList.contains('open')){ closeTxHolderDropdown(); return; }
+  wrap.classList.add('open');
+}
+function closeTxHolderDropdown(){
+  const wrap=document.getElementById('txHolderSelectWrap');
+  if(wrap) wrap.classList.remove('open');
+}
+
+async function confirmTransfer(){
+  if(!_transferItemId) return;
+  const newHolder = (document.getElementById('txHolderValue')?.value||'').trim();
+  const it = items.find(i=>i.id===_transferItemId);
+  if(!it){ closeTransferPopover(); return; }
+  if(newHolder===it.holder){ closeTransferPopover(); return; } // no change
+
+  const btn=document.getElementById('btnConfirmTransfer');
+  if(btn){ btn.disabled=true; btn.textContent='Saving…'; }
+  try{
+    const updated={...it, holder:newHolder};
+    await saveItemToDB(updated);
+    const idx=items.findIndex(i=>i.id===_transferItemId);
+    if(idx>=0) items[idx]=updated;
+    renderTable();
+    const toName=newHolder||'Unassigned';
+    showToast(`${it.name} → ${toName}`);
+  }catch(e){
+    console.error(e); showToast('Transfer failed — check your Supabase config.');
+  }finally{
+    closeTransferPopover();
+  }
+}
+
+// Close transfer popover when clicking outside;
+// also close the tx holder dropdown on outside clicks within popover
+document.addEventListener('click', function(e){
+  if(_transferPopoverEl){
+    if(!_transferPopoverEl.contains(e.target)){
+      closeTransferPopover();
+    } else {
+      const txWrap=document.getElementById('txHolderSelectWrap');
+      if(txWrap && txWrap.classList.contains('open') && !txWrap.contains(e.target)){
+        closeTxHolderDropdown();
+      }
+    }
+  }
+});
+
+async function saveItem(){
+  const name=document.getElementById('fieldName').value.trim();
+  const fieldNameError=document.getElementById('fieldNameError');
+  if(fieldNameError)fieldNameError.textContent='';
+  if(!name){
+    if(fieldNameError)fieldNameError.textContent='⚠ Item name is required.';
+    document.getElementById('fieldName').focus();
+    return;
+  }
+  const rawQty = parseInt(document.getElementById('fieldQty').value, 10);
+  const item={
+    id:editingId||uid(), name,
+    type:document.getElementById('fieldType').value,
+    rarity:document.getElementById('fieldRarity').value,
+    holder:document.getElementById('fieldHolder').value.trim(),
+    attunement:document.getElementById('fieldAttunement').value,
+    qty:Math.max(1, Number.isFinite(rawQty) ? rawQty : 1),
+    desc:document.getElementById('fieldDesc').value.trim(),
+    statEffects:collectFx(),
+  };
+  const btn = document.getElementById('btnSaveItem');
+  const modal = document.getElementById('itemModal');
+  btn.dataset.loadingText = editingId ? 'Updating…' : 'Saving…';
+  setLoading(btn, true); setModalLoading(modal, true);
+  try{
+    await saveItemToDB(item);
+    if(editingId){ const idx=items.findIndex(i=>i.id===editingId); if(idx>=0) items[idx]=item; showToast('Item updated.'); }
+    else{ items.push(item); showToast('Item logged to registry.'); }
+    renderTable(); closeModal();
+  }catch(e){ console.error(e); showToast('Save failed — check your Supabase config.');
+  }finally{ setLoading(btn, false); setModalLoading(modal, false); }
+}
+
+async function deleteItem(id){
+  const it = items.find(i => i.id === id);
+  const ok = await nexusConfirm({
+    title:        'Remove Loot Item',
+    name:         it ? it.name : 'Item',
+    message:      it ? `${it.rarity ? it.rarity.replace(/-/g,' ').replace(/\b\w/g,l=>l.toUpperCase()) + ' — ' : ''}This item will be permanently removed from the loot registry.` : 'This item will be permanently removed.',
+    confirmLabel: 'Remove',
+  });
+  if(!ok) return;
+  const delBtn = document.querySelector(`.btn-icon.delete[onclick*="${id}"]`);
+  if(delBtn){ setLoading(delBtn, true); delBtn.dataset.loadingText = ''; }
+  try{
+    await deleteItemFromDB(id);
+    items=items.filter(i=>i.id!==id);
+    renderTable(); showToast('Item removed.');
+  }catch(e){
+    console.error(e); showToast('Delete failed.');
+    if(delBtn) setLoading(delBtn, false);
+  }
+}
+
+// ── EXPORT / IMPORT ──
+function exportJSON(){ const blob=new Blob([JSON.stringify({version:2,items},null,2)],{type:'application/json'}); const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='loot-registry.json';a.click(); showToast('Registry exported.'); }
+function importJSON(){ document.getElementById('fileImport').click(); }
+function handleImport(e){
+  const file=e.target.files[0]; if(!file) return;
+  const reader=new FileReader();
+  reader.onload=async ev=>{
+    try{
+      const data=JSON.parse(ev.target.result);
+      const imported=data.items||data;
+      if(!Array.isArray(imported)) throw new Error();
+      const ok = await nexusConfirm({
+        title:        'Import Loot Registry',
+        name:         `${imported.length} items from ${file.name}`,
+        message:      `All ${items.length} items currently in the registry will be replaced. This cannot be undone.`,
+        danger:       true,
+        confirmLabel: 'Replace Registry',
+        cancelLabel:  'Cancel',
+        checkboxes: [{
+          id:       'ack',
+          label:    'I understand the current registry will be replaced',
+          checked:  false,
+          required: true,
+        }],
+      });
+      if(!ok || !ok.confirmed || !ok.checks?.ack) return;
+      items=imported.map(it=>({...it,id:it.id||uid(),statEffects:it.statEffects||[],qty:it.qty??1}));
+      try{
+        await db.upsertMany('loot_items', items.map(itemToRow));
+        renderTable(); showToast(`Imported ${items.length} items.`);
+      }catch(err){console.error(err);showToast('Import failed — check your Supabase config.');}
+    }catch{ showToast('Invalid file.'); }
+  };
+  reader.readAsText(file); e.target.value='';
+}
+
+document.addEventListener('keydown',e=>{ if(e.key==='Escape') closeModal(); if(e.key==='Enter'&&document.getElementById('modalBackdrop').classList.contains('open')&&document.activeElement.tagName!=='TEXTAREA'&&document.activeElement.tagName!=='SELECT') saveItem(); });
+
+// Track whether a drag started on the backdrop itself (not inside modal content).
+// Prevents closing the modal when the user clicks inside and drags outside.
+document.getElementById('modalBackdrop').addEventListener('mousedown', function(e){
+  this._mousedownOnBackdrop = e.target === this;
+});
+
+async function populateHolderFilter(){
+  const sel=document.getElementById('filterHolder');
+  // Update display labels for the static special options using current term mappings
+  if(sel.options[1]) sel.options[1].textContent='🎒 '+t('partyInventory');
+  const current=sel.value;
+  while(sel.options.length>2) sel.remove(2);
+  const members=await loadPartyMembersAsync();
+  if(members.length){
+    const divOpt=document.createElement('option');
+    divOpt.disabled=true; divOpt.textContent='── Party Members ──';
+    sel.appendChild(divOpt);
+    members.forEach(m=>{
+      const o=document.createElement('option');
+      o.value=m.name; o.textContent=m.name+(m.class?` (${m.class})`:'');
+      sel.appendChild(o);
+    });
+  }
+  if(current) sel.value=current;
+}
+
+// Start all three fetches simultaneously — none depend on each other at boot
+Promise.all([
+  loadModuleSettings(),
+  loadData(),
+  loadPartyMembersAsync(),
+]).then(() => {
+  buildSidenav('loot-tracker.html');
+  applyModuleVisibility();
+  if (!enforceModuleGuard('lootTracker')) return;
+  showLoading(false);
+  loadTerms().catch(() => {});
+  renderTable();
+  populateHolderFilter();
+});
+</script>
+
+
+</body>
+</html>

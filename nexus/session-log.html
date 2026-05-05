@@ -1,0 +1,1972 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>NEXUS // Session Log</title>
+  <script src="js/nexus-config.js"></script>
+  <script src="js/nexus-utils.js"></script>
+  <link rel="icon" type="image/x-icon" href="assets/favicon.ico" />
+  <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@400;700;900&family=Rajdhani:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/nexus.css" />
+  
+</head>
+<body class="has-sidenav page-session">
+
+<div id="loadingOverlay">
+  <div class="loading-text">LOADING…</div>
+</div>
+
+<div id="nexus-nav-root"></div>
+
+<header>
+  <div class="brand">
+    <div class="brand-top">⚙ nexus // campaign chronicle</div>
+    <div class="brand-name">SESSION LOG</div>
+    <div class="brand-sub">party adventure record</div>
+  </div>
+  <div class="header-actions">
+    <div class="sl-view-toggle">
+      <button class="sl-view-btn active" id="btnViewSessions" onclick="switchView('sessions')">Sessions</button>
+      <button class="sl-view-btn"        id="btnViewNpcs"     onclick="switchView('npcs')">NPC Index</button>
+    </div>
+    <button class="btn btn-primary" id="btnNewSession" onclick="openSessionModal()">+ New Session</button>
+    <button class="btn btn-primary" id="btnNewNpc"     onclick="openNpcModal()"     style="display:none">+ Add NPC</button>
+  </div>
+</header>
+
+<div class="hline"></div>
+
+<main>
+
+  <!-- Stats bar -->
+  <div class="stats-bar">
+    <div class="stat"><span class="stat-val" id="statSessions">0</span><span class="stat-label">Sessions</span></div>
+    <div class="stat"><span class="stat-val" id="statComplete">0</span><span class="stat-label">Complete</span></div>
+    <div class="stat"><span class="stat-val" id="statActiveQuests">0</span><span class="stat-label">Active Quests</span></div>
+    <div class="stat"><span class="stat-val" id="statMoments">0</span><span class="stat-label">Moments</span></div>
+    <div class="stat"><span class="stat-val" id="statNpcs">0</span><span class="stat-label">NPCs Tracked</span></div>
+  </div>
+
+  <!-- ── SESSIONS VIEW ─────────────────────────────────────── -->
+  <div id="sessionsView">
+
+    <div class="toolbar">
+      <div class="toolbar-left">
+        <div style="position:relative;flex:1;min-width:200px;display:flex;align-items:center">
+          <input class="search-input" type="text" id="sessionSearch"
+                 placeholder="⌕ Search sessions, summaries…"
+                 oninput="applySessionFilter();document.getElementById('btnClearSearch').style.display=this.value?'flex':'none'"
+                 style="width:100%;padding-right:2rem" />
+          <button id="btnClearSearch"
+                  onclick="document.getElementById('sessionSearch').value='';document.getElementById('btnClearSearch').style.display='none';applySessionFilter()"
+                  title="Clear search"
+                  style="display:none;position:absolute;right:0.4rem;background:none;border:none;
+                         cursor:pointer;color:var(--red);opacity:0.75;font-size:0.85rem;
+                         align-items:center;justify-content:center;width:1.4rem;height:1.4rem;
+                         border-radius:2px;transition:opacity 0.15s;padding:0;line-height:1"
+                  onmouseover="this.style.opacity='1'"
+                  onmouseout="this.style.opacity='0.75'">✕</button>
+        </div>
+      </div>
+      <div class="toolbar-right">
+        <select id="filterStatus" onchange="applySessionFilter()">
+          <option value="">All Statuses</option>
+          <option value="draft">Draft</option>
+          <option value="complete">Complete</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="session-grid" id="sessionGrid">
+      <!-- Populated by renderSessions() -->
+    </div>
+
+  </div>
+
+  <!-- ── NPC INDEX VIEW ────────────────────────────────────── -->
+  <div id="npcView" style="display:none">
+
+    <div class="toolbar">
+      <div class="toolbar-left">
+        <input class="search-input" type="text" id="npcSearch"
+               placeholder="⌕ Search NPCs, roles, notes…"
+               oninput="renderNpcs()" />
+      </div>
+      <div class="toolbar-right">
+        <select id="filterDisposition" onchange="applyNpcFilter()">
+          <option value="">All Dispositions</option>
+          <option value="allied">Allied</option>
+          <option value="friendly">Friendly</option>
+          <option value="neutral">Neutral</option>
+          <option value="hostile">Hostile</option>
+          <option value="unknown">Unknown</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="npc-grid" id="npcGrid">
+      <!-- Populated by renderNpcs() -->
+    </div>
+
+  </div>
+
+</main>
+
+<!-- ══════════════════════════════════════════════════════
+     SESSION MODAL
+═══════════════════════════════════════════════════════ -->
+<div class="modal-backdrop" id="sessionModal"
+     onclick="if(event.target===this&&this._mousedownOnBackdrop)closeSessionModal()">
+  <div class="modal" style="max-width:600px;width:100%">
+
+    <div class="modal-header">
+      <span class="modal-title" id="sessionModalTitle">⚙ NEW SESSION</span>
+      <button class="btn-icon" onclick="closeSessionModal()">✕</button>
+    </div>
+
+    <!-- Modal tab bar -->
+    <div class="sc-tabs" style="border-top:none">
+      <button class="sc-tab sm-tab active" data-tab="overview"  onclick="switchModalTab('overview')">Overview</button>
+      <button class="sc-tab sm-tab"        data-tab="moments"   onclick="switchModalTab('moments')">Moments</button>
+      <button class="sc-tab sm-tab"        data-tab="npcs"      onclick="switchModalTab('npcs')">NPCs</button>
+      <button class="sc-tab sm-tab"        data-tab="quests"    onclick="switchModalTab('quests')">Quests</button>
+    </div>
+
+    <div class="modal-body" style="padding:0;height:420px;overflow-y:auto">
+
+      <!-- ── Tab 1: Overview ── -->
+      <div class="sm-panel active" data-panel="overview" style="padding:1.1rem 1.4rem">
+
+        <!-- Number + Title row -->
+        <div style="display:flex;gap:0.75rem;align-items:flex-start;margin-bottom:0.9rem">
+          <div style="flex:0 0 90px">
+            <label class="modal-label">Session #</label>
+            <input id="smNumber" type="number" min="1" class="modal-input"
+                   style="width:100%;text-align:center"
+                   oninput="document.getElementById('smNumberError').textContent=''" />
+            <div class="tx-desc-error" id="smNumberError" style="white-space:nowrap;overflow:visible;min-width:220px"></div>
+          </div>
+          <div style="flex:1">
+            <label class="modal-label">Title <span class="field-required">(required)</span></label>
+            <input id="smTitle" type="text" class="modal-input" style="width:100%"
+                   placeholder="e.g. The Siege of Thornwall"
+                   oninput="document.getElementById('smTitleError').textContent=''" />
+            <div class="tx-desc-error" id="smTitleError"></div>
+          </div>
+        </div>
+
+        <!-- Real date + World date -->
+        <div style="display:flex;gap:0.75rem;margin-bottom:0.9rem">
+          <div style="flex:1">
+            <label class="modal-label">Real-World Date</label>
+            <input id="smRealDate" type="date" class="modal-input" style="width:100%" />
+          </div>
+          <div style="flex:1">
+            <label class="modal-label">In-World Date</label>
+            <input id="smWorldDate" type="text" class="modal-input" style="width:100%"
+                   placeholder="e.g. 14th of Frostfall" />
+          </div>
+        </div>
+
+        <!-- Status toggle -->
+        <div style="margin-bottom:0.9rem">
+          <label class="modal-label">Status</label>
+          <div style="display:flex;gap:0.5rem;margin-top:0.3rem">
+            <button class="sm-status-btn active" data-status="draft"
+                    onclick="setSessionStatus('draft')">Draft</button>
+            <button class="sm-status-btn" data-status="complete"
+                    onclick="setSessionStatus('complete')">Complete</button>
+          </div>
+          <input type="hidden" id="smStatusHidden" value="draft" />
+        </div>
+
+        <!-- Summary -->
+        <div>
+          <label class="modal-label">Session Summary</label>
+          <textarea id="smSummary" class="modal-input"
+                    style="width:100%;min-height:140px;resize:vertical"
+                    placeholder="Write a freeform recap of what happened…"
+                    oninput="updateSummaryMirror()"></textarea>
+          <div id="smSummaryPreviewWrap" style="display:none">
+            <div class="cite-preview-label">PREVIEW</div>
+            <div class="cite-preview" id="smSummaryMirror"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── Tab 2: Moments ── -->
+      <div class="sm-panel" data-panel="moments" style="padding:1.1rem 1.4rem">
+        <div id="smMomentsList" style="display:flex;flex-direction:column;gap:0.45rem;margin-bottom:0.75rem">
+          <!-- Populated by buildMomentsEditor() -->
+        </div>
+        <button class="btn btn-ghost" style="width:100%;justify-content:center;font-size:0.75rem"
+                onclick="addMoment()">+ Add Moment</button>
+      </div>
+
+      <!-- ── Tab 3: NPCs ── -->
+      <div class="sm-panel" data-panel="npcs" style="padding:1.1rem 1.4rem">
+
+        <!-- Linked NPCs list -->
+        <div id="smNpcList" style="display:flex;flex-direction:column;gap:0.45rem;margin-bottom:0.75rem">
+          <!-- Populated by buildNpcPanel() -->
+        </div>
+
+        <!-- Link / Create row -->
+        <div style="display:flex;gap:0.5rem;align-items:center;flex-wrap:wrap">
+          <div style="position:relative;flex:1;min-width:160px">
+            <input id="smNpcSearch" type="text" class="modal-input" style="width:100%"
+                   placeholder="Search NPCs to link…"
+                   oninput="filterNpcSuggestions(this.value)"
+                   onfocus="filterNpcSuggestions(this.value)"
+                   autocomplete="off" />
+            <div id="smNpcSuggestions" class="npc-suggest-drop" style="display:none"></div>
+          </div>
+          <button class="btn btn-ghost" style="font-size:0.75rem;white-space:nowrap"
+                  onclick="openInlineNpcCreate()">+ New NPC</button>
+        </div>
+
+        <!-- Inline NPC create form (hidden by default) -->
+        <div id="smInlineNpc" class="inline-npc-form" style="display:none">
+          <div class="inline-npc-title">⚙ Quick-Create NPC</div>
+          <div style="display:flex;gap:0.6rem;flex-wrap:wrap;margin-bottom:0.6rem">
+            <div style="flex:2;min-width:140px">
+              <label class="modal-label">Name <span class="field-required">(required)</span></label>
+              <input id="inNpcName" type="text" class="modal-input" style="width:100%"
+                     placeholder="e.g. Captain Draegar"
+                     oninput="onInlineNpcNameInput(this.value)" />
+            </div>
+            <div style="flex:2;min-width:140px">
+              <label class="modal-label">Role</label>
+              <input id="inNpcRole" type="text" class="modal-input" style="width:100%"
+                     placeholder="e.g. City Guard Captain" />
+            </div>
+          </div>
+          <div style="display:flex;gap:0.6rem;flex-wrap:wrap;margin-bottom:0.6rem">
+            <div style="flex:1;min-width:120px">
+              <label class="modal-label">Slug <span style="color:rgba(167,139,250,0.5);font-size:0.6rem">(citation key)</span></label>
+              <input id="inNpcSlug" type="text" class="modal-input" style="width:100%"
+                     placeholder="auto-generated" />
+            </div>
+            <div style="flex:1;min-width:120px">
+              <label class="modal-label">Disposition</label>
+              <select id="inNpcDisposition" class="modal-input" style="width:100%">
+                <option value="unknown">Unknown</option>
+                <option value="allied">Allied</option>
+                <option value="friendly">Friendly</option>
+                <option value="neutral">Neutral</option>
+                <option value="hostile">Hostile</option>
+              </select>
+            </div>
+          </div>
+          <div style="margin-bottom:0.6rem">
+            <label class="modal-label">Notes</label>
+            <textarea id="inNpcNotes" class="modal-input"
+                      style="width:100%;min-height:60px;resize:vertical"
+                      placeholder="Persistent notes about this NPC…"></textarea>
+          </div>
+          <div id="inNpcError" class="tx-desc-error"></div>
+          <div style="display:flex;gap:0.5rem;justify-content:flex-end">
+            <button class="btn btn-ghost" style="font-size:0.75rem"
+                    onclick="closeInlineNpcCreate()">Cancel</button>
+            <button class="btn btn-primary" id="btnSaveInlineNpc" style="font-size:0.75rem"
+                    onclick="saveInlineNpc()">Save &amp; Link</button>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- ── Tab 4: Quests ── -->
+      <div class="sm-panel" data-panel="quests" style="padding:1.1rem 1.4rem">
+
+        <!-- Intro hint -->
+        <div style="font-family:'Share Tech Mono',monospace;font-size:0.65rem;
+                    color:var(--text-dim);margin-bottom:0.65rem;line-height:1.6">
+          Track quests tied to this session. Click the status badge to cycle it.
+        </div>
+
+        <!-- Quest list -->
+        <div id="smQuestList" style="display:flex;flex-direction:column;gap:0.4rem;margin-bottom:0.65rem">
+          <!-- Populated by buildQuestEditor() -->
+        </div>
+
+        <div style="display:flex;gap:0.5rem;margin-bottom:0.5rem">
+          <button class="btn btn-ghost"
+                  style="flex:1;justify-content:center;font-size:0.75rem"
+                  onclick="addQuest()">+ New Quest</button>
+          <button class="btn btn-ghost"
+                  style="flex:1;justify-content:center;font-size:0.75rem"
+                  onclick="toggleQuestPicker()">↩ Import from Past Sessions</button>
+        </div>
+
+        <!-- Quest import picker (hidden by default) -->
+        <div id="smQuestPicker" style="display:none;margin-top:0.25rem;
+             border:1px solid var(--border);border-radius:4px;
+             background:rgba(255,255,255,0.02);padding:0.7rem 0.8rem">
+          <div style="font-family:'Share Tech Mono',monospace;font-size:0.65rem;
+                      color:var(--text-dim);margin-bottom:0.55rem">
+            Select quests to import — they'll be added with their last-used status.
+          </div>
+          <div id="smQuestPickerList" style="display:flex;flex-direction:column;gap:0.3rem;
+               max-height:180px;overflow-y:auto;margin-bottom:0.55rem">
+            <!-- Populated by buildQuestPicker() -->
+          </div>
+          <div style="display:flex;gap:0.5rem;justify-content:flex-end">
+            <button class="btn btn-ghost" style="font-size:0.7rem"
+                    onclick="toggleQuestPicker()">Cancel</button>
+            <button class="btn btn-primary" style="font-size:0.7rem"
+                    onclick="importSelectedQuests()">Import Selected</button>
+          </div>
+        </div>
+
+      </div>
+
+    </div><!-- /modal-body -->
+
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeSessionModal()">Cancel</button>
+      <button class="btn btn-primary" id="btnSaveSession" onclick="saveSession()">Save Session</button>
+    </div>
+
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════
+     NPC MODAL (global index add/edit)
+═══════════════════════════════════════════════════════ -->
+<div class="modal-backdrop" id="npcModal"
+     onclick="if(event.target===this&&this._mousedownOnBackdrop)closeNpcModal()">
+  <div class="modal" style="max-width:480px;width:100%">
+
+    <div class="modal-header">
+      <span class="modal-title" id="npcModalTitle">⚙ ADD NPC</span>
+      <button class="btn-icon" onclick="closeNpcModal()">✕</button>
+    </div>
+
+    <div class="modal-body" style="padding:1.1rem 1.4rem">
+
+      <!-- Name + Role -->
+      <div style="display:flex;gap:0.75rem;margin-bottom:0.85rem">
+        <div style="flex:2">
+          <label class="modal-label">Name <span class="field-required">(required)</span></label>
+          <input id="nmName" type="text" class="modal-input" style="width:100%"
+                 placeholder="e.g. Captain Draegar"
+                 oninput="onNpcNameInput(this.value)" />
+          <div class="tx-desc-error" id="nmNameError"></div>
+        </div>
+        <div style="flex:2">
+          <label class="modal-label">Role</label>
+          <input id="nmRole" type="text" class="modal-input" style="width:100%"
+                 placeholder="e.g. City Guard Captain" />
+        </div>
+      </div>
+
+      <!-- Slug + Disposition -->
+      <div style="display:flex;gap:0.75rem;margin-bottom:0.85rem">
+        <div style="flex:2">
+          <label class="modal-label">
+            Slug
+            <span style="color:rgba(167,139,250,0.5);font-size:0.6rem;margin-left:4px">(^citation key)</span>
+          </label>
+          <input id="nmSlug" type="text" class="modal-input" style="width:100%"
+                 placeholder="auto-generated"
+                 oninput="this._manualEdit=true" />
+          <div class="tx-desc-error" id="nmSlugError"></div>
+        </div>
+        <div style="flex:1">
+          <label class="modal-label">Disposition</label>
+          <select id="nmDisposition" class="modal-input" style="width:100%">
+            <option value="unknown">Unknown</option>
+            <option value="allied">Allied</option>
+            <option value="friendly">Friendly</option>
+            <option value="neutral">Neutral</option>
+            <option value="hostile">Hostile</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Notes -->
+      <div>
+        <label class="modal-label">Notes</label>
+        <textarea id="nmNotes" class="modal-input"
+                  style="width:100%;min-height:90px;resize:vertical"
+                  placeholder="Persistent notes about this NPC across all sessions…"></textarea>
+      </div>
+
+    </div>
+
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeNpcModal()">Cancel</button>
+      <button class="btn btn-primary" id="btnSaveNpc" onclick="saveNpc()">Save NPC</button>
+    </div>
+
+  </div>
+</div>
+
+<script>
+// ══════════════════════════════════════════════════════════════
+//  STATE
+// ══════════════════════════════════════════════════════════════
+let sessions    = [];   // session_log rows
+let events      = {};   // { [session_id]: session_events[] }
+let npcs        = [];   // all NPC rows
+let npcMap      = new Map(); // slug → npc
+
+// O(1) id lookup maps — rebuilt by _rebuildIdMaps() after any mutation
+let sessionIdMap = new Map(); // id → session
+let npcIdMap     = new Map(); // id → npc
+
+function _rebuildIdMaps() {
+  sessionIdMap = new Map(sessions.map(s => [s.id, s]));
+  npcIdMap     = new Map(npcs.map(n => [n.id, n]));
+}
+
+let currentView = 'sessions'; // 'sessions' | 'npcs'
+let expandedId  = null;        // currently expanded session card id
+let activeTabs  = {};          // { [session_id]: tabName }
+
+// Cached filter state — updated by applySessionFilter()/applyNpcFilter()
+// so render functions read from memory, not the DOM on every call
+let _sessionFilter = { q: '', status: '' };
+let _npcFilter     = { q: '', disp: '' };
+
+
+function showLoading(on) {
+  const el = document.getElementById('loadingOverlay');
+  if (el) el.style.display = on ? 'flex' : 'none';
+}
+
+async function boot() {
+  showLoading(true);
+  let guarded = false;
+  try {
+    // All five fetches are independent — fire simultaneously
+    const [, , sessionRows, eventRows, npcRows] = await Promise.all([
+      loadModuleSettings(),
+      loadTerms().catch(() => {}),
+      db.select('session_log',    { order: 'number.desc' }),
+      db.select('session_events', { order: 'session_id.asc,sort_order.asc' }),
+      db.select('npcs',           { order: 'name.asc' }),
+    ]);
+    buildSidenav('session-log.html');
+    applyModuleVisibility();
+    if (!enforceModuleGuard('sessionLog')) { guarded = true; return; }
+    sessions = sessionRows;
+    // Group events by session_id
+    events = {};
+    for (const ev of eventRows) {
+      if (!events[ev.session_id]) events[ev.session_id] = [];
+      events[ev.session_id].push(ev);
+    }
+    npcs = npcRows;
+    buildNpcMap();
+    _rebuildIdMaps();
+  } catch(e) {
+    console.error(e);
+    showToast('Could not load session data — check your Supabase config.');
+  } finally {
+    if (!guarded) showLoading(false);
+  }
+  updateStats();
+  renderView();
+}
+
+// ══════════════════════════════════════════════════════════════
+//  NPC MAP
+// ══════════════════════════════════════════════════════════════
+function buildNpcMap() {
+  npcMap = new Map();
+  for (const npc of npcs) {
+    npcMap.set(npc.slug, npc);
+  }
+}
+
+// ══════════════════════════════════════════════════════════════
+//  VIEW SWITCHER
+// ══════════════════════════════════════════════════════════════
+function switchView(view) {
+  currentView = view;
+  document.getElementById('sessionsView').style.display = view === 'sessions' ? '' : 'none';
+  document.getElementById('npcView').style.display      = view === 'npcs'     ? '' : 'none';
+  document.getElementById('btnNewSession').style.display = view === 'sessions' ? '' : 'none';
+  document.getElementById('btnNewNpc').style.display     = view === 'npcs'     ? '' : 'none';
+  document.getElementById('btnViewSessions').classList.toggle('active', view === 'sessions');
+  document.getElementById('btnViewNpcs').classList.toggle('active',     view === 'npcs');
+  if (view === 'npcs') renderNpcs();
+}
+
+// ══════════════════════════════════════════════════════════════
+//  STATS BAR
+// ══════════════════════════════════════════════════════════════
+function updateStats() {
+  // Single pass — collect all counts simultaneously
+  let completeCount = 0, activeQuestCount = 0, momentCount = 0;
+  for (const s of sessions) {
+    if (s.status === 'complete') completeCount++;
+    activeQuestCount += (s.quests || []).filter(q => q.status === 'active').length;
+    momentCount      += (events[s.id] || []).length;
+  }
+  document.getElementById('statSessions').textContent    = sessions.length;
+  document.getElementById('statNpcs').textContent        = npcs.length;
+  document.getElementById('statComplete').textContent    = completeCount;
+  document.getElementById('statActiveQuests').textContent = activeQuestCount;
+  document.getElementById('statMoments').textContent     = momentCount;
+}
+
+// ══════════════════════════════════════════════════════════════
+//  CITATION RENDERING
+//  renderWithCitations(text) — parses ^slug tokens in plain text
+//  and replaces them with interactive NPC chip elements.
+//  Known slugs → .npc-chip (clickable, opens NPC in index view)
+//  Unknown slugs → .npc-chip-unresolved (dimmed, tooltip)
+// ══════════════════════════════════════════════════════════════
+// Disposition → chip accent colour (matches the disp badge palette)
+const DISP_CHIP_COLOR = {
+  allied:   'rgba(14,240,208,0.85)',   // cyan
+  friendly: 'rgba(60,224,138,0.85)',   // green
+  neutral:  'rgba(212,134,10,0.85)',   // amber
+  hostile:  'rgba(239,68,68,0.85)',    // red
+  unknown:  'rgba(140,148,158,0.7)',   // dim gray
+};
+
+function renderWithCitations(text) {
+  if (!text) return '';
+  // Split on ^word-chars tokens; keep the delimiters via capture group
+  const parts = String(text).split(/(\^[a-z0-9][a-z0-9-]*)/g);
+  return parts.map(part => {
+    if (!part.startsWith('^')) return esc(part);
+    const slug = part.slice(1);                 // strip leading ^
+    const npc  = npcMap.get(slug);
+    if (npc) {
+      // Resolved chip — colour matches NPC disposition
+      const color = DISP_CHIP_COLOR[npc.disposition] || DISP_CHIP_COLOR.unknown;
+      const title = `${esc(npc.name)}${npc.role ? ' — ' + esc(npc.role) : ''} [${npc.disposition}]`;
+      return `<span class="npc-chip" onclick="jumpToNpc('${esc(npc.id)}')" title="${title}" style="color:${color};border-color:${color.replace('0.85','0.3')};background:${color.replace('0.85','0.08')}">^${esc(slug)}</span>`;
+    } else {
+      // Unresolved chip — slug not in index
+      return `<span class="npc-chip-unresolved" title="Unknown NPC: ^${esc(slug)}">^${esc(slug)}</span>`;
+    }
+  }).join('');
+}
+
+// ── Citation preview: renders highlighted ^slug chips below the summary textarea ──
+// Only shown when the text contains at least one ^citation token.
+function updateSummaryMirror() {
+  const ta      = document.getElementById('smSummary');
+  const mirror  = document.getElementById('smSummaryMirror');
+  const wrap    = document.getElementById('smSummaryPreviewWrap');
+  if (!ta || !mirror || !wrap) return;
+
+  const raw = ta.value;
+  const hasCitation = /\^[a-z0-9][a-z0-9-]*/i.test(raw);
+
+  if (!hasCitation) {
+    wrap.style.display = 'none';
+    return;
+  }
+
+  // Replace newlines in the raw text BEFORE rendering citations so the \n→<br>
+  // substitution only touches plain-text segments, not span tag internals.
+  // We split on citation tokens, convert newlines in non-token segments only,
+  // then recombine and pass the whole thing through renderWithCitations.
+  // Simplest correct approach: render citations first on the original text,
+  // then replace literal \n that appear OUTSIDE of HTML tags.
+  const rendered = renderWithCitations(raw);
+  // Replace newlines that are outside HTML tags (between > and <, or at edges)
+  mirror.innerHTML = rendered.replace(/\n/g, '<br>');
+  wrap.style.display = '';
+}
+
+// Navigate from a chip click to the NPC Index view, scrolling to that card
+function jumpToNpc(npcId) {
+  switchView('npcs');
+  renderNpcs();
+  setTimeout(() => {
+    // NPC cards don't have stable DOM ids yet — scroll to top of grid as fallback
+    const grid = document.getElementById('npcGrid');
+    if (grid) grid.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    // Highlight the target card briefly
+    const cards = grid ? grid.querySelectorAll('.npc-card') : [];
+    cards.forEach(card => {
+      // Match by edit button onclick
+      if (card.innerHTML.includes(`openNpcModal('${npcId}')`)) {
+        card.style.transition = 'box-shadow 0.2s';
+        card.style.boxShadow  = '0 0 0 2px rgba(167,139,250,0.6)';
+        card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        setTimeout(() => { card.style.boxShadow = ''; }, 1800);
+      }
+    });
+  }, 80);
+}
+
+// ══════════════════════════════════════════════════════════════
+//  CITATION AUTOCOMPLETE
+//  Attaches to a textarea or text input.  When the user types
+//  '^' followed by letters, a floating dropdown of matching NPCs
+//  appears.  Selecting an item replaces the partial token with
+//  the full ^slug token.
+//
+//  Usage:
+//    initCitationAutocomplete(inputEl)
+//
+//  Works for both <textarea> and <input type="text">.
+//  One shared singleton dropdown element is reused.
+// ══════════════════════════════════════════════════════════════
+let _citeDropEl  = null;   // singleton dropdown DOM element
+let _citeAnchor  = null;   // element the drop is currently attached to
+let _citeFocusIdx = -1;    // keyboard-nav index into current results
+
+function _ensureCiteDrop() {
+  if (_citeDropEl) return;
+  _citeDropEl = document.createElement('div');
+  _citeDropEl.className = 'cite-drop';
+  _citeDropEl.style.display = 'none';
+  document.body.appendChild(_citeDropEl);
+
+  // Hide on outside click
+  document.addEventListener('click', e => {
+    if (_citeDropEl &&
+        _citeAnchor && !_citeAnchor.contains(e.target) &&
+        !_citeDropEl.contains(e.target)) {
+      _hideCiteDrop();
+    }
+  }, true);
+}
+
+function _hideCiteDrop() {
+  if (_citeDropEl) _citeDropEl.style.display = 'none';
+  _citeAnchor   = null;
+  _citeFocusIdx = -1;
+}
+
+function _getCiteToken(el) {
+  // Returns { prefix, token, start } where token is the partial ^xxx being typed,
+  // or null if the cursor is not inside a citation token.
+  const val = el.value;
+  const pos = el.selectionStart;
+  // Walk left from cursor to find '^'
+  let i = pos - 1;
+  while (i >= 0 && /[a-z0-9-]/.test(val[i])) i--;
+  if (i < 0 || val[i] !== '^') return null;
+  const token = val.slice(i + 1, pos);  // text after ^ up to cursor
+  return { prefix: val.slice(0, i), token, after: val.slice(pos), caretStart: i };
+}
+
+function _positionDrop(el) {
+  // Use fixed positioning with raw viewport coordinates so the dropdown
+  // escapes any overflow:hidden/auto ancestor (including the session modal).
+  const rect = el.getBoundingClientRect();
+  const dropH = 220; // max-height of the dropdown
+  const spaceBelow = window.innerHeight - rect.bottom;
+  // Flip above the input if there's not enough room below
+  if (spaceBelow < dropH && rect.top > dropH) {
+    _citeDropEl.style.top    = 'auto';
+    _citeDropEl.style.bottom = (window.innerHeight - rect.top + 4) + 'px';
+  } else {
+    _citeDropEl.style.bottom = 'auto';
+    _citeDropEl.style.top    = (rect.bottom + 4) + 'px';
+  }
+  _citeDropEl.style.left     = rect.left + 'px';
+  _citeDropEl.style.position = 'fixed';
+}
+
+function _renderCiteDrop(matches, el, token) {
+  if (!matches.length) { _hideCiteDrop(); return; }
+  _citeFocusIdx = -1;
+  _citeDropEl.innerHTML = matches.map((npc, i) => `
+    <div class="cite-drop-item" data-i="${i}" data-slug="${esc(npc.slug)}">
+      <span class="cite-drop-name">${esc(npc.name)}</span>
+      <span class="cite-drop-slug">^${esc(npc.slug)}</span>
+    </div>`).join('');
+
+  _citeDropEl.querySelectorAll('.cite-drop-item').forEach(item => {
+    item.addEventListener('mousedown', e => {
+      e.preventDefault(); // prevent blur before insert
+      _insertCitation(el, item.dataset.slug);
+    });
+  });
+
+  _positionDrop(el);
+  _citeDropEl.style.display = 'block';
+  _citeAnchor = el;
+}
+
+function _insertCitation(el, slug) {
+  const ctx = _getCiteToken(el);
+  if (!ctx) { _hideCiteDrop(); return; }
+  const newVal = ctx.prefix + '^' + slug + ' ' + ctx.after;
+  el.value = newVal;
+  // Place cursor after the inserted token + space
+  const newPos = ctx.prefix.length + slug.length + 2; // +2 for ^ and space
+  el.setSelectionRange(newPos, newPos);
+  el.dispatchEvent(new Event('input', { bubbles: true }));
+  _hideCiteDrop();
+  el.focus();
+}
+
+function initCitationAutocomplete(el) {
+  if (!el || el._citeInit) return;
+  el._citeInit = true;
+  _ensureCiteDrop();
+
+  el.addEventListener('input', () => {
+    const ctx = _getCiteToken(el);
+    if (!ctx) { _hideCiteDrop(); return; }
+    const term = ctx.token.toLowerCase();
+    const matches = npcs
+      .filter(n => n.slug.includes(term) || n.name.toLowerCase().includes(term))
+      .slice(0, 8);
+    _renderCiteDrop(matches, el, ctx.token);
+  });
+
+  el.addEventListener('keydown', e => {
+    if (!_citeDropEl || _citeDropEl.style.display === 'none') return;
+    const items = _citeDropEl.querySelectorAll('.cite-drop-item');
+    if (!items.length) return;
+
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      _citeFocusIdx = Math.min(_citeFocusIdx + 1, items.length - 1);
+      items.forEach((it, i) => it.classList.toggle('cite-focused', i === _citeFocusIdx));
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      _citeFocusIdx = Math.max(_citeFocusIdx - 1, 0);
+      items.forEach((it, i) => it.classList.toggle('cite-focused', i === _citeFocusIdx));
+    } else if (e.key === 'Enter' && _citeFocusIdx >= 0) {
+      e.preventDefault();
+      const slug = items[_citeFocusIdx].dataset.slug;
+      _insertCitation(el, slug);
+    } else if (e.key === 'Escape') {
+      _hideCiteDrop();
+    }
+  });
+
+  el.addEventListener('blur', () => {
+    // Defer hide so mousedown on item fires first
+    setTimeout(() => {
+      if (_citeAnchor === el) _hideCiteDrop();
+    }, 150);
+  });
+}
+
+// ══════════════════════════════════════════════════════════════
+//  SESSIONS VIEW — RENDER
+// ══════════════════════════════════════════════════════════════
+// Update session filter state from DOM, then re-render.
+function applySessionFilter() {
+  _sessionFilter.q      = (document.getElementById('sessionSearch').value || '').toLowerCase();
+  _sessionFilter.status = document.getElementById('filterStatus').value;
+  renderSessions();
+}
+
+function getFilteredSessions() {
+  const { q, status } = _sessionFilter;
+  return sessions.filter(s => {
+    if (status && s.status !== status) return false;
+    if (q) {
+      const momentTexts = (events[s.id] || []).map(ev => ev.text || '').join(' ');
+      const questTexts  = (s.quests     || []).map(qt => qt.text  || '').join(' ');
+      const haystack    = [s.title, s.summary, s.world_date, momentTexts, questTexts]
+        .join(' ').toLowerCase();
+      if (!haystack.includes(q)) return false;
+    }
+    return true;
+  });
+}
+
+function renderSessions() {
+  const grid = document.getElementById('sessionGrid');
+  const rows = getFilteredSessions();
+
+  if (!rows.length) {
+    grid.innerHTML = `
+      <div class="empty-state">
+        <span class="empty-icon">📋</span>
+        <p>${sessions.length === 0 ? 'No sessions logged yet' : 'No sessions match filters'}</p>
+      </div>`;
+    return;
+  }
+
+  grid.innerHTML = rows.map(s => renderCard(s)).join('');
+}
+
+function renderCard(s) {
+  const isExpanded = expandedId === s.id;
+  const tab        = activeTabs[s.id] || 'overview';
+  const statusCls  = s.status === 'complete' ? 'complete' : 'draft';
+  const statusLabel= s.status === 'complete' ? 'Complete' : 'Draft';
+  const dateStr    = s.real_date
+    ? new Date(s.real_date + 'T12:00:00').toLocaleDateString(undefined, { month:'short', day:'numeric', year:'numeric' })
+    : '—';
+
+  return `
+  <div class="session-card ${isExpanded ? 'is-expanded' : ''}" id="sc-${esc(s.id)}">
+    <div class="sc-header" onclick="toggleCard('${esc(s.id)}')">
+      <span class="sc-number">SESSION ${s.number}</span>
+      <span class="sc-title">${esc(s.title)}</span>
+      <span class="sc-date">${dateStr}</span>
+      ${(events[s.id] || []).length
+        ? `<span class="sc-moment-count" title="${(events[s.id]||[]).length} moment${(events[s.id]||[]).length===1?'':'s'} logged">◆${(events[s.id]||[]).length}</span>`
+        : ''}
+      <span class="sc-status ${statusCls}">${statusLabel}</span>
+      <span class="sc-chevron">▾</span>
+    </div>
+    ${isExpanded ? renderCardBody(s, tab) : ''}
+  </div>`;
+}
+
+function renderCardBody(s, tab) {
+  return `
+  <div class="sc-body">
+    <div class="sc-tabs">
+      <button class="sc-tab ${tab==='overview'?'active':''}"  onclick="switchTab('${esc(s.id)}','overview');event.stopPropagation()">Overview</button>
+      <button class="sc-tab ${tab==='moments'?'active':''}"   onclick="switchTab('${esc(s.id)}','moments');event.stopPropagation()">Moments</button>
+      <button class="sc-tab ${tab==='npcs'?'active':''}"      onclick="switchTab('${esc(s.id)}','npcs');event.stopPropagation()">NPCs</button>
+      <button class="sc-tab ${tab==='quests'?'active':''}"    onclick="switchTab('${esc(s.id)}','quests');event.stopPropagation()">Quests</button>
+    </div>
+    <div class="sc-tab-panel ${tab==='overview'?'active':''}" id="sp-overview-${esc(s.id)}">${renderTabOverview(s)}</div>
+    <div class="sc-tab-panel ${tab==='moments'?'active':''}"  id="sp-moments-${esc(s.id)}">${renderTabMoments(s)}</div>
+    <div class="sc-tab-panel ${tab==='npcs'?'active':''}"     id="sp-npcs-${esc(s.id)}">${renderTabNpcs(s)}</div>
+    <div class="sc-tab-panel ${tab==='quests'?'active':''}"   id="sp-quests-${esc(s.id)}">${renderTabQuests(s)}</div>
+    <div class="sc-actions">
+      <button class="btn btn-ghost"         onclick="openSessionModal('${esc(s.id)}',activeTabs['${esc(s.id)}']);event.stopPropagation()">✎ Edit</button>
+      <button class="btn-icon delete"       onclick="deleteSession('${esc(s.id)}');event.stopPropagation()" title="Delete session">🗑</button>
+    </div>
+  </div>`;
+}
+
+function renderTabOverview(s) {
+  const worldDate = s.world_date
+    ? `<div class="sc-meta-item"><div class="sc-meta-label">In-World Date</div><div class="sc-meta-value">${esc(s.world_date)}</div></div>`
+    : '';
+  const meta = `
+    <div class="sc-meta-row">
+      <div class="sc-meta-item">
+        <div class="sc-meta-label">Session</div>
+        <div class="sc-meta-value">#${s.number}</div>
+      </div>
+      <div class="sc-meta-item">
+        <div class="sc-meta-label">Date</div>
+        <div class="sc-meta-value">${s.real_date
+          ? new Date(s.real_date+'T12:00:00').toLocaleDateString(undefined,{month:'long',day:'numeric',year:'numeric'})
+          : '—'}</div>
+      </div>
+      ${worldDate}
+    </div>`;
+
+  const summary = s.summary
+    ? `<div class="sc-summary">${renderWithCitations(s.summary)}</div>`
+    : `<div class="sc-summary empty">No summary recorded.</div>`;
+
+  return meta + summary;
+}
+
+function renderTabMoments(s) {
+  const evList = events[s.id] || [];
+  if (!evList.length) return `<div class="sc-tab-empty">No moments logged for this session.</div>`;
+
+  return `<div class="sc-moments-list">${evList.map(ev => {
+    const memberTag = (ev.members && ev.members.length)
+      ? `<span class="sc-moment-member">${esc(ev.members.join(', '))}</span>` : '';
+    return `<div class="sc-moment-row">
+      <span class="sc-moment-bullet">◆</span>
+      <span class="sc-moment-text">${renderWithCitations(ev.text)}</span>
+      ${memberTag}
+    </div>`;
+  }).join('')}</div>`;
+}
+
+function renderTabNpcs(s) {
+  const sessionNpcIds = s.session_npcs || [];
+  if (!sessionNpcIds.length) return `<div class="sc-tab-empty">No NPCs linked to this session.</div>`;
+
+  const sessionNpcs = sessionNpcIds
+    .map(id => npcIdMap.get(id))
+    .filter(Boolean);
+
+  if (!sessionNpcs.length) return `<div class="sc-tab-empty">No NPCs linked to this session.</div>`;
+
+  return `<div class="sc-npc-list">${sessionNpcs.map(npc => `
+    <div class="sc-npc-row">
+      <span class="sc-npc-disp disp-${npc.disposition}">${npc.disposition.toUpperCase()}</span>
+      <div style="flex:1">
+        <div class="sc-npc-name">${esc(npc.name)}</div>
+        ${npc.role ? `<div class="sc-npc-role">${esc(npc.role)}</div>` : ''}
+      </div>
+      <span style="font-family:'Share Tech Mono',monospace;font-size:0.6rem;color:rgba(167,139,250,0.4)">^${esc(npc.slug)}</span>
+      <button class="btn-icon" style="font-size:0.7rem;color:rgba(167,139,250,0.6)"
+              onclick="jumpToNpc('${esc(npc.id)}');event.stopPropagation()"
+              title="View in NPC Index">↗</button>
+    </div>`).join('')}
+  </div>`;
+}
+
+function renderTabQuests(s) {
+  const quests = s.quests || [];
+  if (!quests.length) return `<div class="sc-tab-empty">No quests tracked for this session.</div>`;
+
+  // Uses shared QUEST_ICON_MAP, QUEST_CLS, QUEST_LABEL constants from the quest editor
+  const TEXT_CLS = { active:'', completed:'completed', failed:'failed', 'on-hold':'' };
+
+  return `<div class="sc-quest-list">${quests.map(q => {
+    const st = q.status || 'active';
+    return `
+    <div class="sc-quest-row">
+      <span class="sc-quest-icon">${QUEST_ICON_MAP[st] || '○'}</span>
+      <span class="sc-quest-text ${TEXT_CLS[st] || ''}">${renderWithCitations(q.text)}</span>
+      <span class="sc-quest-status ${QUEST_CLS[st] || 'qs-active'}">${QUEST_LABEL[st] || st}</span>
+    </div>`;
+  }).join('')}
+  </div>`;
+}
+
+// ══════════════════════════════════════════════════════════════
+//  CARD EXPAND / TAB SWITCH
+// ══════════════════════════════════════════════════════════════
+function toggleCard(id) {
+  if (expandedId === id) {
+    expandedId = null;
+  } else {
+    expandedId = id;
+    if (!activeTabs[id]) activeTabs[id] = 'overview';
+  }
+  renderSessions();
+}
+
+function switchTab(sessionId, tab) {
+  activeTabs[sessionId] = tab;
+  // Surgical DOM update — only re-render the body, not the whole grid
+  const card = document.getElementById(`sc-${sessionId}`);
+  if (!card) return;
+  // Update tab button states
+  card.querySelectorAll('.sc-tab').forEach(btn => {
+    btn.classList.toggle('active', btn.textContent.toLowerCase().trim() === tab);
+  });
+  // Show correct panel
+  card.querySelectorAll('.sc-tab-panel').forEach(panel => {
+    panel.classList.toggle('active', panel.id === `sp-${tab}-${sessionId}`);
+  });
+}
+
+// ══════════════════════════════════════════════════════════════
+//  NPC INDEX VIEW — RENDER
+// ══════════════════════════════════════════════════════════════
+
+// getSessionAppearances — kept for compatibility; renderNpcs uses _buildAppearanceMap
+// for batch efficiency when rendering all NPC cards.
+function getSessionAppearances(npc) {
+  const needle  = `^${npc.slug}`;
+  const results = new Set();
+  for (const s of sessions) {
+    if ((s.session_npcs || []).includes(npc.id)) { results.add(s.id); continue; }
+    if (s.summary && s.summary.includes(needle))  { results.add(s.id); continue; }
+    for (const ev of (events[s.id] || [])) {
+      if (ev.text && ev.text.includes(needle)) { results.add(s.id); break; }
+    }
+    if (results.has(s.id)) continue;
+    for (const q of (s.quests || [])) {
+      if (q.text && q.text.includes(needle)) { results.add(s.id); break; }
+    }
+  }
+  return sessions.filter(s => results.has(s.id)).sort((a, b) => a.number - b.number);
+}
+
+
+// Build a full npcId → Set<sessionId> appearance map in one pass over all sessions.
+// Called once per renderNpcs() — O(sessions × avg_events) total
+// instead of O(sessions × events) per NPC card.
+function _buildAppearanceMap() {
+  const map = new Map();
+  const _ensure = id => { if (!map.has(id)) map.set(id, new Set()); return map.get(id); };
+
+  for (const s of sessions) {
+    for (const npcId of (s.session_npcs || [])) _ensure(npcId).add(s.id);
+    if (s.summary) {
+      for (const [, slug] of s.summary.matchAll(/\^([a-z0-9][a-z0-9-]*)/g)) {
+        const npc = npcMap.get(slug); if (npc) _ensure(npc.id).add(s.id);
+      }
+    }
+    for (const ev of (events[s.id] || [])) {
+      if (!ev.text) continue;
+      for (const [, slug] of ev.text.matchAll(/\^([a-z0-9][a-z0-9-]*)/g)) {
+        const npc = npcMap.get(slug); if (npc) _ensure(npc.id).add(s.id);
+      }
+    }
+    for (const q of (s.quests || [])) {
+      if (!q.text) continue;
+      for (const [, slug] of q.text.matchAll(/\^([a-z0-9][a-z0-9-]*)/g)) {
+        const npc = npcMap.get(slug); if (npc) _ensure(npc.id).add(s.id);
+      }
+    }
+  }
+  return map;
+}
+
+// Update NPC filter state from DOM, then re-render.
+function applyNpcFilter() {
+  _npcFilter.q    = (document.getElementById('npcSearch').value || '').toLowerCase();
+  _npcFilter.disp = document.getElementById('filterDisposition').value;
+  renderNpcs();
+}
+
+function renderNpcs() {
+  // Sync filter state from DOM (covers both direct calls and applyNpcFilter() path)
+  _npcFilter.q    = (document.getElementById('npcSearch')?.value || '').toLowerCase();
+  _npcFilter.disp = document.getElementById('filterDisposition')?.value || '';
+  const grid = document.getElementById('npcGrid');
+  const { q, disp } = _npcFilter;
+
+  const filtered = npcs.filter(n => {
+    if (disp && n.disposition !== disp) return false;
+    if (q) {
+      const hay = [n.name, n.role, n.notes, n.slug].join(' ').toLowerCase();
+      if (!hay.includes(q)) return false;
+    }
+    return true;
+  });
+
+  if (!filtered.length) {
+    grid.innerHTML = `
+      <div class="empty-state" style="grid-column:1/-1">
+        <span class="empty-icon">👤</span>
+        <p>${npcs.length === 0 ? 'No NPCs in the index yet' : 'No NPCs match filters'}</p>
+      </div>`;
+    return;
+  }
+
+  // Pre-build the full appearance map once — O(sessions×events) total
+  // instead of O(sessions×events) per NPC card
+  const appearanceMap = _buildAppearanceMap();
+
+  grid.innerHTML = filtered.map(npc => {
+    const sessionIds  = appearanceMap.get(npc.id) || new Set();
+    const appearances = sessions
+      .filter(s => sessionIds.has(s.id))
+      .sort((a, b) => a.number - b.number);
+    const badges = appearances.map(s =>
+      `<span class="npc-session-badge" onclick="jumpToSession('${esc(s.id)}')" title="Session ${s.number}: ${esc(s.title)}">S${s.number}</span>`
+    ).join('');
+
+    return `
+    <div class="npc-card">
+      <div class="npc-card-head">
+        <div>
+          <div class="npc-card-name">${esc(npc.name)}</div>
+          ${npc.role ? `<div class="npc-card-role">${esc(npc.role)}</div>` : ''}
+        </div>
+        <span class="sc-npc-disp disp-${npc.disposition}">${npc.disposition.toUpperCase()}</span>
+      </div>
+      ${npc.notes ? `<div class="npc-card-notes">${renderWithCitations(npc.notes)}</div>` : ''}
+      <div class="npc-card-slug">^${esc(npc.slug)}</div>
+      ${(() => {
+        if (!npc.first_seen) return '';
+        const fs = sessions.find(s => s.id === npc.first_seen);
+        if (!fs) return '';
+        return `<div class="npc-first-seen">
+          First seen:
+          <span class="npc-first-seen-link"
+                onclick="jumpToSession('${esc(fs.id)}')"
+                title="Go to Session ${fs.number}: ${esc(fs.title)}">
+            Session ${fs.number} — ${esc(fs.title)}
+          </span>
+        </div>`;
+      })()}
+      ${appearances.length ? `
+        <div class="npc-appearances">
+          <div class="npc-appearances-label">Appears in</div>
+          ${badges}
+        </div>` : ''}
+      <div class="npc-card-actions">
+        <button class="btn btn-ghost" style="font-size:0.72rem;padding:0.3rem 0.8rem" onclick="openNpcModal('${esc(npc.id)}')">✎ Edit</button>
+        <button class="btn-icon delete" onclick="deleteNpc('${esc(npc.id)}')" title="Delete NPC">🗑</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// Jump from NPC badge to the session card in Sessions view
+function jumpToSession(sessionId) {
+  switchView('sessions');
+  expandedId = sessionId;
+  if (!activeTabs[sessionId]) activeTabs[sessionId] = 'overview';
+  renderSessions();
+  // Scroll to the card after render
+  setTimeout(() => {
+    const el = document.getElementById(`sc-${sessionId}`);
+    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }, 80);
+}
+
+// ══════════════════════════════════════════════════════════════
+//  SESSION MODAL — OPEN / CLOSE
+// ══════════════════════════════════════════════════════════════
+let _editingSessionId = null;
+let _modalTab = 'overview'; // active modal tab
+let _draftMoments    = [];  // working copy of moments for the open modal
+let _partyMembers    = [];  // cached for the member tag dropdown
+let _draftSessionNpcs = []; // working copy of NPC ids linked to the open session
+let _draftQuests     = [];  // working copy of quests for the open session
+
+function openSessionModal(id, startTab) {
+  _editingSessionId = id || null;
+  _modalTab = 'overview';
+
+  // Title
+  document.getElementById('sessionModalTitle').textContent =
+    id ? '⚙ EDIT SESSION' : '⚙ NEW SESSION';
+
+  const s = id ? sessionIdMap.get(id) : null;
+
+  // ── Tab 1: Overview ──
+  const nextNumber = sessions.length
+    ? Math.max(...sessions.map(s => s.number || 0)) + 1
+    : 1;
+  document.getElementById('smNumber').value   = s ? s.number   : nextNumber;
+  document.getElementById('smTitle').value    = s ? s.title    : '';
+  document.getElementById('smRealDate').value = s ? (s.real_date || '') : new Date().toISOString().slice(0,10);
+  document.getElementById('smWorldDate').value= s ? (s.world_date || '') : '';
+  document.getElementById('smSummary').value  = s ? (s.summary || '') : '';
+
+  // Status toggle
+  const statusVal = s ? s.status : 'draft';
+  document.querySelectorAll('.sm-status-btn').forEach(b =>
+    b.classList.toggle('active', b.dataset.status === statusVal)
+  );
+  document.getElementById('smStatusHidden').value = statusVal;
+
+  // Clear errors
+  document.getElementById('smTitleError').textContent = '';
+  document.getElementById('smNumberError').textContent = '';
+
+  // ── Tab 2: Moments — load draft from existing events ──
+  _draftMoments = id
+    ? (events[id] || []).map(ev => ({
+        _key:    ev.id,           // use DB id as stable key
+        text:    ev.text,
+        members: ev.members || [],
+      }))
+    : [];
+  // Load party members for the tag dropdown (lazy, cached)
+  loadMembersForModal().then(() => buildMomentsEditor());
+
+  // ── Tab 3: NPCs — seed draft from session_npcs, then auto-link citations ──
+  const existingSession = id ? sessionIdMap.get(id) : null;
+  _draftSessionNpcs = existingSession
+    ? [...(existingSession.session_npcs || [])]
+    : [];
+  _autoLinkCitedNpcs();
+  buildNpcPanel();
+
+  // ── Tab 4: Quests — seed draft from quests jsonb ──
+  _draftQuests = existingSession
+    ? (existingSession.quests || []).map(q => ({ ...q }))  // shallow clone each quest
+    : [];
+  // Reset picker
+  const picker = document.getElementById('smQuestPicker');
+  if (picker) picker.style.display = 'none';
+  buildQuestEditor();
+
+  // Open to the tab the user was viewing (default: overview)
+  const tabToOpen = (id && startTab) ? startTab : 'overview';
+  switchModalTab(tabToOpen);
+
+  document.getElementById('sessionModal').classList.add('open');
+  setTimeout(() => {
+    if (tabToOpen === 'overview') document.getElementById('smTitle').focus();
+    initCitationAutocomplete(document.getElementById('smSummary'));
+    updateSummaryMirror();
+  }, 120);
+}
+
+function closeSessionModal() {
+  document.getElementById('sessionModal').classList.remove('open');
+}
+
+function switchModalTab(tab) {
+  _modalTab = tab;
+  document.querySelectorAll('.sm-tab').forEach(b =>
+    b.classList.toggle('active', b.dataset.tab === tab)
+  );
+  document.querySelectorAll('.sm-panel').forEach(p =>
+    p.classList.toggle('active', p.dataset.panel === tab)
+  );
+  // Auto-link any NPCs cited in text whenever the user opens the NPCs tab
+  if (tab === 'npcs') {
+    _autoLinkCitedNpcs();
+    buildNpcPanel();
+  }
+}
+
+function setSessionStatus(status) {
+  document.getElementById('smStatusHidden').value = status;
+  document.querySelectorAll('.sm-status-btn').forEach(b =>
+    b.classList.toggle('active', b.dataset.status === status)
+  );
+}
+
+// ══════════════════════════════════════════════════════════════
+//  SESSION MODAL — SAVE
+// ══════════════════════════════════════════════════════════════
+async function saveSession() {
+  // ── Validate ──
+  const title  = document.getElementById('smTitle').value.trim();
+  const number = parseInt(document.getElementById('smNumber').value, 10);
+  let valid = true;
+
+  const titleErr  = document.getElementById('smTitleError');
+  const numberErr = document.getElementById('smNumberError');
+  titleErr.textContent  = '';
+  numberErr.textContent = '';
+
+  if (!title) {
+    titleErr.textContent = '⚠ Title is required.';
+    valid = false;
+  }
+  if (!number || isNaN(number) || number < 1) {
+    numberErr.textContent = '⚠ Session number must be a positive integer.';
+    valid = false;
+  }
+  // Warn on duplicate number (only for new or changed number)
+  const dupNum = sessions.find(s =>
+    s.number === number && s.id !== _editingSessionId
+  );
+  if (dupNum && !numberErr.textContent) {
+    numberErr.textContent = `⚠ Session ${number} already exists ("${dupNum.title}"). Numbers should be unique.`;
+    // Not blocking — user may intentionally reuse (e.g. split sessions)
+  }
+
+  if (!valid) {
+    switchModalTab('overview');
+    setTimeout(() => document.getElementById('smTitle').focus(), 50);
+    return;
+  }
+
+  const id     = _editingSessionId || uid();
+  const status = document.getElementById('smStatusHidden').value;
+  const row    = {
+    id,
+    number,
+    title,
+    real_date:  document.getElementById('smRealDate').value  || null,
+    world_date: document.getElementById('smWorldDate').value.trim() || null,
+    summary:    document.getElementById('smSummary').value.trim()   || null,
+    status,
+    // quests live in _draftQuests; filter empty text rows before persisting
+    quests:       _draftQuests.filter(q => q.text && q.text.trim()),
+    session_npcs: _draftSessionNpcs,
+  };
+
+  const btn   = document.getElementById('btnSaveSession');
+  const modal = document.getElementById('sessionModal');
+  setLoading(btn, true); setModalLoading(modal, true);
+
+  try {
+    await db.upsert('session_log', row);
+
+    // ── Save events: delete existing, then batch-insert draft ──
+    // deleteWhere with session_id filter; safe even on new sessions (no rows match)
+    await db.deleteWhere('session_events', `session_id=eq.${encodeURIComponent(id)}`);
+    const eventRows = _draftMoments
+      .filter(m => m.text.trim())
+      .map((m, i) => ({
+        id:         m._key || uid(),
+        session_id: id,
+        text:       m.text.trim(),
+        members:    m.members || [],
+        sort_order: i,
+      }));
+    if (eventRows.length) await db.upsertMany('session_events', eventRows);
+
+    // Update local events cache
+    events[id] = eventRows;
+
+    if (_editingSessionId) {
+      const idx = sessions.findIndex(s => s.id === _editingSessionId);
+      if (idx >= 0) sessions[idx] = row;
+      showToast('Session updated.');
+    } else {
+      sessions.unshift(row); // newest first
+      showToast('Session logged.');
+    }
+
+    // Re-sort by number desc
+    sessions.sort((a,b) => b.number - a.number);
+    _rebuildIdMaps();
+
+    updateStats();
+    closeSessionModal();
+    // Expand the card we just saved
+    expandedId = id;
+    if (!activeTabs[id]) activeTabs[id] = 'overview';
+    renderSessions();
+  } catch(e) {
+    console.error(e);
+    showToast('Save failed — check Supabase config.');
+  } finally {
+    setLoading(btn, false); setModalLoading(modal, false);
+  }
+}
+
+// ══════════════════════════════════════════════════════════════
+//  SESSION DELETE
+// ══════════════════════════════════════════════════════════════
+async function deleteSession(id) {
+  const s = sessionIdMap.get(id);
+  if (!s) return;
+
+  const ok = await nexusConfirm({
+    title:        'Delete Session',
+    name:         `Session ${s.number}: ${s.title}`,
+    message:      'This will permanently delete the session and all its moments. NPCs will not be affected.',
+    confirmLabel: 'Delete',
+  });
+  if (!ok) return;
+
+  try {
+    // session_events deletes via CASCADE — only need to delete the session row
+    await db.delete('session_log', id);
+    sessions = sessions.filter(x => x.id !== id);
+    delete events[id];
+    if (expandedId === id) expandedId = null;
+    _rebuildIdMaps();
+    updateStats();
+    renderSessions();
+    showToast('Session deleted.');
+  } catch(e) {
+    console.error(e);
+    showToast('Delete failed.');
+  }
+}
+
+// ══════════════════════════════════════════════════════════════
+//  MOMENTS EDITOR
+// ══════════════════════════════════════════════════════════════
+
+async function loadMembersForModal() {
+  if (_partyMembers.length) return; // already loaded
+  try {
+    _partyMembers = await db.select('party_members', { order: 'name.asc' });
+  } catch(e) {
+    _partyMembers = [];
+  }
+}
+
+function memberOptions(selectedMembers) {
+  // Build <option> list from _partyMembers
+  // "selected" is the first entry in members[] (moments support one primary tag)
+  const selected = selectedMembers && selectedMembers.length ? selectedMembers[0] : '';
+  const opts = _partyMembers.map(m =>
+    `<option value="${esc(m.name)}" ${m.name === selected ? 'selected' : ''}>${esc(m.name)}</option>`
+  ).join('');
+  return `<option value="">— untagged —</option>${opts}`;
+}
+
+function buildMomentsEditor() {
+  const list = document.getElementById('smMomentsList');
+  if (!list) return;
+
+  if (!_draftMoments.length) {
+    list.innerHTML = `<div class="sc-tab-empty" style="padding:1rem 0">No moments yet — click + Add Moment.</div>`;
+    return;
+  }
+
+  list.innerHTML = _draftMoments.map((m, i) => `
+    <div class="sm-moment-row" data-idx="${i}">
+      <span class="sm-moment-drag" title="Drag to reorder">⠿</span>
+      <input class="sm-moment-input"
+             type="text"
+             value="${esc(m.text)}"
+             placeholder="Describe what happened… (type ^ to cite an NPC)"
+             oninput="updateMomentText(${i}, this.value)"
+             onkeydown="momentKeydown(event, ${i})" />
+      <select class="sm-moment-member-select"
+              onchange="updateMomentMember(${i}, this.value)"
+              title="Tag a party member">
+        ${memberOptions(m.members)}
+      </select>
+      <button class="btn-icon delete" onclick="removeMoment(${i})" title="Remove moment">✕</button>
+    </div>`).join('');
+
+  // Attach citation autocomplete to every moment input after render
+  list.querySelectorAll('.sm-moment-input').forEach(inp => initCitationAutocomplete(inp));
+}
+
+function addMoment() {
+  _draftMoments.push({ _key: uid(), text: '', members: [] });
+  buildMomentsEditor();
+  // Focus the new input
+  const list  = document.getElementById('smMomentsList');
+  const rows  = list.querySelectorAll('.sm-moment-input');
+  const last  = rows[rows.length - 1];
+  if (last) last.focus();
+}
+
+function removeMoment(idx) {
+  _draftMoments.splice(idx, 1);
+  buildMomentsEditor();
+}
+
+function updateMomentText(idx, value) {
+  if (_draftMoments[idx]) _draftMoments[idx].text = value;
+}
+
+function updateMomentMember(idx, memberName) {
+  if (!_draftMoments[idx]) return;
+  _draftMoments[idx].members = memberName ? [memberName] : [];
+}
+
+// Enter key in a moment field: add a new moment if it's the last row
+function momentKeydown(e, idx) {
+  if (e.key !== 'Enter') return;
+  e.preventDefault();
+  if (idx === _draftMoments.length - 1) {
+    addMoment();
+  } else {
+    // Move focus to the next moment input
+    const list  = document.getElementById('smMomentsList');
+    const rows  = list.querySelectorAll('.sm-moment-input');
+    const next  = rows[idx + 1];
+    if (next) next.focus();
+  }
+}
+
+// ══════════════════════════════════════════════════════════════
+//  QUEST EDITOR
+// ══════════════════════════════════════════════════════════════
+
+// Status cycle order and display metadata
+const QUEST_CYCLE   = ['active', 'completed', 'failed', 'on-hold'];
+const QUEST_LABEL   = { active: 'Active', completed: 'Completed', failed: 'Failed', 'on-hold': 'On Hold' };
+const QUEST_CLS     = { active: 'qs-active', completed: 'qs-completed', failed: 'qs-failed', 'on-hold': 'qs-on-hold' };
+const QUEST_ICON_MAP = { active: '○', completed: '✓', failed: '✗', 'on-hold': '◌' };
+
+function buildQuestEditor() {
+  const list = document.getElementById('smQuestList');
+  if (!list) return;
+
+  if (!_draftQuests.length) {
+    list.innerHTML = `<div class="sc-tab-empty" style="padding:0.5rem 0">No quests yet — click + Add Quest.</div>`;
+    return;
+  }
+
+  list.innerHTML = _draftQuests.map((q, i) => {
+    const status  = q.status || 'active';
+    const cls     = QUEST_CLS[status]   || 'qs-active';
+    const label   = QUEST_LABEL[status] || status;
+    const textCls = (status === 'completed' || status === 'failed') ? status : '';
+    return `
+    <div class="sm-quest-row" data-idx="${i}">
+      <button class="sm-quest-cycle ${cls}"
+              onclick="cycleQuestStatus(${i})"
+              title="Click to cycle status">${label}</button>
+      <input  class="sm-quest-input ${textCls}"
+              type="text"
+              value="${esc(q.text || '')}"
+              placeholder="Describe the quest… (type ^ to cite an NPC)"
+              oninput="updateQuestText(${i}, this.value)"
+              onkeydown="questKeydown(event, ${i})" />
+      <button class="btn-icon delete" onclick="removeQuest(${i})" title="Remove quest">✕</button>
+    </div>`;
+  }).join('');
+
+  // Attach citation autocomplete to every quest input after render
+  list.querySelectorAll('.sm-quest-input').forEach(inp => initCitationAutocomplete(inp));
+}
+
+function addQuest() {
+  _draftQuests.push({ _key: uid(), text: '', status: 'active' });
+  buildQuestEditor();
+  // Focus the new input
+  const list  = document.getElementById('smQuestList');
+  const rows  = list ? list.querySelectorAll('.sm-quest-input') : [];
+  const last  = rows[rows.length - 1];
+  if (last) last.focus();
+}
+
+// ── Quest import picker ───────────────────────────────────────
+function toggleQuestPicker() {
+  const picker = document.getElementById('smQuestPicker');
+  if (!picker) return;
+  const opening = picker.style.display === 'none';
+  picker.style.display = opening ? '' : 'none';
+  if (opening) buildQuestPicker();
+}
+
+function buildQuestPicker() {
+  const list = document.getElementById('smQuestPickerList');
+  if (!list) return;
+
+  // Collect all quests from all sessions except the one being edited,
+  // keeping only the most-recent occurrence of each unique text.
+  // Sort sessions newest-first so the most-recent status wins when deduping.
+  const sorted = [...sessions].sort((a, b) => (b.number || 0) - (a.number || 0));
+  const seen   = new Map(); // text.toLowerCase() → { text, status }
+  for (const s of sorted) {
+    if (s.id === _editingSessionId) continue;
+    for (const q of (s.quests || [])) {
+      const key = (q.text || '').trim().toLowerCase();
+      if (key && !seen.has(key)) seen.set(key, { text: q.text.trim(), status: q.status || 'active' });
+    }
+  }
+
+  if (!seen.size) {
+    list.innerHTML = `<div style="font-family:'Share Tech Mono',monospace;font-size:0.65rem;
+                       color:var(--text-dim);padding:0.4rem 0">
+                       No quests found in other sessions.</div>`;
+    return;
+  }
+
+  // Also note which texts are already in the draft (to pre-check / disable)
+  const draftTexts = new Set(_draftQuests.map(q => (q.text || '').trim().toLowerCase()));
+
+  list.innerHTML = [...seen.values()].map((q, i) => {
+    const alreadyIn = draftTexts.has(q.text.toLowerCase());
+    const cls   = QUEST_CLS[q.status]   || 'qs-active';
+    const label = QUEST_LABEL[q.status] || q.status;
+    return `<label class="quest-pick-row${alreadyIn ? ' quest-pick-already' : ''}"
+                   title="${alreadyIn ? 'Already in this session' : ''}">
+      <input type="checkbox" data-idx="${i}" data-text="${esc(q.text)}" data-status="${esc(q.status)}"
+             ${alreadyIn ? 'disabled checked' : ''} />
+      <span class="sm-quest-cycle ${cls}" style="pointer-events:none;font-size:0.65rem">${label}</span>
+      <span style="font-size:0.78rem;color:${alreadyIn ? 'var(--text-dim)' : 'var(--text)'}">${esc(q.text)}</span>
+    </label>`;
+  }).join('');
+}
+
+function importSelectedQuests() {
+  const list = document.getElementById('smQuestPickerList');
+  if (!list) return;
+  const checked = list.querySelectorAll('input[type=checkbox]:checked:not(:disabled)');
+  let added = 0;
+  const draftTexts = new Set(_draftQuests.map(q => (q.text || '').trim().toLowerCase()));
+  checked.forEach(cb => {
+    const text   = cb.dataset.text;
+    const status = cb.dataset.status || 'active';
+    if (!text || draftTexts.has(text.toLowerCase())) return;
+    _draftQuests.push({ _key: uid(), text, status });
+    draftTexts.add(text.toLowerCase());
+    added++;
+  });
+  if (added) buildQuestEditor();
+  // Close picker
+  const picker = document.getElementById('smQuestPicker');
+  if (picker) picker.style.display = 'none';
+  if (added) showToast(`${added} quest${added > 1 ? 's' : ''} imported.`);
+}
+
+function removeQuest(idx) {
+  _draftQuests.splice(idx, 1);
+  buildQuestEditor();
+}
+
+function updateQuestText(idx, value) {
+  if (_draftQuests[idx]) _draftQuests[idx].text = value;
+}
+
+function cycleQuestStatus(idx) {
+  if (!_draftQuests[idx]) return;
+  const current  = _draftQuests[idx].status || 'active';
+  const i        = QUEST_CYCLE.indexOf(current);
+  const next     = QUEST_CYCLE[(i + 1) % QUEST_CYCLE.length];
+  _draftQuests[idx].status = next;
+
+  // Surgical DOM update — update just this row's button and input class
+  const list = document.getElementById('smQuestList');
+  if (!list) return;
+  const row  = list.querySelector(`[data-idx="${idx}"]`);
+  if (!row)  return;
+  const btn  = row.querySelector('.sm-quest-cycle');
+  const inp  = row.querySelector('.sm-quest-input');
+  if (btn) {
+    btn.className = `sm-quest-cycle ${QUEST_CLS[next] || 'qs-active'}`;
+    btn.textContent = QUEST_LABEL[next] || next;
+  }
+  if (inp) {
+    inp.className = `sm-quest-input ${(next === 'completed' || next === 'failed') ? next : ''}`.trim();
+  }
+}
+
+// Enter on last quest row → add new one; otherwise move to next
+function questKeydown(e, idx) {
+  if (e.key !== 'Enter') return;
+  e.preventDefault();
+  if (idx === _draftQuests.length - 1) {
+    addQuest();
+  } else {
+    const list  = document.getElementById('smQuestList');
+    const rows  = list ? list.querySelectorAll('.sm-quest-input') : [];
+    const next  = rows[idx + 1];
+    if (next) next.focus();
+  }
+}
+
+// ══════════════════════════════════════════════════════════════
+//  SESSION MODAL — NPC PANEL
+// ══════════════════════════════════════════════════════════════
+
+// Scan the current draft's Overview summary, Moments, and Quests for ^slug
+// citations, resolve them to NPC ids via npcMap, and merge any newly-found
+// ids into _draftSessionNpcs without creating duplicates.
+function _autoLinkCitedNpcs() {
+  const found = new Set(_draftSessionNpcs);
+
+  // Helper: extract all NPC ids cited in a string
+  const extractFromText = text => {
+    if (!text) return;
+    for (const [, slug] of text.matchAll(/\^([a-z0-9][a-z0-9-]*)/g)) {
+      const npc = npcMap.get(slug);
+      if (npc) found.add(npc.id);
+    }
+  };
+
+  // Overview summary (live DOM value, not yet saved)
+  extractFromText(document.getElementById('smSummary')?.value || '');
+
+  // Moments — read from live inputs in the DOM
+  document.querySelectorAll('.sm-moment-input').forEach(inp => extractFromText(inp.value));
+
+  // Also scan _draftMoments for any moments not yet rendered
+  for (const m of _draftMoments) extractFromText(m.text);
+
+  // Quests — read from live inputs in the DOM
+  document.querySelectorAll('.sm-quest-input').forEach(inp => extractFromText(inp.value));
+
+  // Also scan _draftQuests for any quests not yet rendered
+  for (const q of _draftQuests) extractFromText(q.text);
+
+  _draftSessionNpcs = [...found];
+}
+
+function buildNpcPanel() {
+  const list = document.getElementById('smNpcList');
+  if (!list) return;
+
+  if (!_draftSessionNpcs.length) {
+    list.innerHTML = `<div class="sc-tab-empty" style="padding:0.6rem 0">No NPCs linked yet.</div>`;
+    return;
+  }
+
+  list.innerHTML = _draftSessionNpcs.map(npcId => {
+    const npc = npcIdMap.get(npcId);
+    if (!npc) return '';
+    return `
+    <div class="sm-npc-row">
+      <span class="sc-npc-disp disp-${npc.disposition}">${npc.disposition.toUpperCase()}</span>
+      <div class="sm-npc-name-block">
+        <div class="sm-npc-linked-name">${esc(npc.name)}</div>
+        ${npc.role ? `<div class="sm-npc-linked-role">${esc(npc.role)}</div>` : ''}
+      </div>
+      <span style="font-family:'Share Tech Mono',monospace;font-size:0.58rem;color:rgba(167,139,250,0.35)">^${esc(npc.slug)}</span>
+      <button class="btn-icon delete" onclick="unlinkNpc('${esc(npcId)}')" title="Remove from this session">✕</button>
+    </div>`;
+  }).filter(Boolean).join('');
+}
+
+function filterNpcSuggestions(q) {
+  const drop = document.getElementById('smNpcSuggestions');
+  if (!drop) return;
+  const term = (q || '').toLowerCase().trim();
+
+  // Filter: not already linked, matches query
+  const candidates = npcs.filter(n => {
+    if (_draftSessionNpcs.includes(n.id)) return false;
+    if (!term) return true;
+    return (n.name + ' ' + (n.role || '') + ' ' + n.slug).toLowerCase().includes(term);
+  }).slice(0, 8);
+
+  if (!candidates.length || !term) {
+    drop.style.display = 'none';
+    return;
+  }
+
+  drop.style.display = 'block';
+  drop.innerHTML = candidates.map(n => `
+    <div class="npc-suggest-item" onclick="linkNpc('${esc(n.id)}')">
+      <span class="sc-npc-disp disp-${n.disposition}" style="font-size:0.45rem;padding:0.15rem 0.4rem">${n.disposition.toUpperCase()}</span>
+      <span class="npc-suggest-item-name">${esc(n.name)}</span>
+      ${n.role ? `<span class="npc-suggest-item-role">${esc(n.role)}</span>` : ''}
+    </div>`).join('');
+}
+
+function linkNpc(npcId) {
+  if (!_draftSessionNpcs.includes(npcId)) {
+    _draftSessionNpcs.push(npcId);
+    buildNpcPanel();
+  }
+  // Clear search
+  const inp = document.getElementById('smNpcSearch');
+  const drop = document.getElementById('smNpcSuggestions');
+  if (inp)  inp.value = '';
+  if (drop) drop.style.display = 'none';
+}
+
+function unlinkNpc(npcId) {
+  _draftSessionNpcs = _draftSessionNpcs.filter(id => id !== npcId);
+  buildNpcPanel();
+}
+
+function openInlineNpcCreate() {
+  document.getElementById('smInlineNpc').style.display = 'block';
+  document.getElementById('inNpcName').value        = '';
+  document.getElementById('inNpcRole').value        = '';
+  document.getElementById('inNpcSlug').value        = '';
+  document.getElementById('inNpcNotes').value       = '';
+  document.getElementById('inNpcDisposition').value = 'unknown';
+  document.getElementById('inNpcError').textContent = '';
+  setTimeout(() => document.getElementById('inNpcName').focus(), 60);
+}
+
+function closeInlineNpcCreate() {
+  document.getElementById('smInlineNpc').style.display = 'none';
+}
+
+function onInlineNpcNameInput(name) {
+  const slugEl = document.getElementById('inNpcSlug');
+  // Only auto-fill slug if user hasn't manually edited it
+  if (!slugEl._manualEdit) slugEl.value = slugify(name);
+}
+
+async function saveInlineNpc() {
+  const name = document.getElementById('inNpcName').value.trim();
+  const errEl = document.getElementById('inNpcError');
+  errEl.textContent = '';
+
+  if (!name) {
+    errEl.textContent = '⚠ Name is required.';
+    document.getElementById('inNpcName').focus();
+    return;
+  }
+
+  const rawSlug = document.getElementById('inNpcSlug').value.trim() || slugify(name);
+  const slug    = rawSlug.toLowerCase().replace(/[^a-z0-9-]/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '');
+
+  if (!slug) {
+    errEl.textContent = '⚠ Could not generate a valid slug from this name.';
+    return;
+  }
+
+  // Check slug uniqueness
+  if (npcs.some(n => n.slug === slug)) {
+    errEl.textContent = `⚠ Slug "^${slug}" is already in use — edit the slug field.`;
+    document.getElementById('inNpcSlug').focus();
+    return;
+  }
+
+  const npc = {
+    id:          uid(),
+    slug,
+    name,
+    role:        document.getElementById('inNpcRole').value.trim()  || null,
+    disposition: document.getElementById('inNpcDisposition').value,
+    notes:       document.getElementById('inNpcNotes').value.trim() || null,
+    first_seen:  _editingSessionId || null,
+  };
+
+  const btn = document.getElementById('btnSaveInlineNpc');
+  setLoading(btn, true);
+  try {
+    await db.upsert('npcs', npc);
+    npcs.push(npc);
+    buildNpcMap(); // rebuild slug → npc lookup
+    _rebuildIdMaps();
+    _draftSessionNpcs.push(npc.id);
+    buildNpcPanel();
+    closeInlineNpcCreate();
+    updateStats();
+    showToast(`NPC "${name}" created and linked.`);
+  } catch(e) {
+    console.error(e);
+    errEl.textContent = '⚠ Save failed — check Supabase config.';
+  } finally {
+    setLoading(btn, false);
+  }
+}
+
+// ══════════════════════════════════════════════════════════════
+//  NPC MODAL (global NPC Index edit)
+// ══════════════════════════════════════════════════════════════
+let _editingNpcId = null;
+
+function openNpcModal(id) {
+  _editingNpcId = id || null;
+  const npc = id ? npcIdMap.get(id) : null;
+
+  document.getElementById('npcModalTitle').textContent =
+    id ? '⚙ EDIT NPC' : '⚙ ADD NPC';
+
+  document.getElementById('nmName').value        = npc ? npc.name        : '';
+  document.getElementById('nmRole').value        = npc ? (npc.role || '')        : '';
+  document.getElementById('nmSlug').value        = npc ? npc.slug        : '';
+  document.getElementById('nmDisposition').value = npc ? npc.disposition : 'unknown';
+  document.getElementById('nmNotes').value       = npc ? (npc.notes || '') : '';
+  document.getElementById('nmNameError').textContent = '';
+  document.getElementById('nmSlugError').textContent = '';
+
+  // Track manual slug edits
+  document.getElementById('nmSlug')._manualEdit = !!id;
+
+  document.getElementById('npcModal').classList.add('open');
+  setTimeout(() => {
+    document.getElementById('nmName').focus();
+    initCitationAutocomplete(document.getElementById('nmNotes'));
+  }, 120);
+}
+
+function closeNpcModal() {
+  document.getElementById('npcModal').classList.remove('open');
+}
+
+function onNpcNameInput(name) {
+  const slugEl = document.getElementById('nmSlug');
+  if (!slugEl._manualEdit) slugEl.value = slugify(name);
+}
+
+async function saveNpc() {
+  const name    = document.getElementById('nmName').value.trim();
+  const rawSlug = document.getElementById('nmSlug').value.trim();
+  const nameErr = document.getElementById('nmNameError');
+  const slugErr = document.getElementById('nmSlugError');
+  nameErr.textContent = '';
+  slugErr.textContent = '';
+  let valid = true;
+
+  if (!name) {
+    nameErr.textContent = '⚠ Name is required.';
+    valid = false;
+  }
+
+  const slug = rawSlug.toLowerCase().replace(/[^a-z0-9-]/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '');
+  if (!slug) {
+    slugErr.textContent = '⚠ Slug is required — it is the ^citation key.';
+    valid = false;
+  }
+  const dupSlug = npcs.find(n => n.slug === slug && n.id !== _editingNpcId);
+  if (dupSlug && !slugErr.textContent) {
+    slugErr.textContent = `⚠ Slug "^${slug}" is already used by "${dupSlug.name}".`;
+    valid = false;
+  }
+
+  if (!valid) {
+    document.getElementById('nmName').focus();
+    return;
+  }
+
+  const id  = _editingNpcId || uid();
+  const npc = {
+    id,
+    slug,
+    name,
+    role:        document.getElementById('nmRole').value.trim()  || null,
+    disposition: document.getElementById('nmDisposition').value,
+    notes:       document.getElementById('nmNotes').value.trim() || null,
+    first_seen:  _editingNpcId
+      ? (npcIdMap.get(_editingNpcId)?.first_seen || null)
+      : null,
+  };
+
+  const btn   = document.getElementById('btnSaveNpc');
+  const modal = document.getElementById('npcModal');
+  setLoading(btn, true); setModalLoading(modal, true);
+
+  try {
+    await db.upsert('npcs', npc);
+    if (_editingNpcId) {
+      const idx = npcs.findIndex(n => n.id === _editingNpcId);
+      if (idx >= 0) npcs[idx] = npc;
+      showToast('NPC updated.');
+    } else {
+      npcs.push(npc);
+      showToast(`NPC "${name}" added to index.`);
+    }
+    // Keep index sorted alphabetically
+    npcs.sort((a, b) => a.name.localeCompare(b.name));
+    buildNpcMap();
+    _rebuildIdMaps();
+    updateStats();
+    closeNpcModal();
+    renderNpcs();
+  } catch(e) {
+    console.error(e);
+    showToast('Save failed — check Supabase config.');
+  } finally {
+    setLoading(btn, false); setModalLoading(modal, false);
+  }
+}
+
+async function deleteNpc(id) {
+  const npc = npcIdMap.get(id);
+  if (!npc) return;
+
+  const ok = await nexusConfirm({
+    title:        'Delete NPC',
+    name:         npc.name,
+    message:      'This NPC will be removed from the global index. Sessions that reference ^' + npc.slug + ' via citations will show an unresolved chip until the text is updated.',
+    confirmLabel: 'Delete',
+  });
+  if (!ok) return;
+
+  try {
+    await db.delete('npcs', id);
+    npcs = npcs.filter(n => n.id !== id);
+    buildNpcMap();
+    _rebuildIdMaps();
+    updateStats();
+    renderNpcs();
+    showToast('NPC deleted.');
+  } catch(e) {
+    console.error(e);
+    showToast('Delete failed.');
+  }
+}
+
+// ══════════════════════════════════════════════════════════════
+//  RENDER DISPATCH
+// ══════════════════════════════════════════════════════════════
+function renderView() {
+  if (currentView === 'sessions') renderSessions();
+  else renderNpcs();
+}
+
+// ══════════════════════════════════════════════════════════════
+//  UTILITIES
+// ══════════════════════════════════════════════════════════════
+
+// ══════════════════════════════════════════════════════════════
+//  GLOBAL KEYBOARD — Escape closes modals
+// ══════════════════════════════════════════════════════════════
+document.addEventListener('keydown', e => {
+  if (e.key !== 'Escape') return;
+  if (document.getElementById('sessionModal')?.classList.contains('open')) {
+    closeSessionModal(); return;
+  }
+  if (document.getElementById('npcModal')?.classList.contains('open')) {
+    closeNpcModal(); return;
+  }
+});
+
+// Track whether a drag started on the backdrop itself (not inside modal content).
+// Prevents closing the modal when the user clicks inside and drags outside.
+document.getElementById('sessionModal').addEventListener('mousedown', function(e){
+  this._mousedownOnBackdrop = e.target === this;
+});
+document.getElementById('npcModal').addEventListener('mousedown', function(e){
+  this._mousedownOnBackdrop = e.target === this;
+});
+
+// ══════════════════════════════════════════════════════════════
+//  GLOBAL CLICK — close NPC suggestion dropdown
+// ══════════════════════════════════════════════════════════════
+document.addEventListener('click', e => {
+  const drop = document.getElementById('smNpcSuggestions');
+  const inp  = document.getElementById('smNpcSearch');
+  if (drop && inp && !inp.contains(e.target) && !drop.contains(e.target)) {
+    drop.style.display = 'none';
+  }
+});
+
+// Boot
+boot();
+</script>
+
+</body>
+</html>

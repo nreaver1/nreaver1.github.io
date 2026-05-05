@@ -1,0 +1,1730 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PARTY ROSTER // Crew Registry</title>
+  <script src="js/nexus-config.js"></script>
+  <script src="js/nexus-utils.js"></script>
+  <link rel="icon" type="image/x-icon" href="assets/favicon.ico" />
+  <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@400;700;900&family=Rajdhani:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/nexus.css" />
+</head>
+<body class="has-sidenav page-roster">
+
+<div id="loadingOverlay">
+  <div class="loading-text">LOADING…</div>
+</div>
+<div id="nexus-nav-root"></div>
+
+<header>
+  <div class="brand">
+    <div class="brand-top">⚙ nexus // crew registry</div>
+    <div class="brand-name">PARTY ROSTER</div>
+    <div class="brand-sub">active crew manifest</div>
+  </div>
+  <div class="header-actions">
+    <button class="btn btn-primary" onclick="openModal()">+ Add Member</button>
+  </div>
+</header>
+<div class="hline"></div>
+<main>
+
+  <!-- ── TOP STATS + REST BUTTONS ── -->
+  <div class="roster-bar">
+    <div class="roster-stats">
+      <div class="rstat"><span class="rstat-val" id="statTotal">0</span><span class="rstat-label">Members</span></div>
+      <div class="rstat"><span class="rstat-val" id="statActive">0</span><span class="rstat-label">Active</span></div>
+      <div class="rstat"><span class="rstat-val" id="statAvgLevel">—</span><span class="rstat-label">Avg Level</span></div>
+      <div class="rstat"><span class="rstat-val" id="statUniqueClasses">0</span><span class="rstat-label">Classes</span></div>
+    </div>
+    <!-- Short Rest / Long Rest — shown at the roster level so DMs can trigger
+         rest for all active members in one click rather than member-by-member -->
+    <div class="rest-btns">
+      <button class="btn btn-ghost rest-btn" onclick="doShortRest()" title="Short rest: prompt each active member's HP recovery">
+        ☽ Short Rest
+      </button>
+      <button class="btn btn-ghost rest-btn long-rest-btn" onclick="doLongRest()" title="Long rest: restore all active members to full HP">
+        ★ Long Rest
+      </button>
+    </div>
+  </div>
+
+  <!-- ── SEARCH / FILTER / SORT TOOLBAR ── -->
+  <div class="roster-toolbar">
+    <div class="roster-search-wrap">
+      <input
+        type="text"
+        id="rosterSearch"
+        class="roster-search"
+        placeholder="⌕  Search name, class, race, tag…"
+        oninput="applyRosterFilter()"
+        autocomplete="off"
+      />
+      <!-- Clear button — only visible when there is search text -->
+      <button class="roster-search-clear" id="rosterSearchClear" onclick="clearRosterSearch()" title="Clear search" style="display:none">✕</button>
+    </div>
+    <div class="roster-filters">
+      <select id="filterStatus" class="roster-filter-sel" onchange="applyRosterFilter()">
+        <option value="">All Status</option>
+        <option value="active">Active</option>
+        <option value="missing">MIA</option>
+        <option value="retired">Retired</option>
+        <option value="deceased">Deceased</option>
+      </select>
+      <select id="sortMembers" class="roster-filter-sel" onchange="applyRosterFilter()">
+        <option value="created">Order: Added</option>
+        <option value="name">Order: Name</option>
+        <option value="level">Order: Level ↓</option>
+        <option value="class">Order: Class</option>
+        <option value="status">Order: Status</option>
+      </select>
+    </div>
+    <div id="rosterFilterCount" class="roster-filter-count" style="display:none"></div>
+  </div>
+
+  <div class="roster-grid" id="rosterGrid"></div>
+</main>
+
+<!-- ══ MEMBER EDIT MODAL ══ -->
+<div class="modal-backdrop" id="memberModal" onclick="backdropClose(event)">
+  <div class="modal">
+    <div class="modal-header">
+      <span class="modal-title" id="modalTitle">⚙ ADD CREW MEMBER</span>
+      <button class="btn-icon" onclick="closeModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <!-- Portrait -->
+      <div class="field">
+        <label>Portrait</label>
+        <div class="photo-upload-area">
+          <div class="photo-preview" id="photoPreview"><span class="photo-initials" id="photoInitials">?</span></div>
+          <div class="photo-upload-btns">
+            <button class="btn btn-ghost" style="font-size:0.55rem" onclick="document.getElementById('photoFileInput').click()">⬆ Upload Image</button>
+            <button class="btn btn-ghost" style="font-size:0.55rem;color:var(--red);border-color:rgba(224,60,60,0.3)" onclick="clearPhoto()">✕ Remove</button>
+            <div class="hint">JPG, PNG — stored locally</div>
+          </div>
+        </div>
+        <input type="file" id="photoFileInput" accept="image/*" style="display:none" onchange="handlePhotoUpload(event)" />
+      </div>
+      <!-- Basic info -->
+      <div class="field-row">
+        <div class="field"><label>Character Name <span class="field-required">(required)</span></label><input type="text" id="f-name" placeholder="e.g. Zyx Nightshade" oninput="updateModalPreview();(function(){var e=document.getElementById('fNameError');if(e&&this.value.trim())e.textContent='';}).call(this)" /><div class="tx-desc-error" id="fNameError" aria-live="polite"></div></div>
+        <div class="field"><label>Player Name <span class="optional">(optional)</span></label><input type="text" id="f-player" placeholder="e.g. Alex" /></div>
+      </div>
+      <div class="field-row">
+        <div class="field"><label>Class</label><input type="text" id="f-class" placeholder="e.g. Rogue, Netrunner…" /></div>
+        <div class="field"><label>Race / Species</label><input type="text" id="f-race" placeholder="e.g. Human, Cyborg…" /></div>
+      </div>
+      <div class="field-row">
+        <div class="field"><label>Level</label><input type="number" id="f-level" placeholder="1" min="1" max="99" /></div>
+        <div class="field"><label>Status</label>
+          <select id="f-status"><option value="active">Active</option><option value="retired">Retired</option><option value="deceased">Deceased</option><option value="missing">MIA</option></select>
+        </div>
+        <div class="field"><label>Proficiency Bonus</label><input type="number" id="f-prof" placeholder="+2" min="1" max="9" /></div>
+      </div>
+      <div class="field"><label>Card Color</label><div class="color-row" id="modalColorRow"></div></div>
+
+      <!-- ABILITY SCORES -->
+      <div class="modal-section">Ability Scores</div>
+      <div class="ability-inputs">
+        <div class="ability-inp-wrap"><label>STR</label><input type="number" id="f-str" min="1" max="30" placeholder="10" /></div>
+        <div class="ability-inp-wrap"><label>DEX</label><input type="number" id="f-dex" min="1" max="30" placeholder="10" /></div>
+        <div class="ability-inp-wrap"><label>CON</label><input type="number" id="f-con" min="1" max="30" placeholder="10" /></div>
+        <div class="ability-inp-wrap"><label>INT</label><input type="number" id="f-int" min="1" max="30" placeholder="10" /></div>
+        <div class="ability-inp-wrap"><label>WIS</label><input type="number" id="f-wis" min="1" max="30" placeholder="10" /></div>
+        <div class="ability-inp-wrap"><label>CHA</label><input type="number" id="f-cha" min="1" max="30" placeholder="10" /></div>
+      </div>
+
+      <!-- COMBAT STATS -->
+      <div class="modal-section">Combat Stats</div>
+      <div class="combat-inputs">
+        <div class="combat-inp-wrap"><label>AC</label><input type="number" id="f-ac" min="0" max="30" placeholder="10" /></div>
+        <div class="combat-inp-wrap"><label>HP Max</label><input type="number" id="f-hp" min="1" placeholder="20" /></div>
+        <div class="combat-inp-wrap"><label>HP Current</label><input type="number" id="f-hpcur" min="0" placeholder="20" /></div>
+        <div class="combat-inp-wrap"><label>Speed (ft)</label><input type="number" id="f-speed" min="0" placeholder="30" /></div>
+        <div class="combat-inp-wrap"><label>Initiative</label><input type="number" id="f-init" placeholder="0" /></div>
+        <div class="combat-inp-wrap"><label>Spell Save DC</label><input type="number" id="f-spelldc" min="0" placeholder="—" /></div>
+        <div class="combat-inp-wrap"><label>Spell Atk Bonus</label><input type="number" id="f-spellatk" placeholder="—" /></div>
+        <div class="combat-inp-wrap"><label>Passive Perc</label><input type="number" id="f-passperc" placeholder="10" /></div>
+      </div>
+
+      <!-- PROFICIENCIES -->
+      <div class="modal-section">Saving Throws &amp; Skill Proficiencies</div>
+      <div class="prof-hint">Check boxes to mark proficiency — values auto-calculate from ability scores + proficiency bonus.</div>
+      <div class="prof-grouped" id="profGrid"></div>
+
+      <!-- BIO -->
+      <div class="modal-section">Bio & Tags</div>
+      <div class="field"><label>Bio / Notes</label><textarea id="f-bio" placeholder="Background, personality, key info…"></textarea></div>
+      <div class="field"><label>Tags <span class="optional">(comma-separated)</span></label><input type="text" id="f-tags" placeholder="e.g. Tank, Healer, Stealth" /></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
+      <button class="btn btn-primary" id="btnSaveMember" onclick="saveMember()">Save Member</button>
+    </div>
+  </div>
+</div>
+
+<input type="file" id="fileImport" accept=".json" style="display:none" onchange="handleImport(event)" />
+
+<!-- ══ LOOT ITEM EDIT MODAL (lt_ namespace — opened from Effects tab) ══ -->
+<div class="modal-backdrop" id="lt_modalBackdrop" onclick="lt_backdropClose(event)">
+  <div class="modal" id="lt_itemModal">
+    <div class="modal-header">
+      <span class="modal-title" id="lt_modalTitle">⚙ EDIT ITEM</span>
+      <button class="btn-icon" onclick="lt_closeModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="field">
+        <label>Item Name <span class="field-required">(required)</span></label>
+        <input type="text" class="mi" id="lt_fieldName" placeholder="e.g. Plasma Sword, Shadow Cloak…" oninput="(function(){var e=document.getElementById('ltNameError');if(e&&this.value.trim())e.textContent='';}).call(this)" />
+        <div class="tx-desc-error" id="ltNameError" aria-live="polite"></div>
+      </div>
+      <div class="field-row">
+        <div class="field">
+          <label>Type</label>
+          <select class="mi" id="lt_fieldType">
+            <option value="">All Types</option>
+            <optgroup label="⚔️ Weapon">
+              <option value="Melee Weapon">Melee Weapon</option>
+              <option value="Ranged Weapon">Ranged Weapon</option>
+              <option value="Thrown Weapon">Thrown Weapon</option>
+              <option value="Ammunition">Ammunition</option>
+              <option value="Other Weapon">Other Weapon</option>
+            </optgroup>
+            <optgroup label="🛡️ Armor &amp; Shield">
+              <option value="Light Armor">Light Armor</option>
+              <option value="Medium Armor">Medium Armor</option>
+              <option value="Heavy Armor">Heavy Armor</option>
+              <option value="Shield">Shield</option>
+              <option value="Other Armor">Other Armor</option>
+            </optgroup>
+            <optgroup label="🧪 Potion">
+              <option value="Potion of Healing">Potion of Healing</option>
+              <option value="Potion of Greater Healing">Potion of Greater Healing</option>
+              <option value="Potion of Superior Healing">Potion of Superior Healing</option>
+              <option value="Potion of Supreme Healing">Potion of Supreme Healing</option>
+              <option value="Other Potion">Other Potion</option>
+            </optgroup>
+            <optgroup label="📜 Scroll">
+              <option value="Spell Scroll">Spell Scroll</option>
+              <option value="Other Scroll">Other Scroll</option>
+            </optgroup>
+            <optgroup label="🪄 Wand, Staff &amp; Rod">
+              <option value="Wand">Wand</option>
+              <option value="Staff">Staff</option>
+              <option value="Rod">Rod</option>
+              <option value="Other Wand / Staff / Rod">Other Wand / Staff / Rod</option>
+            </optgroup>
+            <optgroup label="💍 Worn / Carried">
+              <option value="Ring">Ring</option>
+              <option value="Cloak">Cloak</option>
+              <option value="Boots">Boots</option>
+              <option value="Gloves">Gloves</option>
+              <option value="Helm">Helm</option>
+              <option value="Amulet">Amulet</option>
+              <option value="Belt">Belt</option>
+              <option value="Bracers">Bracers</option>
+              <option value="Wondrous Item">Wondrous Item</option>
+              <option value="Other Worn / Carried">Other Worn / Carried</option>
+            </optgroup>
+            <optgroup label="🎒 Adventuring Gear">
+              <option value="Bag">Bag</option>
+              <option value="Container">Container</option>
+              <option value="Instrument">Instrument</option>
+              <option value="Tool">Tool</option>
+              <option value="Vehicle">Vehicle</option>
+              <option value="Other Gear">Other Gear</option>
+            </optgroup>
+            <option value="Other">Other</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Rarity</label>
+          <select class="mi" id="lt_fieldRarity">
+            <option value="common">Common</option>
+            <option value="uncommon">Uncommon</option>
+            <option value="rare" selected>Rare</option>
+            <option value="very-rare">Very Rare</option>
+            <option value="legendary">Legendary</option>
+            <option value="artifact">Artifact</option>
+          </select>
+        </div>
+      </div>
+      <div class="field-row">
+        <div class="field">
+          <label>Held By</label>
+          <select class="mi" id="lt_fieldHolder">
+            <option value="">— Unassigned —</option>
+            <option value="Party Inventory">Party Inventory</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Attunement</label>
+          <select class="mi" id="lt_fieldAttunement">
+            <option value="none">Not required</option>
+            <option value="required">Required</option>
+            <option value="attuned">Attuned</option>
+          </select>
+        </div>
+      </div>
+      <div class="field">
+        <label>Description / Notes</label>
+        <textarea class="mi" id="lt_fieldDesc" placeholder="Item description, acquisition notes…"></textarea>
+      </div>
+      <div class="field">
+        <div class="fx-section-label">
+          <span>Stat Effects</span>
+          <button class="btn btn-ghost" style="font-size:0.52rem;padding:0.3rem 0.7rem;" onclick="lt_addFxRow()">+ Add Effect</button>
+        </div>
+        <div class="fx-hint">Add any bonuses, penalties, advantage, or disadvantage this item grants.</div>
+        <div class="fx-rows" id="lt_fxRows"></div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="lt_closeModal()">Cancel</button>
+      <button class="btn btn-primary" id="lt_btnSaveItem" onclick="lt_saveItem()">Save Item</button>
+    </div>
+  </div>
+</div>
+
+
+<script>
+// ══════════════════════════════════════════════════════════════
+//  CONSTANTS
+// ══════════════════════════════════════════════════════════════
+const COLORS=['#0ef0d0','#f0a832','#3ce08a','#c07de8','#6a9fe8','#e03c3c','#ff7a50','#f0e050','#e050a0','#80b0ff','#60e890','#e8a050','#d4d4ff','#ff9060','#40d0c0'];
+
+const ABILITIES=['str','dex','con','int','wis','cha'];
+const ABILITY_LABELS={str:'STR',dex:'DEX',con:'CON',int:'INT',wis:'WIS',cha:'CHA'};
+
+const SAVING_THROWS=[
+  {key:'save_str',label:'STR Save',ability:'str'},
+  {key:'save_dex',label:'DEX Save',ability:'dex'},
+  {key:'save_con',label:'CON Save',ability:'con'},
+  {key:'save_int',label:'INT Save',ability:'int'},
+  {key:'save_wis',label:'WIS Save',ability:'wis'},
+  {key:'save_cha',label:'CHA Save',ability:'cha'},
+];
+
+const SKILLS=[
+  {key:'acrobatics',     label:'Acrobatics',      ability:'dex'},
+  {key:'animal_handling',label:'Animal Handling', ability:'wis'},
+  {key:'arcana',         label:'Arcana',           ability:'int'},
+  {key:'athletics',      label:'Athletics',        ability:'str'},
+  {key:'deception',      label:'Deception',        ability:'cha'},
+  {key:'history',        label:'History',          ability:'int'},
+  {key:'insight',        label:'Insight',          ability:'wis'},
+  {key:'intimidation',   label:'Intimidation',     ability:'cha'},
+  {key:'investigation',  label:'Investigation',    ability:'int'},
+  {key:'medicine',       label:'Medicine',         ability:'wis'},
+  {key:'nature',         label:'Nature',           ability:'int'},
+  {key:'perception',     label:'Perception',       ability:'wis'},
+  {key:'performance',    label:'Performance',      ability:'cha'},
+  {key:'persuasion',     label:'Persuasion',       ability:'cha'},
+  {key:'religion',       label:'Religion',         ability:'int'},
+  {key:'sleight_of_hand',label:'Sleight of Hand', ability:'dex'},
+  {key:'stealth',        label:'Stealth',          ability:'dex'},
+  {key:'survival',       label:'Survival',         ability:'wis'},
+];
+
+const ALL_PROFICIENCY_CHECKS=[...SAVING_THROWS,...SKILLS];
+
+const STATUS_COLORS={active:'var(--green)',retired:'var(--amber)',deceased:'var(--red)',missing:'var(--cyan)'};
+const STATUS_LABELS={active:'Active',retired:'Retired',deceased:'KIA',missing:'MIA'};
+
+// ── Official D&D 5e conditions (PHB Appendix A) ─────────────────────────────
+// Each entry: key (stored in localStorage per member), icon (emoji),
+// label (display), tip (tooltip for the DM).
+// Stored outside member DB rows — conditions are session-volatile state;
+// persisting them per member ID in localStorage keeps the DB schema clean.
+const CONDITIONS=[
+  {key:'blinded',       icon:'👁',  label:'Blinded',       color:'#b0b0c0', tip:"Can't see. Attacks vs you have adv; your attacks have disadv."},
+  {key:'charmed',       icon:'💖',  label:'Charmed',       color:'#e050a0', tip:"Can't attack charmer. Charmer has adv on social checks vs you."},
+  {key:'deafened',      icon:'🔇',  label:'Deafened',      color:'#8090a0', tip:"Can't hear; auto-fail checks requiring hearing."},
+  {key:'exhaustion',    icon:'💀',  label:'Exhausted',     color:'#e03c3c', tip:'Stacking levels of penalty — 6 levels = death.'},
+  {key:'frightened',    icon:'😱',  label:'Frightened',    color:'#ff7a50', tip:"Disadv on checks/attacks while source visible; can't move toward source."},
+  {key:'grappled',      icon:'✊',  label:'Grappled',      color:'#f0a832', tip:'Speed 0. Ends if grappler is incapacitated or out of reach.'},
+  {key:'incapacitated', icon:'💤',  label:'Incapacitated', color:'#8090c0', tip:"Can't take actions or reactions."},
+  {key:'invisible',     icon:'👻',  label:'Invisible',     color:'#c0d4ff', tip:'Heavily obscured. Attacks vs you have disadv; your attacks have adv.'},
+  {key:'paralyzed',     icon:'⚡',  label:'Paralyzed',     color:'#f0e050', tip:"Incapacitated, can't move/speak; auto-fail STR/DEX saves; melee hits crit."},
+  {key:'petrified',     icon:'🪨',  label:'Petrified',     color:'#a0a090', tip:'Turned to stone. Incapacitated, auto-fail STR/DEX saves, resistance all dmg.'},
+  {key:'poisoned',      icon:'☠',  label:'Poisoned',      color:'#60e890', tip:'Disadv on attack rolls and ability checks.'},
+  {key:'prone',         icon:'⬇',  label:'Prone',         color:'#d4d4ff', tip:'Disadv on attacks. Melee attackers have adv; ranged attackers have disadv.'},
+  {key:'restrained',    icon:'🕸',  label:'Restrained',    color:'#c07de8', tip:'Speed 0; disadv on attacks and DEX saves; attacks against have adv.'},
+  {key:'stunned',       icon:'⭐',  label:'Stunned',       color:'#0ef0d0', tip:"Incapacitated, can't move; auto-fail STR/DEX saves."},
+  {key:'unconscious',   icon:'💫',  label:'Unconscious',   color:'#6a9fe8', tip:"Incapacitated, can't move/speak; falls prone; melee hits crit; auto-fail STR/DEX."},
+];
+// Fast O(1) lookup: key → condition object (built once at parse time)
+const CONDITION_MAP=Object.fromEntries(CONDITIONS.map(c=>[c.key,c]));
+
+// ══════════════════════════════════════════════════════════════
+//  STATE
+// ══════════════════════════════════════════════════════════════
+let members=[];
+let editId=null;
+let currentColor=COLORS[0];
+let currentPhoto=null;
+
+// ── Filter / sort state ──────────────────────────────────────
+// In-memory only — intentionally resets on page reload.
+let _rosterFilter={search:'',status:'',sort:'created'};
+
+// ── Conditions: localStorage persistence ────────────────────
+// Conditions are per-member volatile session state. We store them
+// in localStorage (key → member id, value → string[]) to survive
+// full re-renders and page reloads without needing a DB column.
+// Shape: { memberId: ['blinded','poisoned',…], … }
+const _COND_KEY='nexus_conditions';
+// In-memory write-through caches — eliminates repeated JSON.parse on every card render.
+// Write path (save/toggle) updates both cache and localStorage in one step.
+let _condCache=null;  // null = not yet loaded
+function _condLoad(){
+  if(_condCache!==null) return _condCache;
+  try{_condCache=JSON.parse(localStorage.getItem(_COND_KEY)||'{}')}catch{_condCache={}}
+  return _condCache;
+}
+function _condSave(map){
+  _condCache=map;  // update cache first
+  try{localStorage.setItem(_COND_KEY,JSON.stringify(map))}catch{}
+}
+function getConditions(memberId){return _condLoad()[memberId]||[];}
+
+// Toggle a single condition for a member, then do a surgical DOM refresh —
+// only the condition chips and header badge update, no full re-render.
+function toggleCondition(memberId,key){
+  const map=_condLoad();
+  const cur=map[memberId]||[];
+  map[memberId]=cur.includes(key)?cur.filter(k=>k!==key):[...cur,key];
+  _condSave(map);
+  _refreshCondChips(memberId);
+}
+
+// Surgically update only condition chips + badges after a toggle.
+// Avoids any re-render; preserves active tab, scroll position, etc.
+function _refreshCondChips(memberId){
+  const card=document.querySelector(`.member-card[data-member-id="${memberId}"]`);
+  if(!card) return;
+  const active=getConditions(memberId);
+
+  // Flip each chip's active state and apply/remove color styles
+  card.querySelectorAll('.cond-chip').forEach(chip=>{
+    const key=chip.dataset.condKey;
+    const isActive=active.includes(key);
+    chip.classList.toggle('active',isActive);
+    if(isActive){
+      const c=CONDITION_MAP[key];
+      if(c){
+        chip.style.setProperty('--cond-color',c.color);
+        chip.style.borderColor=c.color;
+        chip.style.color=c.color;
+        chip.style.boxShadow=`0 0 8px ${c.color}40`;
+      }
+    } else {
+      chip.style.removeProperty('--cond-color');
+      chip.style.borderColor='';
+      chip.style.color='';
+      chip.style.boxShadow='';
+    }
+  });
+
+  // Update "N conditions" header badge visibility + count
+  const badge=card.querySelector('.cond-badge');
+  if(badge){
+    badge.textContent=active.length?`${active.length} condition${active.length>1?'s':''}`:' ';
+    badge.style.display=active.length?'':'none';
+  }
+
+  // Keep the Cond tab button label in sync
+  card.querySelectorAll('.card-tab').forEach(btn=>{
+    if(btn.textContent.trim().toLowerCase().startsWith('cond')){
+      btn.textContent=active.length?`Cond (${active.length})`:'Cond';
+    }
+  });
+}
+
+// Clear all conditions for a member (e.g. after long rest)
+function clearConditions(memberId){
+  const map=_condLoad();
+  delete map[memberId];
+  _condSave(map);
+  _refreshCondChips(memberId);
+}
+
+// ── fx-items collapsed state ─────────────────────────────────────────────────────
+// Persisted in localStorage so expand/collapse state survives renders.
+const _FX_COLLAPSE_KEY='nexus_fxItemsCollapsed';
+let _fxCollapseCache=null;  // null = not yet loaded
+function _fxCollapseLoad(){
+  if(_fxCollapseCache!==null) return _fxCollapseCache;
+  try{_fxCollapseCache=JSON.parse(localStorage.getItem(_FX_COLLAPSE_KEY)||'{}')}catch{_fxCollapseCache={}}
+  return _fxCollapseCache;
+}
+function _fxCollapseIsCollapsed(memberId){return!!_fxCollapseLoad()[memberId];}
+function fxItemsToggle(memberId){
+  const state=_fxCollapseLoad();
+  state[memberId]=!state[memberId];
+  _fxCollapseCache=state;  // keep cache in sync
+  try{localStorage.setItem(_FX_COLLAPSE_KEY,JSON.stringify(state))}catch{}
+  // Surgical DOM update — no re-render needed
+  const card=document.querySelector(`.member-card[data-member-id="${memberId}"]`);
+  if(!card) return;
+  const body=card.querySelector('.fx-items-body');
+  const chevron=card.querySelector('.fx-items-chevron');
+  const header=card.querySelector('.fx-items-header');
+  if(!body||!chevron) return;
+  const collapsed=state[memberId];
+  body.style.display=collapsed?'none':'';
+  chevron.textContent=collapsed?'▶':'▼';
+  header.setAttribute('aria-expanded',String(!collapsed));
+}
+
+// uid — defined in js/nexus-utils.js
+let _cachedLootItems=null;
+let _cachedVaultSummary=null;
+let _cachedMemberWallet={};
+let _cachedTreasuryCurrencies=[];
+
+// ── STAT HELPERS ──
+function abilityMod(score){return Math.floor(((score||10)-10)/2);}
+function modStr(n){return n>=0?`+${n}`:String(n);}
+
+function getItemEffects(){return _cachedLootItems||[];}
+
+// ══════════════════════════════════════════════════════════════
+//  DATA FETCHING
+// ══════════════════════════════════════════════════════════════
+async function prefetchLootItems(){
+  try{
+    const rows=await db.select('loot_items');
+    _cachedLootItems=rows.map(r=>({
+      id:r.id, name:r.name, rarity:r.rarity, type:r.type,
+      attunement:r.attunement, holder:r.holder,
+      desc:r.description||'',   // JS uses .desc; DB column is "description"
+      statEffects:r.stat_effects||[],
+    }));
+  }catch(e){console.error('Could not load loot effects:',e);_cachedLootItems=[];}
+}
+
+async function prefetchTreasury(){
+  try{
+    const [curRows,ledgerRows]=await Promise.all([
+      db.select('treasury_currencies',{order:'sort_order.asc,created_at.asc'}),
+      db.select('treasury_ledger'),
+    ]);
+    _cachedTreasuryCurrencies=curRows;
+    // Build per-member wallet totals from member-tagged ledger rows
+    _cachedMemberWallet={};
+    for(const tx of ledgerRows){
+      if(!tx.member_name) continue;
+      const name=tx.member_name;
+      const sign=tx.type==='spend'?-1:1;
+      if(!_cachedMemberWallet[name]) _cachedMemberWallet[name]={};
+      for(const [cid,amt] of Object.entries(tx.coins||{})){
+        _cachedMemberWallet[name][cid]=(_cachedMemberWallet[name][cid]||0)+sign*(amt||0);
+      }
+    }
+    // Vault summary (party total, all transactions)
+    const vault={};
+    for(const tx of ledgerRows){
+      const sign=tx.type==='spend'?-1:1;
+      for(const [cid,amt] of Object.entries(tx.coins||{})){
+        vault[cid]=(vault[cid]||0)+sign*(amt||0);
+        if(vault[cid]<0) vault[cid]=0;
+      }
+    }
+    const base=curRows.find(c=>c.id==='cr')||curRows[0];
+    let totalInBase=0;let allHaveRates=true;const parts=[];
+    for(const cur of curRows){
+      const amt=vault[cur.id]||0;
+      if(!amt) continue;
+      parts.push(`${amt.toLocaleString()} ${cur.abbr}`);
+      if(cur.rate!=null) totalInBase+=amt*cur.rate;
+      else allHaveRates=false;
+    }
+    const totalStr=allHaveRates&&base?totalInBase.toLocaleString(undefined,{maximumFractionDigits:1})+' '+base.abbr:parts[0]||'0';
+    _cachedVaultSummary={total:totalStr,breakdown:parts.join(' · ')||'Empty',hasData:parts.length>0};
+  }catch(e){
+    console.error('Could not load treasury:',e);
+    _cachedVaultSummary={total:'—',breakdown:'—',hasData:false};
+    _cachedMemberWallet={};_cachedTreasuryCurrencies=[];
+  }
+}
+
+function getMemberWallet(memberName){
+  const wallet=(_cachedMemberWallet||{})[memberName]||{};
+  return (_cachedTreasuryCurrencies||[])
+    .map(cur=>({cur,amt:wallet[cur.id]||0}))
+    .filter(({amt})=>amt!==0);
+}
+
+// ── COMPUTE NET EFFECTS for a member (from loot items) ──
+function computeNetEffects(memberName){
+  const items=getItemEffects();
+  // Items apply if held by this member OR if held by "party"/"party inventory"
+  const relevant=items.filter(it=>{
+    const h=(it.holder||'').toLowerCase().trim();
+    const n=(memberName||'').toLowerCase().trim();
+    return h===n||h==='party';
+  });
+  const net={};
+  for(const item of relevant){
+    for(const fx of (item.statEffects||[])){
+      if(!fx.stat) continue;
+      if(!net[fx.stat]) net[fx.stat]={bonus:0,penalty:0,advantage:0,disadvantage:0,sources:[]};
+      if(fx.type==='bonus')        net[fx.stat].bonus+=(fx.value||0);
+      if(fx.type==='penalty')      net[fx.stat].penalty+=(fx.value||0);
+      if(fx.type==='advantage')    net[fx.stat].advantage++;
+      if(fx.type==='disadvantage') net[fx.stat].disadvantage++;
+      net[fx.stat].sources.push({itemName:item.name,itemRarity:item.rarity,fx});
+      // Track per-damage-type breakdowns for damage stats
+      if(fx.type==='bonus'||fx.type==='penalty'){
+        if(!net[fx.stat].byType) net[fx.stat].byType={};
+        const bucket=fx.damageType?fx.damageType.toLowerCase():'untyped';
+        if(!net[fx.stat].byType[bucket]) net[fx.stat].byType[bucket]={bonus:0,penalty:0};
+        if(fx.type==='bonus')   net[fx.stat].byType[bucket].bonus+=(fx.value||0);
+        if(fx.type==='penalty') net[fx.stat].byType[bucket].penalty+=(fx.value||0);
+      }
+    }
+  }
+  return{net,relevant};
+}
+
+// Fast variant of computeNetEffects using pre-grouped maps from render().
+// Avoids re-scanning the full items array for each member — O(1) map lookup.
+function _computeNetEffectsFromMaps(nameLc,_itemsByHolder,_partyItems){
+  const relevant=[...(_itemsByHolder.get(nameLc)||[]),..._partyItems];
+  const net={};
+  for(const item of relevant){
+    for(const fx of (item.statEffects||[])){
+      if(!fx.stat) continue;
+      if(!net[fx.stat]) net[fx.stat]={bonus:0,penalty:0,advantage:0,disadvantage:0,sources:[]};
+      if(fx.type==='bonus')        net[fx.stat].bonus+=(fx.value||0);
+      if(fx.type==='penalty')      net[fx.stat].penalty+=(fx.value||0);
+      if(fx.type==='advantage')    net[fx.stat].advantage++;
+      if(fx.type==='disadvantage') net[fx.stat].disadvantage++;
+      net[fx.stat].sources.push({itemName:item.name,itemRarity:item.rarity,fx});
+      if(fx.type==='bonus'||fx.type==='penalty'){
+        if(!net[fx.stat].byType) net[fx.stat].byType={};
+        const bucket=fx.damageType?fx.damageType.toLowerCase():'untyped';
+        if(!net[fx.stat].byType[bucket]) net[fx.stat].byType[bucket]={bonus:0,penalty:0};
+        if(fx.type==='bonus')   net[fx.stat].byType[bucket].bonus+=(fx.value||0);
+        if(fx.type==='penalty') net[fx.stat].byType[bucket].penalty+=(fx.value||0);
+      }
+    }
+  }
+  return{net,relevant};
+}
+
+
+function computeCheck(key,ability,m,net,prof){
+  let base=abilityMod(m.abilities?.[ability]||10);
+  if(m.proficiencies?.[key]) base+=prof;
+  const n=net[key];
+  if(n){base+=(n.bonus||0);base-=(n.penalty||0);}
+  return base;
+}
+
+// ══════════════════════════════════════════════════════════════
+//  REST MECHANICS
+// ══════════════════════════════════════════════════════════════
+
+// Short Rest: DM enters a flat HP gain for each active member.
+// Uses a custom nexusConfirm-style prompt per member (via promptHp).
+// We save each member that has a change, then do one final render.
+async function doShortRest(){
+  const active=members.filter(m=>!m.status||m.status==='active');
+  if(!active.length){showToast('No active members to rest.');return;}
+
+  const ok=await nexusConfirm({
+    title:'Short Rest',
+    message:`All active members rest for 1 hour.\nEach member can spend Hit Dice to recover HP.\nEnter the HP recovered for each member below — leave blank to skip.`,
+    confirmLabel:'Apply Rest',
+    name:`${active.length} active member${active.length>1?'s':''}`,
+  });
+  if(!ok) return;
+
+  // Prompt for each member's HP gain individually
+  let anyChanged=false;
+  for(const m of active){
+    const cs=m.combat||{};
+    const hpMax=cs.hp||0;
+    const hpCur=cs.hpcur??hpMax;
+    if(hpCur>=hpMax) continue; // already full — skip silently
+    const gainStr=window.prompt(
+      `${m.name}\nHP: ${hpCur} / ${hpMax}\n\nHP recovered this short rest (leave blank to skip):`,
+      ''
+    );
+    if(gainStr===null||gainStr.trim()==='') continue;
+    const gain=parseInt(gainStr)||0;
+    if(!gain) continue;
+    const newHp=Math.min(hpMax,hpCur+gain);
+    if(newHp===hpCur) continue;
+    const idx=members.findIndex(x=>x.id===m.id);
+    if(idx<0) continue;
+    members[idx]={...m,combat:{...cs,hpcur:newHp}};
+    try{await saveMemberToDB(members[idx]);}catch(e){console.error(e);}
+    anyChanged=true;
+  }
+  if(anyChanged){
+    const _tabs=captureTabState();render();restoreTabState(_tabs);
+    showToast('Short rest applied.');
+  }else{
+    showToast('No HP changes made.');
+  }
+}
+
+// Long Rest: Restore all active members to full HP (hpcur = hp).
+// Optionally clears conditions (DM's choice via confirm).
+async function doLongRest(){
+  const active=members.filter(m=>!m.status||m.status==='active');
+  if(!active.length){showToast('No active members to rest.');return;}
+
+  const ok=await nexusConfirm({
+    title:'Long Rest',
+    message:`All ${active.length} active member${active.length>1?'s':''} will recover to full HP.\nSpell slots and class features reset.\n\nThis cannot be undone.`,
+    confirmLabel:'Begin Long Rest',
+    name:'Full HP Recovery',
+  });
+  if(!ok) return;
+
+  let anyChanged=false;
+  const promises=active.map(async m=>{
+    const cs=m.combat||{};
+    const hpMax=cs.hp||0;
+    if(!hpMax) return;
+    const idx=members.findIndex(x=>x.id===m.id);
+    if(idx<0) return;
+    members[idx]={...m,combat:{...cs,hpcur:hpMax}};
+    try{await saveMemberToDB(members[idx]);}catch(e){console.error(e);}
+    anyChanged=true;
+  });
+  await Promise.all(promises);
+
+  if(anyChanged){
+    const _tabs=captureTabState();render();restoreTabState(_tabs);
+    showToast(`Long rest complete — ${active.length} member${active.length>1?'s':''} restored to full HP.`,3500);
+  }
+}
+
+// ══════════════════════════════════════════════════════════════
+//  DB PERSISTENCE
+// ══════════════════════════════════════════════════════════════
+async function loadData(){
+  try{
+    showLoading(true);
+    const rows=await db.select('party_members',{order:'created_at.asc'});
+    members=rows.map(r=>({
+      id:r.id, name:r.name, player:r.player, class:r.class, race:r.race,
+      level:r.level, status:r.status, prof:r.prof, bio:r.bio,
+      tags:r.tags||[], color:r.color, photo:r.photo,
+      abilities:r.abilities||{}, combat:r.combat||{}, proficiencies:r.proficiencies||{},
+    }));
+  }catch(e){
+    console.error(e);
+    showToast('Could not load roster — check your Supabase config.');
+    members=[];
+  }finally{showLoading(false);}
+}
+
+async function saveMemberToDB(member){
+  await db.upsert('party_members',{
+    id:member.id, name:member.name,
+    player:member.player||null, class:member.class||null,
+    race:member.race||null, level:member.level||null,
+    status:member.status||'active', prof:member.prof||2,
+    bio:member.bio||null, tags:member.tags||[], color:member.color||null,
+    photo:member.photo||null, abilities:member.abilities||{},
+    combat:member.combat||{}, proficiencies:member.proficiencies||{},
+  });
+}
+
+async function deleteMemberFromDB(id){await db.delete('party_members',id);}
+
+function showLoading(on){
+  const el=document.getElementById('loadingOverlay');
+  if(el) el.style.display=on?'flex':'none';
+}
+
+// ══════════════════════════════════════════════════════════════
+//  FILTER / SORT
+// ══════════════════════════════════════════════════════════════
+
+// Read controls → update _rosterFilter → re-render
+function applyRosterFilter(){
+  _rosterFilter.search=(document.getElementById('rosterSearch')?.value||'').toLowerCase().trim();
+  _rosterFilter.status=document.getElementById('filterStatus')?.value||'';
+  _rosterFilter.sort=document.getElementById('sortMembers')?.value||'created';
+  const clearBtn=document.getElementById('rosterSearchClear');
+  if(clearBtn) clearBtn.style.display=_rosterFilter.search?'':'none';
+  render();
+}
+
+function clearRosterSearch(){
+  const inp=document.getElementById('rosterSearch');
+  if(inp) inp.value='';
+  applyRosterFilter();
+}
+
+// Returns a filtered + sorted copy of the members array.
+// Uses the current _rosterFilter state — pure function, no side effects.
+function _getFilteredMembers(){
+  const {search,status,sort}=_rosterFilter;
+  let filtered=members.filter(m=>{
+    if(status&&m.status!==status) return false;
+    if(search){
+      const hay=[m.name,m.class,m.race,m.player,...(m.tags||[])].join(' ').toLowerCase();
+      if(!hay.includes(search)) return false;
+    }
+    return true;
+  });
+  // Pre-build position map once (O(n)) to avoid O(n²) indexOf in sort comparator
+  const posMap=new Map(members.map((m,i)=>[m.id,i]));
+  filtered.sort((a,b)=>{
+    if(sort==='name')   return (a.name||'').localeCompare(b.name||'');
+    if(sort==='level')  return (b.level||0)-(a.level||0);
+    if(sort==='class')  return (a.class||'').localeCompare(b.class||'');
+    if(sort==='status'){const o={active:0,missing:1,retired:2,deceased:3};return(o[a.status]??9)-(o[b.status]??9);}
+    return (posMap.get(a.id)??0)-(posMap.get(b.id)??0); // 'created' — original insertion order
+  });
+  return filtered;
+}
+
+function _updateFilterCount(shown,total){
+  const el=document.getElementById('rosterFilterCount');
+  if(!el) return;
+  el.style.display=shown<total?'':'none';
+  el.textContent=`${shown} of ${total} shown`;
+}
+
+// ══════════════════════════════════════════════════════════════
+//  TAB STATE  (capture / restore across renders)
+// ══════════════════════════════════════════════════════════════
+
+// Snapshot active tab for every visible card. Called before render() in any
+// operation that should preserve the user's open tab (save, delete, portrait).
+// Returns: { memberId: 'bio'|'stats'|'effects'|'loot'|'cond', … }
+function captureTabState(){
+  const state={};
+  document.querySelectorAll('.member-card[data-member-id]').forEach(card=>{
+    const id=card.getAttribute('data-member-id');
+    const activeBtn=card.querySelector('.card-tab.active');
+    if(activeBtn){
+      // Strip count suffix like " (3)" before storing the tab name
+      const text=activeBtn.textContent.trim().toLowerCase().replace(/\s*\(\d+\)$/,'');
+      state[id]=text;
+    }
+  });
+  return state;
+}
+
+// Re-apply a previously captured tab state onto freshly rendered cards.
+// Bio is the default after render() — skip it to avoid unnecessary DOM work.
+function restoreTabState(state){
+  if(!state||!Object.keys(state).length) return;
+  Object.entries(state).forEach(([id,tab])=>{
+    if(tab==='bio') return;
+    const card=document.querySelector(`.member-card[data-member-id="${id}"]`);
+    if(!card) return;
+    const btn=Array.from(card.querySelectorAll('.card-tab'))
+      .find(b=>b.textContent.trim().toLowerCase().replace(/\s*\(\d+\)$/,'')===tab);
+    if(btn) switchTab(id,tab,btn);
+  });
+}
+
+// ══════════════════════════════════════════════════════════════
+//  RENDER
+// ══════════════════════════════════════════════════════════════
+function render(){
+  updateStats();
+  const grid=document.getElementById('rosterGrid');
+  if(!members.length){
+    grid.innerHTML=`<div class="empty-state"><span class="ei">👥</span><p>No crew members registered</p></div><div class="add-card" onclick="openModal()"><div class="add-card-icon">+</div><div class="add-card-label">Recruit Member</div></div>`;
+    _updateFilterCount(0,0);
+    return;
+  }
+  const filtered=_getFilteredMembers();
+  _updateFilterCount(filtered.length,members.length);
+  if(!filtered.length){
+    grid.innerHTML=`<div class="empty-state"><span class="ei">🔍</span><p>No members match the current filter.</p><button class="btn btn-ghost" style="margin-top:1rem;font-size:0.75rem" onclick="clearRosterSearch();document.getElementById('filterStatus').value='';applyRosterFilter()">Clear Filter</button></div>`;
+    return;
+  }
+
+  // ── Pre-compute shared state once for all cards (O(items+members), not O(N×M)) ──
+
+  // Group loot items by holder name (lowercased) so buildCard does O(1) lookup
+  const _itemsByHolder=new Map();  // holderNameLc → item[]
+  const _partyItems=[];
+  for(const it of getItemEffects()){
+    const h=(it.holder||'').toLowerCase().trim();
+    if(h==='party'||h==='party inventory'){ _partyItems.push(it); continue; }
+    if(!_itemsByHolder.has(h)) _itemsByHolder.set(h,[]);
+    _itemsByHolder.get(h).push(it);
+  }
+
+  // Pre-load localStorage once (single JSON.parse each) for the whole render pass
+  const _condSnap=_condLoad();
+  const _fxSnap=_fxCollapseLoad();
+
+  grid.innerHTML=filtered.map((m,i)=>buildCard(m,i,_itemsByHolder,_partyItems,_condSnap,_fxSnap)).join('')+
+    `<div class="add-card" onclick="openModal()"><div class="add-card-icon">+</div><div class="add-card-label">Recruit Member</div></div>`;
+}
+
+function updateStats(){
+  const active=members.filter(m=>!m.status||m.status==='active');
+  document.getElementById('statTotal').textContent=members.length;
+  document.getElementById('statActive').textContent=active.length;
+  const levels=members.map(m=>m.level).filter(Boolean);
+  document.getElementById('statAvgLevel').textContent=levels.length?(levels.reduce((a,b)=>a+b,0)/levels.length).toFixed(1):'—';
+  document.getElementById('statUniqueClasses').textContent=[...new Set(members.map(m=>m.class).filter(Boolean))].length;
+}
+
+// ── stat/fx label helpers ──────────────────────────────────────
+// Module-level const — built once at parse time, not recreated on every call
+const _STAT_LABEL_MAP={str:'STR',dex:'DEX',con:'CON',int:'INT',wis:'WIS',cha:'CHA',ac:'AC',hp:'HP Max',speed:'Speed',initiative:'Initiative',prof_bonus:'Prof Bonus',save_str:'STR Save',save_dex:'DEX Save',save_con:'CON Save',save_int:'INT Save',save_wis:'WIS Save',save_cha:'CHA Save',acrobatics:'Acrobatics',animal_handling:'Animal Handling',arcana:'Arcana',athletics:'Athletics',deception:'Deception',history:'History',insight:'Insight',intimidation:'Intimidation',investigation:'Investigation',medicine:'Medicine',nature:'Nature',perception:'Perception',performance:'Performance',persuasion:'Persuasion',religion:'Religion',sleight_of_hand:'Sleight of Hand',stealth:'Stealth',survival:'Survival',attack_rolls:'Attack Rolls',spell_attack:'Spell Atk',spell_dc:'Spell DC',damage_rolls:'Damage Rolls',spell_damage:'Spell Dmg'};
+function statLabelShort(key){ return _STAT_LABEL_MAP[key]||key; }
+function fxClass(type){return{bonus:'fx-pos',penalty:'fx-neg',advantage:'fx-adv',disadvantage:'fx-dis'}[type]||'fx-pos';}
+function fxShort(fx){
+  const dmgLabel=fx.damageType?` [${fx.damageType}]`:'';
+  if(fx.type==='bonus')        return `+${fx.value} ${statLabelShort(fx.stat)}${dmgLabel}`;
+  if(fx.type==='penalty')      return `−${fx.value} ${statLabelShort(fx.stat)}${dmgLabel}`;
+  if(fx.type==='advantage')    return `Adv: ${statLabelShort(fx.stat)}`;
+  if(fx.type==='disadvantage') return `Dis: ${statLabelShort(fx.stat)}`;
+  return '';
+}
+
+// ══════════════════════════════════════════════════════════════
+//  CARD BUILDER
+// ══════════════════════════════════════════════════════════════
+
+// ── buildEffectsPanel ─────────────────────────────────────────
+// Extracted so it can be called both by buildCard (full render)
+// and by lt_refreshEffectsPanel (surgical in-place update).
+function buildEffectsPanel(m,net,relevant,_fxSnap){
+  // Net totals section — one row per affected stat
+  const netSummary=Object.entries(net).map(([stat,data])=>{
+    const parts=[];
+    const nb=(data.bonus||0)-(data.penalty||0);
+    if(nb!==0) parts.push(`<span class="net-total ${nb>0?'pos':'neg'}">${nb>=0?'+':''}${nb}</span>`);
+    if(data.advantage>0)    parts.push(`<span class="net-total adv">Adv</span>`);
+    if(data.disadvantage>0) parts.push(`<span class="net-total dis">Dis</span>`);
+    if(!parts.length) return '';
+    let typeRows='';
+    if(data.byType){
+      const buckets=Object.entries(data.byType);
+      const hasTyped=buckets.some(([k])=>k!=='untyped');
+      if(hasTyped){
+        typeRows=buckets.map(([dtype,d])=>{
+          const bv=(d.bonus||0)-(d.penalty||0);
+          if(!bv) return '';
+          const label=dtype==='untyped'?'all others':dtype;
+          return `<div class="net-type-row"><span class="net-type-label">${esc(label)}</span><span class="net-total net-type-val ${bv>0?'pos':'neg'}">${bv>=0?'+':''}${bv}</span></div>`;
+        }).filter(Boolean).join('');
+      }
+    }
+    return `<div class="net-row net-row-has-types">
+      <span class="net-stat">${esc(statLabelShort(stat))}</span>
+      <span class="net-row-right">
+        <span style="display:flex;gap:4px;align-items:center">${parts.join('')}</span>
+        ${typeRows?`<div class="net-type-breakdown">${typeRows}</div>`:''}
+      </span>
+    </div>`;
+  }).filter(Boolean).join('');
+
+  // Items group — collapsible, persists open/closed state per member
+  const itemsWithFx=relevant.filter(item=>(item.statEffects||[]).length>0);
+  const collapsed=_fxSnap ? !!_fxSnap[m.id] : _fxCollapseIsCollapsed(m.id);
+  const chevron=collapsed?'▶':'▼';
+  const bodyDisplay=collapsed?'display:none':'';
+  const itemCount=itemsWithFx.length;
+
+  const fxRows=itemsWithFx.map(item=>{
+    const pills=(item.statEffects||[]).map(fx=>`<span class="fx-pill ${fxClass(fx.type)}">${esc(fxShort(fx))}</span>`).join('');
+    return `<div class="fx-item-group">
+      <div class="fx-item-name" style="justify-content:space-between">
+        <span>⚙ ${esc(item.name)} <span class="fx-item-rarity">[${esc(item.rarity)}]</span></span>
+        <button class="btn-icon" title="Edit item effects" style="font-size:0.7rem;opacity:0.7;padding:0 4px;" onclick="lt_openModal('${esc(item.id)}')">✎</button>
+      </div>
+      <div class="fx-effects-list">${pills}</div>
+    </div>`;
+  }).join('');
+
+  const itemsSection=`<div class="fx-items-section">
+    <div class="fx-items-header checks-section-label"
+         style="cursor:pointer;user-select:none;margin-top:0.8rem;"
+         onclick="fxItemsToggle('${m.id}')"
+         aria-expanded="${!collapsed}"
+         title="${collapsed?'Expand':'Collapse'} item list">
+      Items${itemCount?` <span class="fx-items-count">(${itemCount})</span>`:''}
+      <span style="flex:1;height:1px;background:var(--border);display:block;"></span>
+      <span class="fx-items-chevron" style="font-size:0.6rem;opacity:0.7;">${chevron}</span>
+    </div>
+    <div class="fx-items-body" style="${bodyDisplay}">
+      ${fxRows||`<div class="fx-empty" style="margin-top:0.3rem;">No items with stat effects.<br><span style="font-size:0.48rem;opacity:0.6">Items are matched by "Held By" name in the Loot Tracker.</span></div>`}
+    </div>
+  </div>`;
+
+  const hasAnything=netSummary||itemCount;
+  return `<div class="tab-panel" id="tab-effects-${m.id}">
+    ${!hasAnything?`<div class="fx-empty">No stat effects from equipped items.<br><span style="font-size:0.48rem;opacity:0.6">Items are matched by "Held By" name in the Loot Tracker.</span></div>`:''}
+    ${netSummary?`<div class="net-effects"><div class="checks-section-label" style="font-family:'Share Tech Mono',monospace;font-size:0.55rem;letter-spacing:0.2em;text-transform:uppercase;color:var(--cyan-dim);margin-bottom:0.4rem;display:flex;align-items:center;gap:0.5rem;">Net Totals<span style="flex:1;height:1px;background:var(--border);display:block;"></span></div>${netSummary}</div>`:''}
+    ${hasAnything?itemsSection:''}
+  </div>`;
+}
+
+// ── buildCondPanel ────────────────────────────────────────────
+// Builds the Conditions tab — a grid of toggleable condition chips.
+// Each chip shows the icon + label; active ones glow in their color.
+// Clicking a chip calls toggleCondition(), which does a surgical DOM
+// refresh without re-rendering the whole card.
+function buildCondPanel(m,activeConditions,color){
+  const chips=CONDITIONS.map(c=>{
+    const isActive=activeConditions.includes(c.key);
+    return `<button
+      class="cond-chip ${isActive?'active':''}"
+      data-cond-key="${c.key}"
+      style="${isActive?`--cond-color:${c.color};border-color:${c.color};color:${c.color};box-shadow:0 0 8px ${c.color}40`:''}"
+      onclick="toggleCondition('${m.id}','${c.key}')"
+      title="${esc(c.tip)}"
+    >${c.icon} <span class="cond-chip-label">${c.label}</span></button>`;
+  }).join('');
+
+  const activeList=activeConditions.map(k=>{
+    const c=CONDITION_MAP[k];
+    return c?`<div class="cond-active-row" style="color:${c.color}">
+      <span>${c.icon} <strong>${c.label}</strong></span>
+      <span class="cond-active-tip">${esc(c.tip)}</span>
+    </div>`:'';
+  }).filter(Boolean).join('');
+
+  return `<div class="tab-panel" id="tab-cond-${m.id}">
+    <div class="cond-hint">Click a condition to toggle it on/off. Active conditions glow.</div>
+    <div class="cond-grid">${chips}</div>
+    ${activeConditions.length?`
+      <div class="cond-active-section">
+        <div class="checks-section-label" style="font-family:'Share Tech Mono',monospace;font-size:0.55rem;letter-spacing:0.2em;text-transform:uppercase;color:var(--cyan-dim);margin-bottom:0.4rem;display:flex;align-items:center;gap:0.5rem;">Active <span style="flex:1;height:1px;background:var(--border);display:block;"></span></div>
+        ${activeList}
+      </div>
+      <div style="padding:0.6rem 0 0.2rem;text-align:right;">
+        <button class="btn btn-ghost" style="font-size:0.55rem;color:var(--text-dim)" onclick="clearConditions('${m.id}')">✕ Clear All</button>
+      </div>
+    `:''}
+  </div>`;
+}
+
+// ── buildCard ─────────────────────────────────────────────────
+// Master card builder. All tabs are built here and injected as
+// static HTML — no async work, so render() stays synchronous.
+function buildCard(m,idx,_itemsByHolder,_partyItems,_condSnap,_fxSnap){
+  const color=m.color||COLORS[idx%COLORS.length];
+  const initials=(m.name||'?').split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase();
+  const portrait=m.photo
+    ?`<img class="portrait-img" src="${m.photo}" alt="${esc(m.name)}" />`
+    :`<div class="portrait-initials">${initials}</div>`;
+  const statusColor=STATUS_COLORS[m.status]||'var(--text-dim)';
+  const prof=m.prof||2;
+
+  // Use pre-grouped item maps when available (from render()), fall back for surgical calls
+  const nameLc=(m.name||'').toLowerCase().trim();
+  const {net,relevant}=_itemsByHolder
+    ? _computeNetEffectsFromMaps(nameLc,_itemsByHolder,_partyItems)
+    : computeNetEffects(m.name);
+
+  // ── Conditions (read from pre-loaded snapshot when available) ──
+  const activeConditions=_condSnap ? (_condSnap[m.id]||[]) : getConditions(m.id);
+
+  // ── HP Bar ────────────────────────────────────────────────────
+  // Displayed inline in the card header — always visible without
+  // switching to the Stats tab.
+  const cs=m.combat||{};
+  const hpMax=(cs.hp||0)+(net['hp']?(net['hp'].bonus||0)-(net['hp'].penalty||0):0);
+  const hpCur=cs.hpcur??hpMax;
+  let hpBarHtml='';
+  if(hpMax>0){
+    const pct=Math.max(0,Math.min(100,Math.round((hpCur/hpMax)*100)));
+    // HP bar color shifts: green → amber → red as HP drops
+    const barColor=pct>50?color:pct>25?'var(--amber)':'var(--red)';
+    hpBarHtml=`<div class="hp-bar-wrap" title="HP: ${hpCur} / ${hpMax}">
+      <div class="hp-bar-track">
+        <div class="hp-bar-fill" style="width:${pct}%;background:${barColor};box-shadow:0 0 6px ${barColor}60"></div>
+      </div>
+      <span class="hp-bar-label" style="color:${pct>25?'var(--text-dim)':'var(--red)'}">${hpCur}<span class="hp-bar-sep">/</span>${hpMax}</span>
+    </div>`;
+  }
+
+  // ── BIO TAB ──────────────────────────────────────────────────
+  const bioTab=`
+    <div class="tab-panel active" id="tab-bio-${m.id}">
+      ${m.bio?`<div class="member-bio">"${esc(m.bio)}"</div>`:''}
+      ${(m.tags||[]).length?`<div class="card-tags">${m.tags.map(t=>`<span class="tag">${esc(t)}</span>`).join('')}</div>`:''}
+      ${!m.bio&&!(m.tags||[]).length?`<div style="font-family:'Share Tech Mono',monospace;font-size:0.53rem;color:var(--text-dim);letter-spacing:0.1em;padding:0.3rem 0;">No bio recorded.</div>`:''}
+    </div>`;
+
+  // ── STATS TAB ────────────────────────────────────────────────
+  const abs=m.abilities||{};
+  const abilityBoxes=ABILITIES.map(a=>{
+    const score=abs[a]||10;
+    const n=net[a];
+    const netBonus=n?(n.bonus||0)-(n.penalty||0):0;
+    const effectiveScore=score+netBonus;
+    const effectiveMod=abilityMod(effectiveScore);
+    const hasEffect=netBonus!==0;
+    return `<div class="ability-box" title="${ABILITY_LABELS[a]}: ${score}${hasEffect?` (${netBonus>=0?'+':''}${netBonus} from items) = ${effectiveScore}`:''}">
+      <div class="ability-abbr">${ABILITY_LABELS[a]}</div>
+      <div class="ability-score" style="${hasEffect?`color:${netBonus>0?'var(--green)':'var(--red)'}`:''}'">${effectiveScore}</div>
+      <div class="ability-mod" style="${effectiveMod===0?'color:var(--text-dim);opacity:0.55':''}">${modStr(effectiveMod)}</div>
+    </div>`;
+  }).join('');
+
+  const acNet=net['ac']?(net['ac'].bonus||0)-(net['ac'].penalty||0):0;
+  const spdNet=net['speed']?(net['speed'].bonus||0)-(net['speed'].penalty||0):0;
+  const initNet=net['initiative']?(net['initiative'].bonus||0)-(net['initiative'].penalty||0):0;
+  const dexMod=abilityMod((abs['dex']||10)+(net['dex']?(net['dex'].bonus||0)-(net['dex'].penalty||0):0));
+  const combatBoxes=[
+    {label:'AC',     val:(cs.ac||10)+acNet,                           base:(cs.ac||10),          bonus:acNet},
+    {label:'HP',     val:`${hpCur}/${hpMax}`,                         base:(cs.hp||0),           bonus:net['hp']?(net['hp'].bonus||0)-(net['hp'].penalty||0):0},
+    {label:'Speed',  val:`${(cs.speed||30)+spdNet}ft`,                base:(cs.speed||30),       bonus:spdNet},
+    {label:'Init.',  val:modStr(dexMod+(cs.init||0)+initNet),         base:modStr(dexMod+(cs.init||0)),bonus:initNet},
+    ...(cs.spelldc?[{label:'Spell DC',   val:cs.spelldc,              base:cs.spelldc,  bonus:0}]:[]),
+    ...(cs.spellatk!=null?[{label:'Spell Atk',val:modStr(cs.spellatk),base:modStr(cs.spellatk),bonus:0}]:[]),
+    ...(cs.passperc?[{label:'Passive Perc',val:cs.passperc,           base:cs.passperc, bonus:0}]:[]),
+  ].map(b=>{
+    const hasEffect=b.bonus!==0;
+    const titleAttr=hasEffect?` title="${b.label}: ${b.base} (${b.bonus>=0?'+':''}${b.bonus} from items) = ${b.val}"`:'';
+    const valColor=b.bonus>0?'color:var(--green)':b.bonus<0?'color:var(--red)':'';
+    return `<div class="combat-box"${titleAttr}><div class="combat-val" style="${valColor}">${esc(String(b.val))}</div><div class="combat-label">${b.label}</div></div>`;
+  }).join('');
+
+  const savesHtml=SAVING_THROWS.map(s=>{
+    const val=computeCheck(s.key,s.ability,m,net,prof);
+    const adv=net[s.key];
+    const advStr=adv&&adv.advantage>0?'▲':adv&&adv.disadvantage>0?'▼':'';
+    return `<div class="check-row">
+      <div class="check-prof ${m.proficiencies?.[s.key]?'prof':''}"></div>
+      <span class="check-name">${s.label}</span>
+      <span class="check-val ${val>0?'pos':val<0?'neg':'zero'}">${modStr(val)} ${advStr}</span>
+    </div>`;
+  }).join('');
+
+  const skillsHtml=SKILLS.map(s=>{
+    const val=computeCheck(s.key,s.ability,m,net,prof);
+    const adv=net[s.key];
+    const advStr=adv&&adv.advantage>0?' ▲':adv&&adv.disadvantage>0?' ▼':'';
+    return `<div class="check-row">
+      <div class="check-prof ${m.proficiencies?.[s.key]?'prof':''}"></div>
+      <span class="check-name">${s.label} <span style="opacity:0.5;font-size:0.45rem">${s.ability.toUpperCase()}</span></span>
+      <span class="check-val ${val>0?'pos':val<0?'neg':'zero'}">${modStr(val)}${advStr}</span>
+    </div>`;
+  }).join('');
+
+  const statsTab=`
+    <div class="tab-panel" id="tab-stats-${m.id}">
+      <div class="ability-grid">${abilityBoxes}</div>
+      <div class="combat-row">${combatBoxes}</div>
+      <div class="checks-section">
+        <div class="checks-section-label">Saving Throws</div>
+        <div class="checks-grid">${savesHtml}</div>
+      </div>
+      <div class="checks-section">
+        <div class="checks-section-label">Skills</div>
+        <div class="checks-grid">${skillsHtml}</div>
+      </div>
+    </div>`;
+
+  // ── EFFECTS TAB ──────────────────────────────────────────────
+  const effectsTab=buildEffectsPanel(m,net,relevant,_fxSnap);
+
+  // ── LOOT TAB ─────────────────────────────────────────────────
+  // Items held by this member — use pre-grouped map when available (O(1)), else fall back
+  const memberItems=_itemsByHolder
+    ? (_itemsByHolder.get(nameLc)||[])
+    : getItemEffects().filter(it=>(it.holder||'').toLowerCase().trim()===(m.name||'').toLowerCase().trim());
+
+  // 5e attunement limit: warn if member has > 3 attuned items
+  const attuned=memberItems.filter(it=>it.attunement==='attuned');
+  const attunementWarning=attuned.length>3
+    ?`<div class="attunement-warning">⚠ ${attuned.length} items attuned — exceeds the 5e limit of 3. Remove attunement from ${attuned.length-3} item${attuned.length-3>1?'s':''}.</div>`
+    :'';
+
+  const rarityColor={common:'var(--text-dim)',uncommon:'var(--green)',rare:'#6a9fe8','very-rare':'#c07de8',legendary:'var(--amber)',artifact:'var(--red)'};
+  const attuneBadge=at=>at==='attuned'?'<span class="loot-attuned-badge">ATTUNED</span>':at==='required'?'<span class="loot-attuned-badge loot-attuned-req">REQ</span>':'';
+  const lootRows=memberItems.map(it=>`
+    <a class="loot-tab-row" href="loot-tracker.html" title="View in Loot Tracker">
+      <span class="loot-tab-name">${esc(it.name)}</span>
+      <span class="loot-tab-meta">
+        ${it.type?`<span class="loot-tab-type">${esc(it.type)}</span>`:''}
+        ${it.rarity?`<span class="loot-tab-rarity" style="color:${rarityColor[it.rarity]||'var(--text-dim)'}">${esc(it.rarity.replace(/-/g,' '))}</span>`:''}
+        ${attuneBadge(it.attunement||'')}
+      </span>
+      <span class="loot-tab-arrow">→</span>
+    </a>`).join('');
+
+  // Attunement slot indicator (always shown when member has any attunable items)
+  const attuneSlotHtml=memberItems.length?`
+    <div class="attune-slots">
+      <span class="attune-slots-label">Attunement</span>
+      <div class="attune-slots-pips">
+        ${[0,1,2].map(i=>`<div class="attune-pip ${i<attuned.length?(attuned.length>3?'over':'used'):''}"></div>`).join('')}
+      </div>
+      <span class="attune-slots-count" style="color:${attuned.length>3?'var(--red)':attuned.length===3?'var(--amber)':'var(--text-dim)'}">${attuned.length}/3</span>
+    </div>`:'';
+
+  // Per-member currency holdings
+  const walletLines=getMemberWallet(m.name);
+  const walletBlock=(()=>{
+    if(!walletLines.length) return `<div class="member-wallet-empty">No currency assigned to ${esc(m.name)} yet.</div>`;
+    const baseCur=(_cachedTreasuryCurrencies||[]).find(c=>c.id==='cr')||(_cachedTreasuryCurrencies||[])[0];
+    let totalWealth=0;let allHaveRates=true;
+    for(const{cur,amt}of walletLines){
+      if(cur.rate!=null) totalWealth+=amt*cur.rate;
+      else allHaveRates=false;
+    }
+    const totalIsNeg=allHaveRates&&totalWealth<0;
+    const multiCur=walletLines.length>=2;
+    const showGradient=allHaveRates&&!totalIsNeg&&multiCur;
+    const gradStyleId=`mw-grad-${m.id}`;
+    const gradClass=`mw-total-grad-${m.id}`;
+    if(showGradient){
+      const doubled=[...walletLines,...walletLines];
+      const stops=doubled.map(({cur:wc},i)=>`${wc.color} ${(i/(doubled.length-1)*100).toFixed(1)}%`).join(', ');
+      let styleEl=document.getElementById(gradStyleId);
+      if(!styleEl){styleEl=document.createElement('style');styleEl.id=gradStyleId;document.head.appendChild(styleEl);}
+      styleEl.textContent=`@keyframes mwFlow_${m.id}{0%{background-position:0% 50%}50%{background-position:100% 50%}100%{background-position:0% 50%}}.${gradClass}{background:linear-gradient(90deg,${stops});background-size:200% auto;-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;animation:mwFlow_${m.id} 6s ease infinite;}`;
+    }else{
+      const old=document.getElementById(gradStyleId);if(old)old.remove();
+    }
+    const totalStr=allHaveRates&&baseCur?Math.abs(totalWealth).toLocaleString(undefined,{maximumFractionDigits:1})+' '+baseCur.abbr:'—';
+    const totalSign=totalIsNeg?'−':'';
+    const totalClass=totalIsNeg?'mw-total-neg':showGradient?gradClass:'mw-total-plain';
+    return `<div class="member-wallet">
+      <div class="member-wallet-label">⚙ Currency Holdings</div>
+      <div class="member-wallet-rows">
+        ${walletLines.map(({cur,amt})=>{
+          const isNeg=amt<0;
+          return `<div class="member-wallet-row">
+            <span class="mw-cur-symbol" style="color:${cur.color};text-shadow:0 0 8px ${cur.color}40">${esc(cur.symbol)}</span>
+            <span class="mw-cur-name">${esc(cur.abbr)}</span>
+            <span class="mw-cur-amt ${isNeg?'mw-cur-neg':''}">${isNeg?'−':''}${Math.abs(amt).toLocaleString(undefined,{maximumFractionDigits:2})}</span>
+          </div>`;
+        }).join('')}
+      </div>
+      <div class="member-wallet-total">
+        <span class="mw-total-label">Total</span>
+        <span class="mw-total-val ${totalClass}">${totalSign}${totalStr}</span>
+      </div>
+    </div>`;
+  })();
+
+  const lootTab=`
+    <div class="tab-panel" id="tab-loot-${m.id}">
+      ${attunementWarning}
+      ${attuneSlotHtml}
+      ${lootRows||`<div class="fx-empty">No items assigned to ${esc(m.name)}.<br><span style="font-size:0.48rem;opacity:0.6">Assign items in the Loot Tracker using "Held By".</span></div>`}
+      ${walletBlock}
+    </div>`;
+
+  // ── CONDITIONS TAB ───────────────────────────────────────────
+  const condTab=buildCondPanel(m,activeConditions,color);
+
+  // ── ASSEMBLE CARD ────────────────────────────────────────────
+  const effectCount=Object.keys(net).length;
+  return `<div class="member-card" style="--member-color:${color}" data-member-id="${m.id}">
+    <div class="card-portrait-area">
+      <div class="portrait-ring" style="border-color:${color};box-shadow:0 0 14px ${color}40" onclick="triggerPhotoUpload('${m.id}')" title="Click to change portrait">
+        ${portrait}
+        <div class="portrait-upload-hint">CHANGE<br>PORTRAIT<input type="file" id="inline-photo-${m.id}" accept="image/*" style="display:none" onchange="handleInlinePhoto(event,'${m.id}')" /></div>
+      </div>
+      <div class="card-id-area">
+        <div class="member-name">${esc(m.name)}</div>
+        ${m.class?`<div class="member-class" style="color:${color}">${esc(m.class)}</div>`:''}
+        ${m.race?`<div class="member-race">${esc(m.race)}</div>`:''}
+        <div class="card-badges">
+          ${m.level?`<span class="member-level" style="background:${color}">LVL ${m.level}</span>`:''}
+          <span class="status-tag" style="color:${statusColor};border-color:${statusColor}40">${STATUS_LABELS[m.status]||'Active'}</span>
+          ${effectCount?`<span class="status-tag effects-badge" style="color:var(--amber);border-color:rgba(212,134,10,0.3)">⚙ ${effectCount} effects</span>`:''}
+          ${activeConditions.length?`<span class="status-tag cond-badge" style="color:#c07de8;border-color:rgba(192,125,232,0.3);display:inline-block">${activeConditions.length} condition${activeConditions.length>1?'s':''}</span>`:`<span class="cond-badge" style="display:none"></span>`}
+        </div>
+        ${hpBarHtml}
+      </div>
+    </div>
+    <div class="card-tabs">
+      <button class="card-tab active" onclick="switchTab('${m.id}','bio',this)">Bio</button>
+      <button class="card-tab" onclick="switchTab('${m.id}','stats',this)">Stats</button>
+      <button class="card-tab" onclick="switchTab('${m.id}','effects',this)">Effects${effectCount?` (${effectCount})`:''}</button>
+      <button class="card-tab" onclick="switchTab('${m.id}','loot',this)">Loot${memberItems.length?` (${memberItems.length})`:''}</button>
+      <button class="card-tab" onclick="switchTab('${m.id}','cond',this)">Cond${activeConditions.length?` (${activeConditions.length})`:''}</button>
+    </div>
+    ${bioTab}${statsTab}${effectsTab}${lootTab}${condTab}
+    <div class="card-footer">
+      <div class="member-player">${m.player?`PLAYER: <span>${esc(m.player)}</span>`:''}</div>
+      <div class="card-actions">
+        <button class="btn-icon" onclick="openModal('${m.id}')" title="Edit">✎</button>
+        <button class="btn-icon del" onclick="deleteMember('${m.id}')" title="Remove">🗑</button>
+      </div>
+    </div>
+  </div>`;
+}
+
+// switchTab now handles all 5 tabs: bio, stats, effects, loot, cond
+function switchTab(memberId,tab,btn){
+  ['bio','stats','effects','loot','cond'].forEach(t=>{
+    const panel=document.getElementById(`tab-${t}-${memberId}`);
+    if(panel) panel.classList.toggle('active',t===tab);
+  });
+  btn.closest('.card-tabs').querySelectorAll('.card-tab').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+}
+
+// ══════════════════════════════════════════════════════════════
+//  PHOTO HANDLING
+// ══════════════════════════════════════════════════════════════
+function handlePhotoUpload(e){
+  const file=e.target.files[0];if(!file)return;
+  const reader=new FileReader();
+  reader.onload=ev=>{currentPhoto=ev.target.result;document.getElementById('photoPreview').innerHTML=`<img src="${currentPhoto}" alt="portrait" style="width:100%;height:100%;object-fit:cover;border-radius:50%" />`;};
+  reader.readAsDataURL(file);e.target.value='';
+}
+function clearPhoto(){currentPhoto=null;document.getElementById('photoPreview').innerHTML=`<span class="photo-initials">${getInitials()}</span>`;}
+function getInitials(){const n=document.getElementById('f-name')?.value||'';return n?n.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase():'?';}
+function triggerPhotoUpload(id){document.getElementById(`inline-photo-${id}`)?.click();}
+function handleInlinePhoto(e,id){
+  const file=e.target.files[0];if(!file)return;
+  const reader=new FileReader();
+  reader.onload=async ev=>{
+    const idx=members.findIndex(m=>m.id===id);if(idx<0)return;
+    members[idx].photo=ev.target.result;
+    try{await saveMemberToDB(members[idx]);const _tabs=captureTabState();render();restoreTabState(_tabs);showToast('Portrait updated.');}
+    catch(e){console.error(e);showToast('Photo save failed.');}
+  };
+  reader.readAsDataURL(file);e.target.value='';
+}
+
+// ══════════════════════════════════════════════════════════════
+//  MEMBER MODAL
+// ══════════════════════════════════════════════════════════════
+function buildProfGrid(existingProfs={}){
+  const GROUPS=[
+    {header:'Saving Throws',ability:null,items:SAVING_THROWS},
+    {header:'Strength',    ability:'STR',items:SKILLS.filter(s=>s.ability==='str')},
+    {header:'Dexterity',   ability:'DEX',items:SKILLS.filter(s=>s.ability==='dex')},
+    {header:'Constitution',ability:'CON',items:SKILLS.filter(s=>s.ability==='con')},
+    {header:'Intelligence',ability:'INT',items:SKILLS.filter(s=>s.ability==='int')},
+    {header:'Wisdom',      ability:'WIS',items:SKILLS.filter(s=>s.ability==='wis')},
+    {header:'Charisma',    ability:'CHA',items:SKILLS.filter(s=>s.ability==='cha')},
+  ];
+  const ABILITY_COLORS={STR:'var(--red)',DEX:'var(--green)',CON:'var(--amber)',INT:'var(--cyan)',WIS:'var(--gold)',CHA:'#c07de8'};
+  document.getElementById('profGrid').innerHTML=GROUPS.map(group=>{
+    const color=group.ability?ABILITY_COLORS[group.ability]:'var(--cyan-dim)';
+    const rows=group.items.map(p=>`
+      <label class="prof-row">
+        <input type="checkbox" id="prof-${p.key}" ${existingProfs[p.key]?'checked':''} />
+        <span class="prof-label">${p.label}</span>
+        ${group.ability?`<span class="prof-ability-tag" style="color:${color}">${group.ability}</span>`:''}
+      </label>`).join('');
+    return `<div class="prof-group">
+        <div class="prof-group-header" style="--group-color:${color}">
+          ${group.ability?`<span class="prof-group-ability">${group.ability}</span>`:''}
+          <span class="prof-group-title">${group.header}</span>
+          <span class="prof-group-line"></span>
+        </div>
+        <div class="prof-group-rows">${rows}</div>
+      </div>`;
+  }).join('');
+}
+
+function openModal(id){
+  editId=id||null;
+  document.getElementById('modalTitle').textContent=id?'⚙ EDIT CREW MEMBER':'⚙ ADD CREW MEMBER';
+  if(id){
+    const m=members.find(x=>x.id===id);if(!m)return;
+    document.getElementById('f-name').value=m.name||'';
+    document.getElementById('f-player').value=m.player||'';
+    document.getElementById('f-class').value=m.class||'';
+    document.getElementById('f-race').value=m.race||'';
+    document.getElementById('f-level').value=m.level||'';
+    document.getElementById('f-status').value=m.status||'active';
+    document.getElementById('f-prof').value=m.prof||2;
+    document.getElementById('f-bio').value=m.bio||'';
+    document.getElementById('f-tags').value=(m.tags||[]).join(', ');
+    const abs=m.abilities||{};
+    ABILITIES.forEach(a=>document.getElementById(`f-${a}`).value=abs[a]||'');
+    const cs=m.combat||{};
+    ['ac','hp','hpcur','speed','init','spelldc','spellatk','passperc'].forEach(k=>document.getElementById(`f-${k}`).value=cs[k]||'');
+    buildProfGrid(m.proficiencies||{});
+    currentColor=m.color||COLORS[0];
+    currentPhoto=m.photo||null;
+    const preview=document.getElementById('photoPreview');
+    if(currentPhoto) preview.innerHTML=`<img src="${currentPhoto}" alt="portrait" style="width:100%;height:100%;object-fit:cover;border-radius:50%" />`;
+    else{const ini=(m.name||'?').split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase();preview.innerHTML=`<span class="photo-initials">${ini}</span>`;}
+  }else{
+    ['f-name','f-player','f-class','f-race','f-level','f-bio','f-tags'].forEach(i=>{const el=document.getElementById(i);if(el)el.value='';});
+    ABILITIES.forEach(a=>document.getElementById(`f-${a}`).value=10);
+    ['ac','hp','hpcur','speed','init','spelldc','spellatk','passperc'].forEach(k=>document.getElementById(`f-${k}`).value='');
+    document.getElementById('f-ac').value=10;
+    document.getElementById('f-speed').value=30;
+    document.getElementById('f-status').value='active';
+    document.getElementById('f-prof').value=2;
+    buildProfGrid({});
+    currentColor=COLORS[Math.floor(Math.random()*COLORS.length)];
+    currentPhoto=null;
+    document.getElementById('photoPreview').innerHTML=`<span class="photo-initials">?</span>`;
+  }
+  buildColorSwatches();
+  document.getElementById('memberModal').classList.add('open');
+  setTimeout(()=>document.getElementById('f-name').focus(),150);
+}
+
+function closeModal(){document.getElementById('memberModal').classList.remove('open');editId=null;}
+function backdropClose(e){if(e.target===document.getElementById('memberModal')&&document.getElementById('memberModal')._mousedownOnBackdrop)closeModal();}
+function updateModalPreview(){const n=document.getElementById('f-name').value;if(!currentPhoto)document.getElementById('photoPreview').innerHTML=`<span class="photo-initials">${n?n.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase():'?'}</span>`;}
+
+async function saveMember(){
+  const name=document.getElementById('f-name').value.trim();
+  const fNameError=document.getElementById('fNameError');
+  if(fNameError)fNameError.textContent='';
+  if(!name){
+    if(fNameError)fNameError.textContent='⚠ Character name is required.';
+    document.getElementById('f-name').focus();
+    return;
+  }
+  const btn=document.getElementById('btnSaveMember');
+  const modal=document.getElementById('memberModal');
+  setLoading(btn,true);setModalLoading(modal,true);
+  btn.dataset.loadingText=editId?'Updating…':'Saving…';
+  const abs={};
+  ABILITIES.forEach(a=>{const v=parseInt(document.getElementById(`f-${a}`).value);abs[a]=isNaN(v)?10:v;});
+  const cs={};
+  [['ac',10],['hp',20],['hpcur',null],['speed',30],['init',null],['spelldc',null],['spellatk',null],['passperc',null]].forEach(([k,def])=>{
+    const v=document.getElementById(`f-${k}`).value;
+    cs[k]=v!==''?parseInt(v):(def!==null?def:undefined);
+    if(cs[k]===undefined)delete cs[k];
+  });
+  const profs={};
+  ALL_PROFICIENCY_CHECKS.forEach(p=>{const el=document.getElementById(`prof-${p.key}`);if(el&&el.checked)profs[p.key]=true;});
+  const member={
+    id:editId||uid(),name,
+    player:document.getElementById('f-player').value.trim(),
+    class:document.getElementById('f-class').value.trim(),
+    race:document.getElementById('f-race').value.trim(),
+    level:parseInt(document.getElementById('f-level').value)||null,
+    status:document.getElementById('f-status').value,
+    prof:parseInt(document.getElementById('f-prof').value)||2,
+    bio:document.getElementById('f-bio').value.trim(),
+    tags:document.getElementById('f-tags').value.split(',').map(t=>t.trim()).filter(Boolean),
+    color:currentColor,photo:currentPhoto,
+    abilities:abs,combat:cs,proficiencies:profs,
+  };
+  try{
+    await saveMemberToDB(member);
+    if(editId){const i=members.findIndex(m=>m.id===editId);if(i>=0)members[i]=member;showToast('Member updated.');}
+    else{members.push(member);showToast(`${name} added to the roster.`);}
+    const _tabs=captureTabState();render();restoreTabState(_tabs);closeModal();
+  }catch(err){console.error(err);showToast('Save failed — check your Supabase config.');}
+  finally{setLoading(btn,false);setModalLoading(modal,false);}
+}
+
+async function deleteMember(id){
+  const m=members.find(x=>x.id===id);if(!m)return;
+  const ok=await nexusConfirm({
+    title:'Remove Party Member',name:m.name,
+    message:`${m.class||'Character'}${m.level?' (Level '+m.level+')':''} will be permanently removed from the roster.`,
+    confirmLabel:'Remove',
+  });
+  if(!ok)return;
+  const delBtn=document.querySelector(`.btn-icon.del[onclick*="${id}"]`);
+  if(delBtn){setLoading(delBtn,true);delBtn.dataset.loadingText='';}
+  try{
+    await deleteMemberFromDB(id);
+    members=members.filter(x=>x.id!==id);
+    const _tabs=captureTabState();render();restoreTabState(_tabs);showToast('Member removed.');
+  }catch(err){
+    console.error(err);showToast('Delete failed — check your Supabase config.');
+    if(delBtn)setLoading(delBtn,false);
+  }
+}
+
+// ── COLOR SWATCHES ──
+function buildColorSwatches(){
+  document.getElementById('modalColorRow').innerHTML=
+    COLORS.map(c=>`<div class="cswatch ${c===currentColor?'sel':''}" style="background:${c}" onclick="selectColor('${c}')"></div>`).join('')+
+    `<div class="color-custom-wrap"><div class="cc-bg">+</div><input type="color" value="${currentColor}" oninput="selectColor(this.value)" onchange="selectColor(this.value)" /></div>`;
+}
+function selectColor(c){currentColor=c;document.querySelectorAll('.cswatch').forEach(s=>s.classList.toggle('sel',s.getAttribute('onclick')===`selectColor('${c}')`));}
+
+// ── EXPORT / IMPORT ──
+function exportJSON(){const blob=new Blob([JSON.stringify({version:2,members},null,2)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='party-roster.json';a.click();showToast('Roster exported.');}
+function importJSON(){document.getElementById('fileImport').click();}
+async function handleImport(e){
+  const file=e.target.files[0];if(!file)return;
+  const r=new FileReader();
+  r.onload=async ev=>{
+    try{
+      const d=JSON.parse(ev.target.result);
+      const imported=d.members||d;
+      if(!Array.isArray(imported)) throw new Error();
+      const ok=await nexusConfirm({title:'Import Roster',name:`${imported.length} members`,message:'This will replace your current roster. This cannot be undone.',confirmLabel:'Import'});
+      if(!ok)return;
+      members=imported.map(m=>({...m,id:m.id||uid()}));
+      try{
+        await db.upsertMany('party_members',members.map(m=>({
+          id:m.id,name:m.name,player:m.player||null,class:m.class||null,
+          race:m.race||null,level:m.level||null,status:m.status||'active',
+          prof:m.prof||2,bio:m.bio||null,tags:m.tags||[],color:m.color||null,
+          photo:m.photo||null,abilities:m.abilities||{},combat:m.combat||{},proficiencies:m.proficiencies||{}
+        })));
+        render();showToast(`Imported ${members.length} members.`);
+      }catch(err){console.error(err);showToast('Import failed — check your Supabase config.');}
+    }catch{showToast('Invalid file.');}
+  };
+  r.readAsText(file);e.target.value='';
+}
+
+
+// Keyboard: Escape closes any open modal; Enter submits member modal
+document.addEventListener('keydown',e=>{
+  if(e.key==='Escape'){closeModal();lt_closeModal();}
+  if(e.key==='Enter'&&document.getElementById('memberModal').classList.contains('open')&&document.activeElement.tagName!=='TEXTAREA'&&document.activeElement.tagName!=='SELECT') saveMember();
+});
+
+// Track whether a drag started on the backdrop itself (not inside the modal content).
+// Prevents closing the modal when the user clicks inside and drags outside.
+document.getElementById('memberModal').addEventListener('mousedown', function(e){
+  this._mousedownOnBackdrop = e.target === this;
+});
+document.getElementById('lt_modalBackdrop').addEventListener('mousedown', function(e){
+  this._mousedownOnBackdrop = e.target === this;
+});
+
+// ══════════════════════════════════════════════════════════════
+//  LOOT ITEM EDIT MODAL  (lt_ namespace)
+//
+//  Lets the DM edit loot items directly from the Effects tab on
+//  a member card, without navigating to the Loot Tracker page.
+//  After saving, _cachedLootItems is updated and the Effects tab
+//  on affected cards re-renders surgically (no full page reload).
+// ══════════════════════════════════════════════════════════════
+
+// ── lt_refreshEffectsForItem ──────────────────────────────────
+// After saving a loot item, re-render only the Effects tab panels
+// of members affected by it (holder match or party-wide items).
+function lt_refreshEffectsForItem(item){
+  const holderLc=(item.holder||'').toLowerCase().trim();
+  const isParty=holderLc==='party'||holderLc==='party inventory';
+  members.forEach(m=>{
+    const nameLc=(m.name||'').toLowerCase().trim();
+    if(!isParty&&holderLc!==nameLc)return;
+    lt_refreshEffectsPanel(m);
+  });
+}
+
+// ── lt_refreshEffectsPanel ────────────────────────────────────
+// Re-compute and swap in the effects panel HTML for one member.
+function lt_refreshEffectsPanel(m){
+  const panel=document.getElementById(`tab-effects-${m.id}`);
+  if(!panel)return;
+  const{net,relevant}=computeNetEffects(m.name);
+  const newPanel=buildEffectsPanel(m,net,relevant);
+  const wasActive=panel.classList.contains('active');
+  panel.outerHTML=newPanel;
+  if(wasActive){
+    const refreshed=document.getElementById(`tab-effects-${m.id}`);
+    if(refreshed)refreshed.classList.add('active');
+  }
+  const effectCount=Object.keys(net).length;
+  const card=document.querySelector(`[data-member-id="${m.id}"]`);
+  if(card){
+    card.querySelectorAll('.card-tab').forEach(btn=>{
+      if(btn.textContent.startsWith('Effects')) btn.textContent=effectCount?`Effects (${effectCount})`:'Effects';
+    });
+    const badge=card.querySelector('.effects-badge');
+    if(badge){badge.style.display=effectCount?'':'none';badge.textContent=`⚙ ${effectCount} effects`;}
+  }
+}
+
+let lt_editingId=null;
+let lt_pendingFx=[];
+const LT_DAMAGE_STATS=new Set(['damage_rolls','spell_damage','attack_rolls']);
+
+const LT_ALL_STATS=[
+  {key:'str',label:'STR – Strength'},{key:'dex',label:'DEX – Dexterity'},{key:'con',label:'CON – Constitution'},
+  {key:'int',label:'INT – Intelligence'},{key:'wis',label:'WIS – Wisdom'},{key:'cha',label:'CHA – Charisma'},
+  {key:'ac',label:'AC – Armor Class'},{key:'hp',label:'HP – Hit Points (Max)'},{key:'speed',label:'Speed (ft)'},
+  {key:'initiative',label:'Initiative'},{key:'prof_bonus',label:'Proficiency Bonus'},
+  {key:'save_str',label:'Save – Strength'},{key:'save_dex',label:'Save – Dexterity'},{key:'save_con',label:'Save – Constitution'},
+  {key:'save_int',label:'Save – Intelligence'},{key:'save_wis',label:'Save – Wisdom'},{key:'save_cha',label:'Save – Charisma'},
+  {key:'acrobatics',label:'Skill – Acrobatics (DEX)'},{key:'animal_handling',label:'Skill – Animal Handling (WIS)'},
+  {key:'arcana',label:'Skill – Arcana (INT)'},{key:'athletics',label:'Skill – Athletics (STR)'},
+  {key:'deception',label:'Skill – Deception (CHA)'},{key:'history',label:'Skill – History (INT)'},
+  {key:'insight',label:'Skill – Insight (WIS)'},{key:'intimidation',label:'Skill – Intimidation (CHA)'},
+  {key:'investigation',label:'Skill – Investigation (INT)'},{key:'medicine',label:'Skill – Medicine (WIS)'},
+  {key:'nature',label:'Skill – Nature (INT)'},{key:'perception',label:'Skill – Perception (WIS)'},
+  {key:'performance',label:'Skill – Performance (CHA)'},{key:'persuasion',label:'Skill – Persuasion (CHA)'},
+  {key:'religion',label:'Skill – Religion (INT)'},{key:'sleight_of_hand',label:'Skill – Sleight of Hand (DEX)'},
+  {key:'stealth',label:'Skill – Stealth (DEX)'},{key:'survival',label:'Skill – Survival (WIS)'},
+  {key:'attack_rolls',label:'Attack Rolls'},{key:'spell_attack',label:'Spell Attack Rolls'},
+  {key:'spell_dc',label:'Spell Save DC'},{key:'damage_rolls',label:'Damage Rolls'},{key:'spell_damage',label:'Spell Damage Rolls'},
+];
+const LT_FX_TYPES=[{key:'bonus',label:'+Bonus'},{key:'penalty',label:'−Penalty'},{key:'advantage',label:'Advantage'},{key:'disadvantage',label:'Disadvantage'}];
+
+function lt_buildStatSelect(){
+  const groups=[
+    {label:'Main Stats',keys:['str','dex','con','int','wis','cha','ac','hp','speed','initiative','prof_bonus']},
+    {label:'Saving Throws',keys:['save_str','save_dex','save_con','save_int','save_wis','save_cha']},
+    {label:'Skills',keys:['acrobatics','animal_handling','arcana','athletics','deception','history','insight','intimidation','investigation','medicine','nature','perception','performance','persuasion','religion','sleight_of_hand','stealth','survival']},
+    {label:'Rolls',keys:['attack_rolls','spell_attack','spell_dc','damage_rolls','spell_damage']},
+  ];
+  const statMap={};LT_ALL_STATS.forEach(s=>statMap[s.key]=s.label);
+  return `<option value="">— Stat —</option>`+
+    groups.map(g=>`<optgroup label="${g.label}">`+g.keys.map(k=>`<option value="${k}">${esc(statMap[k]||k)}</option>`).join('')+`</optgroup>`).join('');
+}
+function lt_buildTypeSelect(){return LT_FX_TYPES.map(t=>`<option value="${t.key}">${t.label}</option>`).join('');}
+function lt_buildDmgTypeSelect(){
+  return `<option value="">— All / Untyped —</option>`+
+    (typeof DAMAGE_TYPES!=='undefined'?DAMAGE_TYPES:[]).map(t=>
+      `<option value="${t}">${t.charAt(0).toUpperCase()+t.slice(1)}</option>`
+    ).join('');
+}
+
+function lt_addFxRow(existing){
+  const container=document.getElementById('lt_fxRows');
+  const idx=lt_pendingFx.length;
+  const fx=existing||{stat:'',type:'bonus',value:null,damageType:''};
+  lt_pendingFx.push(fx);
+  const row=document.createElement('div');
+  row.className='fx-row';row.id=`lt_fx-row-${idx}`;
+  const needsVal=t=>t==='bonus'||t==='penalty';
+  const showDmg=(t,s)=>(t==='bonus'||t==='penalty')&&LT_DAMAGE_STATS.has(s);
+  row.innerHTML=`
+    <select class="fx-stat-sel" onchange="lt_pendingFx[${idx}].stat=this.value;lt_fxUpdateDmgVis(${idx})">${lt_buildStatSelect()}</select>
+    <select class="fx-type-sel" onchange="lt_pendingFx[${idx}].type=this.value;document.getElementById('lt_fx-val-${idx}').style.display=(this.value==='bonus'||this.value==='penalty')?'block':'none';lt_fxUpdateDmgVis(${idx})">${lt_buildTypeSelect()}</select>
+    <div class="fx-val-wrap">
+      <input type="number" class="fx-val-inp" id="lt_fx-val-${idx}" placeholder="±#" style="display:${needsVal(fx.type)?'block':'none'}" onchange="lt_pendingFx[${idx}].value=parseFloat(this.value)||null" />
+      <select class="fx-dmg-sel" id="lt_fx-dmg-${idx}" style="display:${showDmg(fx.type,fx.stat)?'block':'none'}" onchange="lt_pendingFx[${idx}].damageType=this.value||null">${lt_buildDmgTypeSelect()}</select>
+    </div>
+    <button class="fx-del-btn" onclick="lt_removeFxRow(${idx})">✕</button>`;
+  container.appendChild(row);
+  row.querySelector('.fx-stat-sel').value=fx.stat||'';
+  row.querySelector('.fx-type-sel').value=fx.type||'bonus';
+  if(fx.value!=null) document.getElementById(`lt_fx-val-${idx}`).value=fx.value;
+  document.getElementById(`lt_fx-dmg-${idx}`).value=fx.damageType||'';
+}
+function lt_fxUpdateDmgVis(idx){
+  const stat=lt_pendingFx[idx]?.stat||'';
+  const type=lt_pendingFx[idx]?.type||'';
+  const sel=document.getElementById(`lt_fx-dmg-${idx}`);
+  if(sel) sel.style.display=(type==='bonus'||type==='penalty')&&LT_DAMAGE_STATS.has(stat)?'block':'none';
+}
+function lt_removeFxRow(idx){
+  lt_pendingFx[idx]=null;
+  const row=document.getElementById(`lt_fx-row-${idx}`);
+  if(row)row.remove();
+}
+function lt_collectFx(){
+  return lt_pendingFx.filter(f=>f&&f.stat).map(f=>{
+    const fx={stat:f.stat,type:f.type||'bonus',value:(f.type==='bonus'||f.type==='penalty')?(f.value||0):null};
+    if(f.damageType&&LT_DAMAGE_STATS.has(f.stat)&&(f.type==='bonus'||f.type==='penalty'))fx.damageType=f.damageType;
+    return fx;
+  });
+}
+
+// Synchronous — uses members[] already loaded at page start, no DB call needed
+function lt_populateHolderSelect(currentValue){
+  const sel=document.getElementById('lt_fieldHolder');
+  // Update display label for the static special option using current term mappings
+  if(sel.options[1]) sel.options[1].textContent=t('partyInventory');
+  while(sel.options.length>2)sel.remove(2);
+  members.forEach(m=>{const opt=document.createElement('option');opt.value=m.name;opt.textContent=m.name;sel.appendChild(opt);});
+  sel.value=currentValue||'';
+}
+
+function lt_openModal(id){
+  lt_editingId=id||null;
+  document.getElementById('lt_modalTitle').textContent=id?'⚙ EDIT ITEM':'⚙ ADD LOOT ITEM';
+  const ltNameError=document.getElementById('ltNameError');
+  if(ltNameError)ltNameError.textContent='';
+  lt_pendingFx=[];document.getElementById('lt_fxRows').innerHTML='';
+  if(id){
+    const it=(_cachedLootItems||[]).find(i=>i.id===id);
+    if(!it){showToast('Item not found.');return;}
+    document.getElementById('lt_fieldName').value=it.name||'';
+    document.getElementById('lt_fieldType').value=it.type||'';
+    document.getElementById('lt_fieldRarity').value=it.rarity||'rare';
+    document.getElementById('lt_fieldAttunement').value=it.attunement||'none';
+    document.getElementById('lt_fieldDesc').value=it.desc||'';
+    lt_populateHolderSelect(it.holder||'');
+    (it.statEffects||[]).forEach(fx=>lt_addFxRow({...fx}));
+  }else{
+    document.getElementById('lt_fieldName').value='';document.getElementById('lt_fieldDesc').value='';
+    document.getElementById('lt_fieldType').value='Wondrous Item';document.getElementById('lt_fieldRarity').value='rare';
+    document.getElementById('lt_fieldAttunement').value='none';lt_populateHolderSelect('');
+  }
+  document.getElementById('lt_modalBackdrop').classList.add('open');
+  setTimeout(()=>document.getElementById('lt_fieldName').focus(),150);
+}
+
+function lt_closeModal(){document.getElementById('lt_modalBackdrop').classList.remove('open');lt_editingId=null;lt_pendingFx=[];}
+function lt_backdropClose(e){if(e.target===document.getElementById('lt_modalBackdrop')&&document.getElementById('lt_modalBackdrop')._mousedownOnBackdrop)lt_closeModal();}
+
+async function lt_saveItem(){
+  const name=document.getElementById('lt_fieldName').value.trim();
+  const ltNameError=document.getElementById('ltNameError');
+  if(ltNameError)ltNameError.textContent='';
+  if(!name){
+    if(ltNameError)ltNameError.textContent='⚠ Item name is required.';
+    document.getElementById('lt_fieldName').focus();
+    return;
+  }
+  const item={
+    id:lt_editingId||uid(),name,
+    type:document.getElementById('lt_fieldType').value,
+    rarity:document.getElementById('lt_fieldRarity').value,
+    holder:document.getElementById('lt_fieldHolder').value,
+    attunement:document.getElementById('lt_fieldAttunement').value,
+    desc:document.getElementById('lt_fieldDesc').value.trim(),
+    statEffects:lt_collectFx(),
+  };
+  const btn=document.getElementById('lt_btnSaveItem');
+  const modal=document.getElementById('lt_itemModal');
+  btn.dataset.loadingText=lt_editingId?'Updating…':'Saving…';
+  setLoading(btn,true);setModalLoading(modal,true);
+  try{
+    await db.upsert('loot_items',{
+      id:item.id,name:item.name,type:item.type,rarity:item.rarity,
+      holder:item.holder,attunement:item.attunement,
+      description:item.desc,  // DB column is "description", not "desc"
+      stat_effects:item.statEffects,
+    });
+    if(_cachedLootItems){
+      const idx=_cachedLootItems.findIndex(i=>i.id===item.id);
+      if(idx>=0)_cachedLootItems[idx]=item;else _cachedLootItems.push(item);
+    }
+    showToast(lt_editingId?'Item updated.':'Item added.');
+    lt_closeModal();
+    lt_refreshEffectsForItem(item);
+  }catch(e){console.error(e);showToast('Save failed — check your Supabase config.');}
+  finally{setLoading(btn,false);setModalLoading(modal,false);}
+}
+
+// ══════════════════════════════════════════════════════════════
+//  BOOT
+// ══════════════════════════════════════════════════════════════
+// Start all four fetches simultaneously — none depend on each other at boot
+Promise.all([
+  loadModuleSettings(),
+  loadData(),
+  prefetchLootItems(),
+  prefetchTreasury(),
+]).then(() => {
+  buildSidenav('party-roster.html');
+  applyModuleVisibility();
+  if (!enforceModuleGuard('partyRoster')) return;
+  showLoading(false);
+  loadTerms().catch(() => {});
+  render();
+});
+</script>
+
+
+</body>
+</html>
