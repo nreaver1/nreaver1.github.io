@@ -1,0 +1,154 @@
+@import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=DM+Mono:wght@400;500&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  *, *::before, *::after {
+    box-sizing: border-box;
+  }
+
+  html {
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  body {
+    @apply bg-surface-0 text-white font-body antialiased;
+    min-height: 100dvh;
+    overflow-x: hidden;
+  }
+
+  ::-webkit-scrollbar {
+    width: 4px;
+    height: 4px;
+  }
+  ::-webkit-scrollbar-track {
+    @apply bg-surface-1;
+  }
+  ::-webkit-scrollbar-thumb {
+    @apply bg-surface-5 rounded-full;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    @apply bg-brand-600;
+  }
+}
+
+@layer components {
+  /* ── Buttons ── */
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl font-body font-600 text-sm transition-all duration-200 select-none cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed;
+  }
+  .btn-primary {
+    @apply btn bg-brand-500 text-white hover:bg-brand-600 active:scale-95 shadow-glow-sm hover:shadow-glow;
+  }
+  .btn-secondary {
+    @apply btn bg-surface-3 text-white hover:bg-surface-4 active:scale-95 border border-surface-5;
+  }
+  .btn-ghost {
+    @apply btn bg-transparent text-white/70 hover:text-white hover:bg-surface-2 active:scale-95;
+  }
+  .btn-danger {
+    @apply btn bg-red-600/20 text-red-400 hover:bg-red-600/30 border border-red-600/30 active:scale-95;
+  }
+  .btn-lg {
+    @apply px-6 py-3.5 text-base rounded-2xl;
+  }
+  .btn-sm {
+    @apply px-3 py-1.5 text-xs rounded-lg;
+  }
+  .btn-icon {
+    @apply btn p-2.5 rounded-xl;
+  }
+
+  /* ── Cards ── */
+  .card {
+    @apply bg-surface-2 border border-surface-4 rounded-2xl;
+  }
+  .card-hover {
+    @apply card hover:border-surface-5 hover:bg-surface-3 transition-all duration-200 cursor-pointer active:scale-[0.99];
+  }
+
+  /* ── Inputs ── */
+  .input {
+    @apply w-full bg-surface-2 border border-surface-4 rounded-xl px-4 py-3 text-white placeholder-white/30 font-body text-sm
+           focus:outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20
+           transition-all duration-200;
+  }
+  .input-label {
+    @apply block text-xs font-600 text-white/50 uppercase tracking-wider mb-1.5;
+  }
+  .input-error {
+    @apply text-red-400 text-xs mt-1;
+  }
+
+  /* ── Badges ── */
+  .badge {
+    @apply inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-600;
+  }
+  .badge-win    { @apply badge bg-emerald-500/15 text-emerald-400; }
+  .badge-loss   { @apply badge bg-red-500/15 text-red-400; }
+  .badge-draw   { @apply badge bg-yellow-500/15 text-yellow-400; }
+  .badge-admin  { @apply badge bg-brand-500/20 text-brand-400; }
+  .badge-member { @apply badge bg-surface-4 text-white/50; }
+
+  /* ── Stat blocks ── */
+  .stat-card {
+    @apply card p-4 flex flex-col gap-1;
+  }
+  .stat-value {
+    @apply font-display text-3xl text-white leading-none;
+  }
+  .stat-label {
+    @apply text-xs text-white/40 uppercase tracking-wider font-600;
+  }
+
+  /* ── Section headings ── */
+  .section-title {
+    @apply font-display text-2xl tracking-wide text-white;
+  }
+  .page-title {
+    @apply font-display text-4xl tracking-wide text-white;
+  }
+
+  /* ── Dividers ── */
+  .divider {
+    @apply border-t border-surface-4;
+  }
+
+  /* ── Empty state ── */
+  .empty-state {
+    @apply flex flex-col items-center justify-center gap-3 py-16 text-center;
+  }
+  .empty-state-icon {
+    @apply text-white/10 mb-2;
+  }
+  .empty-state-title {
+    @apply text-white/50 font-600 text-base;
+  }
+  .empty-state-desc {
+    @apply text-white/30 text-sm max-w-xs;
+  }
+
+  /* ── Loading spinner ── */
+  .spinner {
+    @apply w-5 h-5 border-2 border-white/20 border-t-brand-500 rounded-full animate-spin;
+  }
+}
+
+@layer utilities {
+  .font-600 { font-weight: 600; }
+  .safe-bottom { padding-bottom: env(safe-area-inset-bottom); }
+  .safe-top    { padding-top:    env(safe-area-inset-top); }
+
+  /* Noise texture overlay */
+  .noise::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
+    background-size: 200px;
+    pointer-events: none;
+    border-radius: inherit;
+  }
+}
