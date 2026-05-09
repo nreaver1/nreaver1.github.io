@@ -1,9 +1,25 @@
+import { useEffect } from 'react'
+import { Link, useNavigate } from 'react-router-dom'
+import { Trophy, Users, TrendingUp, PlusCircle, ChevronRight } from 'lucide-react'
 import { useAuthStore } from '../../store/authStore'
-import { Trophy, Users, TrendingUp, PlusCircle } from 'lucide-react'
-import { Link } from 'react-router-dom'
+import { useGroupStore } from '../../store/groupStore'
+import OnboardingPage from '../groups/OnboardingPage'
 
 export default function DashboardPage() {
-  const { profile } = useAuthStore()
+  const { user, profile }  = useAuthStore()
+  const { groups, loading, fetchGroups, setActiveGroup } = useGroupStore()
+  const navigate = useNavigate()
+
+  useEffect(() => {
+    if (user) fetchGroups(user.id)
+  }, [user])
+
+  // Show onboarding if user has no groups
+  if (!loading && groups.length === 0) {
+    return <OnboardingPage />
+  }
+
+  const activeGroup = groups[0]
 
   return (
     <div className="px-4 py-6 max-w-2xl mx-auto lg:px-6 lg:py-8 animate-fade-in">
@@ -12,6 +28,36 @@ export default function DashboardPage() {
         <p className="text-white/40 text-sm font-600 uppercase tracking-wider mb-1">Welcome back</p>
         <h1 className="page-title">{profile?.username ?? 'Player'}</h1>
       </div>
+
+      {/* Active group selector */}
+      {groups.length > 0 && (
+        <div className="mb-5">
+          <div className="flex items-center justify-between mb-2">
+            <p className="text-white/40 text-xs uppercase tracking-wider font-600">Active Group</p>
+            <Link to="/groups" className="text-brand-400 text-xs font-600 hover:text-brand-300 transition-colors">
+              Switch →
+            </Link>
+          </div>
+          <div className="flex gap-2 overflow-x-auto pb-1">
+            {groups.map(group => (
+              <button
+                key={group.id}
+                onClick={() => { setActiveGroup(group); navigate(`/groups/${group.id}`) }}
+                className={`flex items-center gap-2 px-3 py-2 rounded-xl border text-sm font-600 whitespace-nowrap transition-all shrink-0
+                  ${activeGroup?.id === group.id
+                    ? 'bg-brand-500/15 border-brand-500/30 text-white'
+                    : 'bg-surface-2 border-surface-4 text-white/50 hover:text-white'
+                  }`}
+              >
+                <span className="w-5 h-5 rounded-md bg-brand-500/20 flex items-center justify-center text-brand-400 font-display text-xs">
+                  {group.name[0].toUpperCase()}
+                </span>
+                {group.name}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Quick stats row */}
       <div className="grid grid-cols-3 gap-3 mb-6">
