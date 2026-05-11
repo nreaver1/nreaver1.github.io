@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { X, Link, Copy, Check, Trash2, Clock } from 'lucide-react'
 import { useAuthStore } from '../../store/authStore'
+import { useToast } from '../../components/ui/Toast'
 import { useGroupStore } from '../../store/groupStore'
 
 function timeUntil(dateStr) {
@@ -15,6 +16,7 @@ function timeUntil(dateStr) {
 export default function InviteModal({ group, onClose }) {
   const { user } = useAuthStore()
   const { invites, fetchInvites, createInvite, revokeInvite } = useGroupStore()
+  const toast = useToast()
   const [generating, setGenerating] = useState(false)
   const [copiedId, setCopiedId]     = useState(null)
 
@@ -34,6 +36,7 @@ export default function InviteModal({ group, onClose }) {
     await navigator.clipboard.writeText(url)
     setCopiedId(invite.id)
     setTimeout(() => setCopiedId(null), 2000)
+    toast.success('Invite link copied!')
   }
 
   const handleRevoke = async (inviteId) => {

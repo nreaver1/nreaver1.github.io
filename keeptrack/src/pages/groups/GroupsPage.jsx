@@ -4,6 +4,7 @@ import { Plus, Users, ChevronRight, Crown, Shield } from 'lucide-react'
 import { useAuthStore } from '../../store/authStore'
 import { useGroupStore } from '../../store/groupStore'
 import CreateGroupModal from '../../components/groups/CreateGroupModal'
+import { usePageTitle } from '../../hooks/usePageTitle'
 
 export default function GroupsPage() {
   const { user } = useAuthStore()
