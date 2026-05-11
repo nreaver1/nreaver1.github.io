@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Crown, Shield, MoreVertical, UserMinus, ArrowUpDown, ArrowRightLeft } from 'lucide-react'
 import { useAuthStore } from '../../store/authStore'
+import { useToast } from '../../components/ui/Toast'
 import { useGroupStore } from '../../store/groupStore'
 
 function Avatar({ username, size = 'md' }) {
@@ -15,6 +16,7 @@ function Avatar({ username, size = 'md' }) {
 export default function MemberList({ group }) {
   const { user } = useAuthStore()
   const { members, removeMember, updateRole, transferOwnership } = useGroupStore()
+  const toast = useToast()
   const [openMenu, setOpenMenu] = useState(null)
   const [confirmAction, setConfirmAction] = useState(null) // { type, member }
 
@@ -25,17 +27,20 @@ export default function MemberList({ group }) {
   const handleRemove = async (member) => {
     setConfirmAction(null)
     await removeMember(group.id, member.id, user.id)
+    toast.success(`${confirmAction.member.username} removed from group.`)
   }
 
   const handleRoleToggle = async (member) => {
     setOpenMenu(null)
     const newRole = member.role === 'admin' ? 'member' : 'admin'
     await updateRole(group.id, member.id, newRole)
+    toast.success(`${member.username} is now ${newRole === 'admin' ? 'an admin' : 'a member'}.`)
   }
 
   const handleTransfer = async (member) => {
     setConfirmAction(null)
     await transferOwnership(group.id, member.id, user.id)
+    toast.success(`Ownership transferred to ${confirmAction.member.username}.`)
   }
 
   return (

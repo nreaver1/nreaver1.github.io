@@ -1,13 +1,18 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useMemo } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import {
   Users, Link as LinkIcon, Trophy, Settings,
   LogOut, ChevronLeft, Crown, Shield
 } from 'lucide-react'
-import { useAuthStore } from '../../store/authStore'
+import { useAuthStore }  from '../../store/authStore'
 import { useGroupStore } from '../../store/groupStore'
-import MemberList from '../../components/groups/MemberList'
-import InviteModal from '../../components/groups/InviteModal'
+import { useStatsStore } from '../../store/statsStore'
+import { useGameStore }  from '../../store/gameStore'
+import { buildPlayerRecords } from '../../lib/stats'
+import MemberList       from '../../components/groups/MemberList'
+import InviteModal      from '../../components/groups/InviteModal'
+import LeaderboardTable from '../../components/stats/LeaderboardTable'
+import GameHistory      from '../../components/stats/GameHistory'
 
 const TABS = ['Members', 'Leaderboard', 'Games']
 
@@ -16,14 +21,16 @@ export default function GroupDetailPage() {
   const navigate    = useNavigate()
   const { user }    = useAuthStore()
   const { groups, members, fetchGroups, fetchMembers, leaveGroup } = useGroupStore()
+  const { games, loading: statsLoading, fetchAllGames } = useStatsStore()
+  const { fetchGameTypes } = useGameStore()
 
-  const [tab, setTab]             = useState('Members')
-  const [showInvite, setShowInvite] = useState(false)
-  const [showLeave, setShowLeave]   = useState(false)
-  const [leaving, setLeaving]       = useState(false)
+  const [tab,         setTab]         = useState('Members')
+  const [showInvite,  setShowInvite]  = useState(false)
+  const [showLeave,   setShowLeave]   = useState(false)
+  const [leaving,     setLeaving]     = useState(false)
 
-  const group  = groups.find(g => g.id === groupId)
-  const myRole = members.find(m => m.id === user?.id)?.role
+  const group   = groups.find(g => g.id === groupId)
+  const myRole  = members.find(m => m.id === user?.id)?.role
   const isAdmin = myRole === 'admin'
   const isOwner = group?.owner_id === user?.id
 
@@ -32,11 +39,20 @@ export default function GroupDetailPage() {
   }, [user])
 
   useEffect(() => {
-    if (groupId) fetchMembers(groupId)
+    if (groupId) {
+      fetchMembers(groupId)
+      fetchAllGames(groupId)
+      fetchGameTypes(groupId)
+    }
   }, [groupId])
 
+  const records = useMemo(() => {
+    if (!games.length) return []
+    return Object.values(buildPlayerRecords(games))
+  }, [games])
+
   const handleLeave = async () => {
-    if (isOwner) return // Owner must transfer first
+    if (isOwner) return
     setLeaving(true)
     await leaveGroup(groupId, user.id)
     navigate('/groups')
@@ -62,7 +78,6 @@ export default function GroupDetailPage() {
         </button>
 
         <div className="flex items-start gap-4">
-          {/* Group avatar */}
           <div className="w-14 h-14 rounded-2xl bg-brand-500/20 border border-brand-500/20 flex items-center justify-center shrink-0">
             <span className="font-display text-2xl text-brand-400">
               {group.name[0].toUpperCase()}
@@ -80,6 +95,7 @@ export default function GroupDetailPage() {
             )}
             <p className="text-white/25 text-xs mt-1">
               {members.length} {members.length === 1 ? 'member' : 'members'}
+              {games.length > 0 && <> · {games.length} games</>}
             </p>
           </div>
         </div>
@@ -128,19 +144,19 @@ export default function GroupDetailPage() {
         )}
 
         {tab === 'Leaderboard' && (
-          <div className="empty-state py-16">
-            <Trophy size={32} className="empty-state-icon" />
-            <p className="empty-state-title">Leaderboard coming soon</p>
-            <p className="empty-state-desc">Log some games to start building the rankings.</p>
-          </div>
+          statsLoading && records.length === 0 ? (
+            <div className="flex justify-center py-16"><div className="spinner w-8 h-8" /></div>
+          ) : (
+            <LeaderboardTable records={records} />
+          )
         )}
 
         {tab === 'Games' && (
-          <div className="empty-state py-16">
-            <Trophy size={32} className="empty-state-icon" />
-            <p className="empty-state-title">No games yet</p>
-            <p className="empty-state-desc">Log your first game to see it here.</p>
-          </div>
+          statsLoading && games.length === 0 ? (
+            <div className="flex justify-center py-16"><div className="spinner w-8 h-8" /></div>
+          ) : (
+            <GameHistory games={[...games].reverse()} groupId={groupId} />
+          )
         )}
       </div>
 
@@ -150,13 +166,13 @@ export default function GroupDetailPage() {
       )}
 
       {/* Leave confirm */}
-      {showLeave && (
+      {showLeave && !isOwner && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
           <div className="w-full max-w-sm bg-surface-2 border border-surface-4 rounded-2xl p-5 animate-slide-up">
             <h3 className="font-display text-xl text-white mb-2">Leave Group?</h3>
             <p className="text-white/50 text-sm mb-5">
               You'll lose access to <span className="text-white font-600">{group.name}</span>.
-              Your game history will be preserved. You can rejoin with a new invite link.
+              Your game history will be preserved.
             </p>
             <div className="flex gap-3">
               <button onClick={() => setShowLeave(false)} className="btn-secondary flex-1">Cancel</button>
@@ -168,14 +184,13 @@ export default function GroupDetailPage() {
         </div>
       )}
 
-      {/* Owner can't leave warning */}
-      {isOwner && showLeave && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-          <div className="w-full max-w-sm bg-surface-2 border border-surface-4 rounded-2xl p-5">
+      {/* Owner can't leave */}
+      {showLeave && isOwner && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
+          <div className="w-full max-w-sm bg-surface-2 border border-surface-4 rounded-2xl p-5 animate-slide-up">
             <h3 className="font-display text-xl text-white mb-2">Transfer Ownership First</h3>
             <p className="text-white/50 text-sm mb-5">
-              You're the owner of this group. Before leaving, go to the Members tab and transfer
-              ownership to another member.
+              You're the owner. Go to the Members tab and transfer ownership to another member before leaving.
             </p>
             <button onClick={() => setShowLeave(false)} className="btn-primary w-full">Got it</button>
           </div>

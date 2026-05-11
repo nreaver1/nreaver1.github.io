@@ -4,6 +4,9 @@ import { ChevronLeft, X } from 'lucide-react'
 import { useAuthStore } from '../../store/authStore'
 import { useGroupStore } from '../../store/groupStore'
 import { useGameStore }  from '../../store/gameStore'
+import { useStatsStore } from '../../store/statsStore'
+import { useToast } from '../../components/ui/Toast'
+import { usePageTitle } from '../../hooks/usePageTitle'
 import StepPickGame      from '../../components/games/StepPickGame'
 import StepSelectPlayers from '../../components/games/StepSelectPlayers'
 import StepEnterResult   from '../../components/games/StepEnterResult'
@@ -14,9 +17,12 @@ const STEPS = ['Game', 'Players', 'Result', 'Confirm']
 
 export default function LogGamePage() {
   const navigate  = useNavigate()
+  usePageTitle('Log Game')
   const { user }  = useAuthStore()
   const { groups, members, activeGroup, fetchGroups, fetchMembers } = useGroupStore()
   const { gameTypes, fetchGameTypes, logGame, loading } = useGameStore()
+  const { invalidate } = useStatsStore()
+  const toast = useToast()
 
   const [step,          setStep]          = useState(0)
   const [selectedGame,  setSelectedGame]  = useState(null)
@@ -78,6 +84,8 @@ export default function LogGamePage() {
     })
 
     if (result) {
+      invalidate()
+      toast.success('Game logged successfully!')
       setSuccessGameId(result.id)
     }
   }
