@@ -48,16 +48,21 @@ select 'profiles',                       count(*) from profiles;
 -- all tables and start completely fresh
 -- ─────────────────────────────────────────
 
--- drop table if exists audit_log          cascade;
--- drop table if exists game_participants  cascade;
--- drop table if exists game_teams         cascade;
--- drop table if exists games              cascade;
--- drop table if exists group_invites      cascade;
--- drop table if exists group_members      cascade;
--- drop table if exists game_types         cascade;
--- drop table if exists groups             cascade;
--- drop table if exists profiles           cascade;
--- drop function if exists set_updated_at  cascade;
--- drop type if exists group_role          cascade;
--- drop type if exists scoring_type        cascade;
--- drop type if exists audit_action        cascade;
+drop table if exists audit_log          cascade;
+drop table if exists game_participants  cascade;
+drop table if exists game_teams         cascade;
+drop table if exists games              cascade;
+drop table if exists group_invites      cascade;
+drop table if exists group_members      cascade;
+drop table if exists game_types         cascade;
+drop table if exists groups             cascade;
+drop table if exists profiles           cascade;
+drop function if exists set_updated_at  cascade;
+drop type if exists group_role          cascade;
+drop type if exists scoring_type        cascade;
+drop type if exists audit_action        cascade;
+
+-- Drop enums first
+drop type if exists group_role   cascade;
+drop type if exists scoring_type cascade;
+drop type if exists audit_action cascade;
