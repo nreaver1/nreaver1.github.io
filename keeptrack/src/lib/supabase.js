@@ -26,8 +26,38 @@ if (!supabaseUrl || !supabaseAnon) {
 
 export const supabase = createClient(supabaseUrl, supabaseAnon, {
   auth: {
-    persistSession:    true,
-    autoRefreshToken:  true,
+    persistSession:     true,
+    autoRefreshToken:   true,
     detectSessionInUrl: true,
   },
 })
+
+// ── Inactivity timeout ────────────────────────────────────────
+// NIST SP 800-63B / OWASP standard: sign out after 30 min of no
+// user interaction. "Activity" = mouse, keyboard, touch, scroll.
+const INACTIVITY_MS = 30 * 60 * 1000 // 30 minutes
+let inactivityTimer = null
+
+const resetInactivityTimer = () => {
+  clearTimeout(inactivityTimer)
+  inactivityTimer = setTimeout(async () => {
+    const { data: { session } } = await supabase.auth.getSession()
+    if (session) {
+      await supabase.auth.signOut()
+      // Redirect to login with a notice
+      window.location.href = '/login?reason=inactivity'
+    }
+  }, INACTIVITY_MS)
+}
+
+const ACTIVITY_EVENTS = ['mousedown', 'mousemove', 'keydown', 'touchstart', 'scroll', 'click']
+
+export const startInactivityWatcher = () => {
+  ACTIVITY_EVENTS.forEach(e => window.addEventListener(e, resetInactivityTimer, { passive: true }))
+  resetInactivityTimer() // start the clock immediately
+}
+
+export const stopInactivityWatcher = () => {
+  clearTimeout(inactivityTimer)
+  ACTIVITY_EVENTS.forEach(e => window.removeEventListener(e, resetInactivityTimer))
+}

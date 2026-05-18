@@ -1,17 +1,22 @@
 import { useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
-import { Crown, Eye, EyeOff, LogIn } from 'lucide-react'
+import { Link, useNavigate, useSearchParams, useLocation } from 'react-router-dom'
+import { Crown, Eye, EyeOff, LogIn, Clock } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
 
 export default function LoginPage() {
   const navigate  = useNavigate()
-  const [form, setForm]     = useState({ email: '', password: '' })
+  const location  = useLocation()
+  const [searchParams] = useSearchParams()
+  const timedOut = searchParams.get('reason') === 'inactivity'
+  const redirectTo = location.state?.from ?? '/dashboard'
+  const [form, setForm]       = useState({ email: '', password: '' })
   const [mfaCode, setMfaCode] = useState('')
-  const [step, setStep]     = useState('login') // 'login' | 'mfa'
-  const [showPw, setShowPw] = useState(false)
+  const [step, setStep]       = useState('login') // 'login' | 'mfa'
+  const [showPw, setShowPw]   = useState(false)
   const [loading, setLoading] = useState(false)
-  const [error, setError]   = useState('')
-  const [factorId, setFactorId] = useState(null)
+  const [error, setError]     = useState('')
+  const [factorId,   setFactorId]   = useState(null)
+  const [challengeId, setChallengeId] = useState(null)
 
   const handleLogin = async (e) => {
     e.preventDefault()
@@ -37,6 +42,7 @@ export default function LoginPage() {
       if (totp) {
         const { data: challenge } = await supabase.auth.mfa.challenge({ factorId: totp.id })
         setFactorId(totp.id)
+        setChallengeId(challenge.id)
         setStep('mfa')
         setLoading(false)
         return
@@ -44,7 +50,7 @@ export default function LoginPage() {
     }
 
     setLoading(false)
-    navigate('/dashboard')
+    navigate(redirectTo, { replace: true })
   }
 
   const handleMfa = async (e) => {
@@ -54,6 +60,7 @@ export default function LoginPage() {
 
     const { error: mfaError } = await supabase.auth.mfa.verify({
       factorId,
+      challengeId,
       code: mfaCode.replace(/\s/g, ''),
     })
 
@@ -64,7 +71,7 @@ export default function LoginPage() {
     }
 
     setLoading(false)
-    navigate('/dashboard')
+    navigate(redirectTo, { replace: true })
   }
 
   return (
@@ -83,6 +90,14 @@ export default function LoginPage() {
             <p className="text-white/40 text-sm mt-1">Your crew. Your stats.</p>
           </div>
         </div>
+
+        {/* Inactivity notice */}
+        {timedOut && (
+          <div className="flex items-center gap-2 bg-amber-500/10 border border-amber-500/30 rounded-xl px-4 py-3 mb-4 animate-slide-down">
+            <Clock size={15} className="text-amber-400 shrink-0" />
+            <p className="text-amber-300 text-sm">You were signed out after 30 minutes of inactivity.</p>
+          </div>
+        )}
 
         {/* Card */}
         <div className="card p-6">

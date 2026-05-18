@@ -253,7 +253,7 @@ export default function ProfilePage() {
         .select('id')
         .eq('username', username.trim())
         .neq('id', user.id)
-        .single()
+        .maybeSingle()
       if (existing) { toast.error('Username already taken.'); setSaving(false); return }
     }
 
