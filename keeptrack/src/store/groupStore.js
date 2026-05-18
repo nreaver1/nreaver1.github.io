@@ -135,7 +135,7 @@ export const useGroupStore = create((set, get) => ({
       .select('id')
       .eq('group_id', invite.group_id)
       .eq('user_id', userId)
-      .single()
+      .maybeSingle()
 
     if (existing) return { error: 'You are already a member of this group.', alreadyMember: true, group: invite.groups }
 

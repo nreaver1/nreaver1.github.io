@@ -32,7 +32,7 @@ export default function RegisterPage() {
       .from('profiles')
       .select('id')
       .eq('username', form.username)
-      .single()
+      .maybeSingle()
 
     if (existing) {
       setError('Username already taken.')

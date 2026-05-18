@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import { supabase } from '../lib/supabase'
+import { supabase, startInactivityWatcher, stopInactivityWatcher } from '../lib/supabase'
 
 export const useAuthStore = create((set, get) => ({
   user:    null,
@@ -12,6 +12,7 @@ export const useAuthStore = create((set, get) => ({
     if (session) {
       const profile = await get().fetchProfile(session.user.id)
       set({ session, user: session.user, profile, loading: false })
+      startInactivityWatcher()
     } else {
       set({ loading: false })
     }
@@ -20,24 +21,28 @@ export const useAuthStore = create((set, get) => ({
       if (session) {
         const profile = await get().fetchProfile(session.user.id)
         set({ session, user: session.user, profile })
+        startInactivityWatcher()
       } else {
+        stopInactivityWatcher()
         set({ session: null, user: null, profile: null })
       }
     })
   },
 
+  // .maybeSingle() returns null (not a 406 error) when no row is found
   fetchProfile: async (userId) => {
     const { data } = await supabase
       .from('profiles')
       .select('*')
       .eq('id', userId)
-      .single()
+      .maybeSingle()
     return data
   },
 
   setProfile: (profile) => set({ profile }),
 
   signOut: async () => {
+    stopInactivityWatcher()
     await supabase.auth.signOut()
     set({ user: null, profile: null, session: null })
   },
