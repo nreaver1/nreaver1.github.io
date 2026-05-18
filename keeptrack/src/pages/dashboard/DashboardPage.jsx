@@ -13,7 +13,7 @@ export default function DashboardPage() {
   usePageTitle('Dashboard')
   const { user, profile }  = useAuthStore()
   const { groups, loading: groupsLoading, fetchGroups, setActiveGroup, activeGroup } = useGroupStore()
-  const { games, fetchAllGames } = useStatsStore()
+  const { games, fetchAllGames, invalidate } = useStatsStore()
   const { gameTypes, fetchGameTypes } = useGameStore()
   const navigate = useNavigate()
 
@@ -57,7 +57,7 @@ export default function DashboardPage() {
             {groups.map(g => (
               <button
                 key={g.id}
-                onClick={() => setActiveGroup(g)}
+                onClick={() => { if (group?.id !== g.id) { invalidate(); setActiveGroup(g) } }}
                 className={`flex items-center gap-2 px-3 py-2 rounded-xl border text-sm font-600 whitespace-nowrap transition-all shrink-0
                   ${group?.id === g.id
                     ? 'bg-brand-500/15 border-brand-500/30 text-white'
