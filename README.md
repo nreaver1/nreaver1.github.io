@@ -21,21 +21,6 @@ A shared ledger for tracking wins and losses between friends across any game or 
 
 ---
 
-## Repository Structure
-
-```
-nreaver1.github.io/
-├── index.html        # Portfolio home page
-├── nexus/            # Nexus D&D session tracker
-│   ├── index.html
-│   ├── css/
-│   ├── js/
-│   └── ...
-└── keeptrack/        # KeepTrack wins/losses ledger
-    ├── index.html
-    └── ...
-```
-
 ## Tech
 
 *Built by [Nick Reaver](https://github.com/nreaver1)*
