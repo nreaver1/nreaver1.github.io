@@ -36,26 +36,6 @@ nreaver1.github.io/
     └── ...
 ```
 
-## Branching Strategy
-
-```
-master        ← stable, live production branch
-  ├── nexus        ← active Nexus development
-  └── keeptrack    ← active KeepTrack development
-```
-
-- All development happens on project branches
-- Branches are merged into `master` when stable
-- GitHub Pages serves directly from `master`
-
----
-
 ## Tech
-
-- Hosted with **GitHub Pages**
-- No build step — plain HTML, CSS, and JavaScript
-- Project backends powered by **Supabase**
-
----
 
 *Built by [Nick Reaver](https://github.com/nreaver1)*
