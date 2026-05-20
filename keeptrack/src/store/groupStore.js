@@ -192,6 +192,43 @@ export const useGroupStore = create((set, get) => ({
     set({ groups: remaining, activeGroup: remaining[0] || null, members: [] })
   },
 
+  // ── Update group name/description (admin only) ──
+  updateGroup: async (groupId, { name, description }, userId) => {
+    set({ loading: true, error: null })
+    const { data, error } = await supabase
+      .from('groups')
+      .update({ name: name.trim(), description: description?.trim() || null })
+      .eq('id', groupId)
+      .select()
+      .single()
+
+    if (error) { set({ loading: false, error: error.message }); return null }
+
+    // Update the group in local state
+    const groups = get().groups.map(g => g.id === groupId ? { ...g, name: data.name, description: data.description } : g)
+    const activeGroup = get().activeGroup?.id === groupId
+      ? { ...get().activeGroup, name: data.name, description: data.description }
+      : get().activeGroup
+    set({ groups, activeGroup, loading: false })
+    return data
+  },
+
+  // ── Delete a group (owner only) ──
+  deleteGroup: async (groupId, userId) => {
+    set({ loading: true, error: null })
+    const { error } = await supabase.from('groups').delete().eq('id', groupId)
+    if (error) { set({ loading: false, error: error.message }); return false }
+
+    const remaining = get().groups.filter(g => g.id !== groupId)
+    set({
+      groups: remaining,
+      activeGroup: remaining[0] || null,
+      members: [],
+      loading: false,
+    })
+    return true
+  },
+
   clearError: () => set({ error: null }),
   setMembers: (members) => set({ members }),
 

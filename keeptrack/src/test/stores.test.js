@@ -356,3 +356,93 @@ describe('authStore', () => {
     expect(useAuthStore.getState().profile).toEqual(profile)
   })
 })
+
+// ─── groupStore: updateGroup and deleteGroup ──────────────────────────────────
+
+describe('groupStore: settings actions', () => {
+  beforeEach(async () => {
+    const { useGroupStore } = await import('../store/groupStore')
+    useGroupStore.setState({
+      groups: [{ id: 'g1', name: 'Old Name', description: 'Old desc', owner_id: 'u1' }],
+      activeGroup: { id: 'g1', name: 'Old Name', description: 'Old desc', owner_id: 'u1' },
+      members: [],
+      loading: false,
+      error: null,
+    })
+  })
+
+  it('updateGroup updates name and description in local state', async () => {
+    const { useGroupStore } = await import('../store/groupStore')
+    const { supabase } = await import('../lib/supabase')
+
+    const mockChain = {
+      update: vi.fn().mockReturnThis(),
+      eq: vi.fn().mockReturnThis(),
+      select: vi.fn().mockReturnThis(),
+      single: vi.fn().mockResolvedValue({
+        data: { id: 'g1', name: 'New Name', description: 'New desc' },
+        error: null,
+      }),
+    }
+    supabase.from.mockReturnValue(mockChain)
+
+    const result = await useGroupStore.getState().updateGroup('g1', { name: 'New Name', description: 'New desc' }, 'u1')
+
+    expect(result).not.toBeNull()
+    const state = useGroupStore.getState()
+    expect(state.groups[0].name).toBe('New Name')
+    expect(state.groups[0].description).toBe('New desc')
+    expect(state.activeGroup.name).toBe('New Name')
+  })
+
+  it('updateGroup returns null and sets error on failure', async () => {
+    const { useGroupStore } = await import('../store/groupStore')
+    const { supabase } = await import('../lib/supabase')
+
+    const mockChain = {
+      update: vi.fn().mockReturnThis(),
+      eq: vi.fn().mockReturnThis(),
+      select: vi.fn().mockReturnThis(),
+      single: vi.fn().mockResolvedValue({ data: null, error: { message: 'Permission denied' } }),
+    }
+    supabase.from.mockReturnValue(mockChain)
+
+    const result = await useGroupStore.getState().updateGroup('g1', { name: 'X' }, 'u1')
+    expect(result).toBeNull()
+    expect(useGroupStore.getState().error).toBe('Permission denied')
+  })
+
+  it('deleteGroup removes group from local state', async () => {
+    const { useGroupStore } = await import('../store/groupStore')
+    const { supabase } = await import('../lib/supabase')
+
+    const mockChain = {
+      delete: vi.fn().mockReturnThis(),
+      eq: vi.fn().mockResolvedValue({ error: null }),
+    }
+    supabase.from.mockReturnValue(mockChain)
+
+    const result = await useGroupStore.getState().deleteGroup('g1', 'u1')
+    expect(result).toBe(true)
+
+    const state = useGroupStore.getState()
+    expect(state.groups).toHaveLength(0)
+    expect(state.activeGroup).toBeNull()
+  })
+
+  it('deleteGroup returns false on failure', async () => {
+    const { useGroupStore } = await import('../store/groupStore')
+    const { supabase } = await import('../lib/supabase')
+
+    const mockChain = {
+      delete: vi.fn().mockReturnThis(),
+      eq: vi.fn().mockResolvedValue({ error: { message: 'RLS violation' } }),
+    }
+    supabase.from.mockReturnValue(mockChain)
+
+    const result = await useGroupStore.getState().deleteGroup('g1', 'u1')
+    expect(result).toBe(false)
+    // Group should still be in state
+    expect(useGroupStore.getState().groups).toHaveLength(1)
+  })
+})
