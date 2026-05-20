@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
-import { Plus, Users, ChevronRight, Crown, Shield } from 'lucide-react'
+import { useNavigate, Link } from 'react-router-dom'
+import { Plus, Users, ChevronRight, Crown, Shield, Link as LinkIcon } from 'lucide-react'
 import { useAuthStore } from '../../store/authStore'
 import { useGroupStore } from '../../store/groupStore'
 import CreateGroupModal from '../../components/groups/CreateGroupModal'
@@ -10,7 +10,9 @@ export default function GroupsPage() {
   const { user } = useAuthStore()
   const { groups, loading, fetchGroups, setActiveGroup } = useGroupStore()
   const navigate = useNavigate()
-  const [showCreate, setShowCreate] = useState(false)
+  const [showCreate,   setShowCreate]   = useState(false)
+  const [inviteInput,  setInviteInput]  = useState('')
+  const [showJoin,     setShowJoin]     = useState(false)
 
   useEffect(() => {
     if (user) fetchGroups(user.id)
@@ -40,12 +42,33 @@ export default function GroupsPage() {
           <div className="spinner w-8 h-8" />
         </div>
       ) : groups.length === 0 ? (
-        <div className="empty-state card">
-          <Users size={32} className="empty-state-icon" />
-          <p className="empty-state-title">No groups yet</p>
-          <p className="empty-state-desc">Create a group or join one with an invite link.</p>
-          <button onClick={() => setShowCreate(true)} className="btn-primary mt-2">
-            <Plus size={16} /> Create Group
+        <div className="flex flex-col gap-3">
+          <div className="empty-state card pb-6">
+            <Users size={32} className="empty-state-icon" />
+            <p className="empty-state-title">No groups yet</p>
+            <p className="empty-state-desc">Create a group or join one with an invite link.</p>
+          </div>
+
+          <button onClick={() => setShowCreate(true)} className="card-hover p-4 flex items-center gap-4">
+            <div className="w-10 h-10 bg-brand-500/20 rounded-xl flex items-center justify-center shrink-0">
+              <Plus size={20} className="text-brand-400" />
+            </div>
+            <div className="flex-1 text-left">
+              <p className="font-600 text-white text-sm">Create a group</p>
+              <p className="text-white/40 text-xs mt-0.5">Start a new group and invite your friends</p>
+            </div>
+            <ChevronRight size={16} className="text-white/20" />
+          </button>
+
+          <button onClick={() => setShowJoin(true)} className="card-hover p-4 flex items-center gap-4">
+            <div className="w-10 h-10 bg-purple-500/20 rounded-xl flex items-center justify-center shrink-0">
+              <LinkIcon size={20} className="text-purple-400" />
+            </div>
+            <div className="flex-1 text-left">
+              <p className="font-600 text-white text-sm">Join with an invite link</p>
+              <p className="text-white/40 text-xs mt-0.5">Paste a link someone shared with you</p>
+            </div>
+            <ChevronRight size={16} className="text-white/20" />
           </button>
         </div>
       ) : (
@@ -84,6 +107,36 @@ export default function GroupsPage() {
               <ChevronRight size={16} className="text-white/20 shrink-0" />
             </button>
           ))}
+        </div>
+      )}
+
+      {showJoin && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
+          <div className="w-full max-w-sm bg-surface-2 border border-surface-4 rounded-2xl p-5 animate-slide-up">
+            <h3 className="font-display text-xl text-white mb-1">Join a Group</h3>
+            <p className="text-white/40 text-sm mb-4">Paste the invite link or code someone shared with you.</p>
+            <input
+              className="input font-mono text-sm mb-3"
+              placeholder="https://keeptrack.gg/invite/abc123..."
+              value={inviteInput}
+              onChange={e => setInviteInput(e.target.value)}
+              autoFocus
+            />
+            <div className="flex gap-3">
+              <button onClick={() => { setShowJoin(false); setInviteInput('') }} className="btn-secondary flex-1">Cancel</button>
+              <button
+                className="btn-primary flex-1"
+                onClick={() => {
+                  const token = inviteInput.trim()
+                  if (!token) return
+                  const match = token.match(/invite\/([a-zA-Z0-9]+)/)
+                  navigate(`/invite/${match ? match[1] : token}`)
+                }}
+              >
+                Continue
+              </button>
+            </div>
+          </div>
         </div>
       )}
 

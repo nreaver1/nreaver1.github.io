@@ -6,7 +6,6 @@ import { useGroupStore } from '../../store/groupStore'
 import { useStatsStore } from '../../store/statsStore'
 import { useGameStore }  from '../../store/gameStore'
 import { buildPlayerRecords, formatStreak } from '../../lib/stats'
-import OnboardingPage from '../groups/OnboardingPage'
 import { usePageTitle } from '../../hooks/usePageTitle'
 
 export default function DashboardPage() {
@@ -32,11 +31,15 @@ export default function DashboardPage() {
   }, [games, user])
 
   const streak = myRecord ? formatStreak(myRecord.currentStreak) : null
+  const statsLoading = !myRecord && games.length === 0
 
   // Recent games (newest 5)
   const recentGames = useMemo(() => [...games].reverse().slice(0, 5), [games])
 
-  if (!groupsLoading && groups.length === 0) return <OnboardingPage />
+  if (!groupsLoading && groups.length === 0) {
+    navigate('/onboarding', { replace: true })
+    return null
+  }
 
   return (
     <div className="px-4 py-6 max-w-2xl mx-auto lg:px-6 lg:py-8 animate-fade-in">
@@ -76,23 +79,35 @@ export default function DashboardPage() {
       {/* My stats */}
       <div className="grid grid-cols-4 gap-2 mb-6">
         <div className="stat-card">
-          <span className="stat-value text-emerald-400">{myRecord?.wins ?? '—'}</span>
+          {statsLoading
+            ? <div className="h-7 w-8 bg-surface-4 rounded animate-pulse" />
+            : <span className="stat-value text-emerald-400">{myRecord?.wins ?? 0}</span>
+          }
           <span className="stat-label">Wins</span>
         </div>
         <div className="stat-card">
-          <span className="stat-value text-red-400">{myRecord?.losses ?? '—'}</span>
+          {statsLoading
+            ? <div className="h-7 w-8 bg-surface-4 rounded animate-pulse" />
+            : <span className="stat-value text-red-400">{myRecord?.losses ?? 0}</span>
+          }
           <span className="stat-label">Losses</span>
         </div>
         <div className="stat-card">
-          <span className="stat-value text-brand-400">
-            {myRecord ? `${Math.round(myRecord.winPct)}%` : '—'}
-          </span>
+          {statsLoading
+            ? <div className="h-7 w-10 bg-surface-4 rounded animate-pulse" />
+            : <span className="stat-value text-brand-400">
+                {myRecord ? `${Math.round(myRecord.winPct)}%` : '0%'}
+              </span>
+          }
           <span className="stat-label">Win %</span>
         </div>
         <div className="stat-card">
-          <span className={`stat-value ${streak?.color ?? 'text-white/30'}`}>
-            {streak?.label ?? '—'}
-          </span>
+          {statsLoading
+            ? <div className="h-7 w-8 bg-surface-4 rounded animate-pulse" />
+            : <span className={`stat-value ${streak?.color ?? 'text-white/30'}`}>
+                {streak?.label ?? '—'}
+              </span>
+          }
           <span className="stat-label">Streak</span>
         </div>
       </div>
