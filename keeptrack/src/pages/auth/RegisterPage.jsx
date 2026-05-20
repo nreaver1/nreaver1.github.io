@@ -83,9 +83,14 @@ export default function RegisterPage() {
           <div className="w-14 h-14 bg-emerald-500/20 rounded-2xl flex items-center justify-center mx-auto mb-4">
             <span className="text-3xl">🎉</span>
           </div>
-          <h2 className="font-display text-2xl text-white mb-2">You're in!</h2>
-          <p className="text-white/40 text-sm mb-6">
-            Check your email to confirm your account, then sign in.
+          <h2 className="font-display text-2xl text-white mb-2">Check your email</h2>
+          <p className="text-white/50 text-sm mb-1">
+            We sent a confirmation link to
+          </p>
+          <p className="text-white font-600 text-sm mb-4">{form.email}</p>
+          <p className="text-white/30 text-xs mb-6">
+            Click the link in the email to activate your account, then come back and sign in.
+            Check your spam folder if you don't see it.
           </p>
           <Link to="/login" className="btn-primary btn-lg w-full">Go to Sign In</Link>
         </div>

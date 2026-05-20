@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { useNavigate, useSearchParams } from 'react-router-dom'
+import { useNavigate, useSearchParams, Link } from 'react-router-dom'
 import { Trophy, Swords, History, ChevronDown, RefreshCw } from 'lucide-react'
 import { useAuthStore }  from '../../store/authStore'
 import { useGroupStore } from '../../store/groupStore'
@@ -152,6 +152,15 @@ export default function StatsPage() {
         {loading && games.length === 0 ? (
           <div className="flex justify-center py-16">
             <div className="spinner w-8 h-8" />
+          </div>
+        ) : !loading && games.length === 0 ? (
+          <div className="empty-state card py-14">
+            <Trophy size={32} className="empty-state-icon" />
+            <p className="empty-state-title">No games logged yet</p>
+            <p className="empty-state-desc">Log your first game to start building the leaderboard and tracking stats.</p>
+            <Link to="/log" className="btn-primary mt-2">
+              <PlusCircle size={16} /> Log a Game
+            </Link>
           </div>
         ) : (
           <>

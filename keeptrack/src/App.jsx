@@ -15,6 +15,7 @@ import LogGamePage         from './pages/games/LogGamePage'
 import StatsPage           from './pages/stats/StatsPage'
 import ProfilePage         from './pages/profile/ProfilePage'
 import { GamesPlaceholder } from './pages/Placeholders'
+import OnboardingPage      from './pages/groups/OnboardingPage'
 
 export default function App() {
   const initialize = useAuthStore(s => s.initialize)
@@ -36,6 +37,7 @@ export default function App() {
           }>
             <Route index                  element={<Navigate to="/dashboard" replace />} />
             <Route path="dashboard"       element={<ErrorBoundary><DashboardPage /></ErrorBoundary>} />
+            <Route path="onboarding"       element={<ErrorBoundary><OnboardingPage /></ErrorBoundary>} />
             <Route path="games"           element={<Navigate to="/stats" replace />} />
             <Route path="groups"          element={<ErrorBoundary><GroupsPage /></ErrorBoundary>} />
             <Route path="groups/:groupId" element={<ErrorBoundary><GroupDetailPage /></ErrorBoundary>} />

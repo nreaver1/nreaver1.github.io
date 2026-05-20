@@ -12,7 +12,8 @@ import { buildPlayerRecords } from '../../lib/stats'
 import MemberList       from '../../components/groups/MemberList'
 import InviteModal      from '../../components/groups/InviteModal'
 import LeaderboardTable from '../../components/stats/LeaderboardTable'
-import GameHistory      from '../../components/stats/GameHistory'
+import GameHistory         from '../../components/stats/GameHistory'
+import GroupSettingsModal from '../../components/groups/GroupSettingsModal'
 
 const TABS = ['Members', 'Leaderboard', 'Games']
 
@@ -26,8 +27,9 @@ export default function GroupDetailPage() {
 
   const [tab,         setTab]         = useState('Members')
   const [showInvite,  setShowInvite]  = useState(false)
-  const [showLeave,   setShowLeave]   = useState(false)
-  const [leaving,     setLeaving]     = useState(false)
+  const [showLeave,    setShowLeave]   = useState(false)
+  const [leaving,      setLeaving]     = useState(false)
+  const [showSettings, setShowSettings] = useState(false)
 
   const group   = groups.find(g => g.id === groupId)
   const myRole  = members.find(m => m.id === user?.id)?.role
@@ -115,8 +117,8 @@ export default function GroupDetailPage() {
           <button onClick={() => setShowInvite(true)} className="btn-secondary btn-sm">
             <LinkIcon size={13} /> Invite
           </button>
-          {isOwner && (
-            <button className="btn-secondary btn-sm">
+          {isAdmin && (
+            <button onClick={() => setShowSettings(true)} className="btn-secondary btn-sm">
               <Settings size={13} /> Settings
             </button>
           )}
@@ -169,6 +171,15 @@ export default function GroupDetailPage() {
           )
         )}
       </div>
+
+      {/* Settings modal */}
+      {showSettings && (
+        <GroupSettingsModal
+          group={group}
+          onClose={() => setShowSettings(false)}
+          onDeleted={() => navigate('/groups')}
+        />
+      )}
 
       {/* Invite modal */}
       {showInvite && (

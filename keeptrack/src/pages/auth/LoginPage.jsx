@@ -7,7 +7,8 @@ export default function LoginPage() {
   const navigate  = useNavigate()
   const location  = useLocation()
   const [searchParams] = useSearchParams()
-  const timedOut = searchParams.get('reason') === 'inactivity'
+  const timedOut  = searchParams.get('reason') === 'inactivity'
+  const sessionExp = searchParams.get('reason') === 'session_expired'
   const redirectTo = location.state?.from ?? '/dashboard'
   const [form, setForm]       = useState({ email: '', password: '' })
   const [mfaCode, setMfaCode] = useState('')
@@ -96,6 +97,13 @@ export default function LoginPage() {
           <div className="flex items-center gap-2 bg-amber-500/10 border border-amber-500/30 rounded-xl px-4 py-3 mb-4 animate-slide-down">
             <Clock size={15} className="text-amber-400 shrink-0" />
             <p className="text-amber-300 text-sm">You were signed out after 30 minutes of inactivity.</p>
+          </div>
+        )}
+
+        {sessionExp && (
+          <div className="flex items-center gap-2 bg-amber-500/10 border border-amber-500/30 rounded-xl px-4 py-3 mb-4 animate-slide-down">
+            <Clock size={15} className="text-amber-400 shrink-0" />
+            <p className="text-amber-300 text-sm">Your session expired after 7 days. Please sign in again.</p>
           </div>
         )}
 

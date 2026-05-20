@@ -32,32 +32,59 @@ export const supabase = createClient(supabaseUrl, supabaseAnon, {
   },
 })
 
-// ── Inactivity timeout ────────────────────────────────────────
-// NIST SP 800-63B / OWASP standard: sign out after 30 min of no
-// user interaction. "Activity" = mouse, keyboard, touch, scroll.
-const INACTIVITY_MS = 30 * 60 * 1000 // 30 minutes
+// ── Session timeouts ─────────────────────────────────────────
+// Inactivity: sign out after 30 min of no user interaction (NIST SP 800-63B)
+// Hard cap:   sign out after 7 days regardless of activity
+const INACTIVITY_MS   = 30 * 60 * 1000       // 30 minutes
+const SESSION_MAX_MS  = 7 * 24 * 60 * 60 * 1000 // 7 days
+const SESSION_START_KEY = 'kt_session_start'
+
 let inactivityTimer = null
+let hardCapTimer    = null
+
+const signOutWithReason = async (reason) => {
+  const { data: { session } } = await supabase.auth.getSession()
+  if (session) {
+    await supabase.auth.signOut()
+    window.location.href = `/login?reason=${reason}`
+  }
+}
 
 const resetInactivityTimer = () => {
   clearTimeout(inactivityTimer)
-  inactivityTimer = setTimeout(async () => {
-    const { data: { session } } = await supabase.auth.getSession()
-    if (session) {
-      await supabase.auth.signOut()
-      // Redirect to login with a notice
-      window.location.href = '/login?reason=inactivity'
-    }
-  }, INACTIVITY_MS)
+  inactivityTimer = setTimeout(() => signOutWithReason('inactivity'), INACTIVITY_MS)
+}
+
+const startHardCapTimer = () => {
+  clearTimeout(hardCapTimer)
+  const sessionStart = parseInt(localStorage.getItem(SESSION_START_KEY) ?? '0', 10)
+  const now = Date.now()
+  const elapsed = now - sessionStart
+  const remaining = SESSION_MAX_MS - elapsed
+
+  if (remaining <= 0) {
+    // Already exceeded 7 days — sign out immediately
+    signOutWithReason('session_expired')
+    return
+  }
+  hardCapTimer = setTimeout(() => signOutWithReason('session_expired'), remaining)
 }
 
 const ACTIVITY_EVENTS = ['mousedown', 'mousemove', 'keydown', 'touchstart', 'scroll', 'click']
 
 export const startInactivityWatcher = () => {
+  // Record session start time if not already set
+  if (!localStorage.getItem(SESSION_START_KEY)) {
+    localStorage.setItem(SESSION_START_KEY, Date.now().toString())
+  }
   ACTIVITY_EVENTS.forEach(e => window.addEventListener(e, resetInactivityTimer, { passive: true }))
-  resetInactivityTimer() // start the clock immediately
+  resetInactivityTimer()
+  startHardCapTimer()
 }
 
 export const stopInactivityWatcher = () => {
   clearTimeout(inactivityTimer)
+  clearTimeout(hardCapTimer)
+  localStorage.removeItem(SESSION_START_KEY)
   ACTIVITY_EVENTS.forEach(e => window.removeEventListener(e, resetInactivityTimer))
 }
