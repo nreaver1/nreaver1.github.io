@@ -5,14 +5,15 @@ import { useAuthStore }  from '../../store/authStore'
 import { useGroupStore } from '../../store/groupStore'
 import { useStatsStore } from '../../store/statsStore'
 import { useGameStore }  from '../../store/gameStore'
-import { buildPlayerRecords, formatStreak } from '../../lib/stats'
+import { buildPlayerRecords, formatStreak }  from '../../lib/stats'
+import ActivityFeed from '../../components/stats/ActivityFeed'
 import { usePageTitle } from '../../hooks/usePageTitle'
 
 export default function DashboardPage() {
   usePageTitle('Dashboard')
   const { user, profile }  = useAuthStore()
   const { groups, loading: groupsLoading, fetchGroups, setActiveGroup, activeGroup } = useGroupStore()
-  const { games, fetchAllGames, invalidate } = useStatsStore()
+  const { games, fetchAllGames, invalidate, activity, activityLoading, fetchActivity } = useStatsStore()
   const { gameTypes, fetchGameTypes } = useGameStore()
   const navigate = useNavigate()
 
@@ -20,7 +21,7 @@ export default function DashboardPage() {
 
   useEffect(() => { if (user) fetchGroups(user.id) }, [user])
   useEffect(() => {
-    if (group) { fetchAllGames(group.id); fetchGameTypes(group.id) }
+    if (group) { fetchAllGames(group.id); fetchGameTypes(group.id); fetchActivity(group.id) }
   }, [group?.id])
 
   // My stats in the active group

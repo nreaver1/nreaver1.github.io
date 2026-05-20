@@ -95,8 +95,8 @@ export default function HeadToHead({ games, players, gameTypes }) {
             <div className="flex items-center justify-between gap-4">
               {/* Player A */}
               <div className="flex-1 text-center">
-                <div className="w-12 h-12 rounded-full bg-brand-500/20 border border-brand-500/30 flex items-center justify-center font-display text-xl text-brand-400 mx-auto mb-2">
-                  {pA?.username[0].toUpperCase()}
+                <div className="mx-auto mb-2 flex justify-center">
+                  <Avatar username={pA?.username} avatarUrl={pA?.avatar_url} size="lg" />
                 </div>
                 <p className="font-600 text-white text-sm truncate">{pA?.username}</p>
                 <p className="font-display text-4xl text-white mt-1">{result.aWins}</p>
@@ -115,8 +115,8 @@ export default function HeadToHead({ games, players, gameTypes }) {
 
               {/* Player B */}
               <div className="flex-1 text-center">
-                <div className="w-12 h-12 rounded-full bg-purple-500/20 border border-purple-500/30 flex items-center justify-center font-display text-xl text-purple-400 mx-auto mb-2">
-                  {pB?.username[0].toUpperCase()}
+                <div className="mx-auto mb-2 flex justify-center">
+                  <Avatar username={pB?.username} avatarUrl={pB?.avatar_url} size="lg" />
                 </div>
                 <p className="font-600 text-white text-sm truncate">{pB?.username}</p>
                 <p className="font-display text-4xl text-white mt-1">{result.bWins}</p>

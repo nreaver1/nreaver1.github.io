@@ -1,5 +1,5 @@
 import { useEffect, useState, useMemo } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom'
 import {
   Users, Link as LinkIcon, Trophy, Settings,
   LogOut, ChevronLeft, Crown, Shield
@@ -13,19 +13,24 @@ import MemberList       from '../../components/groups/MemberList'
 import InviteModal      from '../../components/groups/InviteModal'
 import LeaderboardTable from '../../components/stats/LeaderboardTable'
 import GameHistory         from '../../components/stats/GameHistory'
+import ActivityFeed       from '../../components/stats/ActivityFeed'
 import GroupSettingsModal from '../../components/groups/GroupSettingsModal'
 
-const TABS = ['Members', 'Leaderboard', 'Games']
+const TABS = ['Members', 'Leaderboard', 'Games', 'Activity']
 
 export default function GroupDetailPage() {
   const { groupId } = useParams()
   const navigate    = useNavigate()
   const { user }    = useAuthStore()
   const { groups, members, loading: groupsLoading, fetchGroups, fetchMembers, setMembers, leaveGroup } = useGroupStore()
-  const { games, loading: statsLoading, fetchAllGames, invalidate } = useStatsStore()
+  const { games, loading: statsLoading, fetchAllGames, invalidate, activity, activityLoading, fetchActivity } = useStatsStore()
   const { fetchGameTypes } = useGameStore()
 
-  const [tab,         setTab]         = useState('Members')
+  const [searchParams] = useSearchParams()
+  const [tab,         setTab]         = useState(() => {
+    const t = searchParams.get('tab')
+    return TABS.includes(t) ? t : 'Members'
+  })
   const [showInvite,  setShowInvite]  = useState(false)
   const [showLeave,    setShowLeave]   = useState(false)
   const [leaving,      setLeaving]     = useState(false)
@@ -46,6 +51,7 @@ export default function GroupDetailPage() {
       fetchMembers(groupId)
       fetchAllGames(groupId)
       fetchGameTypes(groupId)
+      fetchActivity(groupId)
     }
   }, [groupId])
 
