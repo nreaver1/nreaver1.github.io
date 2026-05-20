@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { Trophy, Swords, History, ChevronDown, RefreshCw } from 'lucide-react'
 import { useAuthStore }  from '../../store/authStore'
 import { useGroupStore } from '../../store/groupStore'
@@ -25,8 +25,9 @@ export default function StatsPage() {
   const { games, loading, fetchAllGames, invalidate } = useStatsStore()
   const { gameTypes, fetchGameTypes } = useGameStore()
 
-  const [tab,         setTab]         = useState('leaderboard')
-  const [filterType,  setFilterType]  = useState(null)
+  const [searchParams] = useSearchParams()
+  const [tab,          setTab]          = useState(() => searchParams.get('tab') ?? 'leaderboard')
+  const [filterType,   setFilterType]   = useState(null)
   const [selectedGroup, setSelectedGroup] = useState(null)
 
   const group = selectedGroup ?? activeGroup ?? groups[0]
@@ -86,6 +87,7 @@ export default function StatsPage() {
                   onChange={e => {
                     const g = groups.find(g => g.id === e.target.value)
                     setSelectedGroup(g)
+                    setFilterType(null)
                     invalidate()
                   }}
                   className="input appearance-none pr-8 py-2 text-sm cursor-pointer"

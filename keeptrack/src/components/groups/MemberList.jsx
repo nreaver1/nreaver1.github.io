@@ -25,9 +25,10 @@ export default function MemberList({ group }) {
   const isOwner  = group.owner_id === user?.id
 
   const handleRemove = async (member) => {
+    const username = member.username // capture before clearing state
     setConfirmAction(null)
     await removeMember(group.id, member.id, user.id)
-    toast.success(`${confirmAction.member.username} removed from group.`)
+    toast.success(`${username} removed from group.`)
   }
 
   const handleRoleToggle = async (member) => {
@@ -38,9 +39,10 @@ export default function MemberList({ group }) {
   }
 
   const handleTransfer = async (member) => {
+    const username = member.username // capture before clearing state
     setConfirmAction(null)
     await transferOwnership(group.id, member.id, user.id)
-    toast.success(`Ownership transferred to ${confirmAction.member.username}.`)
+    toast.success(`Ownership transferred to ${username}.`)
   }
 
   return (

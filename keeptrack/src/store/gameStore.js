@@ -62,6 +62,11 @@ export const useGameStore = create((set, get) => ({
 
     if (gameError) { set({ loading: false, error: gameError.message }); return null }
 
+    // Helper to clean up orphaned game row if any subsequent insert fails
+    const rollback = async () => {
+      await supabase.from('games').delete().eq('id', game.id)
+    }
+
     // 2. Insert each team and its participants
     for (const team of teams) {
       const { data: gameTeam, error: teamError } = await supabase
@@ -75,7 +80,11 @@ export const useGameStore = create((set, get) => ({
         .select()
         .single()
 
-      if (teamError) { set({ loading: false, error: teamError.message }); return null }
+      if (teamError) {
+        await rollback()
+        set({ loading: false, error: teamError.message })
+        return null
+      }
 
       // 3. Insert participants for this team
       const participants = team.playerIds.map(userId => ({
@@ -88,7 +97,11 @@ export const useGameStore = create((set, get) => ({
         .from('game_participants')
         .insert(participants)
 
-      if (partError) { set({ loading: false, error: partError.message }); return null }
+      if (partError) {
+        await rollback()
+        set({ loading: false, error: partError.message })
+        return null
+      }
     }
 
     set({ loading: false })
@@ -128,16 +141,24 @@ export const useGameStore = create((set, get) => ({
       .eq('id', gameId)
       .single()
 
-    await supabase.from('audit_log').insert({
+    // Best-effort audit log — don't block deletion if this fails
+    const { error: auditError } = await supabase.from('audit_log').insert({
       action:        'delete',
       table_name:    'games',
       record_id:     gameId,
       changed_by:    deletedBy,
       previous_data: snapshot,
     })
+    if (auditError) console.error('audit_log insert failed:', auditError.message)
 
-    await supabase.from('games').delete().eq('id', gameId)
+    const { error: deleteError } = await supabase.from('games').delete().eq('id', gameId)
+    if (deleteError) {
+      console.error('deleteGame failed:', deleteError.message)
+      return { error: deleteError.message }
+    }
+
     await get().fetchRecentGames(groupId)
+    return { success: true }
   },
 
   clearError: () => set({ error: null }),

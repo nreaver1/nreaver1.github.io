@@ -44,6 +44,7 @@ export const useGroupStore = create((set, get) => ({
 
   // ── Fetch members for a group ──
   fetchMembers: async (groupId) => {
+    set({ members: [] }) // clear stale members immediately
     const { data, error } = await supabase
       .from('group_members')
       .select(`
@@ -192,4 +193,6 @@ export const useGroupStore = create((set, get) => ({
   },
 
   clearError: () => set({ error: null }),
+  setMembers: (members) => set({ members }),
+
 }))

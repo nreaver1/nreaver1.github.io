@@ -31,8 +31,12 @@ export const useStatsStore = create((set, get) => ({
       .eq('group_id', groupId)
       .order('played_at', { ascending: true }) // oldest first for streak calc
 
-    if (!error) set({ games: data ?? [], loadedGroupId: groupId })
-    set({ loading: false })
+    if (error) {
+      console.error('fetchAllGames error:', error.message)
+      set({ loading: false })
+      return
+    }
+    set({ games: data ?? [], loadedGroupId: groupId, loading: false })
   },
 
   // ── Force refresh (called after a new game is logged) ──
