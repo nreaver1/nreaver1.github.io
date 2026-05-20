@@ -57,11 +57,19 @@ export default function RegisterPage() {
 
     // Create profile row
     if (data.user) {
-      await supabase.from('profiles').insert({
+      const { error: profileError } = await supabase.from('profiles').insert({
         id:       data.user.id,
         username: form.username,
         email:    form.email,
       })
+
+      if (profileError) {
+        // Auth user was created but profile failed — sign them out and show error
+        await supabase.auth.signOut()
+        setError('Account created but profile setup failed. Please try again or contact support.')
+        setLoading(false)
+        return
+      }
     }
 
     setLoading(false)

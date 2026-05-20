@@ -20,8 +20,8 @@ export default function GroupDetailPage() {
   const { groupId } = useParams()
   const navigate    = useNavigate()
   const { user }    = useAuthStore()
-  const { groups, members, fetchGroups, fetchMembers, leaveGroup } = useGroupStore()
-  const { games, loading: statsLoading, fetchAllGames } = useStatsStore()
+  const { groups, members, loading: groupsLoading, fetchGroups, fetchMembers, setMembers, leaveGroup } = useGroupStore()
+  const { games, loading: statsLoading, fetchAllGames, invalidate } = useStatsStore()
   const { fetchGameTypes } = useGameStore()
 
   const [tab,         setTab]         = useState('Members')
@@ -40,6 +40,7 @@ export default function GroupDetailPage() {
 
   useEffect(() => {
     if (groupId) {
+      invalidate()
       fetchMembers(groupId)
       fetchAllGames(groupId)
       fetchGameTypes(groupId)
@@ -59,9 +60,18 @@ export default function GroupDetailPage() {
   }
 
   if (!group) {
+    if (groupsLoading) {
+      return (
+        <div className="flex items-center justify-center py-24">
+          <div className="spinner w-8 h-8" />
+        </div>
+      )
+    }
     return (
-      <div className="flex items-center justify-center py-24">
-        <div className="spinner w-8 h-8" />
+      <div className="flex flex-col items-center justify-center py-24 px-4 text-center">
+        <p className="empty-state-title">Group not found</p>
+        <p className="empty-state-desc mb-4">This group may have been deleted or you no longer have access.</p>
+        <button onClick={() => navigate('/groups')} className="btn-primary">Back to Groups</button>
       </div>
     )
   }
