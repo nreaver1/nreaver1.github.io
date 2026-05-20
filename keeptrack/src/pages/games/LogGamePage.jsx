@@ -85,7 +85,6 @@ export default function LogGamePage() {
 
     if (result) {
       invalidate()
-      toast.success('Game logged successfully!')
       setSuccessGameId(result.id)
     }
   }
@@ -117,12 +116,22 @@ export default function LogGamePage() {
         </p>
         <div className="flex flex-col gap-3 w-full max-w-xs">
           <button
-            onClick={() => { setStep(0); setSelectedGame(null); setPlayerData(null); setResultData(null); setSuccessGameId(null) }}
+            onClick={() => {
+              toast.success('Game logged!')
+              setStep(0); setSelectedGame(null); setPlayerData(null); setResultData(null); setSuccessGameId(null)
+              window.scrollTo(0, 0)
+            }}
             className="btn-primary btn-lg w-full"
           >
             Log Another Game
           </button>
-          <button onClick={() => navigate('/dashboard')} className="btn-secondary btn-lg w-full">
+          <button
+            onClick={() => {
+              toast.success('Game logged!')
+              navigate('/dashboard')
+            }}
+            className="btn-secondary btn-lg w-full"
+          >
             Back to Dashboard
           </button>
         </div>
@@ -131,7 +140,7 @@ export default function LogGamePage() {
   }
 
   return (
-    <div className="flex flex-col h-full max-w-lg mx-auto">
+    <div className="flex flex-col h-full max-w-lg mx-auto pb-safe">
       {/* Header */}
       <div className="flex items-center gap-3 px-4 py-4 border-b border-surface-3 shrink-0">
         <button onClick={goBack} className="btn-icon btn-ghost shrink-0">
@@ -169,7 +178,7 @@ export default function LogGamePage() {
       </div>
 
       {/* Step content */}
-      <div className="flex-1 overflow-hidden flex flex-col">
+      <div className="flex-1 overflow-y-auto flex flex-col">
         {step === 0 && (
           <StepPickGame
             gameTypes={gameTypes}

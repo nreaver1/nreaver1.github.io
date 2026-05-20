@@ -98,10 +98,7 @@ export default function LeaderboardTable({ records, onPlayerClick }) {
                 {/* Player */}
                 <td className="px-3 py-3">
                   <div className="flex items-center gap-2.5">
-                    <div className={`w-8 h-8 rounded-full border flex items-center justify-center font-display text-sm shrink-0
-                      ${isTop ? 'bg-brand-500/20 border-brand-500/40 text-brand-400' : 'bg-surface-4 border-surface-5 text-white/50'}`}>
-                      {rec.username[0].toUpperCase()}
-                    </div>
+                    <Avatar username={rec.username} avatarUrl={rec.avatar} size="sm" />
                     <span className={`font-600 truncate ${isTop ? 'text-white' : 'text-white/80'}`}>
                       {rec.username}
                     </span>

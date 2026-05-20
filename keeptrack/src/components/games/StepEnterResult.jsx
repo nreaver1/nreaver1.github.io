@@ -66,7 +66,7 @@ export default function StepEnterResult({ teams, isTeamMode, gameType, onConfirm
 
   return (
     <div className="flex flex-col h-full">
-      <div className="flex-1 overflow-y-auto px-4 pb-4">
+      <div className="flex-1 overflow-y-auto px-4 pb-6">
 
         {/* Draw toggle */}
         {allowsDraws && (
@@ -168,13 +168,13 @@ export default function StepEnterResult({ teams, isTeamMode, gameType, onConfirm
                       Score
                     </label>
                     <input
-                      type="number"
-                      inputMode="numeric"
-                      min="0"
+                      type="text"
+                      inputMode="decimal"
+                      pattern="[0-9]*"
                       placeholder="0"
                       value={scores[team.key] ?? ''}
-                      onChange={e => setScores(s => ({ ...s, [team.key]: e.target.value }))}
-                      className={`w-full bg-black/20 border rounded-lg px-3 py-2 text-white text-sm font-mono
+                      onChange={e => setScores(s => ({ ...s, [team.key]: e.target.value.replace(/[^0-9.]/g, '') }))}
+                      className={`w-full bg-black/20 border rounded-lg px-3 py-2.5 text-white text-sm font-mono
                         placeholder-white/20 focus:outline-none focus:ring-1 focus:ring-white/20
                         ${isWinner && !isDraw ? 'border-white/20' : color.border}`}
                     />

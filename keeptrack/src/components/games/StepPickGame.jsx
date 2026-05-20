@@ -50,7 +50,6 @@ export default function StepPickGame({ gameTypes, onSelect, onCreateCustom }) {
             placeholder="Search games..."
             value={search}
             onChange={e => setSearch(e.target.value)}
-            autoFocus
           />
         </div>
       </div>

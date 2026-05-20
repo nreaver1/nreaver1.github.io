@@ -3,10 +3,15 @@ import { Trophy, Minus, Calendar, FileText, CheckCircle } from 'lucide-react'
 
 export default function StepConfirm({ gameType, teams, isTeamMode, isDrawn, members, onConfirm, loading }) {
   const [notes,     setNotes]     = useState('')
-  const [playedAt,  setPlayedAt]  = useState(() => {
+  const [playedDate, setPlayedDate] = useState(() => {
     const now = new Date()
     now.setMinutes(now.getMinutes() - now.getTimezoneOffset())
-    return now.toISOString().slice(0, 16)
+    return now.toISOString().slice(0, 10)
+  })
+  const [playedTime, setPlayedTime] = useState(() => {
+    const now = new Date()
+    now.setMinutes(now.getMinutes() - now.getTimezoneOffset())
+    return now.toISOString().slice(11, 16)
   })
 
   const winners = teams.filter(t => t.isWinner)
@@ -14,7 +19,7 @@ export default function StepConfirm({ gameType, teams, isTeamMode, isDrawn, memb
 
   return (
     <div className="flex flex-col h-full">
-      <div className="flex-1 overflow-y-auto px-4 pb-4">
+      <div className="flex-1 overflow-y-auto px-4 pb-6">
 
         {/* Game name */}
         <div className="card p-4 mb-4 text-center">
@@ -86,13 +91,21 @@ export default function StepConfirm({ gameType, teams, isTeamMode, isDrawn, memb
           <label className="input-label flex items-center gap-1.5">
             <Calendar size={12} /> Date & Time Played
           </label>
-          <input
-            type="datetime-local"
-            className="input"
-            value={playedAt}
-            onChange={e => setPlayedAt(e.target.value)}
-          />
-          <p className="text-white/25 text-xs mt-1">You can backdate this if you forgot to log it earlier.</p>
+          <div className="flex gap-2">
+            <input
+              type="date"
+              className="input flex-1"
+              value={playedDate}
+              onChange={e => setPlayedDate(e.target.value)}
+            />
+            <input
+              type="time"
+              className="input w-32"
+              value={playedTime}
+              onChange={e => setPlayedTime(e.target.value)}
+            />
+          </div>
+          <p className="text-white/25 text-xs mt-1">Backdate this if you forgot to log it earlier.</p>
         </div>
 
         {/* Notes */}
@@ -115,7 +128,7 @@ export default function StepConfirm({ gameType, teams, isTeamMode, isDrawn, memb
       {/* Save */}
       <div className="px-4 pb-4 pt-2 border-t border-surface-3 shrink-0">
         <button
-          onClick={() => onConfirm({ notes, playedAt: new Date(playedAt).toISOString() })}
+          onClick={() => onConfirm({ notes, playedAt: new Date(`${playedDate}T${playedTime}`).toISOString() })}
           className="btn-primary btn-lg w-full"
           disabled={loading}
         >

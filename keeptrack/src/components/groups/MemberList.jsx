@@ -3,15 +3,7 @@ import { Crown, Shield, MoreVertical, UserMinus, ArrowUpDown, ArrowRightLeft } f
 import { useAuthStore } from '../../store/authStore'
 import { useToast } from '../../components/ui/Toast'
 import { useGroupStore } from '../../store/groupStore'
-
-function Avatar({ username, size = 'md' }) {
-  const s = size === 'sm' ? 'w-8 h-8 text-sm' : 'w-10 h-10 text-base'
-  return (
-    <div className={`${s} rounded-full bg-surface-4 border border-surface-5 flex items-center justify-center font-display text-white/60 shrink-0`}>
-      {username?.[0]?.toUpperCase()}
-    </div>
-  )
-}
+import Avatar from '../ui/Avatar'
 
 export default function MemberList({ group }) {
   const { user } = useAuthStore()
@@ -54,7 +46,7 @@ export default function MemberList({ group }) {
 
         return (
           <div key={member.id} className="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-surface-3 transition-colors group">
-            <Avatar username={member.username} />
+            <Avatar username={member.username} avatarUrl={member.avatar_url} />
 
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2">

@@ -138,7 +138,7 @@ export default function StepSelectPlayers({ members, gameType, onConfirm }) {
 
   return (
     <div className="flex flex-col h-full">
-      <div className="flex-1 overflow-y-auto px-4 pb-4">
+      <div className="flex-1 overflow-y-auto px-4 pb-6">
 
         {/* Mode toggle */}
         <div className="flex items-center gap-3 mb-4">

@@ -9,8 +9,9 @@ import { useStatsStore } from '../../store/statsStore'
 import { supabase }      from '../../lib/supabase'
 import { buildPlayerRecords, formatStreak, fmtPct } from '../../lib/stats'
 import { useToast }      from '../../components/ui/Toast'
-import { usePageTitle }  from '../../hooks/usePageTitle'
-import { ProfileSkeleton } from '../../components/ui/Skeleton'
+import { usePageTitle }   from '../../hooks/usePageTitle'
+import { ProfileSkeleton }  from '../../components/ui/Skeleton'
+import AvatarUpload         from '../../components/ui/AvatarUpload'
 
 // ── MFA Section ───────────────────────────────────────────────
 function MFASection() {
@@ -278,21 +279,23 @@ export default function ProfilePage() {
 
       {/* Avatar + name */}
       <div className="flex items-center gap-4 mb-6">
-        <div className="relative">
+        <div className="relative shrink-0">
           {profile?.avatar_url ? (
             <img
               src={profile.avatar_url}
               alt={profile.username}
               className="w-16 h-16 rounded-2xl object-cover border border-surface-4"
-              onError={e => { e.target.style.display = 'none' }}
+              onError={e => {
+                e.currentTarget.style.display = 'none'
+                e.currentTarget.nextElementSibling?.style.removeProperty('display')
+              }}
             />
-          ) : (
-            <div className="w-16 h-16 rounded-2xl bg-brand-500/20 border border-brand-500/30 flex items-center justify-center">
-              <span className="font-display text-3xl text-brand-400">
-                {profile?.username?.[0]?.toUpperCase()}
-              </span>
-            </div>
-          )}
+          ) : null}
+          <div className={`w-16 h-16 rounded-2xl bg-brand-500/20 border border-brand-500/30 flex items-center justify-center ${profile?.avatar_url ? 'hidden' : ''}`}>
+            <span className="font-display text-3xl text-brand-400">
+              {profile?.username?.[0]?.toUpperCase()}
+            </span>
+          </div>
         </div>
         <div className="flex-1 min-w-0">
           <h1 className="font-display text-3xl text-white truncate">{profile?.username}</h1>
@@ -314,6 +317,17 @@ export default function ProfilePage() {
         <div className="card p-5 mb-5 animate-slide-down">
           <h2 className="font-display text-lg text-white mb-4">Edit Profile</h2>
           <div className="flex flex-col gap-4">
+
+            {/* Avatar upload */}
+            <AvatarUpload
+              userId={user?.id}
+              currentUrl={avatarUrl}
+              username={username}
+              onUpload={url => setAvatarUrl(url ?? '')}
+            />
+
+            <div className="divider" />
+
             <div>
               <label className="input-label"><User size={11} className="inline mr-1" />Username</label>
               <input
@@ -321,19 +335,9 @@ export default function ProfilePage() {
                 value={username}
                 onChange={e => setUsername(e.target.value.toLowerCase().replace(/\s/g, ''))}
                 maxLength={30}
-                autoFocus
               />
             </div>
-            <div>
-              <label className="input-label"><Camera size={11} className="inline mr-1" />Avatar URL <span className="text-white/20 normal-case tracking-normal font-normal">(optional)</span></label>
-              <input
-                className="input"
-                placeholder="https://example.com/avatar.jpg"
-                value={avatarUrl}
-                onChange={e => setAvatarUrl(e.target.value)}
-              />
-              <p className="text-white/25 text-xs mt-1">Paste a link to any image. Leave blank to use your initials.</p>
-            </div>
+
             <button onClick={handleSave} className="btn-primary w-full" disabled={saving}>
               {saving ? <span className="spinner" /> : <><Save size={15} /> Save Changes</>}
             </button>

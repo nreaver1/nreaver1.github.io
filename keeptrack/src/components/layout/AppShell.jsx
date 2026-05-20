@@ -15,6 +15,7 @@ const NAV_ITEMS = [
 export default function AppShell() {
   const { profile } = useAuthStore()
   const location = useLocation()
+  const hideHeader = ['/log', '/onboarding'].some(p => location.pathname.startsWith(p))
 
   return (
     <div className="flex h-[100dvh] bg-surface-0 overflow-hidden">
@@ -73,8 +74,8 @@ export default function AppShell() {
 
       {/* ── Main content ── */}
       <main className="flex-1 flex flex-col overflow-hidden">
-        {/* Mobile header */}
-        <header className="lg:hidden flex items-center justify-between px-4 pt-safe-top pb-3 pt-4 bg-surface-1 border-b border-surface-3 shrink-0">
+        {/* Mobile header — hidden on full-screen wizard pages */}
+        <header className={`lg:hidden flex items-center justify-between px-4 pt-safe-top pb-3 pt-4 bg-surface-1 border-b border-surface-3 shrink-0 ${hideHeader ? 'hidden' : ''}`}>
           <div className="flex items-center gap-2.5">
             <div className="w-7 h-7 bg-brand-500 rounded-lg flex items-center justify-center">
               <Crown size={14} className="text-white" />
@@ -89,7 +90,7 @@ export default function AppShell() {
         </header>
 
         {/* Scrollable page content */}
-        <div className="flex-1 overflow-y-auto">
+        <div className={`flex-1 overflow-y-auto ${hideHeader ? '' : 'pb-[calc(5rem+env(safe-area-inset-bottom))] lg:pb-0'}`}>
           <Outlet />
         </div>
 

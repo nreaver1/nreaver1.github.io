@@ -73,7 +73,7 @@ export function ToastContainer() {
   return (
     <>
       {/* Mobile — bottom, above tab bar */}
-      <div className="lg:hidden fixed bottom-20 left-0 right-0 z-[100] flex flex-col gap-2 items-center px-4 pointer-events-none">
+      <div className="lg:hidden fixed bottom-[calc(5rem+env(safe-area-inset-bottom))] left-0 right-0 z-[200] flex flex-col gap-2 items-center px-4 pointer-events-none">
         {[...toasts].reverse().map(t => (
           <div key={t.id} className="pointer-events-auto w-full max-w-sm">
             <ToastItem toast={t} />
@@ -82,7 +82,7 @@ export function ToastContainer() {
       </div>
 
       {/* Desktop — top right */}
-      <div className="hidden lg:flex fixed top-4 right-4 z-[100] flex-col gap-2 items-end pointer-events-none">
+      <div className="hidden lg:flex fixed top-4 right-4 z-[200] flex-col gap-2 items-end pointer-events-none">
         {toasts.map(t => (
           <div key={t.id} className="pointer-events-auto">
             <ToastItem toast={t} />
