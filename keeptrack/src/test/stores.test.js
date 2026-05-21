@@ -446,3 +446,129 @@ describe('groupStore: settings actions', () => {
     expect(useGroupStore.getState().groups).toHaveLength(1)
   })
 })
+
+// ─── groupStore: delete cascade edge cases ────────────────────────────────────
+
+describe('groupStore: delete cascade safety', () => {
+  beforeEach(async () => {
+    const { useGroupStore } = await import('../store/groupStore')
+    useGroupStore.setState({
+      groups: [
+        { id: 'g1', name: 'Group One', owner_id: 'u1' },
+        { id: 'g2', name: 'Group Two', owner_id: 'u1' },
+      ],
+      activeGroup: { id: 'g1', name: 'Group One', owner_id: 'u1' },
+      members: [],
+      loading: false,
+      error: null,
+    })
+  })
+
+  it('deleteGroup sets activeGroup to remaining group, not null', async () => {
+    const { useGroupStore } = await import('../store/groupStore')
+    const { supabase } = await import('../lib/supabase')
+
+    const mockChain = {
+      delete: vi.fn().mockReturnThis(),
+      eq: vi.fn().mockResolvedValue({ error: null }),
+    }
+    supabase.from.mockReturnValue(mockChain)
+
+    await useGroupStore.getState().deleteGroup('g1', 'u1')
+
+    const state = useGroupStore.getState()
+    expect(state.groups).toHaveLength(1)
+    expect(state.groups[0].id).toBe('g2')
+    // Active group should fall back to remaining group, not null
+    expect(state.activeGroup?.id).toBe('g2')
+  })
+
+  it('deleteGroup sets activeGroup to null when last group deleted', async () => {
+    const { useGroupStore } = await import('../store/groupStore')
+    const { supabase } = await import('../lib/supabase')
+
+    // Set up with only one group
+    useGroupStore.setState({
+      groups: [{ id: 'g1', name: 'Group One', owner_id: 'u1' }],
+      activeGroup: { id: 'g1', name: 'Group One', owner_id: 'u1' },
+    })
+
+    const mockChain = {
+      delete: vi.fn().mockReturnThis(),
+      eq: vi.fn().mockResolvedValue({ error: null }),
+    }
+    supabase.from.mockReturnValue(mockChain)
+
+    await useGroupStore.getState().deleteGroup('g1', 'u1')
+
+    const state = useGroupStore.getState()
+    expect(state.groups).toHaveLength(0)
+    expect(state.activeGroup).toBeNull()
+  })
+
+  it('deleteGroup clears members state', async () => {
+    const { useGroupStore } = await import('../store/groupStore')
+    const { supabase } = await import('../lib/supabase')
+
+    useGroupStore.setState({
+      members: [{ id: 'u2', username: 'alice' }, { id: 'u3', username: 'bob' }],
+    })
+
+    const mockChain = {
+      delete: vi.fn().mockReturnThis(),
+      eq: vi.fn().mockResolvedValue({ error: null }),
+    }
+    supabase.from.mockReturnValue(mockChain)
+
+    await useGroupStore.getState().deleteGroup('g1', 'u1')
+    expect(useGroupStore.getState().members).toHaveLength(0)
+  })
+
+  it('buildPlayerRecords handles null game_types gracefully', async () => {
+    const { buildPlayerRecords } = await import('../lib/stats')
+
+    // Simulate a game where game_type was deleted (SET NULL from cascade)
+    const games = [{
+      id: 'g1',
+      is_draw: false,
+      played_at: new Date().toISOString(),
+      game_types: null, // ← this is what SET NULL produces
+      game_teams: [{
+        id: 't1',
+        is_winner: true,
+        score: null,
+        game_participants: [{ user_id: 'u1', profiles: { id: 'u1', username: 'alice', avatar_url: null } }],
+      }, {
+        id: 't2',
+        is_winner: false,
+        score: null,
+        game_participants: [{ user_id: 'u2', profiles: { id: 'u2', username: 'bob', avatar_url: null } }],
+      }],
+    }]
+
+    // Should not throw, should still count wins/losses
+    expect(() => buildPlayerRecords(games)).not.toThrow()
+    const records = buildPlayerRecords(games)
+    expect(records['u1'].wins).toBe(1)
+    expect(records['u2'].losses).toBe(1)
+  })
+
+  it('buildPlayerRecords filterGameTypeId ignores games with null game_types', async () => {
+    const { buildPlayerRecords } = await import('../lib/stats')
+
+    const games = [{
+      id: 'g1',
+      is_draw: false,
+      played_at: new Date().toISOString(),
+      game_types: null, // deleted game type
+      game_teams: [{
+        id: 't1', is_winner: true, score: null,
+        game_participants: [{ user_id: 'u1', profiles: { id: 'u1', username: 'alice', avatar_url: null } }],
+      }],
+    }]
+
+    // Filtering by a specific game type should skip null-type games
+    const records = buildPlayerRecords(games, 'some-type-id')
+    expect(Object.keys(records)).toHaveLength(0)
+  })
+})

@@ -48,7 +48,9 @@ export const useStatsStore = create((set, get) => ({
     if (get().activityGroupId === groupId) return
     set({ activityLoading: true })
 
-    const [gamesRes, membersRes] = await Promise.all([
+    let gamesRes, membersRes
+    try {
+      ;[gamesRes, membersRes] = await Promise.all([
       supabase
         .from('games')
         .select(`
@@ -72,7 +74,18 @@ export const useStatsStore = create((set, get) => ({
         .eq('group_id', groupId)
         .order('joined_at', { ascending: false })
         .limit(20),
-    ])
+      ])
+    } catch (err) {
+      console.error('fetchActivity error:', err)
+      set({ activityLoading: false })
+      return
+    }
+
+    if (gamesRes.error || membersRes.error) {
+      console.error('fetchActivity query error:', gamesRes.error?.message ?? membersRes.error?.message)
+      set({ activityLoading: false })
+      return
+    }
 
     const gameEvents = (gamesRes.data ?? []).map(g => ({
       type:      'game',

@@ -148,7 +148,7 @@ export default function StepEnterResult({ teams, isTeamMode, gameType, onConfirm
                       </>
                     ) : (
                       <p className={`font-display text-lg leading-tight ${isWinner && !isDraw ? 'text-white' : color.text}`}>
-                        {team.playerIds[0]}
+                        {team._members?.find(m => m.id === team.playerIds[0])?.username ?? team.playerIds[0]}
                       </p>
                     )}
                   </div>

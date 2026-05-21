@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ChevronLeft, X } from 'lucide-react'
+import { ChevronLeft, X, Share2, Copy, Check } from 'lucide-react'
 import { useAuthStore } from '../../store/authStore'
 import { useGroupStore } from '../../store/groupStore'
 import { useGameStore }  from '../../store/gameStore'
@@ -30,6 +30,7 @@ export default function LogGamePage() {
   const [resultData,    setResultData]    = useState(null)   // { teams (with winners/scores), isDrawn }
   const [showCustom,    setShowCustom]    = useState(false)
   const [successGameId, setSuccessGameId] = useState(null)
+  const [shared,        setShared]        = useState(false)
 
   const group = activeGroup ?? groups[0]
 
@@ -114,11 +115,62 @@ export default function LogGamePage() {
         <p className="text-white/40 text-sm mb-6">
           {selectedGame?.name} has been recorded for <span className="text-white">{group.name}</span>.
         </p>
+        {/* Share result */}
+        {resultData && (() => {
+          const teams    = resultData.teams ?? []
+          const isDraw   = resultData.isDrawn
+          const allNames = (playerData?.players ?? []).map(p => p.username)
+
+          let shareText
+          if (isDraw) {
+            shareText = `🤝 ${allNames.join(', ')} drew at ${selectedGame?.name} in ${group?.name} · Keep Track`
+          } else {
+            const winnerTeam = teams.find(t => t.isWinner)
+            const loserTeams = teams.filter(t => !t.isWinner)
+            const winners    = (playerData?.players ?? [])
+              .filter(p => winnerTeam?.playerIds?.includes(p.id))
+              .map(p => p.username)
+            const losers     = (playerData?.players ?? [])
+              .filter(p => loserTeams.some(t => t.playerIds?.includes(p.id)))
+              .map(p => p.username)
+            const scoreStr   = winnerTeam?.score != null && loserTeams[0]?.score != null
+              ? ` ${winnerTeam.score}–${loserTeams[0].score}`
+              : ''
+            const winStr  = winners.length ? winners.join(' & ') : 'Someone'
+            const loseStr = losers.length  ? ` beat ${losers.join(' & ')}` : ''
+            shareText = `🏆 ${winStr}${loseStr}${scoreStr} at ${selectedGame?.name} in ${group?.name} · Keep Track`
+          }
+
+          const handleShare = async () => {
+            if (navigator.share) {
+              try {
+                await navigator.share({ text: shareText })
+                setShared(true)
+              } catch (_) {}
+            } else {
+              await navigator.clipboard.writeText(shareText)
+              setShared(true)
+              setTimeout(() => setShared(false), 2500)
+            }
+          }
+
+          return (
+            <button onClick={handleShare} className="btn-secondary btn-lg w-full max-w-xs mb-1">
+              {shared
+                ? <><Check size={16} className="text-emerald-400" /> Copied!</>
+                : navigator.share
+                  ? <><Share2 size={16} /> Share Result</>
+                  : <><Copy size={16} /> Copy Result</>
+              }
+            </button>
+          )
+        })()}
+
         <div className="flex flex-col gap-3 w-full max-w-xs">
           <button
             onClick={() => {
               toast.success('Game logged!')
-              setStep(0); setSelectedGame(null); setPlayerData(null); setResultData(null); setSuccessGameId(null)
+              setStep(0); setSelectedGame(null); setPlayerData(null); setResultData(null); setSuccessGameId(null); setShared(false)
               window.scrollTo(0, 0)
             }}
             className="btn-primary btn-lg w-full"

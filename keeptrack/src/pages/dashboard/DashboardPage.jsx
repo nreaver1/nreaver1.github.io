@@ -13,7 +13,7 @@ export default function DashboardPage() {
   usePageTitle('Dashboard')
   const { user, profile }  = useAuthStore()
   const { groups, loading: groupsLoading, fetchGroups, setActiveGroup, activeGroup } = useGroupStore()
-  const { games, fetchAllGames, invalidate, activity, activityLoading, fetchActivity } = useStatsStore()
+  const { games, loading: gamesLoading, fetchAllGames, invalidate, activity, activityLoading, fetchActivity } = useStatsStore()
   const { gameTypes, fetchGameTypes } = useGameStore()
   const navigate = useNavigate()
 
@@ -32,7 +32,7 @@ export default function DashboardPage() {
   }, [games, user])
 
   const streak = myRecord ? formatStreak(myRecord.currentStreak) : null
-  const statsLoading = !myRecord && games.length === 0
+  const statsLoading = gamesLoading // only show skeletons while actively fetching
 
   // Recent games (newest 5)
   const recentGames = useMemo(() => [...games].reverse().slice(0, 5), [games])
@@ -146,6 +146,22 @@ export default function DashboardPage() {
           <p className="font-600 text-white text-sm">Head-to-Head</p>
           <p className="text-white/30 text-xs">Your rivalries</p>
         </Link>
+      </div>
+
+      {/* Activity feed */}
+      <div className="mb-6">
+        <div className="flex items-center justify-between mb-3">
+          <h2 className="section-title">Recent Activity</h2>
+          {group && (
+            <button
+              onClick={() => navigate(`/groups/${group.id}?tab=Activity`)}
+              className="text-brand-400 text-xs font-600 hover:text-brand-300 transition-colors"
+            >
+              See all
+            </button>
+          )}
+        </div>
+        <ActivityFeed activity={activity} loading={activityLoading} compact limit={5} />
       </div>
 
       {/* Recent games */}
