@@ -57,7 +57,7 @@ export default function InviteAcceptPage() {
               <h2 className="font-display text-2xl text-white mb-2">You're in!</h2>
               <p className="text-white/50 text-sm mb-1">You've joined</p>
               <p className="font-display text-xl text-brand-400 mb-5">{group?.name}</p>
-              <button onClick={() => navigate(`/groups`)} className="btn-primary btn-lg w-full">
+              <button onClick={() => navigate(`/groups/${group?.id}`)} className="btn-primary btn-lg w-full">
                 <Users size={18} /> Go to Group
               </button>
             </>
@@ -70,7 +70,7 @@ export default function InviteAcceptPage() {
               <p className="text-white/50 text-sm mb-5">
                 You're already in <span className="text-white font-600">{group?.name}</span>.
               </p>
-              <button onClick={() => navigate('/groups')} className="btn-primary btn-lg w-full">
+              <button onClick={() => navigate(`/groups/${group?.id}`)} className="btn-primary btn-lg w-full">
                 Go to Group
               </button>
             </>

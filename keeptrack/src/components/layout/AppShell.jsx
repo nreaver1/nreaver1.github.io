@@ -2,7 +2,8 @@ import { NavLink, Outlet, useLocation } from 'react-router-dom'
 import {
   LayoutDashboard, Trophy, Users, User, PlusCircle, Crown
 } from 'lucide-react'
-import { useAuthStore } from '../../store/authStore'
+import { useAuthStore }   from '../../store/authStore'
+import InstallPrompt     from '../ui/InstallPrompt'
 
 const NAV_ITEMS = [
   { to: '/dashboard',  label: 'Home',      icon: LayoutDashboard },
@@ -133,6 +134,7 @@ export default function AppShell() {
           </div>
         </nav>
       </main>
+      <InstallPrompt />
     </div>
   )
 }

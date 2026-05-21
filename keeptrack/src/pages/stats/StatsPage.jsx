@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useSearchParams, Link } from 'react-router-dom'
-import { Trophy, Swords, History, ChevronDown, RefreshCw } from 'lucide-react'
+import { Trophy, Swords, History, ChevronDown, RefreshCw, PlusCircle } from 'lucide-react'
 import { useAuthStore }  from '../../store/authStore'
 import { useGroupStore } from '../../store/groupStore'
 import { useStatsStore } from '../../store/statsStore'
@@ -205,7 +205,7 @@ export default function StatsPage() {
 
             {tab === 'history' && (
               <GameHistory
-                games={[...games].reverse()} // newest first
+                games={games}
                 groupId={group.id}
               />
             )}

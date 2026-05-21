@@ -258,9 +258,14 @@ export default function ProfilePage() {
       if (existing) { toast.error('Username already taken.'); setSaving(false); return }
     }
 
+    // Strip cache-bust param before persisting
+    const cleanAvatarUrl = avatarUrl.trim()
+      ? avatarUrl.trim().split('?')[0]
+      : null
+
     const { data, error } = await supabase
       .from('profiles')
-      .update({ username: username.trim(), avatar_url: avatarUrl.trim() || null })
+      .update({ username: username.trim(), avatar_url: cleanAvatarUrl })
       .eq('id', user.id)
       .select()
       .single()

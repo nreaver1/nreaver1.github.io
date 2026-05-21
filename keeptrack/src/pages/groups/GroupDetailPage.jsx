@@ -173,8 +173,12 @@ export default function GroupDetailPage() {
           statsLoading && games.length === 0 ? (
             <div className="flex justify-center py-16"><div className="spinner w-8 h-8" /></div>
           ) : (
-            <GameHistory games={[...games].reverse()} groupId={groupId} />
+            <GameHistory games={games} groupId={groupId} />
           )
+        )}
+
+        {tab === 'Activity' && (
+          <ActivityFeed activity={activity} loading={activityLoading} />
         )}
       </div>
 
