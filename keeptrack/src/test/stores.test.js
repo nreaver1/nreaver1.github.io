@@ -572,3 +572,318 @@ describe('groupStore: delete cascade safety', () => {
     expect(Object.keys(records)).toHaveLength(0)
   })
 })
+
+// ─── statsStore: realtime subscription ───────────────────────────────────────
+
+describe('statsStore: realtime', () => {
+  beforeEach(async () => {
+    const { useStatsStore } = await import('../store/statsStore')
+    useStatsStore.setState({
+      games: [], loadedGroupId: null, loading: false,
+      activity: [], activityGroupId: null, activityLoading: false,
+      realtimeChannel: null, realtimeLive: false,
+    })
+  })
+
+  it('initial realtime state is disconnected', async () => {
+    const { useStatsStore } = await import('../store/statsStore')
+    const state = useStatsStore.getState()
+    expect(state.realtimeChannel).toBeNull()
+    expect(state.realtimeLive).toBe(false)
+  })
+
+  it('unsubscribeFromGroup is safe to call when no channel exists', async () => {
+    const { useStatsStore } = await import('../store/statsStore')
+    expect(() => useStatsStore.getState().unsubscribeFromGroup()).not.toThrow()
+    expect(useStatsStore.getState().realtimeLive).toBe(false)
+  })
+
+  it('subscribeToGroup sets up a channel and calls subscribe', async () => {
+    const { useStatsStore } = await import('../store/statsStore')
+    const { supabase } = await import('../lib/supabase')
+
+    const mockChannel = {
+      on:        vi.fn().mockReturnThis(),
+      subscribe: vi.fn().mockReturnThis(),
+    }
+    supabase.channel = vi.fn().mockReturnValue(mockChannel)
+    supabase.removeChannel = vi.fn()
+
+    useStatsStore.getState().subscribeToGroup('group-1')
+
+    expect(supabase.channel).toHaveBeenCalledWith('group:group-1')
+    expect(mockChannel.on).toHaveBeenCalled()
+    expect(mockChannel.subscribe).toHaveBeenCalled()
+    expect(useStatsStore.getState().realtimeChannel).toBe(mockChannel)
+  })
+
+  it('subscribeToGroup removes previous channel before creating new one', async () => {
+    const { useStatsStore } = await import('../store/statsStore')
+    const { supabase } = await import('../lib/supabase')
+
+    const oldChannel = { on: vi.fn().mockReturnThis(), subscribe: vi.fn().mockReturnThis() }
+    const newChannel = { on: vi.fn().mockReturnThis(), subscribe: vi.fn().mockReturnThis() }
+
+    supabase.channel = vi.fn()
+      .mockReturnValueOnce(oldChannel)
+      .mockReturnValueOnce(newChannel)
+    supabase.removeChannel = vi.fn()
+
+    // Subscribe to group A
+    useStatsStore.getState().subscribeToGroup('group-a')
+    // Subscribe to group B — should remove A first
+    useStatsStore.getState().subscribeToGroup('group-b')
+
+    expect(supabase.removeChannel).toHaveBeenCalledWith(oldChannel)
+    expect(useStatsStore.getState().realtimeChannel).toBe(newChannel)
+  })
+
+  it('unsubscribeFromGroup removes channel and resets state', async () => {
+    const { useStatsStore } = await import('../store/statsStore')
+    const { supabase } = await import('../lib/supabase')
+
+    const mockChannel = { on: vi.fn().mockReturnThis(), subscribe: vi.fn().mockReturnThis() }
+    supabase.channel = vi.fn().mockReturnValue(mockChannel)
+    supabase.removeChannel = vi.fn()
+
+    useStatsStore.getState().subscribeToGroup('group-1')
+    useStatsStore.setState({ realtimeLive: true })
+
+    useStatsStore.getState().unsubscribeFromGroup()
+
+    expect(supabase.removeChannel).toHaveBeenCalledWith(mockChannel)
+    expect(useStatsStore.getState().realtimeChannel).toBeNull()
+    expect(useStatsStore.getState().realtimeLive).toBe(false)
+  })
+
+  it('invalidate clears games and activity but preserves channel', async () => {
+    const { useStatsStore } = await import('../store/statsStore')
+
+    const mockChannel = { on: vi.fn(), subscribe: vi.fn() }
+    useStatsStore.setState({
+      games: [{ id: 'g1' }],
+      loadedGroupId: 'group-1',
+      activity: [{ id: 'a1' }],
+      activityGroupId: 'group-1',
+      realtimeChannel: mockChannel,
+      realtimeLive: true,
+    })
+
+    useStatsStore.getState().invalidate()
+
+    const state = useStatsStore.getState()
+    expect(state.games).toHaveLength(0)
+    expect(state.activity).toHaveLength(0)
+    expect(state.loadedGroupId).toBeNull()
+    // Channel should still be active after invalidate
+    expect(state.realtimeChannel).toBe(mockChannel)
+    expect(state.realtimeLive).toBe(true)
+  })
+})
+
+// ─── statsStore: realtime subscription ───────────────────────────────────────
+
+describe('statsStore: realtime', () => {
+  beforeEach(async () => {
+    const { useStatsStore } = await import('../store/statsStore')
+    useStatsStore.setState({
+      games: [], loadedGroupId: null, loading: false,
+      activity: [], activityGroupId: null, activityLoading: false,
+      realtimeChannel: null, realtimeLive: false,
+    })
+  })
+
+  it('subscribeToGroup sets realtimeChannel', async () => {
+    const { useStatsStore } = await import('../store/statsStore')
+    const { supabase } = await import('../lib/supabase')
+
+    const mockChannel = {
+      on: vi.fn().mockReturnThis(),
+      subscribe: vi.fn().mockReturnThis(),
+    }
+    supabase.channel = vi.fn().mockReturnValue(mockChannel)
+    supabase.removeChannel = vi.fn()
+
+    useStatsStore.getState().subscribeToGroup('group-1')
+
+    expect(supabase.channel).toHaveBeenCalledWith('group:group-1')
+    expect(useStatsStore.getState().realtimeChannel).toBe(mockChannel)
+  })
+
+  it('unsubscribeFromGroup clears channel and realtimeLive', async () => {
+    const { useStatsStore } = await import('../store/statsStore')
+    const { supabase } = await import('../lib/supabase')
+
+    const mockChannel = {
+      on: vi.fn().mockReturnThis(),
+      subscribe: vi.fn().mockReturnThis(),
+    }
+    supabase.channel = vi.fn().mockReturnValue(mockChannel)
+    supabase.removeChannel = vi.fn()
+
+    useStatsStore.getState().subscribeToGroup('group-1')
+    useStatsStore.getState().unsubscribeFromGroup()
+
+    expect(supabase.removeChannel).toHaveBeenCalledWith(mockChannel)
+    expect(useStatsStore.getState().realtimeChannel).toBeNull()
+    expect(useStatsStore.getState().realtimeLive).toBe(false)
+  })
+
+  it('unsubscribeFromGroup is safe to call when no channel exists', async () => {
+    const { useStatsStore } = await import('../store/statsStore')
+    const { supabase } = await import('../lib/supabase')
+    supabase.removeChannel = vi.fn()
+
+    // Should not throw
+    expect(() => useStatsStore.getState().unsubscribeFromGroup()).not.toThrow()
+    expect(supabase.removeChannel).not.toHaveBeenCalled()
+  })
+
+  it('subscribeToGroup cleans up previous channel before creating new one', async () => {
+    const { useStatsStore } = await import('../store/statsStore')
+    const { supabase } = await import('../lib/supabase')
+
+    const mockChannel1 = { on: vi.fn().mockReturnThis(), subscribe: vi.fn().mockReturnThis() }
+    const mockChannel2 = { on: vi.fn().mockReturnThis(), subscribe: vi.fn().mockReturnThis() }
+    supabase.channel = vi.fn()
+      .mockReturnValueOnce(mockChannel1)
+      .mockReturnValueOnce(mockChannel2)
+    supabase.removeChannel = vi.fn()
+
+    useStatsStore.getState().subscribeToGroup('group-1')
+    useStatsStore.getState().subscribeToGroup('group-2')
+
+    // First channel should have been cleaned up
+    expect(supabase.removeChannel).toHaveBeenCalledWith(mockChannel1)
+    expect(useStatsStore.getState().realtimeChannel).toBe(mockChannel2)
+  })
+
+  it('invalidate unsubscribes from realtime and clears all state', async () => {
+    const { useStatsStore } = await import('../store/statsStore')
+
+    useStatsStore.setState({
+      games: [{ id: 'g1' }],
+      loadedGroupId: 'group-1',
+      activity: [{ id: 'a1' }],
+      activityGroupId: 'group-1',
+    })
+
+    useStatsStore.getState().invalidate()
+
+    const state = useStatsStore.getState()
+    expect(state.games).toHaveLength(0)
+    expect(state.loadedGroupId).toBeNull()
+    expect(state.activity).toHaveLength(0)
+    expect(state.activityGroupId).toBeNull()
+  })
+
+  it('regression: switching groups cleans up subscription before starting new one', async () => {
+    const { useStatsStore } = await import('../store/statsStore')
+    const { supabase } = await import('../lib/supabase')
+
+    const channels = []
+    supabase.channel = vi.fn().mockImplementation((name) => {
+      const ch = { name, on: vi.fn().mockReturnThis(), subscribe: vi.fn().mockReturnThis() }
+      channels.push(ch)
+      return ch
+    })
+    supabase.removeChannel = vi.fn()
+
+    // Simulate: user views Group A
+    useStatsStore.getState().subscribeToGroup('group-a')
+    expect(channels).toHaveLength(1)
+
+    // Simulate: user switches to Group B (component cleanup fires unsubscribe first)
+    useStatsStore.getState().unsubscribeFromGroup()
+    useStatsStore.getState().subscribeToGroup('group-b')
+
+    // Both channels created, first one removed
+    expect(channels).toHaveLength(2)
+    expect(supabase.removeChannel).toHaveBeenCalledWith(channels[0])
+    expect(useStatsStore.getState().realtimeChannel).toBe(channels[1])
+  })
+})
+
+// ─── notifStore ───────────────────────────────────────────────────────────────
+
+describe('notifStore', () => {
+  beforeEach(async () => {
+    const { useNotifStore } = await import('../store/notifStore')
+    useNotifStore.setState({ unread: {}, lastSeen: {}, loading: false })
+    localStorage.clear()
+  })
+
+  it('initial state is empty', async () => {
+    const { useNotifStore } = await import('../store/notifStore')
+    const state = useNotifStore.getState()
+    expect(state.unread).toEqual({})
+    expect(state.loading).toBe(false)
+  })
+
+  it('markRead sets unread to 0 for a group and saves lastSeen', async () => {
+    const { useNotifStore } = await import('../store/notifStore')
+    useNotifStore.setState({ unread: { 'g1': 5, 'g2': 3 } })
+
+    useNotifStore.getState().markRead('g1')
+
+    expect(useNotifStore.getState().unread['g1']).toBe(0)
+    expect(useNotifStore.getState().unread['g2']).toBe(3) // untouched
+    expect(useNotifStore.getState().lastSeen['g1']).toBeTruthy()
+  })
+
+  it('markRead persists lastSeen to localStorage', async () => {
+    const { useNotifStore } = await import('../store/notifStore')
+    useNotifStore.getState().markRead('g1')
+    const stored = JSON.parse(localStorage.getItem('kt_last_seen') ?? '{}')
+    expect(stored['g1']).toBeTruthy()
+  })
+
+  it('increment adds 1 to unread for a group', async () => {
+    const { useNotifStore } = await import('../store/notifStore')
+    useNotifStore.setState({ unread: { 'g1': 2 } })
+    useNotifStore.getState().increment('g1')
+    expect(useNotifStore.getState().unread['g1']).toBe(3)
+  })
+
+  it('increment starts from 0 for unknown group', async () => {
+    const { useNotifStore } = await import('../store/notifStore')
+    useNotifStore.getState().increment('g-new')
+    expect(useNotifStore.getState().unread['g-new']).toBe(1)
+  })
+
+  it('totalUnread sums all group unread counts', async () => {
+    const { useNotifStore } = await import('../store/notifStore')
+    useNotifStore.setState({ unread: { 'g1': 3, 'g2': 7, 'g3': 0 } })
+    expect(useNotifStore.getState().totalUnread()).toBe(10)
+  })
+
+  it('totalUnread returns 0 when all groups read', async () => {
+    const { useNotifStore } = await import('../store/notifStore')
+    useNotifStore.setState({ unread: { 'g1': 0, 'g2': 0 } })
+    expect(useNotifStore.getState().totalUnread()).toBe(0)
+  })
+
+  it('reset clears all state and localStorage', async () => {
+    const { useNotifStore } = await import('../store/notifStore')
+    // Seed localStorage as if user had a previous session
+    localStorage.setItem('kt_last_seen', JSON.stringify({ 'g1': '2025-01-01' }))
+    useNotifStore.setState({ unread: { 'g1': 5 }, lastSeen: { 'g1': '2025-01-01' } })
+
+    useNotifStore.getState().reset()
+
+    expect(useNotifStore.getState().unread).toEqual({})
+    expect(useNotifStore.getState().lastSeen).toEqual({})
+    // localStorage must be cleared so next login starts fresh
+    expect(localStorage.getItem('kt_last_seen')).toBeNull()
+  })
+
+  it('markRead after increment zeroes the count', async () => {
+    const { useNotifStore } = await import('../store/notifStore')
+    useNotifStore.getState().increment('g1')
+    useNotifStore.getState().increment('g1')
+    useNotifStore.getState().increment('g1')
+    expect(useNotifStore.getState().unread['g1']).toBe(3)
+    useNotifStore.getState().markRead('g1')
+    expect(useNotifStore.getState().unread['g1']).toBe(0)
+  })
+})

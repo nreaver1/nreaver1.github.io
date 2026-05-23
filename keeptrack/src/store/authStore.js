@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import { supabase, startInactivityWatcher, stopInactivityWatcher } from '../lib/supabase'
+import { useNotifStore } from './notifStore'
 
 export const useAuthStore = create((set, get) => ({
   user:    null,
@@ -44,6 +45,7 @@ export const useAuthStore = create((set, get) => ({
   signOut: async () => {
     stopInactivityWatcher()
     await supabase.auth.signOut()
+    useNotifStore.getState().reset()
     set({ user: null, profile: null, session: null })
   },
 }))

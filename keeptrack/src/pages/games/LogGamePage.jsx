@@ -119,7 +119,7 @@ export default function LogGamePage() {
         {resultData && (() => {
           const teams    = resultData.teams ?? []
           const isDraw   = resultData.isDrawn
-          const allNames = (playerData?.players ?? []).map(p => p.username)
+          const allNames = (playerData?.activePlayers ?? []).map(p => p.username)
 
           let shareText
           if (isDraw) {
@@ -127,10 +127,10 @@ export default function LogGamePage() {
           } else {
             const winnerTeam = teams.find(t => t.isWinner)
             const loserTeams = teams.filter(t => !t.isWinner)
-            const winners    = (playerData?.players ?? [])
+            const winners    = (playerData?.activePlayers ?? [])
               .filter(p => winnerTeam?.playerIds?.includes(p.id))
               .map(p => p.username)
-            const losers     = (playerData?.players ?? [])
+            const losers     = (playerData?.activePlayers ?? [])
               .filter(p => loserTeams.some(t => t.playerIds?.includes(p.id)))
               .map(p => p.username)
             const scoreStr   = winnerTeam?.score != null && loserTeams[0]?.score != null

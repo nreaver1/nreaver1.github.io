@@ -1,5 +1,6 @@
 import { create } from 'zustand'
-import { supabase } from '../lib/supabase'
+import { supabase }       from '../lib/supabase'
+import { useNotifStore }  from './notifStore'
 
 // Full game fetch with all nested data needed for stats
 const GAME_SELECT = `
@@ -22,6 +23,8 @@ export const useStatsStore = create((set, get) => ({
   activity:            [],
   activityGroupId:     null,
   activityLoading:     false,
+  realtimeChannel:     null,
+  realtimeLive:        false, // true when subscription is active
 
   // ── Fetch ALL games for a group (no limit — needed for accurate stats) ──
   fetchAllGames: async (groupId) => {
@@ -110,6 +113,120 @@ export const useStatsStore = create((set, get) => ({
   },
 
   invalidateActivity: () => set({ activityGroupId: null, activity: [] }),
+
+  // ── Subscribe to real-time updates for a group ────────────
+  // Listens for new games and new members, updates state live
+  subscribeToGroup: (groupId, { onMemberJoined, onNewGame } = {}) => {
+    // Clean up any existing subscription first
+    get().unsubscribeFromGroup()
+
+    const channel = supabase
+      .channel(`group:${groupId}`)
+
+      // New game logged by anyone in the group
+      .on('postgres_changes', {
+        event:  'INSERT',
+        schema: 'public',
+        table:  'games',
+        filter: `group_id=eq.${groupId}`,
+      }, async (payload) => {
+        // Fetch the full game record with all nested data
+        const { data: game } = await supabase
+          .from('games')
+          .select(GAME_SELECT)
+          .eq('id', payload.new.id)
+          .single()
+
+        if (!game) return
+
+        // Append to games (maintain chronological order for stats)
+        const current = get().games
+        const alreadyExists = current.some(g => g.id === game.id)
+        if (!alreadyExists) {
+          set({ games: [...current, game] })
+          // Increment unread for groups the user isn't currently viewing
+          useNotifStore.getState().increment(groupId)
+          // Notify component so it can show a toast
+          if (onNewGame) onNewGame(game)
+        }
+
+        // Prepend to activity feed
+        const newEvent = { type: 'game', id: game.id, timestamp: game.played_at, game }
+        const activity = get().activity
+        const activityExists = activity.some(a => a.id === game.id)
+        if (!activityExists) {
+          set({ activity: [newEvent, ...activity].slice(0, 40) })
+        }
+      })
+
+      // New member joined the group
+      .on('postgres_changes', {
+        event:  'INSERT',
+        schema: 'public',
+        table:  'group_members',
+        filter: `group_id=eq.${groupId}`,
+      }, async (payload) => {
+        // Fetch their profile
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('id, username, avatar_url, email')
+          .eq('id', payload.new.user_id)
+          .maybeSingle()
+
+        if (!profile) return
+
+        // Notify GroupDetailPage to update its members list
+        if (onMemberJoined) {
+          onMemberJoined({
+            ...profile,
+            role:     payload.new.role,
+            joinedAt: payload.new.joined_at,
+            memberId: payload.new.id,
+          })
+        }
+
+        // Prepend to activity feed
+        const joinId = `join-${profile.id}`
+        const activity = get().activity
+        const alreadyInFeed = activity.some(a => a.id === joinId)
+        if (!alreadyInFeed) {
+          const newEvent = {
+            type:      'join',
+            id:        joinId,
+            timestamp: payload.new.joined_at,
+            profile,
+          }
+          set({ activity: [newEvent, ...activity].slice(0, 40) })
+        }
+      })
+
+      .on('postgres_changes', {
+        event:  'DELETE',
+        schema: 'public',
+        table:  'games',
+        filter: `group_id=eq.${groupId}`,
+      }, (payload) => {
+        // Remove deleted game from both games and activity
+        set({
+          games:    get().games.filter(g => g.id !== payload.old.id),
+          activity: get().activity.filter(a => a.id !== payload.old.id),
+        })
+      })
+
+      .subscribe((status) => {
+        set({ realtimeLive: status === 'SUBSCRIBED' })
+      })
+
+    set({ realtimeChannel: channel })
+  },
+
+  unsubscribeFromGroup: () => {
+    const channel = get().realtimeChannel
+    if (channel) {
+      supabase.removeChannel(channel)
+      set({ realtimeChannel: null, realtimeLive: false })
+    }
+  },
 
   // ── Force refresh (called after a new game is logged) ──
   invalidate: () => set({ loadedGroupId: null, games: [], activityGroupId: null, activity: [] }),

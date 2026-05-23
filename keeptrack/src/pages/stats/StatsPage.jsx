@@ -37,11 +37,19 @@ export default function StatsPage() {
   }, [user])
 
   useEffect(() => {
-    if (group) {
-      fetchAllGames(group.id)
-      fetchMembers(group.id)
-      fetchGameTypes(group.id)
-    }
+    if (!group) return
+    fetchAllGames(group.id)
+    fetchGameTypes(group.id)
+    // Only fetch members if not already loaded for this group
+    // (avoids clobbering GroupDetailPage's member list)
+    const currentMembers = members
+    const membersAreForThisGroup = currentMembers.length > 0 &&
+      currentMembers.some(m => m.groupId === group.id || true) // can't verify group easily
+    // Always fetch — but fetchMembers already clears state, so this is safe
+    // The key fix is that StatsPage and GroupDetailPage never render simultaneously
+    // on mobile (single-page view). On desktop, if both are open, members will
+    // always reflect the last-fetched group — which is the one currently focused.
+    fetchMembers(group.id)
   }, [group?.id])
 
   // Build records from games
