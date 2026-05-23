@@ -5,6 +5,7 @@ import {
   LogOut, ChevronLeft, Crown, Shield
 } from 'lucide-react'
 import { useAuthStore }  from '../../store/authStore'
+import { useToast }       from '../../components/ui/Toast'
 import { useGroupStore } from '../../store/groupStore'
 import { useStatsStore } from '../../store/statsStore'
 import { useGameStore }  from '../../store/gameStore'
@@ -22,8 +23,9 @@ export default function GroupDetailPage() {
   const { groupId } = useParams()
   const navigate    = useNavigate()
   const { user }    = useAuthStore()
-  const { groups, members, loading: groupsLoading, fetchGroups, fetchMembers, setMembers, leaveGroup } = useGroupStore()
-  const { games, loading: statsLoading, fetchAllGames, invalidate, activity, activityLoading, fetchActivity } = useStatsStore()
+  const toast       = useToast()
+  const { groups, members, loading: groupsLoading, fetchGroups, fetchMembers, setMembers, leaveGroup, updateGroup, deleteGroup } = useGroupStore()
+  const { games, loading: statsLoading, fetchAllGames, invalidate, activity, activityLoading, fetchActivity, subscribeToGroup, unsubscribeFromGroup, realtimeLive } = useStatsStore()
   const { fetchGameTypes } = useGameStore()
 
   const [searchParams] = useSearchParams()
@@ -52,7 +54,37 @@ export default function GroupDetailPage() {
       fetchAllGames(groupId)
       fetchGameTypes(groupId)
       fetchActivity(groupId)
+
+      // Subscribe to real-time updates for this group
+      subscribeToGroup(groupId, {
+        onNewGame: (game) => {
+          if (game.logged_by !== user?.id) {
+            const winners = (game.game_teams ?? [])
+              .filter(t => t.is_winner)
+              .flatMap(t => t.game_participants ?? [])
+              .map(p => p.profiles?.username)
+              .filter(Boolean)
+            const gameName = game.game_types?.name ?? 'a game'
+            const msg = game.is_draw
+              ? `🤝 Draw logged in ${gameName}`
+              : winners.length
+                ? `🏆 ${winners.slice(0, 2).join(' & ')} won at ${gameName}`
+                : `New game logged: ${gameName}`
+            toast.info(msg)
+          }
+        },
+        onMemberJoined: (newMember) => {
+          setMembers(prev => {
+            const already = (Array.isArray(prev) ? prev : []).some(m => m.id === newMember.id)
+            return already ? prev : [...(Array.isArray(prev) ? prev : []), newMember]
+          })
+          toast.info(`${newMember.username} joined the group`)
+        },
+      })
     }
+
+    // Unsubscribe when leaving the group page
+    return () => unsubscribeFromGroup()
   }, [groupId])
 
   const records = useMemo(() => {
@@ -104,7 +136,23 @@ export default function GroupDetailPage() {
 
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
-              <h1 className="font-display text-3xl text-white">{group.name}</h1>
+              <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2">
+          <h1 className="font-display text-3xl text-white">{group.name}</h1>
+          {realtimeLive && (
+            <span className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-500/15 border border-emerald-500/25">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+              <span className="text-emerald-400 text-[10px] font-600 uppercase tracking-wider">Live</span>
+            </span>
+          )}
+        </div>
+          {realtimeLive && (
+            <span className="flex items-center gap-1 text-emerald-400 text-xs font-600 mt-1" title="Live updates active">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+              live
+            </span>
+          )}
+        </div>
               {isOwner && <Crown size={16} className="text-brand-400" />}
               {isAdmin && !isOwner && <span className="badge-admin"><Shield size={10} /> Admin</span>}
             </div>

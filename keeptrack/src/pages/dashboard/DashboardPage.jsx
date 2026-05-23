@@ -8,20 +8,30 @@ import { useGameStore }  from '../../store/gameStore'
 import { buildPlayerRecords, formatStreak }  from '../../lib/stats'
 import ActivityFeed from '../../components/stats/ActivityFeed'
 import { usePageTitle } from '../../hooks/usePageTitle'
+import { useToast }    from '../../components/ui/Toast'
+import { useNotifStore } from '../../store/notifStore'
 
 export default function DashboardPage() {
   usePageTitle('Dashboard')
   const { user, profile }  = useAuthStore()
   const { groups, loading: groupsLoading, fetchGroups, setActiveGroup, activeGroup } = useGroupStore()
-  const { games, loading: gamesLoading, fetchAllGames, invalidate, activity, activityLoading, fetchActivity } = useStatsStore()
+  const { games, loading: gamesLoading, fetchAllGames, invalidate, activity, activityLoading, fetchActivity, subscribeToGroup, unsubscribeFromGroup, realtimeLive } = useStatsStore()
   const { gameTypes, fetchGameTypes } = useGameStore()
   const navigate = useNavigate()
+  const toast    = useToast()
+  const markRead = useNotifStore(s => s.markRead)
 
   const group = activeGroup ?? groups[0]
 
   useEffect(() => { if (user) fetchGroups(user.id) }, [user])
   useEffect(() => {
-    if (group) { fetchAllGames(group.id); fetchGameTypes(group.id); fetchActivity(group.id) }
+    if (group) {
+      fetchAllGames(group.id)
+      fetchGameTypes(group.id)
+      fetchActivity(group.id)
+      subscribeToGroup(group.id)
+    }
+    return () => unsubscribeFromGroup()
   }, [group?.id])
 
   // My stats in the active group

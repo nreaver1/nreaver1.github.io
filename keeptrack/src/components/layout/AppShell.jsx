@@ -3,6 +3,8 @@ import {
   LayoutDashboard, Trophy, Users, User, PlusCircle, Crown
 } from 'lucide-react'
 import { useAuthStore }   from '../../store/authStore'
+import Avatar            from '../ui/Avatar'
+import { useNotifStore }  from '../../store/notifStore'
 import InstallPrompt     from '../ui/InstallPrompt'
 
 const NAV_ITEMS = [
@@ -15,8 +17,10 @@ const NAV_ITEMS = [
 
 export default function AppShell() {
   const { profile } = useAuthStore()
-  const location = useLocation()
-  const hideHeader = ['/log', '/onboarding'].some(p => location.pathname.startsWith(p))
+  const location     = useLocation()
+  const hideHeader   = ['/log', '/onboarding'].some(p => location.pathname.startsWith(p))
+  const unread       = useNotifStore(s => s.unread)
+  const totalUnread  = Object.values(unread).reduce((a, b) => a + b, 0)
 
   return (
     <div className="flex h-[100dvh] bg-surface-0 overflow-hidden">
@@ -48,6 +52,11 @@ export default function AppShell() {
             >
               <Icon size={18} />
               {label}
+              {to === '/groups' && totalUnread > 0 && (
+                <span className="ml-auto min-w-[18px] h-[18px] px-1 rounded-full bg-brand-500 text-white text-[10px] font-700 flex items-center justify-center">
+                  {totalUnread > 99 ? '99+' : totalUnread}
+                </span>
+              )}
               {primary && (
                 <span className="ml-auto text-xs bg-brand-500 text-white px-1.5 py-0.5 rounded-md">
                   NEW
@@ -117,7 +126,14 @@ export default function AppShell() {
                       </div>
                     ) : (
                       <>
-                        <Icon size={20} />
+                        <div className="relative">
+                          <Icon size={20} />
+                          {to === '/groups' && totalUnread > 0 && (
+                            <span className="absolute -top-1 -right-1.5 min-w-[14px] h-[14px] px-0.5 rounded-full bg-brand-500 text-white text-[9px] font-700 flex items-center justify-center">
+                              {totalUnread > 9 ? '9+' : totalUnread}
+                            </span>
+                          )}
+                        </div>
                         <span className="text-[10px] font-600">{label}</span>
                         {isActive && (
                           <span className="absolute bottom-0 left-1/2 -translate-x-1/2 w-4 h-0.5 bg-brand-500 rounded-full" />

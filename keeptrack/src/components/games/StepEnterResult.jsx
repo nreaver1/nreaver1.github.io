@@ -143,7 +143,7 @@ export default function StepEnterResult({ teams, isTeamMode, gameType, onConfirm
                           Team {team.key}
                         </p>
                         <p className={`text-xs truncate ${isWinner && !isDraw ? 'text-white/70' : 'text-white/40'}`}>
-                          {team.playerIds.join(', ')}
+                          {team.playerIds.map(id => team._members?.find(m => m.id === id)?.username ?? id).join(', ')}
                         </p>
                       </>
                     ) : (

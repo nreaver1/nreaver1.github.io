@@ -1,5 +1,6 @@
 import { create } from 'zustand'
-import { supabase } from '../lib/supabase'
+import { supabase }       from '../lib/supabase'
+import { useNotifStore }  from './notifStore'
 
 export const useGroupStore = create((set, get) => ({
   groups:        [],
@@ -27,6 +28,8 @@ export const useGroupStore = create((set, get) => ({
 
     const groups = data.map(row => ({ ...row.groups, myRole: row.role, joinedAt: row.joined_at }))
     set({ groups, loading: false })
+    // Fetch unread notification counts for all groups
+    useNotifStore.getState().fetchUnread(groups)
 
     // Auto-set active group if none selected
     if (!get().activeGroup && groups.length > 0) {
@@ -230,6 +233,8 @@ export const useGroupStore = create((set, get) => ({
   },
 
   clearError: () => set({ error: null }),
-  setMembers: (members) => set({ members }),
+  setMembers: (updater) => set(state => ({
+    members: typeof updater === 'function' ? updater(state.members) : updater,
+  })),
 
 }))
