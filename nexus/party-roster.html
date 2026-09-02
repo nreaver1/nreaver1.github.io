@@ -634,6 +634,7 @@ function computeCheck(key,ability,m,net,prof){
 // Uses a custom nexusConfirm-style prompt per member (via promptHp).
 // We save each member that has a change, then do one final render.
 async function doShortRest(){
+  if(!(await nexusGate()))return;
   const active=members.filter(m=>!m.status||m.status==='active');
   if(!active.length){showToast('No active members to rest.');return;}
 
@@ -678,6 +679,7 @@ async function doShortRest(){
 // Long Rest: Restore all active members to full HP (hpcur = hp).
 // Optionally clears conditions (DM's choice via confirm).
 async function doLongRest(){
+  if(!(await nexusGate()))return;
   const active=members.filter(m=>!m.status||m.status==='active');
   if(!active.length){showToast('No active members to rest.');return;}
 
@@ -1380,6 +1382,7 @@ function backdropClose(e){if(e.target===document.getElementById('memberModal')&&
 function updateModalPreview(){const n=document.getElementById('f-name').value;if(!currentPhoto)document.getElementById('photoPreview').innerHTML=`<span class="photo-initials">${n?n.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase():'?'}</span>`;}
 
 async function saveMember(){
+  if(!(await nexusGate()))return;
   const name=document.getElementById('f-name').value.trim();
   const fNameError=document.getElementById('fNameError');
   if(fNameError)fNameError.textContent='';
@@ -1425,6 +1428,7 @@ async function saveMember(){
 }
 
 async function deleteMember(id){
+  if(!(await nexusGate()))return;
   const m=members.find(x=>x.id===id);if(!m)return;
   const ok=await nexusConfirm({
     title:'Remove Party Member',name:m.name,
@@ -1456,6 +1460,7 @@ function selectColor(c){currentColor=c;document.querySelectorAll('.cswatch').for
 function exportJSON(){const blob=new Blob([JSON.stringify({version:2,members},null,2)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='party-roster.json';a.click();showToast('Roster exported.');}
 function importJSON(){document.getElementById('fileImport').click();}
 async function handleImport(e){
+  if(!(await nexusGate())){e.target.value='';return;}
   const file=e.target.files[0];if(!file)return;
   const r=new FileReader();
   r.onload=async ev=>{
@@ -1667,6 +1672,7 @@ function lt_closeModal(){document.getElementById('lt_modalBackdrop').classList.r
 function lt_backdropClose(e){if(e.target===document.getElementById('lt_modalBackdrop')&&document.getElementById('lt_modalBackdrop')._mousedownOnBackdrop)lt_closeModal();}
 
 async function lt_saveItem(){
+  if(!(await nexusGate()))return;
   const name=document.getElementById('lt_fieldName').value.trim();
   const ltNameError=document.getElementById('ltNameError');
   if(ltNameError)ltNameError.textContent='';
@@ -1718,6 +1724,7 @@ Promise.all([
 ]).then(() => {
   buildSidenav('party-roster.html');
   applyModuleVisibility();
+  applyReadOnlyBanner();
   if (!enforceModuleGuard('partyRoster')) return;
   showLoading(false);
   loadTerms().catch(() => {});

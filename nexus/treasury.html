@@ -736,6 +736,7 @@ function setType(t) {
 }
 
 async function saveTx() {
+  if (!(await nexusGate())) return;
   const desc = document.getElementById('txDesc').value.trim();
   const descError = document.getElementById('txDescError');
   if (!desc) {
@@ -771,6 +772,7 @@ async function saveTx() {
 }
 
 async function deleteTx(id) {
+  if (!(await nexusGate())) return;
   const tx = ledger.find(t => t.id === id);
   const label = tx ? (tx.desc || 'Unnamed Entry') : 'Ledger Entry';
   const typeLabel = tx ? tx.type.charAt(0).toUpperCase() + tx.type.slice(1) : '';
@@ -912,6 +914,7 @@ function updatePreview() {
 }
 
 async function saveNewCurrency() {
+  if (!(await nexusGate())) return;
   const name   = document.getElementById('nc-name').value.trim();
   const abbr   = document.getElementById('nc-abbr').value.trim().toUpperCase();
   const symbol = document.getElementById('nc-symbol').value.trim();
@@ -987,6 +990,7 @@ async function saveNewCurrency() {
 }
 
 async function deleteCurrency(id) {
+  if (!(await nexusGate())) return;
   const cur = currencies.find(x => x.id === id);
   if (!cur) return;
   if (id === 'cr') { showToast('Cannot remove the base currency.'); return; }
@@ -1469,6 +1473,7 @@ function calcSplit() {
 
 // ── applySplit: write transactions for each recipient ─────────
 async function applySplit() {
+  if (!(await nexusGate())) return;
   const n = splitRecipients.length;
   if (!n) { showToast('Add at least one recipient.'); return; }
   const coins = readCoinInputs('splitCoinInputs');
@@ -1666,6 +1671,7 @@ function handleImport(e) {
       const d = JSON.parse(ev.target.result);
       if (!Array.isArray(d.ledger)) throw new Error();
       if (confirm(`Import ${d.ledger.length} transactions + ${(d.currencies||[]).length} currency types?\nThis replaces your current data.`)) {
+        if (!(await nexusGate())) return;
         currencies = d.currencies || JSON.parse(JSON.stringify(DEFAULT_CURRENCIES));
         ledger = d.ledger; vault = d.vault || {};
         recalcVault();
@@ -2134,6 +2140,7 @@ Promise.all([
 ]).then(([_settings]) => {
   buildSidenav('treasury.html');
   applyModuleVisibility();
+  applyReadOnlyBanner();
   if (!enforceModuleGuard('treasury')) return;
   showLoading(false);
   loadTerms().catch(() => {});

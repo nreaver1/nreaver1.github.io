@@ -450,6 +450,7 @@ async function boot() {
     ]);
     buildSidenav('session-log.html');
     applyModuleVisibility();
+    applyReadOnlyBanner();
     if (!enforceModuleGuard('sessionLog')) { guarded = true; return; }
     sessions = sessionRows;
     // Group events by session_id
@@ -1208,6 +1209,7 @@ function setSessionStatus(status) {
 //  SESSION MODAL — SAVE
 // ══════════════════════════════════════════════════════════════
 async function saveSession() {
+  if (!(await nexusGate())) return;
   // ── Validate ──
   const title  = document.getElementById('smTitle').value.trim();
   const number = parseInt(document.getElementById('smNumber').value, 10);
@@ -1311,6 +1313,7 @@ async function saveSession() {
 //  SESSION DELETE
 // ══════════════════════════════════════════════════════════════
 async function deleteSession(id) {
+  if (!(await nexusGate())) return;
   const s = sessionIdMap.get(id);
   if (!s) return;
 
@@ -1727,6 +1730,7 @@ function onInlineNpcNameInput(name) {
 }
 
 async function saveInlineNpc() {
+  if (!(await nexusGate())) return;
   const name = document.getElementById('inNpcName').value.trim();
   const errEl = document.getElementById('inNpcError');
   errEl.textContent = '';
@@ -1822,6 +1826,7 @@ function onNpcNameInput(name) {
 }
 
 async function saveNpc() {
+  if (!(await nexusGate())) return;
   const name    = document.getElementById('nmName').value.trim();
   const rawSlug = document.getElementById('nmSlug').value.trim();
   const nameErr = document.getElementById('nmNameError');
@@ -1894,6 +1899,7 @@ async function saveNpc() {
 }
 
 async function deleteNpc(id) {
+  if (!(await nexusGate())) return;
   const npc = npcIdMap.get(id);
   if (!npc) return;
 

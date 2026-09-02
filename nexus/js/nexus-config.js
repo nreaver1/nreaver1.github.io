@@ -12,6 +12,18 @@ const SUPABASE_URL  = 'https://qlckogwtpfznjsnjpqlx.supabase.co';
 // This api key is public facing anyway so who cares
 const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFsY2tvZ3d0cGZ6bmpzbmpwcWx4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI3OTc0OTksImV4cCI6MjA4ODM3MzQ5OX0.fokbNPnEF0fBSj_GYc6XOzd4oXQd10lNuaLdCSKXMmM';
 
+// ┌─────────────────────────────────────────────────────────────┐
+// │  ADMIN PASSWORD — single source of truth for the whole site │
+// │  SHA-256 hash of the admin password. Used by admin.html's   │
+// │  own gate AND by requireAdmin()/nexusGate() on every page.  │
+// │  Default password: nexusadmin                               │
+// │  To change: run  await _nexusSha256("yournewpassword")      │
+// │  in the browser console (any page) and paste the result.    │
+// │  admin.html's "Change Password" tool does this for you.     │
+// └─────────────────────────────────────────────────────────────┘
+const NEXUS_ADMIN_HASH = '1f8c16044419c48333715ae2a712e6e0a30722d3c56bc9f581496910af47df8d';
+window.NEXUS_ADMIN_HASH = NEXUS_ADMIN_HASH;
+
 // ══════════════════════════════════════════════════════════════
 //  Low-level fetch wrapper — talks directly to Supabase REST API
 //  No SDK needed; works from plain HTML files.
@@ -300,19 +312,59 @@ const MODULE_ENABLED_DEFAULTS = {
 // Mutable working copy
 let MODULE_ENABLED = { ...MODULE_ENABLED_DEFAULTS };
 
-// Load from Supabase
+// ══════════════════════════════════════════════════════════════
+//  SITE-WIDE READ-ONLY LOCK
+//  Stored in nexus_settings under key 'site_lock'.
+//  When enabled, all data-mutating actions across every module
+//  (not just Admin) require the admin password for the session.
+//  Toggled from Admin → Site Access. Meant to be flipped on for
+//  read-only viewing (e.g. sharing a link with players) and off
+//  again once the system is ready for normal player use.
+//
+//  Usage:
+//    await loadModuleSettings();   // loads this too, same call
+//    isSiteLocked()                // → true/false
+//    await nexusGate()             // call at the top of any
+//                                   //   function that writes to
+//                                   //   the DB; returns false (and
+//                                   //   the caller should bail) if
+//                                   //   the lock is on and the
+//                                   //   password prompt is cancelled
+// ══════════════════════════════════════════════════════════════
+const SITE_LOCK_DEFAULTS = { enabled: false };
+let SITE_LOCK = { ...SITE_LOCK_DEFAULTS };
+
+// Load from Supabase — fetches module_enabled and site_lock together
 async function loadModuleSettings() {
   try {
-    const rows = await db.select('nexus_settings', { filter: 'key=eq.module_enabled' });
-    if (rows && rows.length && rows[0].value) {
-      const saved = typeof rows[0].value === 'string'
-        ? JSON.parse(rows[0].value)
-        : rows[0].value;
+    const rows = await db.select('nexus_settings', { filter: 'key=in.(module_enabled,site_lock)' });
+    const moduleRow = rows && rows.find(r => r.key === 'module_enabled');
+    const lockRow   = rows && rows.find(r => r.key === 'site_lock');
+    if (moduleRow && moduleRow.value) {
+      const saved = typeof moduleRow.value === 'string' ? JSON.parse(moduleRow.value) : moduleRow.value;
       MODULE_ENABLED = { ...MODULE_ENABLED_DEFAULTS, ...saved };
+    }
+    if (lockRow && lockRow.value) {
+      const saved = typeof lockRow.value === 'string' ? JSON.parse(lockRow.value) : lockRow.value;
+      SITE_LOCK = { ...SITE_LOCK_DEFAULTS, ...saved };
     }
   } catch(e) {
     console.info('[NEXUS] Module settings not loaded, using defaults:', e.message);
   }
+}
+
+// Returns true if site-wide read-only mode is currently on
+function isSiteLocked() {
+  return SITE_LOCK.enabled === true;
+}
+
+// Persist to Supabase
+async function saveSiteLock(enabled) {
+  SITE_LOCK = { enabled: !!enabled };
+  await db.upsert('nexus_settings', {
+    key:   'site_lock',
+    value: JSON.stringify(SITE_LOCK),
+  });
 }
 
 // Persist to Supabase
@@ -399,6 +451,28 @@ function applyModuleVisibility() {
   });
 }
 
+// Shows a persistent banner when site-wide read-only mode is on and this
+// session hasn't entered the admin password yet. Safe to call on every
+// page load, and again right after a successful password prompt to clear
+// it immediately without a reload. No-op if the lock is off or already
+// unlocked, or if the page has no #sidenav to anchor the banner to.
+function applyReadOnlyBanner() {
+  const existing = document.getElementById('nexusReadOnlyBanner');
+  const locked = isSiteLocked() && sessionStorage.getItem('nexus_admin') !== '1';
+
+  if (!locked) {
+    if (existing) existing.remove();
+    return;
+  }
+  if (existing) return; // already showing
+
+  const banner = document.createElement('div');
+  banner.id = 'nexusReadOnlyBanner';
+  banner.className = 'nexus-readonly-banner';
+  banner.innerHTML = `🔒 Read-only mode — viewing only. Admin login required to make changes.`;
+  document.body.prepend(banner);
+}
+
 // ══════════════════════════════════════════════════════════════
 //  BUTTON LOADING STATE  — shared across all modules
 //
@@ -457,76 +531,102 @@ async function _nexusSha256(str) {
   return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('');
 }
 
+// Shared password-prompt dialog. Resolves with the entered password on a
+// correct match (also sets sessionStorage nexus_admin='1' and refreshes
+// the read-only banner if present), or null if the user cancels.
+// Used by both requireAdmin() and nexusGate() so there's one dialog,
+// one hash check, and one unlock path for the whole site.
+function _nexusPromptForAdminPassword() {
+  return new Promise(resolve => {
+    const overlay = document.createElement('div');
+    overlay.className = 'nxc-overlay';
+    overlay.innerHTML = `
+      <div class="nxc-dialog" role="dialog" aria-modal="true">
+        <div class="nxc-header">
+          <span class="nxc-icon">🔒</span>
+          <span class="nxc-title">Admin Required</span>
+        </div>
+        <div class="nxc-message" style="margin-top:0.9rem">Enter the admin password to continue.</div>
+        <div style="padding:0.6rem 1.3rem 0">
+          <input id="_nxaInput" type="password" placeholder="Password"
+            style="width:100%;box-sizing:border-box;background:var(--bg);border:1px solid var(--border);
+                   border-radius:3px;color:var(--text);font-family:'Share Tech Mono',monospace;
+                   font-size:1rem;padding:0.45rem 0.7rem;outline:none" />
+          <div id="_nxaErr" style="font-family:'Share Tech Mono',monospace;font-size:0.8rem;
+                                   color:var(--red);min-height:1.2em;margin-top:0.35rem"></div>
+        </div>
+        <div class="nxc-actions">
+          <button class="nxc-btn nxc-cancel"  id="_nxaCancel">Cancel</button>
+          <button class="nxc-btn nxc-danger"   id="_nxaConfirm">Confirm</button>
+        </div>
+      </div>`;
+    document.body.appendChild(overlay);
+    requestAnimationFrame(() => overlay.classList.add('nxc-open'));
+
+    const input   = overlay.querySelector('#_nxaInput');
+    const errEl   = overlay.querySelector('#_nxaErr');
+    const btnOk   = overlay.querySelector('#_nxaConfirm');
+    const btnCancel = overlay.querySelector('#_nxaCancel');
+
+    function dismiss(value) {
+      overlay.classList.remove('nxc-open');
+      overlay.addEventListener('transitionend', () => overlay.remove(), { once: true });
+      resolve(value);
+    }
+
+    btnCancel.addEventListener('click', () => dismiss(null));
+    overlay.addEventListener('click', e => { if (e.target === overlay) dismiss(null); });
+
+    async function attempt() {
+      const hash = await _nexusSha256(input.value);
+      if (hash === (window.NEXUS_ADMIN_HASH || '')) {
+        sessionStorage.setItem('nexus_admin', '1');
+        if (typeof applyReadOnlyBanner === 'function') applyReadOnlyBanner();
+        dismiss(input.value);
+      } else {
+        errEl.textContent = 'Incorrect password.';
+        input.value = '';
+        setTimeout(() => { errEl.textContent = ''; }, 2500);
+        input.focus();
+      }
+    }
+
+    btnOk.addEventListener('click', attempt);
+    input.addEventListener('keydown', e => {
+      if (e.key === 'Enter')  attempt();
+      if (e.key === 'Escape') dismiss(null);
+    });
+
+    setTimeout(() => input.focus(), 50);
+  });
+}
+
 function requireAdmin(fn) {
   return async function (...args) {
     // Skip prompt if already authenticated this session
     if (sessionStorage.getItem('nexus_admin') === '1') return fn(...args);
-
-    const pw = await new Promise(resolve => {
-      const overlay = document.createElement('div');
-      overlay.className = 'nxc-overlay';
-      overlay.innerHTML = `
-        <div class="nxc-dialog" role="dialog" aria-modal="true">
-          <div class="nxc-header">
-            <span class="nxc-icon">🔒</span>
-            <span class="nxc-title">Admin Required</span>
-          </div>
-          <div class="nxc-message" style="margin-top:0.9rem">Enter the admin password to continue.</div>
-          <div style="padding:0.6rem 1.3rem 0">
-            <input id="_nxaInput" type="password" placeholder="Password"
-              style="width:100%;box-sizing:border-box;background:var(--bg);border:1px solid var(--border);
-                     border-radius:3px;color:var(--text);font-family:'Share Tech Mono',monospace;
-                     font-size:1rem;padding:0.45rem 0.7rem;outline:none" />
-            <div id="_nxaErr" style="font-family:'Share Tech Mono',monospace;font-size:0.8rem;
-                                     color:var(--red);min-height:1.2em;margin-top:0.35rem"></div>
-          </div>
-          <div class="nxc-actions">
-            <button class="nxc-btn nxc-cancel"  id="_nxaCancel">Cancel</button>
-            <button class="nxc-btn nxc-danger"   id="_nxaConfirm">Confirm</button>
-          </div>
-        </div>`;
-      document.body.appendChild(overlay);
-      requestAnimationFrame(() => overlay.classList.add('nxc-open'));
-
-      const input   = overlay.querySelector('#_nxaInput');
-      const errEl   = overlay.querySelector('#_nxaErr');
-      const btnOk   = overlay.querySelector('#_nxaConfirm');
-      const btnCancel = overlay.querySelector('#_nxaCancel');
-
-      function dismiss(value) {
-        overlay.classList.remove('nxc-open');
-        overlay.addEventListener('transitionend', () => overlay.remove(), { once: true });
-        resolve(value);
-      }
-
-      btnCancel.addEventListener('click', () => dismiss(null));
-      overlay.addEventListener('click', e => { if (e.target === overlay) dismiss(null); });
-
-      async function attempt() {
-        const hash = await _nexusSha256(input.value);
-        if (hash === (window.NEXUS_ADMIN_HASH || '')) {
-          sessionStorage.setItem('nexus_admin', '1');
-          dismiss(input.value);
-        } else {
-          errEl.textContent = 'Incorrect password.';
-          input.value = '';
-          setTimeout(() => { errEl.textContent = ''; }, 2500);
-          input.focus();
-        }
-      }
-
-      btnOk.addEventListener('click', attempt);
-      input.addEventListener('keydown', e => {
-        if (e.key === 'Enter')  attempt();
-        if (e.key === 'Escape') dismiss(null);
-      });
-
-      setTimeout(() => input.focus(), 50);
-    });
-
+    const pw = await _nexusPromptForAdminPassword();
     if (pw === null) return;   // user cancelled — action aborted
     return fn(...args);
   };
+}
+
+// ══════════════════════════════════════════════════════════════
+//  SITE LOCK GATE
+//  Call at the very top of any function that writes to the DB:
+//    async function saveThing() {
+//      if (!(await nexusGate())) return;
+//      ...
+//    }
+//  No-ops (returns true immediately) when site-wide read-only mode
+//  is off, or when this session already has the admin password —
+//  so normal editing is completely unaffected until the lock is on.
+// ══════════════════════════════════════════════════════════════
+async function nexusGate() {
+  if (!isSiteLocked()) return true;
+  if (sessionStorage.getItem('nexus_admin') === '1') return true;
+  const pw = await _nexusPromptForAdminPassword();
+  return pw !== null;
 }
 
 // ──────────────────────────────────────────────────────────────

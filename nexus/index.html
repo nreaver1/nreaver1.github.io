@@ -510,6 +510,7 @@
   loadModuleSettings().then(() => {
     buildSidenav('index.html');
     applyModuleVisibility();
+    applyReadOnlyBanner();
     loadTerms().then(() => applyTerms());
   });
   loadPartyStats();

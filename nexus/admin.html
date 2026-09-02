@@ -69,6 +69,36 @@
         </div>
       </div>
 
+      <!-- ── SITE ACCESS (READ-ONLY LOCK) ── -->
+      <div class="admin-section-card">
+        <div class="admin-section-head">Site Access</div>
+        <div class="admin-section-desc">
+          Make the entire site read-only for visitors. Everyone can still browse every module, but saving, adding,
+          deleting, or importing anywhere requires the admin password for that session. Toggle this off once the
+          system is ready for normal player use.
+        </div>
+
+        <div class="module-toggle-row">
+          <div class="module-toggle-info">
+            <span class="module-toggle-icon">🔒</span>
+            <div>
+              <div class="module-toggle-name">Read-Only Mode</div>
+              <div class="module-toggle-hint">Applies to every module, site-wide</div>
+            </div>
+          </div>
+          <label class="pill-toggle" title="Toggle site-wide read-only mode">
+            <input type="checkbox" id="siteLockToggle"
+                   onchange="document.getElementById('siteLockSaveStatus').classList.remove('show')" />
+            <span class="pill-track"></span>
+          </label>
+        </div>
+
+        <div class="admin-save-bar">
+          <span class="save-status" id="siteLockSaveStatus">✓ Saved</span>
+          <button class="btn btn-primary" onclick="saveSiteLockToggle()">Save Changes</button>
+        </div>
+      </div>
+
       <div class="admin-section-card">
         <div class="admin-section-head">Module &amp; Term Mappings</div>
         <div class="admin-section-desc">
@@ -124,8 +154,9 @@
       <div class="admin-section-card">
         <div class="admin-section-head">Admin Password</div>
         <div class="admin-section-desc">
-          Change the admin panel password. The password is stored as a SHA-256 hash in <code style="font-family:'Share Tech Mono',monospace;color:var(--cyan);font-size:0.75rem">js/nexus-config.js</code> —
-          update that file after changing it here, or the new password only persists for this browser session.
+          Change the admin password used across the whole site — this gate, the site-wide read-only lock below, and every
+          "admin required" prompt on other pages. It's stored as a SHA-256 hash in <code style="font-family:'Share Tech Mono',monospace;color:var(--cyan);font-size:0.75rem">js/nexus-config.js</code> —
+          update that file after changing it here, or the new password only persists for this browser tab.
         </div>
         <div class="pw-row">
           <div class="field"><label>New Password</label><input type="password" id="newPw1" placeholder="New password" /></div>
@@ -136,7 +167,7 @@
         <div style="margin-top:1rem;padding:0.8rem 1rem;background:rgba(240,168,50,0.05);border:1px solid rgba(240,168,50,0.2);border-radius:4px;">
           <div style="font-family:'Share Tech Mono',monospace;font-size:0.62rem;color:var(--amber);letter-spacing:0.08em;line-height:1.7">
             ⚠ &nbsp;To make a password change permanent: after clicking Update, copy the hash shown below into
-            <strong>js/nexus-config.js</strong> as the value of <code style="color:var(--cyan)">ADMIN_PW_HASH</code>.
+            <strong>js/nexus-config.js</strong> as the value of <code style="color:var(--cyan)">NEXUS_ADMIN_HASH</code>.
           </div>
           <div id="newHashDisplay" style="display:none;margin-top:0.6rem;font-family:'Share Tech Mono',monospace;font-size:0.65rem;color:var(--cyan);word-break:break-all;"></div>
         </div>
@@ -167,12 +198,13 @@
   <script>
   // ══════════════════════════════════════════════════════════
   //  PASSWORD GATE
-  //  SHA-256 hash of the admin password.
-  //  Default password: nexusadmin
-  //  To change: run  sha256("yournewpassword")  in the browser
-  //  console and paste the result here.
+  //  The hash itself lives in js/nexus-config.js as NEXUS_ADMIN_HASH —
+  //  that's the single source of truth used here AND by requireAdmin()/
+  //  nexusGate() on every other page, so there's only one password to
+  //  manage for the whole site. _runtimeAdminHash is a mutable copy so
+  //  changePassword() below can override it for the rest of this session.
   // ══════════════════════════════════════════════════════════
-  const ADMIN_PW_HASH = '1f8c16044419c48333715ae2a712e6e0a30722d3c56bc9f581496910af47df8d';
+  let _runtimeAdminHash = window.NEXUS_ADMIN_HASH || '';
 
   // Session flag — stays unlocked while the tab is open
   let adminUnlocked = sessionStorage.getItem('nexus_admin') === '1';
@@ -185,7 +217,7 @@
   async function checkPassword() {
     const pw = document.getElementById('gatePassword').value;
     const hash = await sha256(pw);
-    if (hash === ADMIN_PW_HASH) {
+    if (hash === _runtimeAdminHash) {
       sessionStorage.setItem('nexus_admin', '1');
       adminUnlocked = true;
       document.getElementById('adminGate').style.display = 'none';
@@ -383,7 +415,28 @@
     await Promise.all([loadTerms(), loadModuleSettings()]);
     buildTermGrid();
     buildModuleToggleGrid();
+    buildSiteLockToggle();
     buildDangerZone();
+  }
+
+  function buildSiteLockToggle() {
+    const cb = document.getElementById('siteLockToggle');
+    if (cb) cb.checked = isSiteLocked();
+  }
+
+  async function saveSiteLockToggle() {
+    const cb = document.getElementById('siteLockToggle');
+    const enabled = cb ? cb.checked : false;
+    try {
+      await saveSiteLock(enabled);
+      const status = document.getElementById('siteLockSaveStatus');
+      status.classList.add('show');
+      setTimeout(() => status.classList.remove('show'), 2000);
+      showToast(enabled ? 'Site is now read-only.' : 'Site is now editable by everyone.');
+    } catch(e) {
+      console.error(e);
+      showToast('Save failed — check Supabase config.');
+    }
   }
 
   async function saveTermsAdmin() {
@@ -426,13 +479,16 @@
     if (!p1) { status.style.color='var(--red)'; status.textContent = 'Enter a new password.'; return; }
     if (p1 !== p2) { status.style.color='var(--red)'; status.textContent = 'Passwords do not match.'; return; }
     const hash = await sha256(p1);
-    // Update in-memory so it works for this session
-    // (ADMIN_PW_HASH is const, so we shadow it on window)
-    window._adminPwHash = hash;
+    // Update in-memory so it takes effect immediately on this page (this
+    // gate + any requireAdmin()/nexusGate() prompt in the Danger Zone below),
+    // without needing a reload. Other pages/tabs still use the old password
+    // until js/nexus-config.js is updated with the new hash.
+    _runtimeAdminHash = hash;
+    window.NEXUS_ADMIN_HASH = hash;
     status.style.color = 'var(--green)';
     status.textContent = '✓ Password updated for this session. Copy the hash below into js/nexus-config.js to make it permanent.';
     hashDisplay.style.display = 'block';
-    hashDisplay.textContent = 'ADMIN_PW_HASH = \'' + hash + '\'';
+    hashDisplay.textContent = 'NEXUS_ADMIN_HASH = \'' + hash + '\'';
     document.getElementById('newPw1').value = '';
     document.getElementById('newPw2').value = '';
   }

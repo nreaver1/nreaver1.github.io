@@ -107,3 +107,63 @@ create policy "public write settings" on public.nexus_settings for all    using 
 insert into public.nexus_settings (key, value) values
   ('term_mappings', '{}')
 on conflict (key) do nothing;
+
+-- ── 5. SESSION LOG ────────────────────────────────────────────
+-- session_log: one row per session (the spine of the module)
+create table if not exists session_log (
+  id           text        primary key,
+  number       int         not null,              -- session number; auto-assigned in JS, editable
+  title        text        not null,
+  real_date    text,                              -- ISO date string e.g. '2026-03-10'
+  world_date   text,                              -- freeform in-world date e.g. '14th of Frostfall'
+  summary      text,                              -- freeform recap; ^{npc-slug} citations supported
+  status       text        not null default 'draft', -- 'draft' | 'complete'
+  quests       jsonb       not null default '[]', -- [{id,text,status},...] stored inline
+  session_npcs jsonb       not null default '[]', -- [npc_id,...] NPCs linked to this session
+  created_at   timestamptz default now(),
+  updated_at   timestamptz default now()
+);
+
+-- session_events: notable moments within a session (freeform bullet entries)
+create table if not exists session_events (
+  id           text        primary key,
+  session_id   text        not null references session_log(id) on delete cascade,
+  text         text        not null,              -- ^{npc-slug} citations supported
+  members      jsonb       not null default '[]', -- array of party member names tagged to this moment
+  sort_order   int         not null default 0,    -- UI ordering; assigned 0,1,2... on create
+  created_at   timestamptz default now()
+);
+
+-- npcs: global NPC index — records exist independently of any single session
+create table if not exists npcs (
+  id           text        primary key,
+  slug         text        not null unique,       -- URL-safe citation key e.g. 'captain-draegar'
+  name         text        not null,
+  role         text,                              -- e.g. 'City Guard Captain'
+  disposition  text        not null default 'unknown', -- 'allied'|'friendly'|'neutral'|'hostile'|'unknown'
+  notes        text,                              -- persistent notes spanning all sessions
+  first_seen   text        references session_log(id) on delete set null,
+  created_at   timestamptz default now(),
+  updated_at   timestamptz default now()
+);
+
+-- ── RLS for Session Log tables ────────────────────────────────
+alter table session_log    enable row level security;
+alter table session_events enable row level security;
+alter table npcs           enable row level security;
+
+create policy "public_all" on session_log    for all using (true) with check (true);
+create policy "public_all" on session_events for all using (true) with check (true);
+create policy "public_all" on npcs           for all using (true) with check (true);
+
+-- ── updated_at triggers for session_log and npcs ─────────────
+-- set_updated_at() function is already defined above — shared by all tables.
+-- Triggers only on tables with an updated_at column that are PATCHed.
+-- session_events has no updated_at — moments are deleted and re-inserted, not patched.
+create trigger trg_session_log_updated
+  before update on session_log
+  for each row execute function set_updated_at();
+
+create trigger trg_npcs_updated
+  before update on npcs
+  for each row execute function set_updated_at();

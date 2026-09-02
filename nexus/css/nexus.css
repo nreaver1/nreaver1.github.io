@@ -3759,3 +3759,22 @@ oot-vault-total {
   opacity: 1;
   box-shadow: 0 0 12px rgba(224,60,60,0.3);
 }
+
+/* ══════════════════════════════════════════════════════════════
+   SITE-WIDE READ-ONLY BANNER (js/nexus-config.js → applyReadOnlyBanner)
+   ══════════════════════════════════════════════════════════════ */
+.nexus-readonly-banner {
+  position: sticky;
+  top: 0;
+  z-index: 500;
+  width: 100%;
+  box-sizing: border-box;
+  padding: 0.5rem 1rem;
+  text-align: center;
+  background: rgba(240,168,50,0.12);
+  border-bottom: 1px solid var(--gold);
+  color: var(--gold);
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 0.75rem;
+  letter-spacing: 0.04em;
+}
