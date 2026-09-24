@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react'
 import { Swords, ChevronDown } from 'lucide-react'
 import { headToHead, fmtPct } from '../../lib/stats'
+import Avatar from '../ui/Avatar'
 
 function PlayerPicker({ players, value, onChange, exclude }) {
   return (

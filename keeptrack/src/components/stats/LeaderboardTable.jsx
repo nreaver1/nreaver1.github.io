@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { ArrowUp, ArrowDown, Minus, Trophy, Flame } from 'lucide-react'
 import { sortRecords, formatStreak, fmtPct } from '../../lib/stats'
+import Avatar from '../ui/Avatar'
 
 const COLUMNS = [
   { key: 'winPct',  label: 'Win %',   title: 'Win percentage (points)' },

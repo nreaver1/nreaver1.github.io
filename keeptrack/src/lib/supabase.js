@@ -1,9 +1,13 @@
 import { createClient } from '@supabase/supabase-js'
+import { demoClient }   from '../demo/demoClient'
 
 const supabaseUrl  = import.meta.env.VITE_SUPABASE_URL
 const supabaseAnon = import.meta.env.VITE_SUPABASE_ANON_KEY
 
-if (!supabaseUrl || !supabaseAnon) {
+// Demo mode runs on in-memory seed data with no Supabase project behind it
+export const isDemo = import.meta.env.VITE_DEMO_MODE === 'true'
+
+if (!isDemo && (!supabaseUrl || !supabaseAnon)) {
   document.body.style.cssText = 'margin:0;background:#0a0a0f;display:flex;align-items:center;justify-content:center;min-height:100vh;font-family:sans-serif;'
   document.body.innerHTML = `
     <div style="text-align:center;padding:2rem;max-width:480px;">
@@ -24,7 +28,7 @@ if (!supabaseUrl || !supabaseAnon) {
   throw new Error('Missing VITE_SUPABASE_URL or VITE_SUPABASE_ANON_KEY — see instructions above.')
 }
 
-export const supabase = createClient(supabaseUrl, supabaseAnon, {
+export const supabase = isDemo ? demoClient : createClient(supabaseUrl, supabaseAnon, {
   auth: {
     persistSession:     true,
     autoRefreshToken:   true,
@@ -73,6 +77,7 @@ const startHardCapTimer = () => {
 const ACTIVITY_EVENTS = ['mousedown', 'mousemove', 'keydown', 'touchstart', 'scroll', 'click']
 
 export const startInactivityWatcher = () => {
+  if (isDemo) return
   // Record session start time if not already set
   if (!localStorage.getItem(SESSION_START_KEY)) {
     localStorage.setItem(SESSION_START_KEY, Date.now().toString())

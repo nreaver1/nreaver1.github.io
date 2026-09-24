@@ -6,6 +6,7 @@ import { useAuthStore }   from '../../store/authStore'
 import Avatar            from '../ui/Avatar'
 import { useNotifStore }  from '../../store/notifStore'
 import InstallPrompt     from '../ui/InstallPrompt'
+import { isDemo }        from '../../lib/supabase'
 
 const NAV_ITEMS = [
   { to: '/dashboard',  label: 'Home',      icon: LayoutDashboard },
@@ -84,6 +85,11 @@ export default function AppShell() {
 
       {/* ── Main content ── */}
       <main className="flex-1 flex flex-col overflow-hidden">
+        {isDemo && (
+          <div className="shrink-0 bg-brand-500/10 border-b border-brand-500/20 px-4 py-1.5 text-center text-xs text-brand-400">
+            Demo mode: sample data, signed in as nick. Changes reset when you reload.
+          </div>
+        )}
         {/* Mobile header — hidden on full-screen wizard pages */}
         <header className={`lg:hidden flex items-center justify-between px-4 pt-safe-top pb-3 pt-4 bg-surface-1 border-b border-surface-3 shrink-0 ${hideHeader ? 'hidden' : ''}`}>
           <div className="flex items-center gap-2.5">
