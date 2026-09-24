@@ -156,7 +156,7 @@ export default function AppShell() {
           </div>
         </nav>
       </main>
-      <InstallPrompt />
+      {!isDemo && <InstallPrompt />}
     </div>
   )
 }
