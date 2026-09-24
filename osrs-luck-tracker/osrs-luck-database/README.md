@@ -37,7 +37,7 @@ data/
 |---|---|
 | Schema (all 5 tables, RLS, enum) | Done |
 | `flat_geometric` calculation | Done, verified against known CDF benchmark (see below) |
-| `points_based` / `streak_adjusted` calculation | Approximation implemented, needs real metadata filled in via `data/manual_metadata_stub.json` |
+| `points_based` / `streak_adjusted` calculation | Done, as labelled estimates. `data/manual_drop_rates.json` holds 79 hand-transcribed rows: CoX, CoX CM, ToB, ToB HM, ToA and ToA Expert uniques and pets (`points_based`), plus pity-timer drops (`streak_adjusted`): ToA thread and keris jewels, DT2 quartz, Vorkath's head, Slepey tablet. Each row carries an `assumption` note (e.g. points per raid, team size). Loaded by `scripts/load-manual-rates.ts`; the wiki sync skips these pairs. |
 | `/register` | Done — automatic token minting on first plugin run |
 | `/ingest-drop` | Done — rate limiting, kc sanity check, submission-lag check |
 | `/backfill-drop` | Done — records "obtained, KC unknown" entries, explicitly flagged (`is_backfilled`), never computes a fake probability. Accepts one item or a `drops: [...]` batch (up to 500) for the plugin's collection log import. Skips pairs the account already has a row for. Constraint behavior (duplicate rejection, coexistence with a later real drop of the same item) verified against real Postgres; batch mode has not been run against a live project yet. |
@@ -61,9 +61,9 @@ data/
    ```bash
    export SUPABASE_URL=https://<your-ref>.supabase.co
    export SUPABASE_SECRET_KEY=sb_secret_...   # raw string from Settings > API Keys, NOT the JSON blob edge functions get
-   deno run --allow-net --allow-env scripts/sync-drop-rates.ts
+   deno run --allow-net --allow-env --allow-read scripts/sync-drop-rates.ts
    ```
-8. Manually fill in `data/manual_metadata_stub.json`-style entries for at least one `points_based` raid unique to exercise that code path end to end.
+8. With the same exports, load the hand-curated raid and pity-timer rates: `deno run --allow-net --allow-env --allow-read scripts/load-manual-rates.ts`. Re-run it whenever `data/manual_drop_rates.json` changes.
 
 ## Historical backfill — design note
 
@@ -89,11 +89,10 @@ identity: at `kc_received == denominator`, `P` should converge to
 `1 - 1/e ≈ 63.21%`. Ran against `geometricCDF(512, 1, 512)` → `0.6325`,
 within expected floating-point tolerance.
 
-No automated test suite is wired up yet — recommend adding Deno's
-built-in test runner (`Deno.test`) against `_shared/calculations.ts`
-before Phase 2, particularly for the `streakAdjustedApprox` piecewise
-logic, which is the most likely place for an off-by-one on segment
-boundaries.
+`_shared/calculations.test.ts` covers the engine (including the pity
+curves' segment boundaries) and checks every row in
+`data/manual_drop_rates.json`:
+`npx deno test --no-config --allow-read supabase/functions/_shared/`.
 
 ## Data attribution
 `data/osrs_items.json` is trimmed from the `osrs-item-data` npm package

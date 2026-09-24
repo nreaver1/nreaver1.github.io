@@ -65,24 +65,64 @@ export function pointsBasedApprox(
     return geometricCDF(kcReceived, rate.numerator, rate.denominator);
   }
 
+  // Not floored: at typical raid points one raid is worth a few rolls, so
+  // rounding down would throw away a large share of the first raid's chance.
   const equivalentRolls =
     (kcReceived * avgPointsPerActivity) / pointsPerRoll;
-  return geometricCDF(Math.floor(equivalentRolls), rate.numerator, rate.denominator, 1);
+  return geometricCDF(equivalentRolls, rate.numerator, rate.denominator, 1);
+}
+
+export interface PityRamp {
+  start_denominator: number;
+  end_denominator: number;
+  ramp_kc: number;
+}
+
+/**
+ * Chance of the drop on the kill made at `kcBefore` completed kills, when
+ * the per-kill chance rises linearly from numerator/start_denominator at 0
+ * kc to numerator/end_denominator at ramp_kc, then holds there.
+ */
+function rampChance(kcBefore: number, numerator: number, ramp: PityRamp): number {
+  const start = numerator / ramp.start_denominator;
+  const end = numerator / ramp.end_denominator;
+  const progress = Math.min(kcBefore, ramp.ramp_kc) / ramp.ramp_kc;
+  return Math.min(1, start + (end - start) * progress);
 }
 
 /**
  * streak_adjusted approximation (pity-timer / dry-streak-boosted drops).
  *
- * Uses metadata.pity_thresholds if present: an array of
- * { kc: number, denominator: number } sorted ascending by kc, describing
- * how the effective rate improves the drier a player gets since their
- * last drop of this item. Falls back to flat geometric if no curve has
- * been transcribed yet.
+ * Reads one of two curve shapes from metadata, checked in this order:
+ *  - pity_ramp: { start_denominator, end_denominator, ramp_kc }. The
+ *    per-kill chance climbs linearly with kc (e.g. ToA's thread of
+ *    Elidinis, 1/10 rising to 3/10 at 15 raids).
+ *  - pity_thresholds: [{ kc, denominator }] sorted ascending by kc, a
+ *    piecewise-constant curve. Each entry means "from the previous
+ *    threshold's kc up to this kc, the rate is numerator/denominator", so a
+ *    guaranteed drop on kill N is [{ kc: N-1, denominator: D }, { kc: N,
+ *    denominator: 1 }].
+ * Falls back to flat geometric if neither has been transcribed.
  */
 export function streakAdjustedApprox(
   kcAtPreviousDrop: number,
   rate: DropRate,
 ): number {
+  const ramp = rate.metadata["pity_ramp"] as PityRamp | undefined;
+  if (ramp && ramp.start_denominator > 0 && ramp.end_denominator > 0 && ramp.ramp_kc > 0) {
+    let survival = 1;
+    for (let kc = 0; kc < kcAtPreviousDrop; kc++) {
+      survival *= 1 - rampChance(kc, rate.numerator, ramp);
+      if (kc >= ramp.ramp_kc) {
+        // The rest of the kills all roll at the capped rate.
+        const capped = rampChance(ramp.ramp_kc, rate.numerator, ramp);
+        survival *= Math.pow(1 - capped, kcAtPreviousDrop - kc - 1);
+        break;
+      }
+    }
+    return 1 - survival;
+  }
+
   const thresholds = rate.metadata["pity_thresholds"] as
     | Array<{ kc: number; denominator: number }>
     | undefined;

@@ -49,14 +49,13 @@ Deno.serve(async (req) => {
     install_token,
     account_hash,
     item_id,
-    source_name,
     kc_received,
     current_kc,
   } = body;
 
   if (
     !install_token || !account_hash || item_id == null ||
-    !source_name || kc_received == null || current_kc == null
+    !body.source_name || kc_received == null || current_kc == null
   ) {
     return new Response(JSON.stringify({ error: "Missing required fields" }), {
       status: 400,
@@ -81,6 +80,31 @@ Deno.serve(async (req) => {
     return new Response(JSON.stringify({ error: "Invalid install_token" }), {
       status: 401,
     });
+  }
+
+  // --- Match the chat message's source to a drop_rates source ---
+  // The plugin sends the boss name as the kill-count message prints it,
+  // which can differ from the wiki page name the rate is stored under
+  // ("Gauntlet" vs "The Gauntlet"). An item with no rate from this source
+  // is rejected here rather than by the foreign key.
+  const { data: rates, error: ratesError } = await supabase
+    .from("drop_rates")
+    .select("source_name")
+    .eq("item_id", item_id);
+
+  if (ratesError) {
+    return new Response(JSON.stringify({ error: ratesError.message }), {
+      status: 500,
+    });
+  }
+  const sources = (rates ?? []).map((r) => r.source_name as string);
+  const source_name = sources.find((s) => s === body.source_name) ??
+    sources.find((s) => normalizeSource(s) === normalizeSource(body.source_name!));
+  if (!source_name) {
+    return new Response(
+      JSON.stringify({ error: "No drop rate for this item from this source" }),
+      { status: 422 },
+    );
   }
 
   // --- Anti-cheat: kc_received cannot exceed current_kc ---
@@ -174,3 +198,9 @@ Deno.serve(async (req) => {
 
   return new Response(JSON.stringify({ drop: inserted }), { status: 201 });
 });
+
+// Same rule as the plugin's BackfillPlanner.normalize: ignore case,
+// punctuation and a leading "The".
+function normalizeSource(name: string): string {
+  return name.toLowerCase().replace(/^the\s+/, "").replace(/[^a-z0-9]/g, "");
+}

@@ -1,0 +1,1225 @@
+{
+  "_about": [
+    "Hand-curated drop_rates rows for drops the wiki sync can't parse: raid uniques (points_based) and pity-timer drops (streak_adjusted).",
+    "Load with scripts/load-manual-rates.ts. sync-drop-rates.ts skips every (item_id, source_name) listed here so it can't overwrite them.",
+    "Transcribed from the OSRS Wiki on 2026-09-24 (CoX weights reflect the 12 August 2026 change). `wiki` names the page each row came from; `item_name` is for reading only.",
+    "points_based: chance per activity ~ (avg_points_per_activity / points_per_roll) * numerator / denominator. streak_adjusted: see streakAdjustedApprox in supabase/functions/_shared/calculations.ts."
+  ],
+  "rows": [
+    {
+      "rolls_per_kill": 1,
+      "item_id": 21034,
+      "item_name": "Dexterous prayer scroll",
+      "source_name": "Chambers of Xeric",
+      "distribution_type": "points_based",
+      "numerator": 14,
+      "denominator": 6000,
+      "metadata": {
+        "avg_points_per_activity": 30000,
+        "points_per_roll": 8676,
+        "assumption": "~30,000 personal points per raid (wiki money making guide, solo deathless). Your share of a team's unique chance scales with your own points, so team size drops out."
+      },
+      "wiki": "Ancient chest"
+    },
+    {
+      "rolls_per_kill": 1,
+      "item_id": 21079,
+      "item_name": "Arcane prayer scroll",
+      "source_name": "Chambers of Xeric",
+      "distribution_type": "points_based",
+      "numerator": 14,
+      "denominator": 6000,
+      "metadata": {
+        "avg_points_per_activity": 30000,
+        "points_per_roll": 8676,
+        "assumption": "~30,000 personal points per raid (wiki money making guide, solo deathless). Your share of a team's unique chance scales with your own points, so team size drops out."
+      },
+      "wiki": "Ancient chest"
+    },
+    {
+      "rolls_per_kill": 1,
+      "item_id": 21000,
+      "item_name": "Twisted buckler",
+      "source_name": "Chambers of Xeric",
+      "distribution_type": "points_based",
+      "numerator": 4,
+      "denominator": 6000,
+      "metadata": {
+        "avg_points_per_activity": 30000,
+        "points_per_roll": 8676,
+        "assumption": "~30,000 personal points per raid (wiki money making guide, solo deathless). Your share of a team's unique chance scales with your own points, so team size drops out."
+      },
+      "wiki": "Ancient chest"
+    },
+    {
+      "rolls_per_kill": 1,
+      "item_id": 21012,
+      "item_name": "Dragon hunter crossbow",
+      "source_name": "Chambers of Xeric",
+      "distribution_type": "points_based",
+      "numerator": 4,
+      "denominator": 6000,
+      "metadata": {
+        "avg_points_per_activity": 30000,
+        "points_per_roll": 8676,
+        "assumption": "~30,000 personal points per raid (wiki money making guide, solo deathless). Your share of a team's unique chance scales with your own points, so team size drops out."
+      },
+      "wiki": "Ancient chest"
+    },
+    {
+      "rolls_per_kill": 1,
+      "item_id": 21015,
+      "item_name": "Dinh's bulwark",
+      "source_name": "Chambers of Xeric",
+      "distribution_type": "points_based",
+      "numerator": 3,
+      "denominator": 6000,
+      "metadata": {
+        "avg_points_per_activity": 30000,
+        "points_per_roll": 8676,
+        "assumption": "~30,000 personal points per raid (wiki money making guide, solo deathless). Your share of a team's unique chance scales with your own points, so team size drops out."
+      },
+      "wiki": "Ancient chest"
+    },
+    {
+      "rolls_per_kill": 1,
+      "item_id": 21018,
+      "item_name": "Ancestral hat",
+      "source_name": "Chambers of Xeric",
+      "distribution_type": "points_based",
+      "numerator": 4,
+      "denominator": 6000,
+      "metadata": {
+        "avg_points_per_activity": 30000,
+        "points_per_roll": 8676,
+        "assumption": "~30,000 personal points per raid (wiki money making guide, solo deathless). Your share of a team's unique chance scales with your own points, so team size drops out."
+      },
+      "wiki": "Ancient chest"
+    },
+    {
+      "rolls_per_kill": 1,
+      "item_id": 21021,
+      "item_name": "Ancestral robe top",
+      "source_name": "Chambers of Xeric",
+      "distribution_type": "points_based",
+      "numerator": 4,
+      "denominator": 6000,
+      "metadata": {
+        "avg_points_per_activity": 30000,
+        "points_per_roll": 8676,
+        "assumption": "~30,000 personal points per raid (wiki money making guide, solo deathless). Your share of a team's unique chance scales with your own points, so team size drops out."
+      },
+      "wiki": "Ancient chest"
+    },
+    {
+      "rolls_per_kill": 1,
+      "item_id": 21024,
+      "item_name": "Ancestral robe bottom",
+      "source_name": "Chambers of Xeric",
+      "distribution_type": "points_based",
+      "numerator": 4,
+      "denominator": 6000,
+      "metadata": {
+        "avg_points_per_activity": 30000,
+        "points_per_roll": 8676,
+        "assumption": "~30,000 personal points per raid (wiki money making guide, solo deathless). Your share of a team's unique chance scales with your own points, so team size drops out."
+      },
+      "wiki": "Ancient chest"
+    },
+    {
+      "rolls_per_kill": 1,
+      "item_id": 13652,
+      "item_name": "Dragon claws",
+      "source_name": "Chambers of Xeric",
+      "distribution_type": "points_based",
+      "numerator": 3,
+      "denominator": 6000,
+      "metadata": {
+        "avg_points_per_activity": 30000,
+        "points_per_roll": 8676,
+        "assumption": "~30,000 personal points per raid (wiki money making guide, solo deathless). Your share of a team's unique chance scales with your own points, so team size drops out."
+      },
+      "wiki": "Ancient chest"
+    },
+    {
+      "rolls_per_kill": 1,
+      "item_id": 21003,
+      "item_name": "Elder maul",
+      "source_name": "Chambers of Xeric",
+      "distribution_type": "points_based",
+      "numerator": 2,
+      "denominator": 6000,
+      "metadata": {
+        "avg_points_per_activity": 30000,
+        "points_per_roll": 8676,
+        "assumption": "~30,000 personal points per raid (wiki money making guide, solo deathless). Your share of a team's unique chance scales with your own points, so team size drops out."
+      },
+      "wiki": "Ancient chest"
+    },
+    {
+      "rolls_per_kill": 1,
+      "item_id": 21043,
+      "item_name": "Kodai insignia",
+      "source_name": "Chambers of Xeric",
+      "distribution_type": "points_based",
+      "numerator": 2,
+      "denominator": 6000,
+      "metadata": {
+        "avg_points_per_activity": 30000,
+        "points_per_roll": 8676,
+        "assumption": "~30,000 personal points per raid (wiki money making guide, solo deathless). Your share of a team's unique chance scales with your own points, so team size drops out."
+      },
+      "wiki": "Ancient chest"
+    },
+    {
+      "rolls_per_kill": 1,
+      "item_id": 20997,
+      "item_name": "Twisted bow",
+      "source_name": "Chambers of Xeric",
+      "distribution_type": "points_based",
+      "numerator": 2,
+      "denominator": 6000,
+      "metadata": {
+        "avg_points_per_activity": 30000,
+        "points_per_roll": 8676,
+        "assumption": "~30,000 personal points per raid (wiki money making guide, solo deathless). Your share of a team's unique chance scales with your own points, so team size drops out."
+      },
+      "wiki": "Ancient chest"
+    },
+    {
+      "rolls_per_kill": 1,
+      "item_id": 20851,
+      "item_name": "Olmlet",
+      "source_name": "Chambers of Xeric",
+      "distribution_type": "points_based",
+      "numerator": 1,
+      "denominator": 5300,
+      "metadata": {
+        "avg_points_per_activity": 30000,
+        "points_per_roll": 8676,
+        "assumption": "~30,000 personal points per raid (wiki money making guide, solo deathless). Your share of a team's unique chance scales with your own points, so team size drops out."
+      },
+      "wiki": "Ancient chest"
+    },
+    {
+      "rolls_per_kill": 1,
+      "item_id": 21034,
+      "item_name": "Dexterous prayer scroll",
+      "source_name": "Chambers of Xeric Challenge Mode",
+      "distribution_type": "points_based",
+      "numerator": 12,
+      "denominator": 5600,
+      "metadata": {
+        "avg_points_per_activity": 62000,
+        "points_per_roll": 8676,
+        "assumption": "~62,000 personal points per raid (wiki money making guide: 57,000 + 5,000 for finishing in time, solo). Your share of a team's unique chance scales with your own points, so team size drops out."
+      },
+      "wiki": "Ancient chest"
+    },
+    {
+      "rolls_per_kill": 1,
+      "item_id": 21079,
+      "item_name": "Arcane prayer scroll",
+      "source_name": "Chambers of Xeric Challenge Mode",
+      "distribution_type": "points_based",
+      "numerator": 12,
+      "denominator": 5600,
+      "metadata": {
+        "avg_points_per_activity": 62000,
+        "points_per_roll": 8676,
+        "assumption": "~62,000 personal points per raid (wiki money making guide: 57,000 + 5,000 for finishing in time, solo). Your share of a team's unique chance scales with your own points, so team size drops out."
+      },
+      "wiki": "Ancient chest"
+    },
+    {
+      "rolls_per_kill": 1,
+      "item_id": 21000,
+      "item_name": "Twisted buckler",
+      "source_name": "Chambers of Xeric Challenge Mode",
+      "distribution_type": "points_based",
+      "numerator": 4,
+      "denominator": 5600,
+      "metadata": {
+        "avg_points_per_activity": 62000,
+        "points_per_roll": 8676,
+        "assumption": "~62,000 personal points per raid (wiki money making guide: 57,000 + 5,000 for finishing in time, solo). Your share of a team's unique chance scales with your own points, so team size drops out."
+      },
+      "wiki": "Ancient chest"
+    },
+    {
+      "rolls_per_kill": 1,
+      "item_id": 21012,
+      "item_name": "Dragon hunter crossbow",
+      "source_name": "Chambers of Xeric Challenge Mode",
+      "distribution_type": "points_based",
+      "numerator": 4,
+      "denominator": 5600,
+      "metadata": {
+        "avg_points_per_activity": 62000,
+        "points_per_roll": 8676,
+        "assumption": "~62,000 personal points per raid (wiki money making guide: 57,000 + 5,000 for finishing in time, solo). Your share of a team's unique chance scales with your own points, so team size drops out."
+      },
+      "wiki": "Ancient chest"
+    },
+    {
+      "rolls_per_kill": 1,
+      "item_id": 21015,
+      "item_name": "Dinh's bulwark",
+      "source_name": "Chambers of Xeric Challenge Mode",
+      "distribution_type": "points_based",
+      "numerator": 3,
+      "denominator": 5600,
+      "metadata": {
+        "avg_points_per_activity": 62000,
+        "points_per_roll": 8676,
+        "assumption": "~62,000 personal points per raid (wiki money making guide: 57,000 + 5,000 for finishing in time, solo). Your share of a team's unique chance scales with your own points, so team size drops out."
+      },
+      "wiki": "Ancient chest"
+    },
+    {
+      "rolls_per_kill": 1,
+      "item_id": 21018,
+      "item_name": "Ancestral hat",
+      "source_name": "Chambers of Xeric Challenge Mode",
+      "distribution_type": "points_based",
+      "numerator": 4,
+      "denominator": 5600,
+      "metadata": {
+        "avg_points_per_activity": 62000,
+        "points_per_roll": 8676,
+        "assumption": "~62,000 personal points per raid (wiki money making guide: 57,000 + 5,000 for finishing in time, solo). Your share of a team's unique chance scales with your own points, so team size drops out."
+      },
+      "wiki": "Ancient chest"
+    },
+    {
+      "rolls_per_kill": 1,
+      "item_id": 21021,
+      "item_name": "Ancestral robe top",
+      "source_name": "Chambers of Xeric Challenge Mode",
+      "distribution_type": "points_based",
+      "numerator": 4,
+      "denominator": 5600,
+      "metadata": {
+        "avg_points_per_activity": 62000,
+        "points_per_roll": 8676,
+        "assumption": "~62,000 personal points per raid (wiki money making guide: 57,000 + 5,000 for finishing in time, solo). Your share of a team's unique chance scales with your own points, so team size drops out."
+      },
+      "wiki": "Ancient chest"
+    },
+    {
+      "rolls_per_kill": 1,
+      "item_id": 21024,
+      "item_name": "Ancestral robe bottom",
+      "source_name": "Chambers of Xeric Challenge Mode",
+      "distribution_type": "points_based",
+      "numerator": 4,
+      "denominator": 5600,
+      "metadata": {
+        "avg_points_per_activity": 62000,
+        "points_per_roll": 8676,
+        "assumption": "~62,000 personal points per raid (wiki money making guide: 57,000 + 5,000 for finishing in time, solo). Your share of a team's unique chance scales with your own points, so team size drops out."
+      },
+      "wiki": "Ancient chest"
+    },
+    {
+      "rolls_per_kill": 1,
+      "item_id": 13652,
+      "item_name": "Dragon claws",
+      "source_name": "Chambers of Xeric Challenge Mode",
+      "distribution_type": "points_based",
+      "numerator": 3,
+      "denominator": 5600,
+      "metadata": {
+        "avg_points_per_activity": 62000,
+        "points_per_roll": 8676,
+        "assumption": "~62,000 personal points per raid (wiki money making guide: 57,000 + 5,000 for finishing in time, solo). Your share of a team's unique chance scales with your own points, so team size drops out."
+      },
+      "wiki": "Ancient chest"
+    },
+    {
+      "rolls_per_kill": 1,
+      "item_id": 21003,
+      "item_name": "Elder maul",
+      "source_name": "Chambers of Xeric Challenge Mode",
+      "distribution_type": "points_based",
+      "numerator": 2,
+      "denominator": 5600,
+      "metadata": {
+        "avg_points_per_activity": 62000,
+        "points_per_roll": 8676,
+        "assumption": "~62,000 personal points per raid (wiki money making guide: 57,000 + 5,000 for finishing in time, solo). Your share of a team's unique chance scales with your own points, so team size drops out."
+      },
+      "wiki": "Ancient chest"
+    },
+    {
+      "rolls_per_kill": 1,
+      "item_id": 21043,
+      "item_name": "Kodai insignia",
+      "source_name": "Chambers of Xeric Challenge Mode",
+      "distribution_type": "points_based",
+      "numerator": 2,
+      "denominator": 5600,
+      "metadata": {
+        "avg_points_per_activity": 62000,
+        "points_per_roll": 8676,
+        "assumption": "~62,000 personal points per raid (wiki money making guide: 57,000 + 5,000 for finishing in time, solo). Your share of a team's unique chance scales with your own points, so team size drops out."
+      },
+      "wiki": "Ancient chest"
+    },
+    {
+      "rolls_per_kill": 1,
+      "item_id": 20997,
+      "item_name": "Twisted bow",
+      "source_name": "Chambers of Xeric Challenge Mode",
+      "distribution_type": "points_based",
+      "numerator": 2,
+      "denominator": 5600,
+      "metadata": {
+        "avg_points_per_activity": 62000,
+        "points_per_roll": 8676,
+        "assumption": "~62,000 personal points per raid (wiki money making guide: 57,000 + 5,000 for finishing in time, solo). Your share of a team's unique chance scales with your own points, so team size drops out."
+      },
+      "wiki": "Ancient chest"
+    },
+    {
+      "rolls_per_kill": 1,
+      "item_id": 20851,
+      "item_name": "Olmlet",
+      "source_name": "Chambers of Xeric Challenge Mode",
+      "distribution_type": "points_based",
+      "numerator": 1,
+      "denominator": 5300,
+      "metadata": {
+        "avg_points_per_activity": 62000,
+        "points_per_roll": 8676,
+        "assumption": "~62,000 personal points per raid (wiki money making guide: 57,000 + 5,000 for finishing in time, solo). Your share of a team's unique chance scales with your own points, so team size drops out."
+      },
+      "wiki": "Ancient chest"
+    },
+    {
+      "rolls_per_kill": 1,
+      "item_id": 24670,
+      "item_name": "Twisted ancestral colour kit",
+      "source_name": "Chambers of Xeric Challenge Mode",
+      "distribution_type": "flat_geometric",
+      "numerator": 1,
+      "denominator": 75,
+      "metadata": {},
+      "wiki": "Ancient chest"
+    },
+    {
+      "rolls_per_kill": 1,
+      "item_id": 22386,
+      "item_name": "Metamorphic dust",
+      "source_name": "Chambers of Xeric Challenge Mode",
+      "distribution_type": "flat_geometric",
+      "numerator": 1,
+      "denominator": 400,
+      "metadata": {},
+      "wiki": "Ancient chest"
+    },
+    {
+      "rolls_per_kill": 1,
+      "item_id": 22477,
+      "item_name": "Avernic defender hilt",
+      "source_name": "Theatre of Blood",
+      "distribution_type": "points_based",
+      "numerator": 80,
+      "denominator": 1729,
+      "metadata": {
+        "avg_points_per_activity": 1,
+        "points_per_roll": 4,
+        "assumption": "Deathless 4-player team with an equal share of the loot: a 1/9.1 team unique chance (the same for any team size, per the wiki) split four ways."
+      },
+      "wiki": "Monumental chest"
+    },
+    {
+      "rolls_per_kill": 1,
+      "item_id": 22324,
+      "item_name": "Ghrazi rapier",
+      "source_name": "Theatre of Blood",
+      "distribution_type": "points_based",
+      "numerator": 20,
+      "denominator": 1729,
+      "metadata": {
+        "avg_points_per_activity": 1,
+        "points_per_roll": 4,
+        "assumption": "Deathless 4-player team with an equal share of the loot: a 1/9.1 team unique chance (the same for any team size, per the wiki) split four ways."
+      },
+      "wiki": "Monumental chest"
+    },
+    {
+      "rolls_per_kill": 1,
+      "item_id": 22481,
+      "item_name": "Sanguinesti staff (uncharged)",
+      "source_name": "Theatre of Blood",
+      "distribution_type": "points_based",
+      "numerator": 20,
+      "denominator": 1729,
+      "metadata": {
+        "avg_points_per_activity": 1,
+        "points_per_roll": 4,
+        "assumption": "Deathless 4-player team with an equal share of the loot: a 1/9.1 team unique chance (the same for any team size, per the wiki) split four ways."
+      },
+      "wiki": "Monumental chest"
+    },
+    {
+      "rolls_per_kill": 1,
+      "item_id": 22326,
+      "item_name": "Justiciar faceguard",
+      "source_name": "Theatre of Blood",
+      "distribution_type": "points_based",
+      "numerator": 20,
+      "denominator": 1729,
+      "metadata": {
+        "avg_points_per_activity": 1,
+        "points_per_roll": 4,
+        "assumption": "Deathless 4-player team with an equal share of the loot: a 1/9.1 team unique chance (the same for any team size, per the wiki) split four ways."
+      },
+      "wiki": "Monumental chest"
+    },
+    {
+      "rolls_per_kill": 1,
+      "item_id": 22327,
+      "item_name": "Justiciar chestguard",
+      "source_name": "Theatre of Blood",
+      "distribution_type": "points_based",
+      "numerator": 20,
+      "denominator": 1729,
+      "metadata": {
+        "avg_points_per_activity": 1,
+        "points_per_roll": 4,
+        "assumption": "Deathless 4-player team with an equal share of the loot: a 1/9.1 team unique chance (the same for any team size, per the wiki) split four ways."
+      },
+      "wiki": "Monumental chest"
+    },
+    {
+      "rolls_per_kill": 1,
+      "item_id": 22328,
+      "item_name": "Justiciar legguards",
+      "source_name": "Theatre of Blood",
+      "distribution_type": "points_based",
+      "numerator": 20,
+      "denominator": 1729,
+      "metadata": {
+        "avg_points_per_activity": 1,
+        "points_per_roll": 4,
+        "assumption": "Deathless 4-player team with an equal share of the loot: a 1/9.1 team unique chance (the same for any team size, per the wiki) split four ways."
+      },
+      "wiki": "Monumental chest"
+    },
+    {
+      "rolls_per_kill": 1,
+      "item_id": 22486,
+      "item_name": "Scythe of vitur (uncharged)",
+      "source_name": "Theatre of Blood",
+      "distribution_type": "points_based",
+      "numerator": 10,
+      "denominator": 1729,
+      "metadata": {
+        "avg_points_per_activity": 1,
+        "points_per_roll": 4,
+        "assumption": "Deathless 4-player team with an equal share of the loot: a 1/9.1 team unique chance (the same for any team size, per the wiki) split four ways."
+      },
+      "wiki": "Monumental chest"
+    },
+    {
+      "rolls_per_kill": 1,
+      "item_id": 22473,
+      "item_name": "Lil' zik",
+      "source_name": "Theatre of Blood",
+      "distribution_type": "flat_geometric",
+      "numerator": 1,
+      "denominator": 650,
+      "metadata": {},
+      "wiki": "Monumental chest"
+    },
+    {
+      "rolls_per_kill": 1,
+      "item_id": 22477,
+      "item_name": "Avernic defender hilt",
+      "source_name": "Theatre of Blood: Hard Mode",
+      "distribution_type": "points_based",
+      "numerator": 70,
+      "denominator": 1386,
+      "metadata": {
+        "avg_points_per_activity": 1,
+        "points_per_roll": 4,
+        "assumption": "Deathless 4-player team with an equal share of the loot: a 1/7.7 team unique chance (the same for any team size, per the wiki) split four ways."
+      },
+      "wiki": "Monumental chest"
+    },
+    {
+      "rolls_per_kill": 1,
+      "item_id": 22324,
+      "item_name": "Ghrazi rapier",
+      "source_name": "Theatre of Blood: Hard Mode",
+      "distribution_type": "points_based",
+      "numerator": 20,
+      "denominator": 1386,
+      "metadata": {
+        "avg_points_per_activity": 1,
+        "points_per_roll": 4,
+        "assumption": "Deathless 4-player team with an equal share of the loot: a 1/7.7 team unique chance (the same for any team size, per the wiki) split four ways."
+      },
+      "wiki": "Monumental chest"
+    },
+    {
+      "rolls_per_kill": 1,
+      "item_id": 22481,
+      "item_name": "Sanguinesti staff (uncharged)",
+      "source_name": "Theatre of Blood: Hard Mode",
+      "distribution_type": "points_based",
+      "numerator": 20,
+      "denominator": 1386,
+      "metadata": {
+        "avg_points_per_activity": 1,
+        "points_per_roll": 4,
+        "assumption": "Deathless 4-player team with an equal share of the loot: a 1/7.7 team unique chance (the same for any team size, per the wiki) split four ways."
+      },
+      "wiki": "Monumental chest"
+    },
+    {
+      "rolls_per_kill": 1,
+      "item_id": 22326,
+      "item_name": "Justiciar faceguard",
+      "source_name": "Theatre of Blood: Hard Mode",
+      "distribution_type": "points_based",
+      "numerator": 20,
+      "denominator": 1386,
+      "metadata": {
+        "avg_points_per_activity": 1,
+        "points_per_roll": 4,
+        "assumption": "Deathless 4-player team with an equal share of the loot: a 1/7.7 team unique chance (the same for any team size, per the wiki) split four ways."
+      },
+      "wiki": "Monumental chest"
+    },
+    {
+      "rolls_per_kill": 1,
+      "item_id": 22327,
+      "item_name": "Justiciar chestguard",
+      "source_name": "Theatre of Blood: Hard Mode",
+      "distribution_type": "points_based",
+      "numerator": 20,
+      "denominator": 1386,
+      "metadata": {
+        "avg_points_per_activity": 1,
+        "points_per_roll": 4,
+        "assumption": "Deathless 4-player team with an equal share of the loot: a 1/7.7 team unique chance (the same for any team size, per the wiki) split four ways."
+      },
+      "wiki": "Monumental chest"
+    },
+    {
+      "rolls_per_kill": 1,
+      "item_id": 22328,
+      "item_name": "Justiciar legguards",
+      "source_name": "Theatre of Blood: Hard Mode",
+      "distribution_type": "points_based",
+      "numerator": 20,
+      "denominator": 1386,
+      "metadata": {
+        "avg_points_per_activity": 1,
+        "points_per_roll": 4,
+        "assumption": "Deathless 4-player team with an equal share of the loot: a 1/7.7 team unique chance (the same for any team size, per the wiki) split four ways."
+      },
+      "wiki": "Monumental chest"
+    },
+    {
+      "rolls_per_kill": 1,
+      "item_id": 22486,
+      "item_name": "Scythe of vitur (uncharged)",
+      "source_name": "Theatre of Blood: Hard Mode",
+      "distribution_type": "points_based",
+      "numerator": 10,
+      "denominator": 1386,
+      "metadata": {
+        "avg_points_per_activity": 1,
+        "points_per_roll": 4,
+        "assumption": "Deathless 4-player team with an equal share of the loot: a 1/7.7 team unique chance (the same for any team size, per the wiki) split four ways."
+      },
+      "wiki": "Monumental chest"
+    },
+    {
+      "rolls_per_kill": 1,
+      "item_id": 22473,
+      "item_name": "Lil' zik",
+      "source_name": "Theatre of Blood: Hard Mode",
+      "distribution_type": "flat_geometric",
+      "numerator": 1,
+      "denominator": 500,
+      "metadata": {},
+      "wiki": "Monumental chest"
+    },
+    {
+      "rolls_per_kill": 1,
+      "item_id": 25742,
+      "item_name": "Holy ornament kit",
+      "source_name": "Theatre of Blood: Hard Mode",
+      "distribution_type": "flat_geometric",
+      "numerator": 1,
+      "denominator": 100,
+      "metadata": {},
+      "wiki": "Monumental chest"
+    },
+    {
+      "rolls_per_kill": 1,
+      "item_id": 25744,
+      "item_name": "Sanguine ornament kit",
+      "source_name": "Theatre of Blood: Hard Mode",
+      "distribution_type": "flat_geometric",
+      "numerator": 1,
+      "denominator": 150,
+      "metadata": {},
+      "wiki": "Monumental chest"
+    },
+    {
+      "rolls_per_kill": 1,
+      "item_id": 25746,
+      "item_name": "Sanguine dust",
+      "source_name": "Theatre of Blood: Hard Mode",
+      "distribution_type": "flat_geometric",
+      "numerator": 1,
+      "denominator": 275,
+      "metadata": {},
+      "wiki": "Monumental chest"
+    },
+    {
+      "rolls_per_kill": 1,
+      "item_id": 26219,
+      "item_name": "Osmumten's fang",
+      "source_name": "Tombs of Amascut",
+      "distribution_type": "points_based",
+      "numerator": 7,
+      "denominator": 2400,
+      "metadata": {
+        "avg_points_per_activity": 20000,
+        "points_per_roll": 7500,
+        "assumption": "Raid level 150 with ~20,000 personal points. The points figure is not from the wiki (it is borrowed from the level 300 solo guide), so treat Normal Mode numbers as rough."
+      },
+      "wiki": "Chest (Tombs of Amascut)"
+    },
+    {
+      "rolls_per_kill": 1,
+      "item_id": 25975,
+      "item_name": "Lightbearer",
+      "source_name": "Tombs of Amascut",
+      "distribution_type": "points_based",
+      "numerator": 7,
+      "denominator": 2400,
+      "metadata": {
+        "avg_points_per_activity": 20000,
+        "points_per_roll": 7500,
+        "assumption": "Raid level 150 with ~20,000 personal points. The points figure is not from the wiki (it is borrowed from the level 300 solo guide), so treat Normal Mode numbers as rough."
+      },
+      "wiki": "Chest (Tombs of Amascut)"
+    },
+    {
+      "rolls_per_kill": 1,
+      "item_id": 25985,
+      "item_name": "Elidinis' ward",
+      "source_name": "Tombs of Amascut",
+      "distribution_type": "points_based",
+      "numerator": 3,
+      "denominator": 2400,
+      "metadata": {
+        "avg_points_per_activity": 20000,
+        "points_per_roll": 7500,
+        "assumption": "Raid level 150 with ~20,000 personal points. The points figure is not from the wiki (it is borrowed from the level 300 solo guide), so treat Normal Mode numbers as rough."
+      },
+      "wiki": "Chest (Tombs of Amascut)"
+    },
+    {
+      "rolls_per_kill": 1,
+      "item_id": 27226,
+      "item_name": "Masori mask",
+      "source_name": "Tombs of Amascut",
+      "distribution_type": "points_based",
+      "numerator": 2,
+      "denominator": 2400,
+      "metadata": {
+        "avg_points_per_activity": 20000,
+        "points_per_roll": 7500,
+        "assumption": "Raid level 150 with ~20,000 personal points. The points figure is not from the wiki (it is borrowed from the level 300 solo guide), so treat Normal Mode numbers as rough."
+      },
+      "wiki": "Chest (Tombs of Amascut)"
+    },
+    {
+      "rolls_per_kill": 1,
+      "item_id": 27229,
+      "item_name": "Masori body",
+      "source_name": "Tombs of Amascut",
+      "distribution_type": "points_based",
+      "numerator": 2,
+      "denominator": 2400,
+      "metadata": {
+        "avg_points_per_activity": 20000,
+        "points_per_roll": 7500,
+        "assumption": "Raid level 150 with ~20,000 personal points. The points figure is not from the wiki (it is borrowed from the level 300 solo guide), so treat Normal Mode numbers as rough."
+      },
+      "wiki": "Chest (Tombs of Amascut)"
+    },
+    {
+      "rolls_per_kill": 1,
+      "item_id": 27232,
+      "item_name": "Masori chaps",
+      "source_name": "Tombs of Amascut",
+      "distribution_type": "points_based",
+      "numerator": 2,
+      "denominator": 2400,
+      "metadata": {
+        "avg_points_per_activity": 20000,
+        "points_per_roll": 7500,
+        "assumption": "Raid level 150 with ~20,000 personal points. The points figure is not from the wiki (it is borrowed from the level 300 solo guide), so treat Normal Mode numbers as rough."
+      },
+      "wiki": "Chest (Tombs of Amascut)"
+    },
+    {
+      "rolls_per_kill": 1,
+      "item_id": 27277,
+      "item_name": "Tumeken's shadow (uncharged)",
+      "source_name": "Tombs of Amascut",
+      "distribution_type": "points_based",
+      "numerator": 1,
+      "denominator": 2400,
+      "metadata": {
+        "avg_points_per_activity": 20000,
+        "points_per_roll": 7500,
+        "assumption": "Raid level 150 with ~20,000 personal points. The points figure is not from the wiki (it is borrowed from the level 300 solo guide), so treat Normal Mode numbers as rough."
+      },
+      "wiki": "Chest (Tombs of Amascut)"
+    },
+    {
+      "rolls_per_kill": 1,
+      "item_id": 27352,
+      "item_name": "Tumeken's guardian",
+      "source_name": "Tombs of Amascut",
+      "distribution_type": "points_based",
+      "numerator": 1,
+      "denominator": 100,
+      "metadata": {
+        "avg_points_per_activity": 20000,
+        "points_per_roll": 245000,
+        "assumption": "Raid level 150 with ~20,000 personal points. The points figure is not from the wiki (it is borrowed from the level 300 solo guide), so treat Normal Mode numbers as rough."
+      },
+      "wiki": "Chest (Tombs of Amascut)"
+    },
+    {
+      "rolls_per_kill": 1,
+      "item_id": 27279,
+      "item_name": "Thread of Elidinis",
+      "source_name": "Tombs of Amascut",
+      "distribution_type": "streak_adjusted",
+      "numerator": 1,
+      "denominator": 10,
+      "metadata": {
+        "pity_ramp": {
+          "start_denominator": 10,
+          "end_denominator": 3.3333333333333335,
+          "ramp_kc": 15
+        },
+        "assumption": "First thread only: 1/10, rising linearly to 3/10 at 15 completions. The game counts completions across all modes; this uses the count for this mode."
+      },
+      "wiki": "Chest (Tombs of Amascut)"
+    },
+    {
+      "rolls_per_kill": 1,
+      "item_id": 27285,
+      "item_name": "Eye of the Corruptor",
+      "source_name": "Tombs of Amascut",
+      "distribution_type": "streak_adjusted",
+      "numerator": 1,
+      "denominator": 50,
+      "metadata": {
+        "pity_ramp": {
+          "start_denominator": 50,
+          "end_denominator": 16.666666666666668,
+          "ramp_kc": 75
+        },
+        "assumption": "1/50 per jewel, rising linearly to 3/50 at 75 completions. Ignores duplicate protection, which makes each missing jewel likelier once you own others."
+      },
+      "wiki": "Chest (Tombs of Amascut)"
+    },
+    {
+      "rolls_per_kill": 1,
+      "item_id": 27289,
+      "item_name": "Jewel of the Sun",
+      "source_name": "Tombs of Amascut",
+      "distribution_type": "streak_adjusted",
+      "numerator": 1,
+      "denominator": 50,
+      "metadata": {
+        "pity_ramp": {
+          "start_denominator": 50,
+          "end_denominator": 16.666666666666668,
+          "ramp_kc": 75
+        },
+        "assumption": "1/50 per jewel, rising linearly to 3/50 at 75 completions. Ignores duplicate protection, which makes each missing jewel likelier once you own others."
+      },
+      "wiki": "Chest (Tombs of Amascut)"
+    },
+    {
+      "rolls_per_kill": 1,
+      "item_id": 27283,
+      "item_name": "Breach of the Scarab",
+      "source_name": "Tombs of Amascut",
+      "distribution_type": "streak_adjusted",
+      "numerator": 1,
+      "denominator": 50,
+      "metadata": {
+        "pity_ramp": {
+          "start_denominator": 50,
+          "end_denominator": 16.666666666666668,
+          "ramp_kc": 75
+        },
+        "assumption": "1/50 per jewel, rising linearly to 3/50 at 75 completions. Ignores duplicate protection, which makes each missing jewel likelier once you own others."
+      },
+      "wiki": "Chest (Tombs of Amascut)"
+    },
+    {
+      "rolls_per_kill": 1,
+      "item_id": 30893,
+      "item_name": "Jewel of Amascut",
+      "source_name": "Tombs of Amascut",
+      "distribution_type": "streak_adjusted",
+      "numerator": 1,
+      "denominator": 50,
+      "metadata": {
+        "pity_ramp": {
+          "start_denominator": 50,
+          "end_denominator": 16.666666666666668,
+          "ramp_kc": 75
+        },
+        "assumption": "1/50 per jewel, rising linearly to 3/50 at 75 completions. Ignores duplicate protection, which makes each missing jewel likelier once you own others."
+      },
+      "wiki": "Chest (Tombs of Amascut)"
+    },
+    {
+      "rolls_per_kill": 1,
+      "item_id": 26219,
+      "item_name": "Osmumten's fang",
+      "source_name": "Tombs of Amascut: Expert Mode",
+      "distribution_type": "points_based",
+      "numerator": 7,
+      "denominator": 2400,
+      "metadata": {
+        "avg_points_per_activity": 20000,
+        "points_per_roll": 4500,
+        "assumption": "Raid level 300 with ~20,000 personal points, which gives the wiki money making guide's ~1/22.5 purple rate for a deathless solo. Your share of a team's unique chance scales with your own points, so team size drops out."
+      },
+      "wiki": "Chest (Tombs of Amascut)"
+    },
+    {
+      "rolls_per_kill": 1,
+      "item_id": 25975,
+      "item_name": "Lightbearer",
+      "source_name": "Tombs of Amascut: Expert Mode",
+      "distribution_type": "points_based",
+      "numerator": 7,
+      "denominator": 2400,
+      "metadata": {
+        "avg_points_per_activity": 20000,
+        "points_per_roll": 4500,
+        "assumption": "Raid level 300 with ~20,000 personal points, which gives the wiki money making guide's ~1/22.5 purple rate for a deathless solo. Your share of a team's unique chance scales with your own points, so team size drops out."
+      },
+      "wiki": "Chest (Tombs of Amascut)"
+    },
+    {
+      "rolls_per_kill": 1,
+      "item_id": 25985,
+      "item_name": "Elidinis' ward",
+      "source_name": "Tombs of Amascut: Expert Mode",
+      "distribution_type": "points_based",
+      "numerator": 3,
+      "denominator": 2400,
+      "metadata": {
+        "avg_points_per_activity": 20000,
+        "points_per_roll": 4500,
+        "assumption": "Raid level 300 with ~20,000 personal points, which gives the wiki money making guide's ~1/22.5 purple rate for a deathless solo. Your share of a team's unique chance scales with your own points, so team size drops out."
+      },
+      "wiki": "Chest (Tombs of Amascut)"
+    },
+    {
+      "rolls_per_kill": 1,
+      "item_id": 27226,
+      "item_name": "Masori mask",
+      "source_name": "Tombs of Amascut: Expert Mode",
+      "distribution_type": "points_based",
+      "numerator": 2,
+      "denominator": 2400,
+      "metadata": {
+        "avg_points_per_activity": 20000,
+        "points_per_roll": 4500,
+        "assumption": "Raid level 300 with ~20,000 personal points, which gives the wiki money making guide's ~1/22.5 purple rate for a deathless solo. Your share of a team's unique chance scales with your own points, so team size drops out."
+      },
+      "wiki": "Chest (Tombs of Amascut)"
+    },
+    {
+      "rolls_per_kill": 1,
+      "item_id": 27229,
+      "item_name": "Masori body",
+      "source_name": "Tombs of Amascut: Expert Mode",
+      "distribution_type": "points_based",
+      "numerator": 2,
+      "denominator": 2400,
+      "metadata": {
+        "avg_points_per_activity": 20000,
+        "points_per_roll": 4500,
+        "assumption": "Raid level 300 with ~20,000 personal points, which gives the wiki money making guide's ~1/22.5 purple rate for a deathless solo. Your share of a team's unique chance scales with your own points, so team size drops out."
+      },
+      "wiki": "Chest (Tombs of Amascut)"
+    },
+    {
+      "rolls_per_kill": 1,
+      "item_id": 27232,
+      "item_name": "Masori chaps",
+      "source_name": "Tombs of Amascut: Expert Mode",
+      "distribution_type": "points_based",
+      "numerator": 2,
+      "denominator": 2400,
+      "metadata": {
+        "avg_points_per_activity": 20000,
+        "points_per_roll": 4500,
+        "assumption": "Raid level 300 with ~20,000 personal points, which gives the wiki money making guide's ~1/22.5 purple rate for a deathless solo. Your share of a team's unique chance scales with your own points, so team size drops out."
+      },
+      "wiki": "Chest (Tombs of Amascut)"
+    },
+    {
+      "rolls_per_kill": 1,
+      "item_id": 27277,
+      "item_name": "Tumeken's shadow (uncharged)",
+      "source_name": "Tombs of Amascut: Expert Mode",
+      "distribution_type": "points_based",
+      "numerator": 1,
+      "denominator": 2400,
+      "metadata": {
+        "avg_points_per_activity": 20000,
+        "points_per_roll": 4500,
+        "assumption": "Raid level 300 with ~20,000 personal points, which gives the wiki money making guide's ~1/22.5 purple rate for a deathless solo. Your share of a team's unique chance scales with your own points, so team size drops out."
+      },
+      "wiki": "Chest (Tombs of Amascut)"
+    },
+    {
+      "rolls_per_kill": 1,
+      "item_id": 27352,
+      "item_name": "Tumeken's guardian",
+      "source_name": "Tombs of Amascut: Expert Mode",
+      "distribution_type": "points_based",
+      "numerator": 1,
+      "denominator": 100,
+      "metadata": {
+        "avg_points_per_activity": 20000,
+        "points_per_roll": 140000,
+        "assumption": "Raid level 300 with ~20,000 personal points, which gives the wiki money making guide's ~1/22.5 purple rate for a deathless solo. Your share of a team's unique chance scales with your own points, so team size drops out."
+      },
+      "wiki": "Chest (Tombs of Amascut)"
+    },
+    {
+      "rolls_per_kill": 1,
+      "item_id": 27279,
+      "item_name": "Thread of Elidinis",
+      "source_name": "Tombs of Amascut: Expert Mode",
+      "distribution_type": "streak_adjusted",
+      "numerator": 1,
+      "denominator": 10,
+      "metadata": {
+        "pity_ramp": {
+          "start_denominator": 10,
+          "end_denominator": 3.3333333333333335,
+          "ramp_kc": 15
+        },
+        "assumption": "First thread only: 1/10, rising linearly to 3/10 at 15 completions. The game counts completions across all modes; this uses the count for this mode."
+      },
+      "wiki": "Chest (Tombs of Amascut)"
+    },
+    {
+      "rolls_per_kill": 1,
+      "item_id": 27285,
+      "item_name": "Eye of the Corruptor",
+      "source_name": "Tombs of Amascut: Expert Mode",
+      "distribution_type": "streak_adjusted",
+      "numerator": 1,
+      "denominator": 50,
+      "metadata": {
+        "pity_ramp": {
+          "start_denominator": 50,
+          "end_denominator": 16.666666666666668,
+          "ramp_kc": 75
+        },
+        "assumption": "1/50 per jewel, rising linearly to 3/50 at 75 completions. Ignores duplicate protection, which makes each missing jewel likelier once you own others."
+      },
+      "wiki": "Chest (Tombs of Amascut)"
+    },
+    {
+      "rolls_per_kill": 1,
+      "item_id": 27289,
+      "item_name": "Jewel of the Sun",
+      "source_name": "Tombs of Amascut: Expert Mode",
+      "distribution_type": "streak_adjusted",
+      "numerator": 1,
+      "denominator": 50,
+      "metadata": {
+        "pity_ramp": {
+          "start_denominator": 50,
+          "end_denominator": 16.666666666666668,
+          "ramp_kc": 75
+        },
+        "assumption": "1/50 per jewel, rising linearly to 3/50 at 75 completions. Ignores duplicate protection, which makes each missing jewel likelier once you own others."
+      },
+      "wiki": "Chest (Tombs of Amascut)"
+    },
+    {
+      "rolls_per_kill": 1,
+      "item_id": 27283,
+      "item_name": "Breach of the Scarab",
+      "source_name": "Tombs of Amascut: Expert Mode",
+      "distribution_type": "streak_adjusted",
+      "numerator": 1,
+      "denominator": 50,
+      "metadata": {
+        "pity_ramp": {
+          "start_denominator": 50,
+          "end_denominator": 16.666666666666668,
+          "ramp_kc": 75
+        },
+        "assumption": "1/50 per jewel, rising linearly to 3/50 at 75 completions. Ignores duplicate protection, which makes each missing jewel likelier once you own others."
+      },
+      "wiki": "Chest (Tombs of Amascut)"
+    },
+    {
+      "rolls_per_kill": 1,
+      "item_id": 30893,
+      "item_name": "Jewel of Amascut",
+      "source_name": "Tombs of Amascut: Expert Mode",
+      "distribution_type": "streak_adjusted",
+      "numerator": 1,
+      "denominator": 50,
+      "metadata": {
+        "pity_ramp": {
+          "start_denominator": 50,
+          "end_denominator": 16.666666666666668,
+          "ramp_kc": 75
+        },
+        "assumption": "1/50 per jewel, rising linearly to 3/50 at 75 completions. Ignores duplicate protection, which makes each missing jewel likelier once you own others."
+      },
+      "wiki": "Chest (Tombs of Amascut)"
+    },
+    {
+      "rolls_per_kill": 1,
+      "item_id": 21907,
+      "item_name": "Vorkath's head",
+      "source_name": "Vorkath",
+      "distribution_type": "streak_adjusted",
+      "numerator": 1,
+      "denominator": 50,
+      "metadata": {
+        "pity_thresholds": [
+          {
+            "kc": 49,
+            "denominator": 50
+          },
+          {
+            "kc": 50,
+            "denominator": 1
+          }
+        ],
+        "assumption": "1/50 per kill, guaranteed on the 50th."
+      },
+      "wiki": "Vorkath's head"
+    },
+    {
+      "rolls_per_kill": 1,
+      "item_id": 25837,
+      "item_name": "Slepey tablet",
+      "source_name": "Phosani's Nightmare",
+      "distribution_type": "streak_adjusted",
+      "numerator": 1,
+      "denominator": 25,
+      "metadata": {
+        "pity_thresholds": [
+          {
+            "kc": 24,
+            "denominator": 25
+          },
+          {
+            "kc": 25,
+            "denominator": 1
+          }
+        ],
+        "assumption": "1/25 per kill, guaranteed on the 25th."
+      },
+      "wiki": "Slepey tablet"
+    },
+    {
+      "rolls_per_kill": 1,
+      "item_id": 28270,
+      "item_name": "Ice quartz",
+      "source_name": "Duke Sucellus",
+      "distribution_type": "streak_adjusted",
+      "numerator": 1,
+      "denominator": 200,
+      "metadata": {
+        "pity_ramp": {
+          "start_denominator": 215.2,
+          "end_denominator": 53.8,
+          "ramp_kc": 300
+        },
+        "assumption": "First quartz only: 1/200 rising linearly to 1/50 over the first 300 kills, adjusted for the earlier rolls that have to fail first (1/215.2 to 1/53.8). Normal (not awakened) kills."
+      },
+      "wiki": "Ice quartz"
+    },
+    {
+      "rolls_per_kill": 1,
+      "item_id": 28268,
+      "item_name": "Blood quartz",
+      "source_name": "Vardorvis",
+      "distribution_type": "streak_adjusted",
+      "numerator": 1,
+      "denominator": 200,
+      "metadata": {
+        "pity_ramp": {
+          "start_denominator": 215.2,
+          "end_denominator": 53.8,
+          "ramp_kc": 300
+        },
+        "assumption": "First quartz only: 1/200 rising linearly to 1/50 over the first 300 kills, adjusted for the earlier rolls that have to fail first (1/215.2 to 1/53.8). Normal (not awakened) kills."
+      },
+      "wiki": "Blood quartz"
+    },
+    {
+      "rolls_per_kill": 1,
+      "item_id": 28274,
+      "item_name": "Smoke quartz",
+      "source_name": "Leviathan",
+      "distribution_type": "streak_adjusted",
+      "numerator": 1,
+      "denominator": 200,
+      "metadata": {
+        "pity_ramp": {
+          "start_denominator": 215.2,
+          "end_denominator": 53.8,
+          "ramp_kc": 300
+        },
+        "assumption": "First quartz only: 1/200 rising linearly to 1/50 over the first 300 kills, adjusted for the earlier rolls that have to fail first (1/215.2 to 1/53.8). Normal (not awakened) kills."
+      },
+      "wiki": "Smoke quartz"
+    },
+    {
+      "rolls_per_kill": 1,
+      "item_id": 28272,
+      "item_name": "Shadow quartz",
+      "source_name": "Whisperer",
+      "distribution_type": "streak_adjusted",
+      "numerator": 1,
+      "denominator": 200,
+      "metadata": {
+        "pity_ramp": {
+          "start_denominator": 215.2,
+          "end_denominator": 53.8,
+          "ramp_kc": 300
+        },
+        "assumption": "First quartz only: 1/200 rising linearly to 1/50 over the first 300 kills, adjusted for the earlier rolls that have to fail first (1/215.2 to 1/53.8). Normal (not awakened) kills."
+      },
+      "wiki": "Shadow quartz"
+    }
+  ]
+}

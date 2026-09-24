@@ -29,14 +29,18 @@
  *
  * This does NOT attempt to sync points_based or streak_adjusted rates —
  * those are hand-transcribed per the Phase 1 spec (§3a) since the wiki
- * documents them as prose/formulas, not clean fractions.
+ * documents them as prose/formulas, not clean fractions. They live in
+ * data/manual_drop_rates.json (loaded by load-manual-rates.ts), and any
+ * (item, source) pair listed there is skipped here — e.g. Vorkath's head
+ * parses as a plain 1/50 but is really guaranteed on kill 50.
  *
- * Run with: deno run --allow-net --allow-env scripts/sync-drop-rates.ts
+ * Run with: deno run --allow-net --allow-env --allow-read scripts/sync-drop-rates.ts
  * (or adapt to a scheduled Supabase Edge Function / cron job later)
  */
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { resolveItemId } from "../supabase/functions/_shared/item-resolver.ts";
+import { readManualRates } from "./load-manual-rates.ts";
 
 const WIKI_API = "https://oldschool.runescape.wiki/api.php";
 const USER_AGENT =
@@ -136,6 +140,10 @@ async function main() {
   const secretKey = Deno.env.get("SUPABASE_SECRET_KEY")!;
   const supabase = createClient(supabaseUrl, secretKey);
 
+  const manualKeys = new Set(
+    (await readManualRates()).map((r) => `${r.item_id}|${r.source_name}`),
+  );
+
   let itemsUpdated = 0;
   let itemsFlagged = 0;
 
@@ -179,6 +187,10 @@ async function main() {
       }
 
       const itemId = resolution.item_id;
+      if (manualKeys.has(`${itemId}|${page}`)) {
+        console.log(`  kept hand-curated rate for "${drop.itemName}"`);
+        continue;
+      }
 
       const { error } = await supabase.from("drop_rates").upsert(
         {

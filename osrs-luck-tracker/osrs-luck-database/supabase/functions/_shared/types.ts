@@ -16,7 +16,10 @@ export interface DropRate {
   rolls_per_kill: number;
   // Type-specific parameters. Shape depends on distribution_type:
   //  - points_based: { avg_points_per_activity: number, points_per_roll: number }
-  //  - streak_adjusted: { pity_thresholds: Array<{ kc: number, denominator: number }> }
+  //  - streak_adjusted: { pity_ramp: { start_denominator, end_denominator, ramp_kc } }
+  //                  or { pity_thresholds: Array<{ kc: number, denominator: number }> }
+  // Hand-curated rows (data/manual_drop_rates.json) also carry an
+  // `assumption` string saying what the numbers are based on.
   metadata: Record<string, unknown>;
   source_updated_at: string;
 }
