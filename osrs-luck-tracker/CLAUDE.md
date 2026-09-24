@@ -38,7 +38,7 @@ Plugin (from `osrs-luck-plugin/`):
 ./gradlew build
 ./gradlew test --tests com.osrslucktracker.LuckTrackerPluginTest
 ```
-`BackfillPlannerTest` is the real unit test. `LuckTrackerPluginTest` is the standard RuneLite launcher used to run the plugin in a dev client, not a unit test. `./gradlew build` currently fails at checkstyle, because `build.gradle` applies it but there's no `config/checkstyle/checkstyle.xml`. With only Java 26 installed, set `JAVA_HOME` to `~/.jdks/temurin-26.0.2.1`.
+`BackfillPlannerTest` is the real unit test. `LuckTrackerPluginTest` is the standard RuneLite launcher used to run the plugin in a dev client, not a unit test. `./gradlew build` compiles against the real `runelite-client` and runs the tests. With only Java 26 installed, set `JAVA_HOME` to `~/.jdks/temurin-26.0.2.1`.
 
 To type-check an edge function, run `npx deno check --no-config supabase/functions/<name>/index.ts`. Without `--no-config`, Deno picks up the frontend's `package.json` and reports `Deno` as undefined.
 
