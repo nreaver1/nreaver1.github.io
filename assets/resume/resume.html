@@ -9,33 +9,36 @@
   <meta charset="UTF-8" />
   <title>Nick Reaver — Résumé</title>
   <style>
-    @page { size: Letter; margin: 0.5in 0.7in; }
+    @page { size: Letter; margin: 0.45in 0.65in; }
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
       font-family: Calibri, Carlito, 'Segoe UI', Arial, sans-serif;
-      font-size: 10.5pt;
-      line-height: 1.32;
+      font-size: 10pt;
+      line-height: 1.26;
       color: #222;
     }
     a { color: #1a4fd6; }
-    header { text-align: center; margin-bottom: 14pt; }
-    h1 { font-size: 22pt; color: #1F3864; letter-spacing: 0.01em; margin-bottom: 3pt; }
+    header { text-align: center; margin-bottom: 8pt; }
+    h1 { font-size: 21pt; color: #1F3864; letter-spacing: 0.01em; margin-bottom: 3pt; }
     .contact { color: #555; font-size: 10pt; }
     .contact span + span::before { content: '|'; margin: 0 7pt; color: #999; }
     h2 {
-      font-size: 12.5pt;
+      font-size: 12pt;
       color: #1F3864;
       border-bottom: 1.3pt solid #1F3864;
       padding-bottom: 2pt;
-      margin: 12pt 0 6pt;
+      margin: 9pt 0 5pt;
     }
     .job { font-weight: 700; margin-bottom: 4pt; }
     ul { padding-left: 16pt; }
-    li { margin-bottom: 3pt; }
-    .verify { list-style: none; padding-left: 12pt; margin-top: 1pt; }
-    .verify li { margin-bottom: 0; font-size: 9.5pt; }
-    .verify .label { color: #666; }
-    .verify li:not(.label)::before { content: '– '; }
+    li { margin-bottom: 1.5pt; }
+    .project { display: flex; justify-content: space-between; gap: 12pt; margin: 5pt 0 2pt; }
+    .project:first-of-type { margin-top: 0; }
+    .project strong { color: #1F3864; }
+    .project .stack { color: #555; font-weight: 400; }
+    .project a { white-space: nowrap; font-size: 9.5pt; }
+    .verify { display: block; font-size: 9pt; color: #666; margin-top: 1pt; }
+    .verify a + a::before { content: '·'; color: #999; margin: 0 5pt; display: inline-block; }
   </style>
 </head>
 <body>
@@ -69,6 +72,31 @@
     <li>Requirements Analysis: Collaborate directly with public sector clients to gather requirements and troubleshoot complex technical issues, ensuring solutions are production-ready and compliant.</li>
   </ul>
 
+  <h2>Projects</h2>
+  <p class="project">
+    <span><strong>OSRS Luck Tracker</strong> <span class="stack">| Next.js, TypeScript, Supabase, PostgreSQL, Java</span></span>
+    <a href="https://osrs-luck-tracker.vercel.app">osrs-luck-tracker.vercel.app</a>
+  </p>
+  <ul>
+    <li>Built a full-stack app that scores how lucky Old School RuneScape players were on every collection log drop, comparing kill count against drop rates and every other tracked player.</li>
+    <li>Wrote a RuneLite plugin in Java that reads the in-game collection log, backed by six Supabase Edge Functions with token registration and anti-cheat checks.</li>
+  </ul>
+  <p class="project">
+    <span><strong>KeepTrack</strong> <span class="stack">| React, Vite, Supabase, TanStack Query, Zod, Vitest</span></span>
+    <a href="https://keeptrack-red.vercel.app">keeptrack-red.vercel.app</a>
+  </p>
+  <ul>
+    <li>Built a shared win/loss ledger for friend groups, with scores that update live for every member through Supabase Auth, Realtime and Storage.</li>
+    <li>Added a demo mode backed by an in-memory Supabase client, so anyone can try the app without an account.</li>
+  </ul>
+  <p class="project">
+    <span><strong>Nexus</strong> <span class="stack">| JavaScript, HTML/CSS, Supabase</span></span>
+    <a href="https://nreaver1.github.io/nexus/">nreaver1.github.io/nexus</a>
+  </p>
+  <ul>
+    <li>Built a campaign manager for a D&amp;D group (party roster, multi-currency treasury, loot and session logs) with a public read-only view, admin-only editing, and Node tests for the calculations.</li>
+  </ul>
+
   <h2>Technical Skills</h2>
   <ul>
     <li>Languages &amp; Frameworks: Adobe ColdFusion, JavaScript, Object Oriented Programming, Node.js, .NET, HTML5, CSS, XML.</li>
@@ -81,16 +109,9 @@
   <ul>
     <li>
       Google Cybersecurity Professional (2026)
-      <ul class="verify">
-        <li class="label">Verification:</li>
-        <li><a href="https://www.coursera.org/account/accomplishments/verify/OSOF82PCE065">Network Security</a></li>
-        <li><a href="https://www.coursera.org/account/accomplishments/verify/QARTCJ962GIE">Python Tasks</a></li>
-        <li><a href="https://www.coursera.org/account/accomplishments/verify/73JZSH4C1OJV">Manage Security Risks</a></li>
-        <li><a href="https://www.coursera.org/account/accomplishments/verify/PEPIHNR6BEU4">Linux / SQL</a></li>
-        <li><a href="https://www.coursera.org/account/accomplishments/verify/PWSZM1DEOPSF">Threat Assessment</a></li>
-        <li><a href="https://www.coursera.org/account/accomplishments/verify/QQACMZU1RS6W">Detection &amp; Response</a></li>
-        <li><a href="https://www.coursera.org/account/accomplishments/verify/DS6IFIIH7MKL">Cybersecurity Foundations</a></li>
-      </ul>
+      <span class="verify">Verify:
+        <a href="https://www.coursera.org/account/accomplishments/verify/OSOF82PCE065">Network Security</a><a href="https://www.coursera.org/account/accomplishments/verify/QARTCJ962GIE">Python Tasks</a><a href="https://www.coursera.org/account/accomplishments/verify/73JZSH4C1OJV">Manage Security Risks</a><a href="https://www.coursera.org/account/accomplishments/verify/PEPIHNR6BEU4">Linux / SQL</a><a href="https://www.coursera.org/account/accomplishments/verify/PWSZM1DEOPSF">Threat Assessment</a><a href="https://www.coursera.org/account/accomplishments/verify/QQACMZU1RS6W">Detection &amp; Response</a><a href="https://www.coursera.org/account/accomplishments/verify/DS6IFIIH7MKL">Cybersecurity Foundations</a>
+      </span>
     </li>
     <li>Adobe ColdFusion Certified Specialist (2024)</li>
     <li>Responsive Web Design / HTML 5 Certified (2020)</li>
