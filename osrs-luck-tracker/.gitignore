@@ -17,3 +17,5 @@ osrs-luck-plugin/out/
 # OS / editor
 .DS_Store
 Thumbs.db
+
+.vercel
