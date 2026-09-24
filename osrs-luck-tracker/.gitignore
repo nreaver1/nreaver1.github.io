@@ -1,0 +1,19 @@
+# Next.js frontend
+node_modules/
+.next/
+out/
+*.tsbuildinfo
+
+# Local env (Supabase URL + keys)
+.env*.local
+.env
+
+# RuneLite plugin (Gradle / IntelliJ)
+osrs-luck-plugin/.gradle/
+osrs-luck-plugin/build/
+osrs-luck-plugin/.idea/
+osrs-luck-plugin/out/
+
+# OS / editor
+.DS_Store
+Thumbs.db

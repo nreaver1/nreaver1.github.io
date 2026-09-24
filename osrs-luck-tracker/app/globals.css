@@ -1,0 +1,91 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+* {
+  border-color: theme("colors.panel-border");
+}
+
+body {
+  background-image:
+    radial-gradient(ellipse 80% 50% at 50% -20%, rgba(255, 138, 0, 0.06), transparent);
+}
+
+/* Page layout. Everything sits in a reading-width "content" column that
+   lines up with the header (max-w-3xl minus its padding). A child marked
+   .breakout-wide extends into the "wide" tracks on either side, which is
+   how the comparison view gets room for a column per player. On phones the
+   wide tracks collapse to zero, so both columns are the same width.
+   .page-grid-nested repeats the grid inside a page's root element; it spans
+   the full width, so its tracks resolve to exactly the parent's. */
+@layer components {
+  .page-grid,
+  .page-grid-nested {
+    --gutter: 1.25rem;
+    display: grid;
+    grid-template-columns:
+      [full-start] minmax(var(--gutter), 1fr)
+      [wide-start] minmax(0, 12rem)
+      [content-start] min(100% - 2 * var(--gutter), 44rem) [content-end]
+      minmax(0, 12rem) [wide-end]
+      minmax(var(--gutter), 1fr) [full-end];
+  }
+  @media (min-width: 640px) {
+    .page-grid,
+    .page-grid-nested {
+      --gutter: 2rem;
+    }
+  }
+  :is(.page-grid, .page-grid-nested) > * {
+    grid-column: content;
+    min-width: 0;
+  }
+  :is(.page-grid, .page-grid-nested) > .breakout-wide {
+    grid-column: wide;
+  }
+  .page-grid > .page-grid-nested {
+    grid-column: full;
+  }
+
+  /* Horizontal swipe strips on touch screens: keep the scroll, hide the bar. */
+  .no-scrollbar {
+    scrollbar-width: none;
+  }
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+:focus-visible {
+  outline: 2px solid theme("colors.brass");
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* Tabular figures where numbers appear, so KC counts and percentages
+   line up in the table. Oswald doesn't ship true tabular-figure OpenType
+   metrics the way a monospace face does, but its digits are close to
+   uniform width by design (a condensed display face), and this property
+   still requests the feature where the browser/font supports it. */
+.font-mono {
+  font-variant-numeric: tabular-nums;
+}
+
+/* The one loud typographic flourish, reserved for "spooned" mentions
+   (headline word, badges) per the design brief: hot rod as reward
+   feedback, not wallpaper. */
+.flame-text {
+  font-style: italic;
+  font-weight: 700;
+  background: linear-gradient(100deg, #FF2E63, #FF8A00 55%, #FFD23F);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
