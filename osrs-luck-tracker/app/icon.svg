@@ -1,18 +1,22 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
   <defs>
-    <linearGradient id="flame" x1="0" y1="1" x2="1" y2="0">
-      <stop offset="0" stop-color="#FF2E63"/>
-      <stop offset="0.55" stop-color="#FF8A00"/>
-      <stop offset="1" stop-color="#FFD23F"/>
+    <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#F7DC85"/>
+      <stop offset="1" stop-color="#C9A227"/>
     </linearGradient>
   </defs>
-  <rect width="32" height="32" rx="7" fill="#0D1410"/>
-  <rect x="1" y="1" width="30" height="30" rx="6" fill="none" stroke="#C9A227" stroke-width="1.5"/>
-  <path d="M15 15q4 6 9.5 9.5" fill="none" stroke="#C9A227" stroke-width="2" stroke-linecap="round"/>
-  <g fill="url(#flame)" stroke="#0D1410" stroke-width="1.4">
-    <circle cx="11.5" cy="11.5" r="4.3"/>
-    <circle cx="18.5" cy="11.5" r="4.3"/>
-    <circle cx="11.5" cy="18.5" r="4.3"/>
-    <circle cx="18.5" cy="18.5" r="4.3"/>
+  <g transform="rotate(-14 10.5 11)">
+    <rect x="2.5" y="3" width="16" height="16" rx="3.2" fill="url(#g)" stroke="#3B2A06" stroke-width="1.4"/>
+    <g fill="#C8102E">
+      <circle cx="14.2" cy="7.3" r="1.7"/><circle cx="10.5" cy="11" r="1.7"/><circle cx="6.8" cy="14.7" r="1.7"/>
+    </g>
+  </g>
+  <g transform="rotate(10 21 21)">
+    <rect x="13" y="13" width="16" height="16" rx="3.2" fill="url(#g)" stroke="#3B2A06" stroke-width="1.4"/>
+    <g fill="#C8102E">
+      <circle cx="17.2" cy="17.2" r="1.7"/><circle cx="24.8" cy="17.2" r="1.7"/>
+      <circle cx="21" cy="21" r="1.7"/>
+      <circle cx="17.2" cy="24.8" r="1.7"/><circle cx="24.8" cy="24.8" r="1.7"/>
+    </g>
   </g>
 </svg>
