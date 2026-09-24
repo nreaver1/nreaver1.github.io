@@ -1,0 +1,38 @@
+# Merge this into your project's supabase/config.toml (created by `supabase init`).
+# project_id is set by `supabase link` — don't hardcode it here.
+
+[functions.register]
+verify_jwt = false
+
+[functions.ingest-drop]
+verify_jwt = false
+
+[functions.backfill-drop]
+verify_jwt = false
+
+[functions.drop-rates-catalog]
+verify_jwt = false
+
+[functions.get-player-luck]
+verify_jwt = false
+
+[functions.leaderboard]
+verify_jwt = false
+
+# Why verify_jwt = false on all six:
+# The new sb_publishable_/sb_secret_ keys are NOT JWTs, so the platform's
+# built-in verify_jwt check (which expects a legacy anon/service_role JWT
+# on the Authorization header) would reject every caller that's already
+# migrated to the new keys. With verify_jwt off, each function is
+# responsible for its own authorization:
+#   - ingest-drop and backfill-drop both validate install_token in the
+#     request body (see their index.ts files) — backfill-drop uses the
+#     exact same account-ownership check as ingest-drop, just without
+#     any of the KC-sanity anti-cheat logic, since there's no KC involved
+#   - register, get-player-luck, leaderboard, and drop-rates-catalog are
+#     intentionally public reads/writes-with-their-own-checks, so no
+#     additional gate is needed
+# Every caller still needs a valid apikey header (publishable key for
+# public callers, secret key for trusted backends) to pass Supabase's
+# API gateway at all — verify_jwt=false only skips the JWT-format check,
+# it doesn't make the project keyless.
