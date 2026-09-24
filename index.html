@@ -10,7 +10,7 @@
   <script>document.documentElement.classList.add('js');</script>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -29,7 +29,6 @@
       --radius: 14px;
       --display: 'Space Grotesk', system-ui, sans-serif;
       --body: 'Inter', system-ui, sans-serif;
-      --mono: 'JetBrains Mono', ui-monospace, monospace;
     }
 
     html { scroll-behavior: smooth; }
@@ -89,7 +88,7 @@
     }
 
     .section-num {
-      font-family: var(--mono);
+      font-family: var(--display);
       font-size: 13px;
       color: var(--accent);
     }
@@ -198,7 +197,7 @@
       display: inline-flex;
       align-items: center;
       gap: 10px;
-      font-family: var(--mono);
+      font-family: var(--display);
       font-size: 12px;
       color: var(--ink-soft);
       border: 1px solid var(--line-strong);
@@ -339,7 +338,7 @@
 
     .url {
       flex: 1;
-      font-family: var(--mono);
+      font-family: var(--body);
       font-size: 11px;
       color: var(--muted);
       background: var(--bg);
@@ -371,7 +370,7 @@
       content: 'Open live demo ↗';
       position: absolute;
       inset: auto 16px 16px auto;
-      font-family: var(--mono);
+      font-family: var(--display);
       font-size: 12px;
       font-weight: 500;
       color: var(--accent-ink);
@@ -387,7 +386,7 @@
     .preview:focus-visible .preview-shot::after { opacity: 1; transform: none; }
 
     .project-kicker {
-      font-family: var(--mono);
+      font-family: var(--display);
       font-size: 12px;
       color: var(--accent);
       margin-bottom: 10px;
@@ -444,7 +443,7 @@
     }
 
     .chip {
-      font-family: var(--mono);
+      font-family: var(--display);
       font-size: 12px;
       color: var(--ink-soft);
       background: var(--bg);
@@ -470,7 +469,7 @@
     }
 
     .skill-group h4 {
-      font-family: var(--mono);
+      font-family: var(--display);
       font-size: 12px;
       font-weight: 500;
       letter-spacing: 0.08em;
@@ -564,7 +563,7 @@
       justify-content: space-between;
       gap: 12px;
       flex-wrap: wrap;
-      font-family: var(--mono);
+      font-family: var(--body);
       font-size: 12px;
       color: var(--muted);
     }
@@ -577,7 +576,7 @@
 
     .contact-card .contact-email {
       margin: 20px auto 0;
-      font-family: var(--mono);
+      font-family: var(--body);
       font-size: 13px;
       color: var(--muted);
     }
