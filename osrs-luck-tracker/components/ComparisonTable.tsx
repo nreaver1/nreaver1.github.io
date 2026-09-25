@@ -47,7 +47,7 @@ function Cell({ r }: { r: LuckResult | null }) {
         <span className="font-mono text-xs tabular-nums text-parchment-dim">{pct}%</span>
       </div>
       <div className="mt-0.5">
-        <LuckBadge label={r.label} />
+        <LuckBadge probability={r.probability} />
       </div>
     </div>
   );
@@ -80,7 +80,7 @@ function MobileRow({ name, r, luckiest }: { name: string; r: LuckResult | null; 
           {r.estimated && <span className="text-parchment-dim"> est.</span>}
         </span>
         <span className="tabular-nums text-parchment-dim">{pct}%</span>
-        <LuckBadge label={r.label} />
+        <LuckBadge probability={r.probability} />
       </>
     );
     bar = (

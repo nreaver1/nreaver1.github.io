@@ -3,7 +3,9 @@ import LuckBar from "./LuckBar";
 import LuckBadge from "./LuckBadge";
 import ItemIcon from "./ItemIcon";
 
-function LuckCell({ r }: { r: LuckResult }) {
+// The phone card already shows the badge in its header, so only the
+// desktop row asks for it here.
+function LuckCell({ r, showBadge = false }: { r: LuckResult; showBadge?: boolean }) {
   if (r.backfilled) {
     return (
       <span className="font-mono text-xs text-parchment-dim">
@@ -24,6 +26,7 @@ function LuckCell({ r }: { r: LuckResult }) {
       {r.estimated && (
         <span className="font-mono text-xs text-parchment-dim">est.</span>
       )}
+      {showBadge && <LuckBadge probability={r.probability} />}
     </div>
   );
 }
@@ -73,7 +76,7 @@ export default function LuckTable({ results }: { results: LuckResult[] }) {
                 <KcCell r={r} />
               </td>
               <td className="py-3 pr-4">
-                <LuckCell r={r} />
+                <LuckCell r={r} showBadge />
               </td>
             </tr>
           ))}
@@ -95,7 +98,7 @@ export default function LuckTable({ results }: { results: LuckResult[] }) {
                   {r.source_name} · <KcCell r={r} /> {r.kc_received !== null && "KC"}
                 </p>
               </div>
-              {r.supported && !r.backfilled && <LuckBadge label={r.label} />}
+              {r.supported && !r.backfilled && <LuckBadge probability={r.probability} />}
             </div>
             <div className="mt-3">
               <LuckCell r={r} />

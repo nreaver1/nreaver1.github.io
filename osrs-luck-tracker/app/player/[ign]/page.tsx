@@ -3,6 +3,7 @@ import { getPlayerLuck } from "@/lib/api";
 import { buildComparisonRows, parseCompared, playerHref } from "@/lib/compare";
 import type { PlayerLuckResponse } from "@/lib/types";
 import SummaryCard from "@/components/SummaryCard";
+import LuckScale from "@/components/LuckScale";
 import LuckTable from "@/components/LuckTable";
 import SearchBar from "@/components/SearchBar";
 import PlayerLink from "@/components/PlayerLink";
@@ -97,6 +98,9 @@ export default async function PlayerPage({
           <h2 className="mb-4 font-mono text-xs uppercase tracking-wide text-parchment-dim">
             Every logged drop
           </h2>
+          <div className="mb-4 max-w-xl">
+            <LuckScale />
+          </div>
           <LuckTable results={data.results} />
         </div>
       </div>
@@ -151,6 +155,9 @@ export default async function PlayerPage({
         <h2 className="mb-4 font-mono text-xs uppercase tracking-wide text-parchment-dim">
           Drop by drop
         </h2>
+        <div className="mb-4 max-w-xl">
+          <LuckScale />
+        </div>
         <ComparisonTable players={players.map((p) => p.ign)} rows={rows} />
       </div>
     </div>
