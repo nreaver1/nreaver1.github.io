@@ -13,6 +13,9 @@ osrs-luck-plugin/.gradle/
 osrs-luck-plugin/build/
 osrs-luck-plugin/.idea/
 osrs-luck-plugin/out/
+# Local launcher for the RuneLite dev client
+osrs-luck-plugin/run-dev-client.bat
+osrs-luck-plugin/run-dev-client.ico
 
 # OS / editor
 .DS_Store
