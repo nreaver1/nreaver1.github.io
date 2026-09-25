@@ -6,19 +6,26 @@ export const MAX_COMPARED = 4;
 
 /**
  * Reads the `vs` query param (repeatable: ?vs=A&vs=B) into a clean list:
- * trimmed, de-duplicated case-insensitively, never containing the
- * primary player, capped at MAX_COMPARED.
+ * trimmed, de-duplicated by nameKey, never containing the primary
+ * player, capped at MAX_COMPARED.
  */
+// Two spellings of the same player: OSRS treats space, non-breaking
+// space, "_" and "-" in a name as one character, and the backend looks
+// names up case-insensitively (normalizeIgn in the edge functions).
+function nameKey(name: string): string {
+  return name.replace(/[\u00a0_-]/g, " ").trim().toLowerCase();
+}
+
 export function parseCompared(
   vs: string | string[] | undefined,
   primary: string,
 ): string[] {
   const raw = vs === undefined ? [] : Array.isArray(vs) ? vs : [vs];
-  const seen = new Set([primary.trim().toLowerCase()]);
+  const seen = new Set([nameKey(primary)]);
   const out: string[] = [];
   for (const name of raw) {
     const trimmed = name.trim();
-    const key = trimmed.toLowerCase();
+    const key = nameKey(trimmed);
     if (!trimmed || seen.has(key)) continue;
     seen.add(key);
     out.push(trimmed);

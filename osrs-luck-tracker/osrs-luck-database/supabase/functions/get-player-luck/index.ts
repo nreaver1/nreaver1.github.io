@@ -8,7 +8,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { calculateLuck, summarizePlayerLuck } from "../_shared/calculations.ts";
 import { getSecretKey } from "../_shared/secret-key.ts";
-import { isIgn, json, rateLimit, serverError } from "../_shared/http.ts";
+import { json, parseIgn, rateLimit, serverError } from "../_shared/http.ts";
 import { pickPlayer } from "../_shared/players.ts";
 import type { CollectionLogDrop, DropRate } from "../_shared/types.ts";
 
@@ -18,10 +18,6 @@ const serviceRoleKey = getSecretKey();
 // Per caller IP. The site's profile page calls this server-side, so all
 // site visitors share Vercel's egress IPs — keep this generous.
 const RATE_LIMIT_PER_MINUTE = 300;
-
-// ilike treats _ as a wildcard; match the IGN literally. (isIgn already
-// rules out % and backslash.)
-const escapeLike = (s: string) => s.replace(/_/g, "\\_");
 
 Deno.serve(async (req) => {
   if (req.method !== "GET") {
@@ -34,8 +30,10 @@ Deno.serve(async (req) => {
   if (limited) return limited;
 
   const url = new URL(req.url);
-  const ign = url.searchParams.get("ign");
-  if (!isIgn(ign)) {
+  // Normalized, so it can't contain ilike wildcards: parseIgn rules out
+  // % and backslash and turns _ into a space.
+  const ign = parseIgn(url.searchParams.get("ign"));
+  if (!ign) {
     return json({ error: "Valid ign query param required" }, 400);
   }
 
@@ -44,7 +42,7 @@ Deno.serve(async (req) => {
   const { data: candidates, error: playerError } = await supabase
     .from("public_players") // safe view, never exposes install_token
     .select("account_hash, ign, last_updated")
-    .ilike("ign", escapeLike(ign))
+    .ilike("ign", ign)
     .limit(20);
 
   if (playerError) return serverError("get-player-luck: player lookup failed", playerError);

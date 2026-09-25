@@ -26,8 +26,8 @@ export function serverError(where: string, err: unknown): Response {
 const ACCOUNT_HASH_RE = /^[0-9a-f]{1,16}$/;
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 // OSRS names: 1-12 letters, digits, spaces, hyphens and underscores. The
-// client can report spaces as non-breaking spaces ( ).
-const IGN_RE = /^[A-Za-z0-9 _\- ]{1,12}$/;
+// client can report spaces as non-breaking spaces (\u00a0).
+const IGN_RE = /^[A-Za-z0-9 _\-\u00a0]{1,12}$/;
 
 // Generous upper bounds, only there to reject garbage.
 const MAX_ITEM_ID = 1_000_000;
@@ -42,6 +42,21 @@ export const isInstallToken = (v: unknown): v is string =>
 
 export const isIgn = (v: unknown): v is string =>
   typeof v === "string" && IGN_RE.test(v);
+
+// OSRS treats space, non-breaking space, "_" and "-" in a name as the
+// same character. Every stored and looked-up IGN uses this canonical
+// form (the plugin sends it via RuneLite's Text.toJagexName), so
+// "Iron_Man", "Iron-Man" and "Iron Man" all find the same player.
+// Case is kept for display; lookups compare case-insensitively.
+export const normalizeIgn = (ign: string): string =>
+  ign.replace(/[\u00a0_-]/g, " ").trim();
+
+// Validates and normalizes in one step; null for anything invalid.
+export function parseIgn(v: unknown): string | null {
+  if (!isIgn(v)) return null;
+  const ign = normalizeIgn(v);
+  return ign.length > 0 ? ign : null;
+}
 
 export const isItemId = (v: unknown): v is number =>
   Number.isInteger(v) && (v as number) > 0 && (v as number) <= MAX_ITEM_ID;

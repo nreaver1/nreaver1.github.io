@@ -1,5 +1,6 @@
 import { assert, assertFalse } from "https://deno.land/std@0.224.0/assert/mod.ts";
-import { isAccountHash, isIgn, isInstallToken, isItemId, isKc, tokensMatch } from "./http.ts";
+import { assertEquals } from "https://deno.land/std@0.224.0/assert/mod.ts";
+import { isAccountHash, isIgn, isInstallToken, isItemId, isKc, parseIgn, tokensMatch } from "./http.ts";
 
 Deno.test("isAccountHash accepts Long.toHexString output only", () => {
   assert(isAccountHash("1a2b3c4d5e6f7a8b"));
@@ -13,7 +14,7 @@ Deno.test("isAccountHash accepts Long.toHexString output only", () => {
 Deno.test("isIgn accepts OSRS names and rejects wildcards", () => {
   assert(isIgn("Zezima"));
   assert(isIgn("Iron Man_1-2"));
-  assert(isIgn("Iron Man"));
+  assert(isIgn("Iron\u00a0Man"));
   assertFalse(isIgn(""));
   assertFalse(isIgn("ThirteenChars"));
   assertFalse(isIgn("%"));
@@ -40,4 +41,19 @@ Deno.test("tokensMatch compares exactly", () => {
   assertFalse(tokensMatch("abc", "abd"));
   assertFalse(tokensMatch("abc", "abcd"));
   assertFalse(tokensMatch("", "a"));
+});
+
+Deno.test("parseIgn maps every OSRS name separator to a space", () => {
+  assertEquals(parseIgn("Iron_Man"), "Iron Man");
+  assertEquals(parseIgn("Iron-Man"), "Iron Man");
+  assertEquals(parseIgn("Iron\u00a0Man"), "Iron Man");
+  assertEquals(parseIgn(" Zezima "), "Zezima");
+  assertEquals(parseIgn("MooCowAli"), "MooCowAli"); // case kept for display
+});
+
+Deno.test("parseIgn rejects invalid and separator-only names", () => {
+  assertEquals(parseIgn("___"), null);
+  assertEquals(parseIgn("%"), null);
+  assertEquals(parseIgn(""), null);
+  assertEquals(parseIgn(42), null);
 });

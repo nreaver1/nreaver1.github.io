@@ -16,9 +16,9 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { getSecretKey } from "../_shared/secret-key.ts";
 import {
   isAccountHash,
-  isIgn,
   isInstallToken,
   json,
+  parseIgn,
   rateLimit,
   serverError,
   tokensMatch,
@@ -48,8 +48,9 @@ Deno.serve(async (req) => {
     return json({ error: "Invalid JSON body" }, 400);
   }
 
-  const { account_hash, ign, install_token } = body ?? {};
-  if (!isAccountHash(account_hash) || !isIgn(ign)) {
+  const { account_hash, install_token } = body ?? {};
+  const ign = parseIgn(body?.ign);
+  if (!isAccountHash(account_hash) || !ign) {
     return json({ error: "Valid account_hash and ign are required" }, 400);
   }
   if (install_token != null && !isInstallToken(install_token)) {
