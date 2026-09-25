@@ -19,16 +19,22 @@ supabase/
     _shared/calculations.ts               -- the luck calculation engine (pure functions)
     _shared/secret-key.ts                 -- reads SUPABASE_SECRET_KEYS (new) with legacy fallback
     register/index.ts                     -- POST /register  (mints install_token, automatic)
+    _shared/kc-aliases.ts                 -- kill-count names -> drop_rates source ("Dagannoth Rex" -> "Dagannoth Kings")
     ingest-drop/index.ts                  -- POST /ingest-drop (anti-cheat + insert)
     backfill-drop/index.ts                -- POST /backfill-drop (single item or batch; no KC, no anti-cheat)
     drop-rates-catalog/index.ts           -- GET /drop-rates-catalog (public, feeds the plugin's backfill dropdown)
     get-player-luck/index.ts              -- GET /get-player-luck?ign=X  (v1 priority endpoint)
     leaderboard/index.ts                  -- GET /leaderboard (built, returns 501 until enabled)
 scripts/
-  sync-drop-rates.ts                      -- wiki sync for flat_geometric rates
+  sync-drop-rates.ts                      -- wiki sync: a rate for every Bosses/Raids collection log item
+  drop-rate-rules.ts (+ .test.ts)         -- pure rules turning wiki drop rows into one rate per item
+  load-manual-rates.ts                    -- loads data/manual_drop_rates.json
+  clog-dump/                              -- Java helper that dumps the log layout from the game cache
 data/
+  collection_log.json                     -- log layout (tab -> page -> item ids), dumped by clog-dump
+  clog_sources.json                       -- which wiki drop tables count for each log page
+  manual_drop_rates.json                  -- hand-curated raid and pity-timer rates
   osrs_items.json                         -- offline item name->id dataset (16,141 items, MIT licensed source)
-  manual_metadata_stub.json               -- hand-transcription template for points_based/streak_adjusted
 ```
 
 ## Build status
@@ -44,8 +50,8 @@ data/
 | `/drop-rates-catalog` | Done — public list of valid item/source pairs, feeds the plugin's backfill dropdown |
 | `/get-player-luck` | Done — the v1-priority solo stats endpoint |
 | `/leaderboard` | Built, **returns 501 until `LEADERBOARD_ENABLED=true`** is set, per scope decision |
-| Wiki sync script | Done. Wikitext fetch + template parsing + item name→id resolution all implemented and verified end-to-end against real GWD drop data. |
-| Item name→id resolution | Done — `_shared/item-resolver.ts`, backed by an offline dataset (`data/osrs_items.json`, 16,141 items, trimmed from the MIT-licensed `osrs-item-data` npm package). Exact-name and base-name matching; ambiguous or unmatched names are skipped and logged rather than guessed at (verified against real collisions, e.g. "Tumeken's shadow" correctly flags ambiguous since it has charged/uncharged variants). |
+| Wiki sync script | Done. Covers every item on the 57 Bosses and 3 Raids log pages that has a random drop chance (see "Collection log coverage" below). Run on 2026-09-25: 397 rows. |
+| Item name→id resolution | No longer used by the sync, which takes ids from the game cache. Kept in `_shared/item-resolver.ts`, backed by an offline dataset (`data/osrs_items.json`, 16,141 items, trimmed from the MIT-licensed `osrs-item-data` npm package). Exact-name and base-name matching; ambiguous or unmatched names are skipped and logged rather than guessed at (verified against real collisions, e.g. "Tumeken's shadow" correctly flags ambiguous since it has charged/uncharged variants). |
 | Frontend (Next.js) | Done — see `osrs-luck-frontend/README.md` |
 | RuneLite plugin (Java) | First draft, connected and running against a real deployment — see `osrs-luck-plugin/README.md` for what's verified vs. not |
 
@@ -63,7 +69,27 @@ data/
    export SUPABASE_SECRET_KEY=sb_secret_...   # raw string from Settings > API Keys, NOT the JSON blob edge functions get
    deno run --allow-net --allow-env --allow-read scripts/sync-drop-rates.ts
    ```
-8. With the same exports, load the hand-curated raid and pity-timer rates: `deno run --allow-net --allow-env --allow-read scripts/load-manual-rates.ts`. Re-run it whenever `data/manual_drop_rates.json` changes.
+   Add `--dry-run` to print every row and the coverage report without writing (no keys needed). `--prune` also deletes `flat_geometric` rows the sync no longer produces, such as the rune and herb drops the old sync stored, except rows a player has logged a drop against.
+8. With the same exports, load the hand-curated raid and pity-timer rates: `deno run --allow-net --allow-env --allow-read scripts/load-manual-rates.ts`. Re-run it whenever `data/manual_drop_rates.json` changes, then re-run the sync, which copies mode-only manual rates (e.g. Metamorphic dust from CoX CM) onto the log page's source.
+
+## Collection log coverage
+
+Rates are stored per collection log page, under the page's name (`source` in `data/clog_sources.json` overrides it, e.g. "Leviathan"). That's the name the plugin's log import matches on. Live drops arrive under the kill-count message's name, so `ingest-drop` maps names that differ through `_shared/kc-aliases.ts`. Modes the game counts separately (Corrupted Gauntlet, Phosani's Nightmare, Artio, Spindel, Calvar'ion) get their own source with their own rates. Where an item comes from a sub-table, the chances are multiplied: the Sire's bludgeon pieces come from an Unsired (1/100 × 62/128).
+
+The sync reads the wiki's `dropsline` bucket rather than page wikitext. The bucket includes tables that pages transclude from templates (Corporeal Beast's sigils) and already evaluates rarity expressions (Alchemical Hydra's). Wikitext parsing is also what dropped Saradomin sword and Zamorakian spear: a citation's `name=` inside a drop line overwrote the item name.
+
+About 45 log slots have no rate on purpose, and the sync lists them as untrackable:
+- Guaranteed drops: Fire cape, Infernal cape, Zulrah's scales, Mole skin, ToA remnants, and similar.
+- Kill-count milestone rewards: Xeric's capes, Sinhaza and Icthlarin's shrouds.
+- Shop purchases: Spirit angler outfit, Dizana's quiver.
+
+Some rates rest on an assumption, recorded in each row's `metadata.assumption`: Barrows (all six brothers killed), the Colosseum (a full 12-wave run), Wintertodt and Tempoross (one reward roll per game).
+
+To refresh after a game update, first regenerate the layout from RuneLite's cache (`~/.runelite/jagexcache/oldschool/LIVE`, updated whenever RuneLite runs):
+```bash
+../osrs-luck-plugin/gradlew -p scripts/clog-dump run --args="<cache dir> <absolute path to data/collection_log.json>"
+```
+Give any new page an entry in `data/clog_sources.json`, dry-run the sync, and check the report.
 
 ## Historical backfill — design note
 

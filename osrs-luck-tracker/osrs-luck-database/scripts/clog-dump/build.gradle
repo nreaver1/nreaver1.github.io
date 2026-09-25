@@ -1,0 +1,19 @@
+// Standalone helper, not part of the plugin build. Run with the plugin's wrapper:
+//   ../osrs-luck-plugin/gradlew -p scripts/clog-dump run --args="<cache dir> data/collection_log.json"
+plugins {
+    id 'java'
+    id 'application'
+}
+
+repositories {
+    maven { url = 'https://repo.runelite.net' }
+    mavenCentral()
+}
+
+dependencies {
+    implementation 'net.runelite:cache:latest.release'
+}
+
+application {
+    mainClass = 'ClogDump'
+}

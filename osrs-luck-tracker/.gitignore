@@ -19,3 +19,5 @@ osrs-luck-plugin/out/
 Thumbs.db
 
 .vercel
+osrs-luck-database/scripts/clog-dump/build/
+osrs-luck-database/scripts/clog-dump/.gradle/

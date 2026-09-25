@@ -1,0 +1,89 @@
+{
+  "_about": [
+    "Where scripts/sync-drop-rates.ts finds a drop rate for each item on a Bosses or Raids collection log page (data/collection_log.json).",
+    "Each page's rates are stored under `source` (default: the page name, which is what the plugin's log import matches on). `wiki` lists wiki pages whose drop tables count as that page, in priority order: the first one that drops an item wins. `Page#Fragment` picks one table on a page (e.g. the Corrupted chest). An object {page, via} means the rows on `page` are rolled per `via` item, so they're multiplied by the rate of `via`.",
+    "`combine: \"independent\"` treats every listed table as a separate roll (the Colosseum's per-wave rewards). `variants` are extra sources for modes the game counts separately, so a live drop there is rated at that mode's rate; the page itself gets the first listed rate. `assumption` is copied into each row's metadata.",
+    "When a kill-count message names the boss differently from its page's source (\"Dagannoth Rex\" vs \"Dagannoth Kings\"), add it to supabase/functions/_shared/kc-aliases.ts, which ingest-drop uses."
+  ],
+  "pages": {
+    "Abyssal Sire": { "wiki": ["Abyssal Sire", { "page": "Unsired", "via": "Unsired" }] },
+    "Alchemical Hydra": { "wiki": ["Alchemical Hydra"] },
+    "Amoxliatl": { "wiki": ["Amoxliatl"] },
+    "Araxxor": { "wiki": ["Araxxor"] },
+    "Barrows Chests": {
+      "wiki": ["Chest (Barrows)"],
+      "assumption": "All six brothers killed each run (the wiki's 7 rolls per chest)."
+    },
+    "Brutus": { "wiki": ["Brutus"] },
+    "Bryophyta": { "wiki": ["Bryophyta", "Chest (Bryophyta's lair)#Members"] },
+    "Callisto and Artio": { "wiki": ["Callisto"], "variants": { "Artio": ["Artio"] } },
+    "Cerberus": { "wiki": ["Cerberus"] },
+    "Chaos Elemental": { "wiki": ["Chaos Elemental"] },
+    "Chaos Fanatic": { "wiki": ["Chaos Fanatic"] },
+    "Commander Zilyana": { "wiki": ["Commander Zilyana"] },
+    "Corporeal Beast": { "wiki": ["Corporeal Beast"] },
+    "Crazy Archaeologist": { "wiki": ["Crazy archaeologist"] },
+    "Dagannoth Kings": { "wiki": ["Dagannoth Rex", "Dagannoth Prime", "Dagannoth Supreme"] },
+    "Deranged Archaeologist": { "wiki": ["Deranged archaeologist"] },
+    "Doom of Mokhaiotl": { "wiki": ["Doom of Mokhaiotl"] },
+    "Duke Sucellus": { "wiki": ["Duke Sucellus"] },
+    "The Fight Caves": { "wiki": ["TzTok-Jad"] },
+    "Fortis Colosseum": {
+      "wiki": ["Rewards Chest (Fortis Colosseum)"],
+      "combine": "independent",
+      "assumption": "A full run: every wave's reward roll through wave 12."
+    },
+    "The Gauntlet": {
+      "wiki": ["Reward Chest (The Gauntlet)#Regular"],
+      "variants": { "Corrupted Gauntlet": ["Reward Chest (The Gauntlet)#Corrupted"] }
+    },
+    "General Graardor": { "wiki": ["General Graardor"] },
+    "Giant Mole": { "wiki": ["Giant Mole"] },
+    "Grotesque Guardians": { "wiki": ["Grotesque Guardians"] },
+    "Hespori": { "wiki": ["Hespori"] },
+    "The Hueycoatl": { "wiki": ["The Hueycoatl"] },
+    "The Inferno": { "wiki": ["TzKal-Zuk"] },
+    "Kalphite Queen": { "wiki": ["Kalphite Queen"] },
+    "King Black Dragon": { "wiki": ["King Black Dragon"] },
+    "Kraken": { "wiki": ["Kraken"] },
+    "Kree'arra": { "wiki": ["Kree'arra"] },
+    "K'ril Tsutsaroth": { "wiki": ["K'ril Tsutsaroth"] },
+    "The Leviathan": { "source": "Leviathan", "wiki": ["The Leviathan"] },
+    "The Mad Angel": { "wiki": ["Mad Angel"] },
+    "Maggot King": { "wiki": ["Maggot King"] },
+    "Moons of Peril": { "wiki": ["Lunar Chest"] },
+    "Nex": { "wiki": ["Nex"] },
+    "The Nightmare": {
+      "wiki": ["The Nightmare", "Phosani's Nightmare"],
+      "variants": { "Phosani's Nightmare": ["Phosani's Nightmare"] }
+    },
+    "Obor": { "wiki": ["Obor", "Chest (Obor's lair)"] },
+    "Phantom Muspah": { "wiki": ["Phantom Muspah"] },
+    "Royal Titans": { "wiki": ["Branda the Fire Queen", "Eldric the Ice King"] },
+    "Sarachnis": { "wiki": ["Sarachnis"] },
+    "Scorpia": { "wiki": ["Scorpia"] },
+    "Scurrius": { "wiki": ["Scurrius#MVP"] },
+    "Shellbane Gryphon": { "wiki": ["Shellbane gryphon"] },
+    "Skotizo": { "wiki": ["Skotizo"] },
+    "Tempoross": {
+      "wiki": ["Reward pool"],
+      "assumption": "One reward pool roll per kill; the wiki's rates are per reward permit."
+    },
+    "Thermonuclear Smoke Devil": { "wiki": ["Thermonuclear smoke devil"] },
+    "Vardorvis": { "wiki": ["Vardorvis"] },
+    "Venenatis and Spindel": { "wiki": ["Venenatis"], "variants": { "Spindel": ["Spindel"] } },
+    "Vet'ion and Calvar'ion": { "wiki": ["Vet'ion"], "variants": { "Calvar'ion": ["Calvar'ion"] } },
+    "Vorkath": { "wiki": ["Vorkath"] },
+    "The Whisperer": { "source": "Whisperer", "wiki": ["The Whisperer"] },
+    "Wintertodt": {
+      "wiki": ["Reward Cart"],
+      "assumption": "One reward cart roll per subdued Wintertodt; the wiki's rates are per roll, and a game gives more rolls the more points you earn."
+    },
+    "Yama": { "wiki": ["Yama", { "page": "Dossier", "via": "Dossier" }] },
+    "Zalcano": { "wiki": ["Zalcano"] },
+    "Zulrah": { "wiki": ["Zulrah"] },
+    "Chambers of Xeric": { "wiki": ["Ancient chest"] },
+    "Theatre of Blood": { "wiki": ["Monumental chest"] },
+    "Tombs of Amascut": { "wiki": ["Chest (Tombs of Amascut)"] }
+  }
+}

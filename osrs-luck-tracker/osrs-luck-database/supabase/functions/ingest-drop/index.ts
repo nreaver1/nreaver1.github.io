@@ -16,6 +16,7 @@
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { getSecretKey } from "../_shared/secret-key.ts";
+import { matchSource } from "../_shared/kc-aliases.ts";
 
 const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
 const serviceRoleKey = getSecretKey();
@@ -84,9 +85,10 @@ Deno.serve(async (req) => {
 
   // --- Match the chat message's source to a drop_rates source ---
   // The plugin sends the boss name as the kill-count message prints it,
-  // which can differ from the wiki page name the rate is stored under
-  // ("Gauntlet" vs "The Gauntlet"). An item with no rate from this source
-  // is rejected here rather than by the foreign key.
+  // which can differ from the collection log page the rate is stored under
+  // ("Gauntlet" vs "The Gauntlet", "Dagannoth Rex" vs "Dagannoth Kings").
+  // An item with no rate from this source is rejected here rather than by
+  // the foreign key.
   const { data: rates, error: ratesError } = await supabase
     .from("drop_rates")
     .select("source_name")
@@ -98,8 +100,7 @@ Deno.serve(async (req) => {
     });
   }
   const sources = (rates ?? []).map((r) => r.source_name as string);
-  const source_name = sources.find((s) => s === body.source_name) ??
-    sources.find((s) => normalizeSource(s) === normalizeSource(body.source_name!));
+  const source_name = matchSource(body.source_name!, sources);
   if (!source_name) {
     return new Response(
       JSON.stringify({ error: "No drop rate for this item from this source" }),
@@ -199,8 +200,3 @@ Deno.serve(async (req) => {
   return new Response(JSON.stringify({ drop: inserted }), { status: 201 });
 });
 
-// Same rule as the plugin's BackfillPlanner.normalize: ignore case,
-// punctuation and a leading "The".
-function normalizeSource(name: string): string {
-  return name.toLowerCase().replace(/^the\s+/, "").replace(/[^a-z0-9]/g, "");
-}
