@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getPlayerLuck } from "@/lib/api";
 import { buildComparisonRows, parseCompared, playerHref } from "@/lib/compare";
@@ -6,6 +5,7 @@ import type { PlayerLuckResponse } from "@/lib/types";
 import SummaryCard from "@/components/SummaryCard";
 import LuckTable from "@/components/LuckTable";
 import SearchBar from "@/components/SearchBar";
+import PlayerLink from "@/components/PlayerLink";
 import CompareCard from "@/components/CompareCard";
 import ComparisonTable from "@/components/ComparisonTable";
 
@@ -67,12 +67,12 @@ export default async function PlayerPage({
           {m.status === "not-found"
             ? `No player logged as "${m.name}".`
             : `Couldn't load "${m.name}" right now.`}{" "}
-          <Link
+          <PlayerLink
             href={playerHref(ign, without(m.name))}
             className="inline-block py-1 text-brass underline underline-offset-4"
           >
             Remove
-          </Link>
+          </PlayerLink>
         </li>
       ))}
     </ul>

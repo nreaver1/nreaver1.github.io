@@ -1,5 +1,6 @@
-import Link from "next/link";
+import PlayerLink from "./PlayerLink";
 import type { LuckResult, PlayerLuckResponse } from "@/lib/types";
+import ItemIcon from "./ItemIcon";
 
 function Highlight({ label, result, hot = false }: { label: string; result: LuckResult | null; hot?: boolean }) {
   return (
@@ -12,10 +13,13 @@ function Highlight({ label, result, hot = false }: { label: string; result: Luck
         {label}
       </p>
       {result ? (
-        <p className="mt-0.5 text-sm text-parchment">
-          {result.item_name ?? `Item #${result.item_id}`}{" "}
-          <span className="font-mono text-xs text-parchment-dim">
-            {Math.round(result.probability * 100)}%
+        <p className="mt-1 flex items-center gap-2 text-sm text-parchment">
+          <ItemIcon itemId={result.item_id} name={result.item_name ?? `Item #${result.item_id}`} size="sm" />
+          <span>
+            {result.item_name ?? `Item #${result.item_id}`}{" "}
+            <span className="font-mono text-xs text-parchment-dim">
+              {Math.round(result.probability * 100)}%
+            </span>
           </span>
         </p>
       ) : (
@@ -39,13 +43,13 @@ export default function CompareCard({
   return (
     <div className="relative h-full border border-panel-border bg-panel p-4">
       <div className="flex items-start justify-between gap-2">
-        <Link
+        <PlayerLink
           href={soloHref}
           className="min-w-0 break-words text-lg font-medium text-parchment underline-offset-4 hover:underline"
         >
           {player.ign}
-        </Link>
-        <Link
+        </PlayerLink>
+        <PlayerLink
           href={removeHref}
           aria-label={`Remove ${player.ign} from the comparison`}
           title="Remove from comparison"
@@ -54,7 +58,7 @@ export default function CompareCard({
           className="-m-3 p-3 font-mono text-lg leading-none text-parchment-dim hover:text-brass"
         >
           &times;
-        </Link>
+        </PlayerLink>
       </div>
       <p className="mt-0.5 font-mono text-xs text-parchment-dim">
         {logged} logged {logged === 1 ? "drop" : "drops"}

@@ -1,6 +1,7 @@
 import type { LuckResult } from "@/lib/types";
 import LuckBar from "./LuckBar";
 import LuckBadge from "./LuckBadge";
+import ItemIcon from "./ItemIcon";
 
 function LuckCell({ r }: { r: LuckResult }) {
   if (r.backfilled) {
@@ -61,8 +62,11 @@ export default function LuckTable({ results }: { results: LuckResult[] }) {
               key={`${r.item_id}-${r.source_name}`}
               className="border-b border-panel-border/60"
             >
-              <td className="py-3 pr-4 text-parchment">
-                {r.item_name ?? `Item #${r.item_id}`}
+              <td className="py-2 pr-4 text-parchment">
+                <span className="flex items-center gap-3">
+                  <ItemIcon itemId={r.item_id} name={r.item_name ?? `Item #${r.item_id}`} />
+                  {r.item_name ?? `Item #${r.item_id}`}
+                </span>
               </td>
               <td className="py-3 pr-4 text-parchment-dim">{r.source_name}</td>
               <td className="py-3 pr-4 font-mono tabular-nums text-parchment-dim">
@@ -84,7 +88,8 @@ export default function LuckTable({ results }: { results: LuckResult[] }) {
             className="border border-panel-border bg-panel p-4"
           >
             <div className="flex items-start justify-between gap-3">
-              <div>
+              <ItemIcon itemId={r.item_id} name={r.item_name ?? `Item #${r.item_id}`} />
+              <div className="min-w-0 flex-1">
                 <p className="text-parchment">{r.item_name ?? `Item #${r.item_id}`}</p>
                 <p className="mt-0.5 font-mono text-xs text-parchment-dim">
                   {r.source_name} · <KcCell r={r} /> {r.kc_received !== null && "KC"}

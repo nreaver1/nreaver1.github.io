@@ -1,4 +1,5 @@
 import SearchBar from "@/components/SearchBar";
+import PlayerLink from "@/components/PlayerLink";
 
 export default function HomePage() {
   return (
@@ -18,17 +19,17 @@ export default function HomePage() {
 
       <p className="mt-6 font-mono text-xs text-parchment-dim">
         try{" "}
-        <a href="/player/Zezima" className="text-brass underline underline-offset-4">
+        <PlayerLink href="/player/Zezima" className="text-brass underline underline-offset-4">
           Zezima
-        </a>
+        </PlayerLink>
         ,{" "}
-        <a href="/player/Newscape" className="text-brass underline underline-offset-4">
+        <PlayerLink href="/player/Newscape" className="text-brass underline underline-offset-4">
           Newscape
-        </a>
+        </PlayerLink>
         , or{" "}
-        <a href="/player/EmptyLogs" className="text-brass underline underline-offset-4">
+        <PlayerLink href="/player/EmptyLogs" className="text-brass underline underline-offset-4">
           EmptyLogs
-        </a>{" "}
+        </PlayerLink>{" "}
         for demo profiles
       </p>
     </div>

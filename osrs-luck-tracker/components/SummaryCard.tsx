@@ -1,5 +1,6 @@
 import type { LuckResult } from "@/lib/types";
 import LuckBar from "./LuckBar";
+import ItemIcon from "./ItemIcon";
 
 export default function SummaryCard({
   title,
@@ -36,9 +37,12 @@ export default function SummaryCard({
 
       {result ? (
         <>
-          <p className="mt-2 text-xl font-medium text-parchment">
-            {result.item_name ?? `Item #${result.item_id}`}
-          </p>
+          <div className="mt-2 flex items-center gap-3">
+            <ItemIcon itemId={result.item_id} name={result.item_name ?? `Item #${result.item_id}`} size="lg" />
+            <p className="text-xl font-medium text-parchment">
+              {result.item_name ?? `Item #${result.item_id}`}
+            </p>
+          </div>
           <p className="mt-1 font-mono text-sm text-parchment-dim">
             {result.kc_received !== null ? `${result.kc_received.toLocaleString()} KC` : ""}
             {result.kc_received !== null ? " · " : ""}{result.source_name}

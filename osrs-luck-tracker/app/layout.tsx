@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Fraunces, Oswald } from "next/font/google";
 import "./globals.css";
 import Nav from "@/components/Nav";
+import NavigationProvider from "@/components/NavigationProvider";
 
 const fraunces = Fraunces({
   subsets: ["latin"],
@@ -30,8 +31,10 @@ export default function RootLayout({
   return (
     <html lang="en" className={`${fraunces.variable} ${oswald.variable}`}>
       <body className="min-h-screen bg-ink text-parchment font-serif antialiased">
-        <Nav />
-        <main className="page-grid pb-24">{children}</main>
+        <NavigationProvider>
+          <Nav />
+          <main className="page-grid pb-24">{children}</main>
+        </NavigationProvider>
       </body>
     </html>
   );

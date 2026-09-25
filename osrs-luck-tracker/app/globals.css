@@ -89,3 +89,87 @@ body {
   background-clip: text;
   color: transparent;
 }
+
+/* --- Casino loading screen (components/CasinoLoader.tsx) --- */
+
+.dice-tumble {
+  animation: dice-tumble 0.8s ease-in-out infinite;
+}
+@keyframes dice-tumble {
+  0% { transform: translateY(0) rotate(0deg); }
+  30% { transform: translateY(-22px) rotate(130deg); }
+  60% { transform: translateY(0) rotate(250deg); }
+  78% { transform: translateY(-6px) rotate(320deg); }
+  100% { transform: translateY(0) rotate(360deg); }
+}
+
+/* Cards alternate left and right out of the deck, then land back on top. */
+.card-shuffle {
+  animation: card-shuffle 1.2s ease-in-out infinite;
+}
+.card-shuffle:nth-child(odd) {
+  --dir: 1;
+}
+.card-shuffle:nth-child(even) {
+  --dir: -1;
+}
+@keyframes card-shuffle {
+  0% { transform: translate(0, 0) rotate(0deg); z-index: 1; }
+  30% { transform: translate(calc(var(--dir) * 52px), -12px) rotate(calc(var(--dir) * 14deg)); z-index: 1; }
+  50% { transform: translate(calc(var(--dir) * 52px), -12px) rotate(calc(var(--dir) * 14deg)); z-index: 10; }
+  85% { transform: translate(0, -3px) rotate(0deg); z-index: 10; }
+  100% { transform: translate(0, 0) rotate(0deg); z-index: 10; }
+}
+
+/* The strip holds the symbols twice, so moving it up by half loops cleanly. */
+.slot-reel {
+  animation: slot-reel 0.5s linear infinite;
+  filter: blur(0.6px);
+}
+@keyframes slot-reel {
+  from { transform: translateY(0); }
+  to { transform: translateY(-50%); }
+}
+
+.loader-ellipsis::after {
+  content: "";
+  display: inline-block;
+  width: 1.5em;
+  text-align: left;
+  animation: loader-ellipsis 1.2s steps(4, end) infinite;
+}
+@keyframes loader-ellipsis {
+  0% { content: ""; }
+  25% { content: "."; }
+  50% { content: ".."; }
+  75%, 100% { content: "..."; }
+}
+
+/* --- Slot machine lever on the search buttons (components/SearchBar.tsx) ---
+   Seen from the front, a pulled lever swings down past its pivot toward the
+   player: the rod flips below the base and the knob drops with it. */
+
+.lever-rod {
+  transform-origin: bottom center;
+}
+.lever-pull .lever-rod {
+  animation: lever-rod 0.75s cubic-bezier(0.3, 0, 0.3, 1);
+}
+.lever-pull .lever-knob {
+  animation: lever-knob 0.75s cubic-bezier(0.3, 0, 0.3, 1);
+}
+@keyframes lever-rod {
+  0% { transform: scaleY(1); }
+  40% { transform: scaleY(-0.75); }
+  55% { transform: scaleY(-0.75); }
+  85% { transform: scaleY(1.06); }
+  100% { transform: scaleY(1); }
+}
+/* The knob sits on the rod's tip, so it travels 1.75x the rod's length. */
+@keyframes lever-knob {
+  0% { transform: translateY(0); }
+  40% { transform: translateY(calc(var(--rod) * 1.75)); }
+  55% { transform: translateY(calc(var(--rod) * 1.75)); }
+  85% { transform: translateY(calc(var(--rod) * -0.06)); }
+  100% { transform: translateY(0); }
+}
