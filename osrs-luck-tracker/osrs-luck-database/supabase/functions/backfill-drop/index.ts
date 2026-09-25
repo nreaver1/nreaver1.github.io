@@ -22,6 +22,16 @@
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { getSecretKey } from "../_shared/secret-key.ts";
+import {
+  isAccountHash,
+  isInstallToken,
+  isItemId,
+  isSourceName,
+  json,
+  rateLimit,
+  serverError,
+  tokensMatch,
+} from "../_shared/http.ts";
 
 const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
 const serviceRoleKey = getSecretKey();
@@ -31,6 +41,8 @@ const serviceRoleKey = getSecretKey();
 // backfilled rows already caps an account at one row per catalog pair.
 const RATE_LIMIT_PER_HOUR = 2000;
 const MAX_BATCH_SIZE = 500;
+// Per caller IP, covering requests that fail auth or validation too.
+const IP_RATE_LIMIT_PER_MINUTE = 30;
 
 interface DropKey {
   item_id: number;
@@ -39,20 +51,21 @@ interface DropKey {
 
 const pairKey = (d: DropKey) => `${d.item_id}|${d.source_name}`;
 
-function json(body: unknown, status: number): Response {
-  return new Response(JSON.stringify(body), { status });
-}
-
 Deno.serve(async (req) => {
   if (req.method !== "POST") {
     return new Response("Method not allowed", { status: 405 });
   }
 
+  const supabase = createClient(supabaseUrl, serviceRoleKey);
+
+  const limited = await rateLimit(supabase, req, "backfill-drop", IP_RATE_LIMIT_PER_MINUTE, 60);
+  if (limited) return limited;
+
   let body: {
-    install_token?: string;
-    account_hash?: string;
-    item_id?: number;
-    source_name?: string;
+    install_token?: unknown;
+    account_hash?: unknown;
+    item_id?: unknown;
+    source_name?: unknown;
     drops?: DropKey[];
   };
   try {
@@ -61,10 +74,10 @@ Deno.serve(async (req) => {
     return json({ error: "Invalid JSON body" }, 400);
   }
 
-  const { install_token, account_hash } = body;
-  const isBatch = Array.isArray(body.drops);
+  const { install_token, account_hash } = body ?? {};
+  const isBatch = Array.isArray(body?.drops);
 
-  if (!install_token || !account_hash) {
+  if (!isInstallToken(install_token) || !isAccountHash(account_hash)) {
     return json({ error: "Missing required fields" }, 400);
   }
 
@@ -72,8 +85,7 @@ Deno.serve(async (req) => {
   if (isBatch) {
     const valid = body.drops!.every(
       (d) =>
-        d && Number.isInteger(d.item_id) && typeof d.source_name === "string" &&
-        d.source_name.length > 0,
+        d && isItemId(d.item_id) && isSourceName(d.source_name),
     );
     if (!valid || body.drops!.length === 0) {
       return json({ error: "drops must be a non-empty array of {item_id, source_name}" }, 400);
@@ -89,13 +101,11 @@ Deno.serve(async (req) => {
     }
     requested = [...seen.values()];
   } else {
-    if (body.item_id == null || !body.source_name) {
+    if (!isItemId(body.item_id) || !isSourceName(body.source_name)) {
       return json({ error: "Missing required fields" }, 400);
     }
     requested = [{ item_id: body.item_id, source_name: body.source_name }];
   }
-
-  const supabase = createClient(supabaseUrl, serviceRoleKey);
 
   // --- Auth: same install_token check as ingest-drop ---
   const { data: player, error: playerError } = await supabase
@@ -104,10 +114,8 @@ Deno.serve(async (req) => {
     .eq("account_hash", account_hash)
     .maybeSingle();
 
-  if (playerError) {
-    return json({ error: playerError.message }, 500);
-  }
-  if (!player || player.install_token !== install_token) {
+  if (playerError) return serverError("backfill-drop: player lookup failed", playerError);
+  if (!player || !tokensMatch(player.install_token, install_token)) {
     return json({ error: "Invalid install_token" }, 401);
   }
 
@@ -122,9 +130,7 @@ Deno.serve(async (req) => {
     .select("item_id, source_name")
     .in("item_id", itemIds);
 
-  if (ratesError) {
-    return json({ error: ratesError.message }, 500);
-  }
+  if (ratesError) return serverError("backfill-drop: rate lookup failed", ratesError);
   const knownPairs = new Set((rates ?? []).map(pairKey));
 
   // --- Skip anything this account already has a row for ---
@@ -134,9 +140,7 @@ Deno.serve(async (req) => {
     .eq("account_hash", account_hash)
     .in("item_id", itemIds);
 
-  if (existingError) {
-    return json({ error: existingError.message }, 500);
-  }
+  if (existingError) return serverError("backfill-drop: existing lookup failed", existingError);
   const existingPairs = new Set((existing ?? []).map(pairKey));
 
   const unknown = requested.filter((d) => !knownPairs.has(pairKey(d)));
@@ -162,13 +166,14 @@ Deno.serve(async (req) => {
 
   // --- Rate limit ---
   const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
-  const { count } = await supabase
+  const { count, error: countError } = await supabase
     .from("collection_log_drops")
     .select("id", { count: "exact", head: true })
     .eq("account_hash", account_hash)
     .eq("is_backfilled", true)
     .gte("date_submitted", oneHourAgo);
 
+  if (countError) return serverError("backfill-drop: rate count failed", countError);
   if ((count ?? 0) + toInsert.length > RATE_LIMIT_PER_HOUR) {
     return json({ error: "Rate limit exceeded, try again later" }, 429);
   }
@@ -190,8 +195,10 @@ Deno.serve(async (req) => {
   if (insertError) {
     // Unique violation here means a concurrent request recorded one of
     // these pairs between the existence check above and this insert.
-    const status = insertError.code === "23505" ? 409 : 500;
-    return json({ error: insertError.message }, status);
+    if (insertError.code === "23505") {
+      return json({ error: "Item already recorded for this account" }, 409);
+    }
+    return serverError("backfill-drop: insert failed", insertError);
   }
 
   if (!isBatch) {

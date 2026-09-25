@@ -108,3 +108,8 @@ a backend:
 - `/player/EmptyLogs` — no drops yet, exercises the empty state.
 - Any other name — exercises the not-found page (verified returns a
   real HTTP 404, not just 404-looking content).
+
+The live backend has the same three players seeded from
+`osrs-luck-database/supabase/seed-demo.sql`, plus `Spoonfed` (all
+spooned), `Dry Bones` (dry/desert) and `Backlogged` (mostly backfilled).
+Re-run that file to reset them.

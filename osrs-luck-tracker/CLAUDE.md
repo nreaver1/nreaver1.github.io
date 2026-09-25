@@ -27,7 +27,8 @@ The frontend has no test suite.
 
 Backend (from `osrs-luck-database/`, needs the Supabase CLI and Deno):
 ```bash
-supabase db push                                  # applies migrations/0001, then 0002
+supabase db push                                  # applies migrations/0001 through 0004 in order
+npx supabase db query --linked -f supabase/seed-demo.sql   # (re)creates the live demo players; safe to re-run
 supabase functions deploy register ingest-drop backfill-drop drop-rates-catalog get-player-luck leaderboard
 deno run --allow-net --allow-env --allow-read scripts/sync-drop-rates.ts     # needs SUPABASE_URL + SUPABASE_SECRET_KEY exported manually; --dry-run needs neither
 deno run --allow-net --allow-env --allow-read scripts/load-manual-rates.ts   # same exports; loads data/manual_drop_rates.json
@@ -46,14 +47,14 @@ To type-check an edge function, run `npx deno check --no-config supabase/functio
 
 ## Architecture notes
 
-- **Mock mode.** `lib/api.ts` returns deterministic data from `lib/mock-data.ts` when `NEXT_PUBLIC_API_BASE` is empty. Seeded IGNs: `Zezima` (every state, including `multi_roll`/unsupported), `Newscape` (small, all average), `EmptyLogs` (empty state). Any other IGN is not found and returns a real HTTP 404.
+- **Mock mode.** `lib/api.ts` returns deterministic data from `lib/mock-data.ts` when `NEXT_PUBLIC_API_BASE` is empty. Seeded IGNs: `Zezima` (every state, including `multi_roll`/unsupported), `Newscape` (small, all average), `EmptyLogs` (empty state). Any other IGN is not found and returns a real HTTP 404. The live database has matching demo players from `supabase/seed-demo.sql` (plus Spoonfed, Dry Bones and Backlogged). Their `account_hash` starts with `demo-`, which fails the plugin hash check, so nobody can register as them; `get-player-luck` ranks a real player above a demo one with the same IGN (`_shared/players.ts`).
 - **Types are duplicated across projects.** `lib/types.ts` mirrors `osrs-luck-database/supabase/functions/_shared/types.ts` (`LuckResult`). The plugin's `*Request`/`*Response` Java classes mirror the edge function bodies. When you change an API shape, update every copy.
 - **Item names are resolved on the client.** The API returns only `item_id`. `lib/item-names.json` maps id to name and falls back to `Item #<id>`. The backend resolves names separately with `_shared/item-resolver.ts` and `data/osrs_items.json`. The plugin matches names against the collection log's items (`CollectionLogIndex.allItemIds()`) and falls back to `itemManager.search()`, which only knows tradeables.
 - **A luck result can be in one of three states, and they must stay distinct:**
   - Computed probability `P`, labeled by `labelFor` in `_shared/calculations.ts`: `>0.99` desert, `>0.8` dry, `<0.1` spooned, otherwise average. `estimated=true` marks the `points_based`/`streak_adjusted` approximations.
   - `supported=false` (`multi_roll`/`unsupported` distributions): don't display `P`.
   - `backfilled=true` (item logged before tracking started): `kc_received` is null and `probability` is NaN. Never render it as a number or make up a KC. `calculateLuck()` checks this flag before any distribution math.
-- **Supabase auth model.** All functions set `verify_jwt = false` (`supabase/config.toml`) because the new `sb_publishable_`/`sb_secret_` keys aren't JWTs. Each function does its own authorization: `ingest-drop` and `backfill-drop` check `install_token`, and the rest are public. Every caller still sends an `apikey` header. The frontend and plugin use only the publishable key. `_shared/secret-key.ts` reads `SUPABASE_SECRET_KEYS` and falls back to the legacy `SUPABASE_SERVICE_ROLE_KEY`.
+- **Supabase auth model.** All functions set `verify_jwt = false` (`supabase/config.toml`) because the new `sb_publishable_`/`sb_secret_` keys aren't JWTs. Each function does its own authorization: `ingest-drop` and `backfill-drop` check `install_token`, and the rest are public. `/register` only returns a token when it creates the player row; for an existing account it needs the current token (409 otherwise), so `account_hash` must never be exposed publicly. Migration 0003 removes all direct anon/authenticated reads of player-linked tables and views, and every function gets per-IP rate limiting, input validation and generic 500s from `_shared/http.ts` (counters in the `rate_limits` table, migration 0004). Every caller still sends an `apikey` header. The frontend and plugin use only the publishable key. `_shared/secret-key.ts` reads `SUPABASE_SECRET_KEYS` and falls back to the legacy `SUPABASE_SERVICE_ROLE_KEY`.
 - **Leaderboard is gated on purpose.** `/leaderboard` returns 501 unless `LEADERBOARD_ENABLED=true`. No leaderboard UI exists yet, and that's also intentional.
 - **Don't add `loading.tsx` to `app/player/[ign]/`.** It makes the route stream, and then `notFound()` returns status 200 instead of 404. If you need a loading state, use a narrow Suspense boundary around the data-dependent part only. The casino loading screen (`CasinoLoader`) avoids this: `NavigationProvider` runs player-page navigations in a transition and shows the overlay while it's pending, so navigate with `useCasinoNavigate()` or `PlayerLink` rather than `router.push` or a bare `Link`.
 - **Plugin drop attribution** (`LuckTrackerPlugin.onChatMessage`): a "New item added to your collection log" message counts only if it arrives within 5s of a kill-count message (10 minutes after a raid completion count, since raid loot comes from a chest). `KillCountMessage` parses these after stripping the `<col>` tags the game wraps around the number. Its source is the name as the game prints it ("Leviathan", "Tombs of Amascut: Expert Mode"); `ingest-drop` matches it to a `drop_rates` source ignoring case, punctuation and a leading "The", and returns 422 if the item has no rate from that source. Non-boss sources (clues, skilling pets, minigames) are skipped on purpose.
@@ -67,3 +68,13 @@ To type-check an edge function, run `npx deno check --no-config supabase/functio
 ## Gotchas
 
 - `tsconfig.json` excludes `osrs-luck-database`. Keep that exclusion: the Deno code (`https://esm.sh/...` imports, `Deno.env`) fails the Next.js type-check.
+
+<!-- BEGIN:nextjs-agent-rules -->
+
+# This is NOT the Next.js you know
+
+This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` (resolved from this file's directory; in monorepos the `next` package may not be visible from the repo root) before writing any code. Heed deprecation notices.
+
+This block is written and re-added by `next dev` — verify at `node_modules/next/dist/server/lib/generate-agent-files.js`. Removing it from a diff only re-creates the uncommitted change; committing it with your work keeps the tree clean.
+
+<!-- END:nextjs-agent-rules -->

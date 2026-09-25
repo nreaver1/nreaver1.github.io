@@ -8,37 +8,47 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { calculateLuck, summarizePlayerLuck } from "../_shared/calculations.ts";
 import { getSecretKey } from "../_shared/secret-key.ts";
+import { isIgn, json, rateLimit, serverError } from "../_shared/http.ts";
+import { pickPlayer } from "../_shared/players.ts";
 import type { CollectionLogDrop, DropRate } from "../_shared/types.ts";
 
 const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
 const serviceRoleKey = getSecretKey();
+
+// Per caller IP. The site's profile page calls this server-side, so all
+// site visitors share Vercel's egress IPs — keep this generous.
+const RATE_LIMIT_PER_MINUTE = 300;
+
+// ilike treats _ as a wildcard; match the IGN literally. (isIgn already
+// rules out % and backslash.)
+const escapeLike = (s: string) => s.replace(/_/g, "\\_");
 
 Deno.serve(async (req) => {
   if (req.method !== "GET") {
     return new Response("Method not allowed", { status: 405 });
   }
 
-  const url = new URL(req.url);
-  const ign = url.searchParams.get("ign");
-  if (!ign) {
-    return new Response(JSON.stringify({ error: "ign query param required" }), {
-      status: 400,
-    });
-  }
-
   const supabase = createClient(supabaseUrl, serviceRoleKey);
 
-  const { data: player, error: playerError } = await supabase
-    .from("public_players") // safe view, never exposes install_token
-    .select("account_hash, ign")
-    .ilike("ign", ign)
-    .maybeSingle();
+  const limited = await rateLimit(supabase, req, "get-player-luck", RATE_LIMIT_PER_MINUTE, 60);
+  if (limited) return limited;
 
-  if (playerError) {
-    return new Response(JSON.stringify({ error: playerError.message }), {
-      status: 500,
-    });
+  const url = new URL(req.url);
+  const ign = url.searchParams.get("ign");
+  if (!isIgn(ign)) {
+    return json({ error: "Valid ign query param required" }, 400);
   }
+
+  // Several rows can share an IGN (see _shared/players.ts), so fetch them
+  // all rather than maybeSingle(), which errors on more than one.
+  const { data: candidates, error: playerError } = await supabase
+    .from("public_players") // safe view, never exposes install_token
+    .select("account_hash, ign, last_updated")
+    .ilike("ign", escapeLike(ign))
+    .limit(20);
+
+  if (playerError) return serverError("get-player-luck: player lookup failed", playerError);
+  const player = pickPlayer(candidates ?? []);
   if (!player) {
     return new Response(JSON.stringify({ error: "Player not found" }), {
       status: 404,
@@ -50,11 +60,7 @@ Deno.serve(async (req) => {
     .select("*")
     .eq("account_hash", player.account_hash);
 
-  if (dropsError) {
-    return new Response(JSON.stringify({ error: dropsError.message }), {
-      status: 500,
-    });
-  }
+  if (dropsError) return serverError("get-player-luck: drops lookup failed", dropsError);
 
   if (!drops || drops.length === 0) {
     return new Response(
@@ -63,22 +69,17 @@ Deno.serve(async (req) => {
     );
   }
 
-  // Batch-fetch matching drop_rates rows.
-  const pairs = drops.map((d: CollectionLogDrop) => `(${d.item_id},"${d.source_name}")`);
+  // Batch-fetch drop_rates rows for these items; matched to exact
+  // (item_id, source_name) pairs via rateMap below. Filtering by item_id
+  // alone avoids building a PostgREST filter string out of source names,
+  // which can contain commas and parentheses.
+  const itemIds = [...new Set(drops.map((d: CollectionLogDrop) => d.item_id))];
   const { data: rates, error: ratesError } = await supabase
     .from("drop_rates")
     .select("*")
-    .or(
-      drops
-        .map((d: CollectionLogDrop) => `and(item_id.eq.${d.item_id},source_name.eq.${d.source_name})`)
-        .join(","),
-    );
+    .in("item_id", itemIds);
 
-  if (ratesError) {
-    return new Response(JSON.stringify({ error: ratesError.message }), {
-      status: 500,
-    });
-  }
+  if (ratesError) return serverError("get-player-luck: rate lookup failed", ratesError);
 
   const rateMap = new Map<string, DropRate>();
   for (const r of rates ?? []) {

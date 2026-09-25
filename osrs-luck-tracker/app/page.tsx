@@ -1,5 +1,6 @@
 import SearchBar from "@/components/SearchBar";
 import PlayerLink from "@/components/PlayerLink";
+import { DEMO_IGNS } from "@/lib/mock-data";
 
 export default function HomePage() {
   return (
@@ -19,17 +20,17 @@ export default function HomePage() {
 
       <p className="mt-6 font-mono text-xs text-parchment-dim">
         try{" "}
-        <PlayerLink href="/player/Zezima" className="text-brass underline underline-offset-4">
-          Zezima
-        </PlayerLink>
-        ,{" "}
-        <PlayerLink href="/player/Newscape" className="text-brass underline underline-offset-4">
-          Newscape
-        </PlayerLink>
-        , or{" "}
-        <PlayerLink href="/player/EmptyLogs" className="text-brass underline underline-offset-4">
-          EmptyLogs
-        </PlayerLink>{" "}
+        {DEMO_IGNS.map((ign, i) => (
+          <span key={ign}>
+            {i > 0 && (i === DEMO_IGNS.length - 1 ? ", or " : ", ")}
+            <PlayerLink
+              href={`/player/${encodeURIComponent(ign)}`}
+              className="text-brass underline underline-offset-4"
+            >
+              {ign}
+            </PlayerLink>
+          </span>
+        ))}{" "}
         for demo profiles
       </p>
     </div>

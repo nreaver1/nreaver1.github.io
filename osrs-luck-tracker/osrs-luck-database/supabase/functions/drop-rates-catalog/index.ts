@@ -14,9 +14,13 @@
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { getSecretKey } from "../_shared/secret-key.ts";
+import { json, rateLimit, serverError } from "../_shared/http.ts";
 
 const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
 const serviceRoleKey = getSecretKey();
+
+// Per caller IP. The plugin fetches this once per panel open.
+const RATE_LIMIT_PER_MINUTE = 30;
 
 Deno.serve(async (req) => {
   if (req.method !== "GET") {
@@ -24,16 +28,16 @@ Deno.serve(async (req) => {
   }
 
   const supabase = createClient(supabaseUrl, serviceRoleKey);
+
+  const limited = await rateLimit(supabase, req, "drop-rates-catalog", RATE_LIMIT_PER_MINUTE, 60);
+  if (limited) return limited;
+
   const { data, error } = await supabase
     .from("drop_rates")
     .select("item_id, source_name")
     .order("source_name");
 
-  if (error) {
-    return new Response(JSON.stringify({ error: error.message }), {
-      status: 500,
-    });
-  }
+  if (error) return serverError("drop-rates-catalog: query failed", error);
 
-  return new Response(JSON.stringify({ entries: data }), { status: 200 });
+  return json({ entries: data }, 200);
 });

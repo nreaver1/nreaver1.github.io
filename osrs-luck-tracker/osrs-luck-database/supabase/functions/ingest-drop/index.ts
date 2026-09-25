@@ -17,33 +17,49 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { getSecretKey } from "../_shared/secret-key.ts";
 import { matchSource } from "../_shared/kc-aliases.ts";
+import {
+  isAccountHash,
+  isInstallToken,
+  isItemId,
+  isKc,
+  isSourceName,
+  json,
+  rateLimit,
+  serverError,
+  tokensMatch,
+} from "../_shared/http.ts";
 
 const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
 const serviceRoleKey = getSecretKey();
 
 const RATE_LIMIT_PER_HOUR = 20;
 const MAX_SUBMISSION_LAG_DAYS = 3;
+// Per caller IP, covering requests that fail auth or validation too.
+const IP_RATE_LIMIT_PER_MINUTE = 60;
 
 Deno.serve(async (req) => {
   if (req.method !== "POST") {
     return new Response("Method not allowed", { status: 405 });
   }
 
+  const supabase = createClient(supabaseUrl, serviceRoleKey);
+
+  const limited = await rateLimit(supabase, req, "ingest-drop", IP_RATE_LIMIT_PER_MINUTE, 60);
+  if (limited) return limited;
+
   let body: {
-    install_token?: string;
-    account_hash?: string;
-    item_id?: number;
-    source_name?: string;
-    kc_received?: number;
-    current_kc?: number;
-    date_received?: string;
+    install_token?: unknown;
+    account_hash?: unknown;
+    item_id?: unknown;
+    source_name?: unknown;
+    kc_received?: unknown;
+    current_kc?: unknown;
+    date_received?: unknown;
   };
   try {
     body = await req.json();
   } catch {
-    return new Response(JSON.stringify({ error: "Invalid JSON body" }), {
-      status: 400,
-    });
+    return json({ error: "Invalid JSON body" }, 400);
   }
 
   const {
@@ -52,18 +68,15 @@ Deno.serve(async (req) => {
     item_id,
     kc_received,
     current_kc,
-  } = body;
+  } = body ?? {};
 
   if (
-    !install_token || !account_hash || item_id == null ||
-    !body.source_name || kc_received == null || current_kc == null
+    !isInstallToken(install_token) || !isAccountHash(account_hash) ||
+    !isItemId(item_id) || !isSourceName(body.source_name) ||
+    !isKc(kc_received) || !isKc(current_kc)
   ) {
-    return new Response(JSON.stringify({ error: "Missing required fields" }), {
-      status: 400,
-    });
+    return json({ error: "Missing or invalid fields" }, 400);
   }
-
-  const supabase = createClient(supabaseUrl, serviceRoleKey);
 
   // --- Auth: token must match account_hash ---
   const { data: player, error: playerError } = await supabase
@@ -72,15 +85,9 @@ Deno.serve(async (req) => {
     .eq("account_hash", account_hash)
     .maybeSingle();
 
-  if (playerError) {
-    return new Response(JSON.stringify({ error: playerError.message }), {
-      status: 500,
-    });
-  }
-  if (!player || player.install_token !== install_token) {
-    return new Response(JSON.stringify({ error: "Invalid install_token" }), {
-      status: 401,
-    });
+  if (playerError) return serverError("ingest-drop: player lookup failed", playerError);
+  if (!player || !tokensMatch(player.install_token, install_token)) {
+    return json({ error: "Invalid install_token" }, 401);
   }
 
   // --- Match the chat message's source to a drop_rates source ---
@@ -94,41 +101,32 @@ Deno.serve(async (req) => {
     .select("source_name")
     .eq("item_id", item_id);
 
-  if (ratesError) {
-    return new Response(JSON.stringify({ error: ratesError.message }), {
-      status: 500,
-    });
-  }
+  if (ratesError) return serverError("ingest-drop: rate lookup failed", ratesError);
   const sources = (rates ?? []).map((r) => r.source_name as string);
-  const source_name = matchSource(body.source_name!, sources);
+  const source_name = matchSource(body.source_name as string, sources);
   if (!source_name) {
-    return new Response(
-      JSON.stringify({ error: "No drop rate for this item from this source" }),
-      { status: 422 },
-    );
+    return json({ error: "No drop rate for this item from this source" }, 422);
   }
 
   // --- Anti-cheat: kc_received cannot exceed current_kc ---
   if (kc_received > current_kc) {
-    return new Response(
-      JSON.stringify({
-        error: "kc_received cannot exceed current_kc",
-      }),
-      { status: 422 },
-    );
+    return json({ error: "kc_received cannot exceed current_kc" }, 422);
   }
 
   // --- Anti-cheat: date_received cannot be absurdly stale ---
+  if (body.date_received != null && typeof body.date_received !== "string") {
+    return json({ error: "Invalid date_received" }, 400);
+  }
   const dateReceived = body.date_received
     ? new Date(body.date_received)
     : new Date();
+  if (Number.isNaN(dateReceived.getTime())) {
+    return json({ error: "Invalid date_received" }, 400);
+  }
   const lagDays =
     (Date.now() - dateReceived.getTime()) / (1000 * 60 * 60 * 24);
   if (lagDays > MAX_SUBMISSION_LAG_DAYS || lagDays < -1) {
-    return new Response(
-      JSON.stringify({ error: "date_received outside acceptable window" }),
-      { status: 422 },
-    );
+    return json({ error: "date_received outside acceptable window" }, 422);
   }
 
   // --- Anti-cheat: rate limit inserts per account_hash ---
@@ -139,16 +137,9 @@ Deno.serve(async (req) => {
     .eq("account_hash", account_hash)
     .gte("date_submitted", oneHourAgo);
 
-  if (countError) {
-    return new Response(JSON.stringify({ error: countError.message }), {
-      status: 500,
-    });
-  }
+  if (countError) return serverError("ingest-drop: rate count failed", countError);
   if ((count ?? 0) >= RATE_LIMIT_PER_HOUR) {
-    return new Response(
-      JSON.stringify({ error: "Rate limit exceeded, try again later" }),
-      { status: 429 },
-    );
+    return json({ error: "Rate limit exceeded, try again later" }, 429);
   }
 
   // --- Find the previous drop of this item (for kc_at_previous_drop) ---
@@ -191,12 +182,11 @@ Deno.serve(async (req) => {
 
   if (insertError) {
     // Unique constraint violation likely means a duplicate submission.
-    const status = insertError.code === "23505" ? 409 : 500;
-    return new Response(JSON.stringify({ error: insertError.message }), {
-      status,
-    });
+    if (insertError.code === "23505") {
+      return json({ error: "Drop already recorded" }, 409);
+    }
+    return serverError("ingest-drop: insert failed", insertError);
   }
 
-  return new Response(JSON.stringify({ drop: inserted }), { status: 201 });
+  return json({ drop: inserted }, 201);
 });
-
