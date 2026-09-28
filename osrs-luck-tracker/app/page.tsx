@@ -11,7 +11,7 @@ export default function HomePage() {
       <p className="mt-5 max-w-prose text-lg leading-relaxed text-parchment-dim">
         Search a player to see the exact kill count behind every logged
         drop, weighed against the house odds and every other player
-        who's gotten it.
+        who&rsquo;s gotten it.
       </p>
 
       <div className="mt-10 max-w-xl">
