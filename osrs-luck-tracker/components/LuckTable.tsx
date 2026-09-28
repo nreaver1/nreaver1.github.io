@@ -1,4 +1,8 @@
+"use client";
+
+import { useState } from "react";
 import type { LuckResult } from "@/lib/types";
+import BacklogToggle from "./BacklogToggle";
 import LuckBar from "./LuckBar";
 import LuckBadge from "./LuckBadge";
 import ItemIcon from "./ItemIcon";
@@ -38,19 +42,34 @@ function KcCell({ r }: { r: LuckResult }) {
   return <>{r.kc_received.toLocaleString()}</>;
 }
 
-export default function LuckTable({ results }: { results: LuckResult[] }) {
-  if (results.length === 0) {
+export default function LuckTable({ results: allResults }: { results: LuckResult[] }) {
+  const [showBacklog, setShowBacklog] = useState(true);
+
+  if (allResults.length === 0) {
     return (
       <p className="text-sm text-parchment-dim">
-        No logged drops yet. Once the plugin syncs, they'll show up here.
+        No logged drops yet. Once the plugin syncs, they&rsquo;ll show up here.
       </p>
     );
   }
 
+  const backlogCount = allResults.filter((r) => r.backfilled).length;
+  const results = showBacklog ? allResults : allResults.filter((r) => !r.backfilled);
+
   return (
     <div>
+      {backlogCount > 0 && (
+        <BacklogToggle shown={showBacklog} count={backlogCount} onChange={setShowBacklog} />
+      )}
+
+      {results.length === 0 && (
+        <p className="text-sm text-parchment-dim">
+          Every drop here was logged before tracking started.
+        </p>
+      )}
+
       {/* Desktop / tablet: real table */}
-      <table className="hidden w-full border-collapse text-sm sm:table">
+      <table className={`hidden w-full border-collapse text-sm ${results.length > 0 ? "sm:table" : ""}`}>
         <thead>
           <tr className="border-b border-panel-border text-left font-mono text-xs uppercase tracking-wide text-parchment-dim">
             <th className="py-2 pr-4 font-normal">Item</th>

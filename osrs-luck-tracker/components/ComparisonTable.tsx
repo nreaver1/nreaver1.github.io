@@ -1,5 +1,9 @@
+"use client";
+
+import { useState } from "react";
 import type { LuckResult } from "@/lib/types";
 import type { ComparisonRow } from "@/lib/compare";
+import BacklogToggle from "./BacklogToggle";
 import LuckBadge from "./LuckBadge";
 import ItemIcon from "./ItemIcon";
 
@@ -109,22 +113,42 @@ function MobileRow({ name, r, luckiest }: { name: string; r: LuckResult | null; 
   );
 }
 
+/** A row where everyone who has the item logged it before tracking started. */
+function isBacklogOnly(row: ComparisonRow) {
+  return row.cells.every((c) => c === null || c.backfilled);
+}
+
 export default function ComparisonTable({
   players,
-  rows,
+  rows: allRows,
 }: {
   players: string[];
   rows: ComparisonRow[];
 }) {
-  if (rows.length === 0) {
+  const [showBacklog, setShowBacklog] = useState(true);
+
+  if (allRows.length === 0) {
     return <p className="text-sm text-parchment-dim">None of these players have logged drops yet.</p>;
   }
 
+  const backlogCount = allRows.filter(isBacklogOnly).length;
+  const rows = showBacklog ? allRows : allRows.filter((row) => !isBacklogOnly(row));
+
   return (
     <div>
+      {backlogCount > 0 && (
+        <BacklogToggle shown={showBacklog} count={backlogCount} onChange={setShowBacklog} />
+      )}
+
+      {rows.length === 0 && (
+        <p className="text-sm text-parchment-dim">
+          Every drop here was logged before tracking started.
+        </p>
+      )}
+
       {/* Tablet / desktop: one column per player. If the columns still
           don't fit, the table scrolls sideways with the item column pinned. */}
-      <div className="hidden overflow-x-auto md:block">
+      <div className={`hidden overflow-x-auto ${rows.length > 0 ? "md:block" : ""}`}>
         <table className="w-full border-collapse text-sm">
           <thead>
             <tr className="border-b border-panel-border text-left font-mono text-xs uppercase tracking-wide text-parchment-dim">
