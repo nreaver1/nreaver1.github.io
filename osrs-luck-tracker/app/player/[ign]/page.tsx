@@ -83,7 +83,7 @@ export default async function PlayerPage({
     return (
       <div className="pt-12">
         <h1 className="text-3xl font-medium text-parchment sm:text-4xl">
-          {data.ign}'s luck
+          {data.ign}&rsquo;s luck
         </h1>
 
         <div className="mt-6">{compareBar}</div>

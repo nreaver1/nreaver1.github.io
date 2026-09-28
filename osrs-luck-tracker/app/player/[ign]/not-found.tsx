@@ -7,7 +7,7 @@ export default function NotFound() {
         No player logged under that name yet
       </h1>
       <p className="mt-4 max-w-prose text-parchment-dim">
-        Either the name is misspelled, or that player hasn't run the
+        Either the name is misspelled, or that player hasn&rsquo;t run the
         RuneLite plugin yet. Once a collection log slot is filled with
         the plugin installed, this page fills in automatically.
       </p>

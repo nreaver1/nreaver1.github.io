@@ -11,7 +11,7 @@ export default function Error({
   return (
     <div className="pt-16">
       <h1 className="text-3xl font-medium text-parchment">
-        Couldn't load that profile
+        Couldn&rsquo;t load that profile
       </h1>
       <p className="mt-4 max-w-prose text-parchment-dim">
         The lookup failed — the backend might be unreachable or slow to
