@@ -1,6 +1,7 @@
 import PlayerLink from "./PlayerLink";
 import type { LuckResult, PlayerLuckResponse } from "@/lib/types";
 import ItemIcon from "./ItemIcon";
+import DemoBadge from "./DemoBadge";
 
 function Highlight({ label, result, hot = false }: { label: string; result: LuckResult | null; hot?: boolean }) {
   return (
@@ -48,6 +49,7 @@ export default function CompareCard({
           className="min-w-0 break-words text-lg font-medium text-parchment underline-offset-4 hover:underline"
         >
           {player.ign}
+          {player.demo && <DemoBadge className="ml-2" />}
         </PlayerLink>
         <PlayerLink
           href={removeHref}

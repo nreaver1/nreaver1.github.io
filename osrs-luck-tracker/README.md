@@ -1,9 +1,8 @@
 # OSRS Luck Tracker — Frontend
 
-Next.js (App Router) + Tailwind. Implements the two Phase 3 pages from
-the original spec: home (search) and player profile (luck stats).
-Leaderboard pages are intentionally not built yet, matching the backend
-gating decision — nothing to wire up until that endpoint is enabled.
+Next.js (App Router) + Tailwind. Pages: home (search), player profile
+(luck stats, comparison) and `/leaderboard` (luckiest and driest
+players who opted in from the plugin).
 
 ## Design
 
@@ -96,8 +95,6 @@ valid apikey to route any request to your project, independent of the
   the profile page yet — the current UI only shows drops that have
   already happened, per the v1 solo-stats-first priority. Worth adding
   once it's useful context.
-- Leaderboard UI: not started, on purpose (backend endpoint is gated
-  off — see Phase 1 README).
 
 ## Demo data for testing
 Three profiles are seeded for exercising every part of the UI without

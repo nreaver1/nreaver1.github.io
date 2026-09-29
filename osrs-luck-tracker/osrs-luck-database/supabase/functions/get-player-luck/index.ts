@@ -1,15 +1,29 @@
 // GET /get-player-luck?ign=Zezima
+//   Public profile lookup for the website. A player who turned off "Show
+//   my log on the website" in the plugin (players.profile_public = false)
+//   gets the same 404 as a name nobody has registered.
 //
-// The v1-priority endpoint: returns a player's full luck breakdown plus
-// a most-spooned / driest summary for their profile page. This is the
-// only user-facing stats endpoint in this phase — leaderboards are
-// built (see migration 0001) but not wired up yet.
+// POST /get-player-luck  { install_token, account_hash }
+//   The plugin reading its own drops, which works whether or not the
+//   profile is public.
+//
+// Both return the player's full luck breakdown plus a most-spooned /
+// driest summary for their profile page, and `demo: true` for the seeded
+// sample accounts.
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { calculateLuck, summarizePlayerLuck } from "../_shared/calculations.ts";
 import { getSecretKey } from "../_shared/secret-key.ts";
-import { json, parseIgn, rateLimit, serverError } from "../_shared/http.ts";
-import { pickPlayer } from "../_shared/players.ts";
+import {
+  isAccountHash,
+  isInstallToken,
+  json,
+  parseIgn,
+  rateLimit,
+  serverError,
+  tokensMatch,
+} from "../_shared/http.ts";
+import { isDemoAccount, pickPlayer } from "../_shared/players.ts";
 import type { CollectionLogDrop, DropRate } from "../_shared/types.ts";
 
 const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
@@ -19,8 +33,10 @@ const serviceRoleKey = getSecretKey();
 // site visitors share Vercel's egress IPs — keep this generous.
 const RATE_LIMIT_PER_MINUTE = 300;
 
+const notFound = () => json({ error: "Player not found" }, 404);
+
 Deno.serve(async (req) => {
-  if (req.method !== "GET") {
+  if (req.method !== "GET" && req.method !== "POST") {
     return new Response("Method not allowed", { status: 405 });
   }
 
@@ -29,29 +45,57 @@ Deno.serve(async (req) => {
   const limited = await rateLimit(supabase, req, "get-player-luck", RATE_LIMIT_PER_MINUTE, 60);
   if (limited) return limited;
 
-  const url = new URL(req.url);
-  // Normalized, so it can't contain ilike wildcards: parseIgn rules out
-  // % and backslash and turns _ into a space.
-  const ign = parseIgn(url.searchParams.get("ign"));
-  if (!ign) {
-    return json({ error: "Valid ign query param required" }, 400);
+  let player: { account_hash: string; ign: string };
+
+  if (req.method === "POST") {
+    let body: { install_token?: unknown; account_hash?: unknown };
+    try {
+      body = await req.json();
+    } catch {
+      return json({ error: "Invalid JSON body" }, 400);
+    }
+    const { install_token, account_hash } = body ?? {};
+    if (!isInstallToken(install_token) || !isAccountHash(account_hash)) {
+      return json({ error: "Valid install_token and account_hash are required" }, 400);
+    }
+
+    const { data: owner, error: ownerError } = await supabase
+      .from("players")
+      .select("account_hash, ign, install_token")
+      .eq("account_hash", account_hash)
+      .maybeSingle();
+    if (ownerError) return serverError("get-player-luck: owner lookup failed", ownerError);
+    if (!owner || !tokensMatch(owner.install_token, install_token)) {
+      return json({ error: "Invalid install_token" }, 401);
+    }
+    player = owner;
+  } else {
+    const url = new URL(req.url);
+    // Normalized, so it can't contain ilike wildcards: parseIgn rules out
+    // % and backslash and turns _ into a space.
+    const ign = parseIgn(url.searchParams.get("ign"));
+    if (!ign) {
+      return json({ error: "Valid ign query param required" }, 400);
+    }
+
+    // Several rows can share an IGN (see _shared/players.ts), so fetch them
+    // all rather than maybeSingle(), which errors on more than one.
+    const { data: candidates, error: playerError } = await supabase
+      .from("public_players") // safe view, never exposes install_token
+      .select("account_hash, ign, last_updated, profile_public")
+      .ilike("ign", ign)
+      .limit(20);
+
+    if (playerError) return serverError("get-player-luck: player lookup failed", playerError);
+    // Pick first, then check visibility: a hidden player still owns their
+    // name, so the lookup must not fall through to an older row that shares it.
+    const picked = pickPlayer(candidates ?? []);
+    if (!picked || !picked.profile_public) return notFound();
+    player = picked;
   }
 
-  // Several rows can share an IGN (see _shared/players.ts), so fetch them
-  // all rather than maybeSingle(), which errors on more than one.
-  const { data: candidates, error: playerError } = await supabase
-    .from("public_players") // safe view, never exposes install_token
-    .select("account_hash, ign, last_updated")
-    .ilike("ign", ign)
-    .limit(20);
-
-  if (playerError) return serverError("get-player-luck: player lookup failed", playerError);
-  const player = pickPlayer(candidates ?? []);
-  if (!player) {
-    return new Response(JSON.stringify({ error: "Player not found" }), {
-      status: 404,
-    });
-  }
+  // Seeded sample accounts (seed-demo.sql), badged as such on the site.
+  const demo = isDemoAccount(player.account_hash);
 
   const { data: drops, error: dropsError } = await supabase
     .from("collection_log_drops")
@@ -61,10 +105,7 @@ Deno.serve(async (req) => {
   if (dropsError) return serverError("get-player-luck: drops lookup failed", dropsError);
 
   if (!drops || drops.length === 0) {
-    return new Response(
-      JSON.stringify({ ign: player.ign, results: [], mostSpooned: null, driest: null }),
-      { status: 200 },
-    );
+    return json({ ign: player.ign, demo, results: [], mostSpooned: null, driest: null }, 200);
   }
 
   // Batch-fetch drop_rates rows for these items; matched to exact
@@ -94,8 +135,5 @@ Deno.serve(async (req) => {
 
   const { mostSpooned, driest } = summarizePlayerLuck(results as any);
 
-  return new Response(
-    JSON.stringify({ ign: player.ign, results, mostSpooned, driest }),
-    { status: 200 },
-  );
+  return json({ ign: player.ign, demo, results, mostSpooned, driest }, 200);
 });

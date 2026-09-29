@@ -1,4 +1,4 @@
-import type { PlayerLuckResponse } from "./types";
+import type { LeaderboardEntry, LeaderboardResponse, PlayerLuckResponse } from "./types";
 
 // A few demo players, each built to exercise a different part of the UI:
 // every luck label (spooned/average/dry/desert), estimated vs exact
@@ -7,6 +7,7 @@ import type { PlayerLuckResponse } from "./types";
 
 const ZEZIMA: PlayerLuckResponse = {
   ign: "Zezima",
+  demo: true,
   results: [
     {
       item_id: 4207,
@@ -98,6 +99,7 @@ ZEZIMA.driest = ZEZIMA.results[4];
 // A newer account: only a couple of drops, mostly average luck.
 const NEWSCAPE: PlayerLuckResponse = {
   ign: "Newscape",
+  demo: true,
   results: [
     {
       item_id: 11812,
@@ -129,6 +131,7 @@ NEWSCAPE.driest = NEWSCAPE.results[1];
 // Exercises the empty state.
 const EMPTY_LOGS: PlayerLuckResponse = {
   ign: "EmptyLogs",
+  demo: true,
   results: [],
   mostSpooned: null,
   driest: null,
@@ -159,6 +162,7 @@ const backfilled = (item_id: number, source_name: string) => ({
 // Everything early.
 const SPOONFED: PlayerLuckResponse = {
   ign: "Spoonfed",
+  demo: true,
   results: [
     flat(12922, "Zulrah", 20, 0.038, "spooned"),
     flat(21992, "Vorkath", 90, 0.03, "spooned"),
@@ -174,6 +178,7 @@ SPOONFED.driest = SPOONFED.results[3];
 // Everything late (and an IGN with a space).
 const DRY_BONES: PlayerLuckResponse = {
   ign: "Dry Bones",
+  demo: true,
   results: [
     flat(12816, "Corporeal Beast", 30000, 0.998, "desert"),
     flat(12004, "Kraken", 1500, 0.977, "dry"),
@@ -189,6 +194,7 @@ DRY_BONES.driest = DRY_BONES.results[0];
 // Imported an existing log; one drop tracked since.
 const BACKLOGGED: PlayerLuckResponse = {
   ign: "Backlogged",
+  demo: true,
   results: [
     backfilled(11832, "General Graardor"),
     backfilled(11834, "General Graardor"),
@@ -216,4 +222,39 @@ export const DEMO_IGNS = ["Zezima", "Newscape", "EmptyLogs", "Spoonfed", "Dry Bo
 
 export function mockPlayerLuck(ign: string): PlayerLuckResponse | null {
   return DEMO_PLAYERS[ign.trim().toLowerCase()] ?? null;
+}
+
+// Mock-mode leaderboard, ranked the way /leaderboard ranks
+// (osrs-luck-database/supabase/functions/_shared/leaderboard.ts): the
+// average probability of each player's rated drops, at least
+// MIN_RATED_DROPS of them, luckiest below 50% and driest above. Every demo
+// player is opted in, as in seed-demo.sql.
+const MIN_RATED_DROPS = 3;
+
+export function mockLeaderboard(): LeaderboardResponse {
+  const scored = Object.values(DEMO_PLAYERS).flatMap((p) => {
+    const rated = p.results.filter((r) => r.supported && !r.backfilled && Number.isFinite(r.probability));
+    if (rated.length < MIN_RATED_DROPS) return [];
+    const average = rated.reduce((sum, r) => sum + r.probability, 0) / rated.length;
+    const byP = [...rated].sort((a, b) => a.probability - b.probability);
+    return [{ ign: p.ign, rated, average, best: byP[0], worst: byP[byP.length - 1] }];
+  });
+  const entry = (p: (typeof scored)[number], highlight: LeaderboardEntry["highlight"]): LeaderboardEntry => ({
+    ign: p.ign,
+    demo: true,
+    rated_drops: p.rated.length,
+    average_probability: p.average,
+    highlight,
+  });
+  return {
+    min_rated_drops: MIN_RATED_DROPS,
+    luckiest: scored
+      .filter((p) => p.average < 0.5)
+      .sort((a, b) => a.average - b.average || b.rated.length - a.rated.length)
+      .map((p) => entry(p, p.best)),
+    driest: scored
+      .filter((p) => p.average > 0.5)
+      .sort((a, b) => b.average - a.average || b.rated.length - a.rated.length)
+      .map((p) => entry(p, p.worst)),
+  };
 }

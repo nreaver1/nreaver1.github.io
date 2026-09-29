@@ -1,3 +1,4 @@
+import Link from "next/link";
 import SearchBar from "@/components/SearchBar";
 import PlayerLink from "@/components/PlayerLink";
 import { DEMO_IGNS } from "@/lib/mock-data";
@@ -31,7 +32,10 @@ export default function HomePage() {
             </PlayerLink>
           </span>
         ))}{" "}
-        for demo profiles
+        for demo profiles, or see the{" "}
+        <Link href="/leaderboard" className="text-brass underline underline-offset-4">
+          luckiest and driest players
+        </Link>
       </p>
     </div>
   );
