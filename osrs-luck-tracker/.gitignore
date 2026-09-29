@@ -26,3 +26,6 @@ osrs-luck-database/scripts/clog-dump/build/
 osrs-luck-database/scripts/clog-dump/.gradle/
 supabase/.temp/
 osrs-luck-database/supabase/.temp/
+
+# Written by local deno check/test runs; deploys bundle without it.
+deno.lock
