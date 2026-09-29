@@ -171,6 +171,7 @@ export function calculateLuck(
     item_id: drop.item_id,
     source_name: drop.source_name,
     kc_received: drop.kc_received,
+    date_received: drop.date_received,
   };
 
   // Backfilled entries short-circuit before any distribution-type logic

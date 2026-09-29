@@ -6,6 +6,7 @@ const rated = (item_id: number, probability: number): LuckResult => ({
   item_id,
   source_name: "Zulrah",
   kc_received: 100,
+  date_received: "2026-01-01T00:00:00.000Z",
   probability,
   label: "average",
   estimated: false,
@@ -16,6 +17,7 @@ const rated = (item_id: number, probability: number): LuckResult => ({
 const backfilled = (item_id: number): LuckResult => ({
   ...rated(item_id, NaN),
   kc_received: null,
+  date_received: null,
   supported: false,
   backfilled: true,
 });

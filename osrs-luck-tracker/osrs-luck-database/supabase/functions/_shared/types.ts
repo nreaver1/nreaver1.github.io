@@ -41,6 +41,7 @@ export interface LuckResult {
   item_id: number;
   source_name: string;
   kc_received: number | null;
+  date_received: string | null; // ISO timestamp; null for backfilled entries
   probability: number; // P, 0-1. NaN when backfilled — never display as a number.
   label: "spooned" | "average" | "dry" | "desert";
   estimated: boolean; // true for points_based / streak_adjusted approximations

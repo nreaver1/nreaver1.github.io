@@ -1,6 +1,9 @@
 import type { LeaderboardEntry, LeaderboardResponse, PlayerLuckResponse } from "./types";
 import { MIN_RATED_DROPS, isRated, overallLuck } from "./overall";
 
+// Drop dates relative to now, like seed-demo.sql's `now() - interval`.
+const daysAgo = (days: number) => new Date(Date.now() - days * 86_400_000).toISOString();
+
 // A few demo players, each built to exercise a different part of the UI:
 // every luck label (spooned/average/dry/desert), estimated vs exact
 // probabilities, the "not yet supported" (multi_roll) path, and the
@@ -14,6 +17,7 @@ const ZEZIMA: PlayerLuckResponse = {
       item_id: 4207,
       source_name: "The Gauntlet",
       kc_received: 12,
+      date_received: daysAgo(150),
       probability: 0.0428,
       label: "spooned",
       estimated: false,
@@ -24,6 +28,7 @@ const ZEZIMA: PlayerLuckResponse = {
       item_id: 20997,
       source_name: "Chambers of Xeric",
       kc_received: 1900,
+      date_received: daysAgo(40),
       probability: 0.91,
       label: "dry",
       estimated: true,
@@ -34,6 +39,7 @@ const ZEZIMA: PlayerLuckResponse = {
       item_id: 11832,
       source_name: "General Graardor",
       kc_received: 508,
+      date_received: daysAgo(100),
       probability: 0.6321,
       label: "average",
       estimated: false,
@@ -44,6 +50,7 @@ const ZEZIMA: PlayerLuckResponse = {
       item_id: 19677,
       source_name: "General Graardor",
       kc_received: 15,
+      date_received: daysAgo(135),
       probability: 0.365,
       label: "average",
       estimated: false,
@@ -54,6 +61,7 @@ const ZEZIMA: PlayerLuckResponse = {
       item_id: 26235,
       source_name: "Zaryte crossbow drop source",
       kc_received: 3120,
+      date_received: daysAgo(20),
       probability: 0.997,
       label: "desert",
       estimated: false,
@@ -64,6 +72,7 @@ const ZEZIMA: PlayerLuckResponse = {
       item_id: 11834,
       source_name: "General Graardor",
       kc_received: 40,
+      date_received: daysAgo(140),
       probability: 0.075,
       label: "spooned",
       estimated: false,
@@ -74,6 +83,7 @@ const ZEZIMA: PlayerLuckResponse = {
       item_id: 27382,
       source_name: "Tumeken's Warden",
       kc_received: 640,
+      date_received: daysAgo(30),
       probability: NaN,
       label: "average",
       estimated: true,
@@ -84,6 +94,7 @@ const ZEZIMA: PlayerLuckResponse = {
       item_id: 26374,
       source_name: "Amoxliatl",
       kc_received: null,
+      date_received: null,
       probability: NaN,
       label: "average",
       estimated: false,
@@ -106,6 +117,7 @@ const NEWSCAPE: PlayerLuckResponse = {
       item_id: 11812,
       source_name: "General Graardor",
       kc_received: 260,
+      date_received: daysAgo(20),
       probability: 0.412,
       label: "average",
       estimated: false,
@@ -116,6 +128,7 @@ const NEWSCAPE: PlayerLuckResponse = {
       item_id: 4207,
       source_name: "The Gauntlet",
       kc_received: 205,
+      date_received: daysAgo(10),
       probability: 0.545,
       label: "average",
       estimated: false,
@@ -147,12 +160,24 @@ const flat = (
   kc_received: number,
   probability: number,
   label: PlayerLuckResponse["results"][number]["label"],
-) => ({ item_id, source_name, kc_received, probability, label, estimated: false, supported: true, backfilled: false });
+  days: number,
+) => ({
+  item_id,
+  source_name,
+  kc_received,
+  date_received: daysAgo(days),
+  probability,
+  label,
+  estimated: false,
+  supported: true,
+  backfilled: false,
+});
 
 const backfilled = (item_id: number, source_name: string) => ({
   item_id,
   source_name,
   kc_received: null,
+  date_received: null,
   probability: NaN,
   label: "average" as const,
   estimated: false,
@@ -165,10 +190,10 @@ const SPOONFED: PlayerLuckResponse = {
   ign: "Spoonfed",
   demo: true,
   results: [
-    flat(12922, "Zulrah", 20, 0.038, "spooned"),
-    flat(21992, "Vorkath", 90, 0.03, "spooned"),
-    flat(13231, "Cerberus", 15, 0.028, "spooned"),
-    flat(12819, "Corporeal Beast", 200, 0.048, "spooned"),
+    flat(12922, "Zulrah", 20, 0.038, "spooned", 80),
+    flat(21992, "Vorkath", 90, 0.03, "spooned", 60),
+    flat(13231, "Cerberus", 15, 0.028, "spooned", 45),
+    flat(12819, "Corporeal Beast", 200, 0.048, "spooned", 20),
   ],
   mostSpooned: null,
   driest: null,
@@ -181,10 +206,10 @@ const DRY_BONES: PlayerLuckResponse = {
   ign: "Dry Bones",
   demo: true,
   results: [
-    flat(12816, "Corporeal Beast", 30000, 0.998, "desert"),
-    flat(12004, "Kraken", 1500, 0.977, "dry"),
-    flat(13200, "Zulrah", 20000, 0.953, "dry"),
-    flat(23757, "The Gauntlet", 2400, 0.699, "average"),
+    flat(12816, "Corporeal Beast", 30000, 0.998, "desert", 300),
+    flat(12004, "Kraken", 1500, 0.977, "dry", 200),
+    flat(13200, "Zulrah", 20000, 0.953, "dry", 100),
+    flat(23757, "The Gauntlet", 2400, 0.699, "average", 50),
   ],
   mostSpooned: null,
   driest: null,
@@ -202,7 +227,7 @@ const BACKLOGGED: PlayerLuckResponse = {
     backfilled(11836, "General Graardor"),
     backfilled(4708, "Barrows Chests"),
     backfilled(4718, "Barrows Chests"),
-    flat(13227, "Cerberus", 700, 0.74, "average"),
+    flat(13227, "Cerberus", 700, 0.74, "average", 3),
   ],
   mostSpooned: null,
   driest: null,
