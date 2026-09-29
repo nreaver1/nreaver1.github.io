@@ -107,7 +107,7 @@ export default async function PlayerPage({
 
         <div className="mt-4 grid gap-4 sm:grid-cols-2">
           <SummaryCard title="Jackpot" result={data.mostSpooned} hot />
-          <SummaryCard title="Dry streak" result={data.driest} />
+          <SummaryCard title="Dry streak" result={data.driest} dry />
         </div>
 
         <div className="mt-10">
