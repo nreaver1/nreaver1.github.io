@@ -2,6 +2,8 @@ import PlayerLink from "./PlayerLink";
 import type { LuckResult, PlayerLuckResponse } from "@/lib/types";
 import ItemIcon from "./ItemIcon";
 import DemoBadge from "./DemoBadge";
+import LuckBadge from "./LuckBadge";
+import { describePercentile, overallLuck } from "@/lib/overall";
 
 function Highlight({ label, result, hot = false }: { label: string; result: LuckResult | null; hot?: boolean }) {
   return (
@@ -41,6 +43,8 @@ export default function CompareCard({
   removeHref: string;
 }) {
   const logged = player.results.length;
+  const overall = overallLuck(player.results);
+  const headline = overall ? describePercentile(overall.percentile) : null;
   return (
     <div className="relative h-full border border-panel-border bg-panel p-4">
       <div className="flex items-start justify-between gap-2">
@@ -65,6 +69,19 @@ export default function CompareCard({
       <p className="mt-0.5 font-mono text-xs text-parchment-dim">
         {logged} logged {logged === 1 ? "drop" : "drops"}
       </p>
+      <div className="mt-3">
+        <p className="font-mono text-xs uppercase tracking-wide text-parchment-dim">Overall</p>
+        {overall && headline ? (
+          <p className="mt-1 flex flex-wrap items-baseline gap-x-2 text-sm text-parchment">
+            <span>
+              {headline.side} than {headline.pct}
+            </span>
+            <LuckBadge probability={overall.percentile} />
+          </p>
+        ) : (
+          <p className="mt-0.5 text-sm text-parchment-dim">Not enough rated drops</p>
+        )}
+      </div>
       <Highlight label="Jackpot" result={player.mostSpooned} hot />
       <Highlight label="Dry streak" result={player.driest} />
     </div>

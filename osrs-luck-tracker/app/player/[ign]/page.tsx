@@ -10,6 +10,8 @@ import PlayerLink from "@/components/PlayerLink";
 import CompareCard from "@/components/CompareCard";
 import ComparisonTable from "@/components/ComparisonTable";
 import DemoBadge from "@/components/DemoBadge";
+import OverallCard from "@/components/OverallCard";
+import { overallLuck } from "@/lib/overall";
 
 type Compared =
   | { name: string; status: "ok"; data: PlayerLuckResponse }
@@ -93,10 +95,17 @@ export default async function PlayerPage({
           </p>
         )}
 
-        <div className="mt-6">{compareBar}</div>
-        {missingNotice}
+        {/* Overall luck leads; the compare search moves to its right on
+            wider screens and drops below it on phones. */}
+        <div className="mt-6 grid items-start gap-4 sm:grid-cols-[minmax(0,1fr)_17rem]">
+          <OverallCard overall={overallLuck(data.results)} />
+          <div className="sm:pt-1">
+            <SearchBar mode="compare" primary={ign} compared={compared} compact />
+            {missingNotice}
+          </div>
+        </div>
 
-        <div className="mt-8 grid gap-4 sm:grid-cols-2">
+        <div className="mt-4 grid gap-4 sm:grid-cols-2">
           <SummaryCard title="Jackpot" result={data.mostSpooned} hot />
           <SummaryCard title="Dry streak" result={data.driest} />
         </div>

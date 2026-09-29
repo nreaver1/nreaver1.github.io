@@ -5,8 +5,9 @@ import ItemIcon from "./ItemIcon";
 import LuckBadge from "./LuckBadge";
 import DemoBadge from "./DemoBadge";
 import { HOT_CARD_CLASS } from "./SummaryCard";
+import { describePercentile } from "@/lib/overall";
 
-/** One side of the leaderboard: players ranked by average luck. */
+/** One side of the leaderboard: players ranked by overall luck percentile. */
 export default function LeaderboardList({
   title,
   blurb,
@@ -43,6 +44,7 @@ export default function LeaderboardList({
         <ol className="mt-4">
           {entries.map((e, i) => {
             const item = e.highlight.item_name ?? `Item #${e.highlight.item_id}`;
+            const headline = describePercentile(e.percentile);
             return (
               <li key={e.ign} className="flex items-center gap-3 border-t py-3 first:border-t-0">
                 <span
@@ -67,14 +69,16 @@ export default function LeaderboardList({
                       {e.highlight.kc_received !== null && ` at ${e.highlight.kc_received.toLocaleString()} KC`}
                       {" · "}
                       {e.rated_drops} rated {e.rated_drops === 1 ? "drop" : "drops"}
+                      {" · "}avg {Math.round(e.average_probability * 100)}%
                     </span>
                   </p>
                 </div>
                 <div className="shrink-0 text-right">
-                  <p className="font-mono text-lg tabular-nums text-parchment">
-                    {Math.round(e.average_probability * 100)}%
+                  <p className="font-mono text-[10px] uppercase tracking-wide text-parchment-dim">
+                    {headline.side} than
                   </p>
-                  <LuckBadge probability={e.average_probability} />
+                  <p className="font-mono text-lg tabular-nums text-parchment">{headline.pct}</p>
+                  <LuckBadge probability={e.percentile} />
                 </div>
               </li>
             );

@@ -28,6 +28,9 @@ export interface LeaderboardEntry {
   rated_drops: number;
   /** Mean probability over the player's rated drops; lower is luckier. */
   average_probability: number;
+  /** Chance a fair-luck account with this many drops averages this low;
+   * the ranking key, lower is luckier. */
+  percentile: number;
   /** Most spooned drop on the luckiest list, driest on the driest list. */
   highlight: LuckResult;
 }
