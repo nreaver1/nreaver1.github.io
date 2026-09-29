@@ -21,10 +21,11 @@ export default async function LeaderboardPage() {
       {board ? (
         <>
           <p className="mt-4 max-w-prose text-parchment-dim">
-            Players ranked by their average luck across every drop with a
-            known rate: the chance they&rsquo;d have had it by that kill
-            count, averaged. Fair luck averages out near 50%, so lower is
-            luckier. Players need at least {board.min_rated_drops} rated drops to rank.
+            Players ranked by their overall luck across every drop with a
+            known rate: how their average drop compares with every account
+            that has as many drops, so a steady run over fifty drops outranks
+            three lucky ones. Players need at least {board.min_rated_drops} rated
+            drops to rank.
           </p>
           {[...board.luckiest, ...board.driest].some((e) => e.demo) && (
             <p className="mt-3 max-w-prose font-mono text-xs text-parchment-dim">

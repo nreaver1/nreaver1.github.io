@@ -1,15 +1,7 @@
-import { MIN_RATED_DROPS, type OverallLuck } from "@/lib/overall";
+import { MIN_RATED_DROPS, describePercentile, type OverallLuck } from "@/lib/overall";
 import { luckTier } from "@/lib/luck-tier";
 import LuckBadge from "./LuckBadge";
 import { HOT_CARD_CLASS } from "./SummaryCard";
-
-// Keeps "99.97%" from rounding up to a claim of 100%.
-function formatPct(fraction: number): string {
-  const pct = fraction * 100;
-  if (pct >= 99.95) return "99.9%+";
-  if (pct >= 99) return `${pct.toFixed(1)}%`;
-  return `${Math.round(pct)}%`;
-}
 
 const HEADLINE_CLASS = {
   jackpot: "text-flame3",
@@ -22,6 +14,7 @@ const HEADLINE_CLASS = {
 /** The account's luck across every rated drop, as a percentile. */
 export default function OverallCard({ overall }: { overall: OverallLuck | null }) {
   const tier = overall ? luckTier(overall.percentile) : null;
+  const headline = overall ? describePercentile(overall.percentile) : null;
   const hot = tier?.tone === "jackpot";
 
   return (
@@ -36,12 +29,10 @@ export default function OverallCard({ overall }: { overall: OverallLuck | null }
         Overall luck
       </p>
 
-      {overall && tier ? (
+      {overall && tier && headline ? (
         <>
           <p className={`mt-2 font-serif text-3xl font-medium sm:text-4xl ${HEADLINE_CLASS[tier.tone]}`}>
-            {overall.percentile <= 0.5
-              ? `Luckier than ${formatPct(1 - overall.percentile)}`
-              : `Drier than ${formatPct(overall.percentile)}`}
+            {headline.side} than {headline.pct}
           </p>
           <p className="mt-1 text-sm text-parchment-dim">
             of accounts with {overall.ratedDrops} rated drops.

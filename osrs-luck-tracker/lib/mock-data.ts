@@ -1,5 +1,5 @@
 import type { LeaderboardEntry, LeaderboardResponse, PlayerLuckResponse } from "./types";
-import { MIN_RATED_DROPS, isRated } from "./overall";
+import { MIN_RATED_DROPS, isRated, overallLuck } from "./overall";
 
 // A few demo players, each built to exercise a different part of the UI:
 // every luck label (spooned/average/dry/desert), estimated vs exact
@@ -227,34 +227,36 @@ export function mockPlayerLuck(ign: string): PlayerLuckResponse | null {
 
 // Mock-mode leaderboard, ranked the way /leaderboard ranks
 // (osrs-luck-database/supabase/functions/_shared/leaderboard.ts): the
-// average probability of each player's rated drops, at least
-// MIN_RATED_DROPS of them, luckiest below 50% and driest above. Every demo
+// percentile of each player's average rated-drop probability, at least
+// MIN_RATED_DROPS drops, luckiest below 50% and driest above. Every demo
 // player is opted in, as in seed-demo.sql.
 
 export function mockLeaderboard(): LeaderboardResponse {
   const scored = Object.values(DEMO_PLAYERS).flatMap((p) => {
+    const overall = overallLuck(p.results);
+    if (!overall) return [];
+    const { average, percentile } = overall;
     const rated = p.results.filter(isRated);
-    if (rated.length < MIN_RATED_DROPS) return [];
-    const average = rated.reduce((sum, r) => sum + r.probability, 0) / rated.length;
     const byP = [...rated].sort((a, b) => a.probability - b.probability);
-    return [{ ign: p.ign, rated, average, best: byP[0], worst: byP[byP.length - 1] }];
+    return [{ ign: p.ign, rated, average, percentile, best: byP[0], worst: byP[byP.length - 1] }];
   });
   const entry = (p: (typeof scored)[number], highlight: LeaderboardEntry["highlight"]): LeaderboardEntry => ({
     ign: p.ign,
     demo: true,
     rated_drops: p.rated.length,
     average_probability: p.average,
+    percentile: p.percentile,
     highlight,
   });
   return {
     min_rated_drops: MIN_RATED_DROPS,
     luckiest: scored
       .filter((p) => p.average < 0.5)
-      .sort((a, b) => a.average - b.average || b.rated.length - a.rated.length)
+      .sort((a, b) => a.percentile - b.percentile || a.average - b.average || b.rated.length - a.rated.length)
       .map((p) => entry(p, p.best)),
     driest: scored
       .filter((p) => p.average > 0.5)
-      .sort((a, b) => b.average - a.average || b.rated.length - a.rated.length)
+      .sort((a, b) => b.percentile - a.percentile || b.average - a.average || b.rated.length - a.rated.length)
       .map((p) => entry(p, p.worst)),
   };
 }

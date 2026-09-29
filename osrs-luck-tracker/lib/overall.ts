@@ -33,6 +33,23 @@ export function overallLuck(results: LuckResult[]): OverallLuck | null {
   };
 }
 
+/** Rounds a fraction as a percentage without letting 99.97% claim 100%. */
+export function formatPct(fraction: number): string {
+  const pct = fraction * 100;
+  if (pct >= 99.95) return "99.9%+";
+  if (pct >= 99) return `${pct.toFixed(1)}%`;
+  return `${Math.round(pct)}%`;
+}
+
+/** "Luckier than 97%" / "Drier than 88%", the percentile's headline. */
+export function describePercentile(percentile: number): { side: "Luckier" | "Drier"; pct: string } {
+  return percentile <= 0.5
+    ? { side: "Luckier", pct: formatPct(1 - percentile) }
+    : { side: "Drier", pct: formatPct(percentile) };
+}
+
+// Mirrors averageDropPercentile in
+// osrs-luck-database/supabase/functions/_shared/leaderboard.ts.
 // With fair luck each drop's P is (roughly) uniform on [0, 1], so the sum
 // of n of them follows the Irwin–Hall distribution. Its exact CDF is an
 // alternating sum that loses precision as n grows; past that point the

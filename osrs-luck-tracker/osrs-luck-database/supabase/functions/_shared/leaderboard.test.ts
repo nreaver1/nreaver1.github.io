@@ -1,5 +1,5 @@
 import { assertEquals } from "https://deno.land/std@0.224.0/assert/mod.ts";
-import { MIN_RATED_DROPS, rankPlayers } from "./leaderboard.ts";
+import { averageDropPercentile, MIN_RATED_DROPS, rankPlayers } from "./leaderboard.ts";
 import type { LuckResult } from "./types.ts";
 
 const rated = (item_id: number, probability: number): LuckResult => ({
@@ -78,4 +78,27 @@ Deno.test("rankPlayers leaves an exactly even player off both lists", () => {
 Deno.test("rankPlayers carries the demo flag through", () => {
   const board = rankPlayers([{ ign: "Spoonfed", demo: true, results: [rated(1, 0.1), rated(2, 0.1), rated(3, 0.1)] }]);
   assertEquals(board.luckiest[0].demo, true);
+});
+
+Deno.test("averageDropPercentile matches known Irwin-Hall values and is symmetric", () => {
+  // n = 3, mean 0.2: sum 0.6, CDF = 0.6^3 / 3! = 0.036.
+  assertEquals(averageDropPercentile(0.6, 3).toFixed(4), "0.0360");
+  assertEquals(averageDropPercentile(1.5, 3), 0.5);
+  for (const n of [5, 20, 21, 50]) {
+    const low = averageDropPercentile(n * 0.4, n);
+    const high = averageDropPercentile(n * 0.6, n);
+    assertEquals((low + high).toFixed(4), "1.0000");
+  }
+  // Normal path: n = 50, mean 0.4 is about 2.45 sd below; P ~ 0.0072.
+  assertEquals(averageDropPercentile(20, 50).toFixed(3), "0.007");
+});
+
+Deno.test("rankPlayers ranks more drops at a milder average above a lucky few", () => {
+  const many = Array.from({ length: 50 }, (_, i) => rated(i, 0.3));
+  const board = rankPlayers([
+    { ign: "Three lucky", results: [rated(1, 0.2), rated(2, 0.2), rated(3, 0.2)] },
+    { ign: "Fifty steady", results: many },
+  ]);
+  assertEquals(board.luckiest.map((e) => e.ign), ["Fifty steady", "Three lucky"]);
+  assertEquals(board.luckiest[1].percentile.toFixed(4), "0.0360");
 });
