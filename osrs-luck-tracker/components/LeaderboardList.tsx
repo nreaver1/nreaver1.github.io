@@ -4,7 +4,7 @@ import PlayerLink from "./PlayerLink";
 import ItemIcon from "./ItemIcon";
 import LuckBadge from "./LuckBadge";
 import DemoBadge from "./DemoBadge";
-import { HOT_CARD_CLASS } from "./SummaryCard";
+import { DRY_CARD_CLASS, HOT_CARD_CLASS } from "./SummaryCard";
 import { describePercentile } from "@/lib/overall";
 
 /** One side of the leaderboard: players ranked by overall luck percentile. */
@@ -25,13 +25,13 @@ export default function LeaderboardList({
   return (
     <section
       aria-label={title}
-      className={`p-5 ${hot ? HOT_CARD_CLASS : "border border-panel-border bg-panel"}`}
+      className={`p-5 ${hot ? HOT_CARD_CLASS : DRY_CARD_CLASS}`}
     >
       <h2
         className={
           hot
             ? "font-mono text-sm font-bold uppercase tracking-wide text-flame3"
-            : "font-mono text-sm uppercase tracking-wide text-dry-bright"
+            : "font-mono text-sm font-bold uppercase tracking-wide text-dry-bright"
         }
       >
         {title}
