@@ -14,7 +14,26 @@ export interface LuckResult {
 
 export interface PlayerLuckResponse {
   ign: string;
+  /** A seeded sample account (seed-demo.sql), badged as "Demo". */
+  demo?: boolean;
   results: LuckResult[];
   mostSpooned: LuckResult | null;
   driest: LuckResult | null;
+}
+
+// Mirrors osrs-luck-database/supabase/functions/_shared/leaderboard.ts.
+export interface LeaderboardEntry {
+  ign: string;
+  demo: boolean;
+  rated_drops: number;
+  /** Mean probability over the player's rated drops; lower is luckier. */
+  average_probability: number;
+  /** Most spooned drop on the luckiest list, driest on the driest list. */
+  highlight: LuckResult;
+}
+
+export interface LeaderboardResponse {
+  min_rated_drops: number;
+  luckiest: LeaderboardEntry[];
+  driest: LeaderboardEntry[];
 }

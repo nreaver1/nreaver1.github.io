@@ -1,6 +1,6 @@
-import type { PlayerLuckResponse } from "./types";
+import type { LeaderboardResponse, LuckResult, PlayerLuckResponse } from "./types";
 import itemNames from "./item-names.json";
-import { mockPlayerLuck } from "./mock-data";
+import { mockLeaderboard, mockPlayerLuck } from "./mock-data";
 
 // Point this at your deployed Supabase edge function, e.g.
 // https://<project>.supabase.co/functions/v1/get-player-luck
@@ -17,6 +17,8 @@ const PUBLISHABLE_KEY = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ?? "";
 function resolveItemName(itemId: number): string {
   return (itemNames as Record<string, string>)[String(itemId)] ?? `Item #${itemId}`;
 }
+
+const named = (r: LuckResult): LuckResult => ({ ...r, item_name: resolveItemName(r.item_id) });
 
 export async function getPlayerLuck(
   ign: string,
@@ -62,4 +64,26 @@ export async function getPlayerLuck(
       ? { ...data.driest, item_name: resolveItemName(data.driest.item_id) }
       : null,
   };
+}
+
+/**
+ * The luckiest and driest players who opted in from the plugin. Null when
+ * the backend has leaderboards switched off (LEADERBOARD_ENABLED).
+ */
+export async function getLeaderboard(): Promise<LeaderboardResponse | null> {
+  const data = API_BASE ? await fetchLeaderboard() : mockLeaderboard();
+  if (!data) return null;
+  const withNames = (entries: LeaderboardResponse["luckiest"]) =>
+    entries.map((e) => ({ ...e, highlight: named(e.highlight) }));
+  return { ...data, luckiest: withNames(data.luckiest), driest: withNames(data.driest) };
+}
+
+async function fetchLeaderboard(): Promise<LeaderboardResponse | null> {
+  const res = await fetch(`${API_BASE}/leaderboard`, {
+    cache: "no-store",
+    headers: { apikey: PUBLISHABLE_KEY },
+  });
+  if (res.status === 501) return null;
+  if (!res.ok) throw new Error(`Leaderboard failed (${res.status})`);
+  return res.json();
 }

@@ -2,6 +2,10 @@ import type { LuckResult } from "@/lib/types";
 import LuckBar from "./LuckBar";
 import ItemIcon from "./ItemIcon";
 
+/** Flame-gradient border and glow, reserved for jackpot/spooned cards. */
+export const HOT_CARD_CLASS =
+  "border border-transparent bg-panel bg-clip-padding shadow-[0_0_30px_-8px_rgba(255,138,0,0.35)] [background-image:linear-gradient(#161F19,#161F19),linear-gradient(135deg,#F0D078,#FF8A00_60%,#C9A227)] [background-origin:border-box] [background-clip:padding-box,border-box]";
+
 export default function SummaryCard({
   title,
   result,
@@ -17,7 +21,7 @@ export default function SummaryCard({
     <div
       className={
         hot
-          ? "relative border border-transparent bg-panel bg-clip-padding p-5 shadow-[0_0_30px_-8px_rgba(255,138,0,0.35)] [background-image:linear-gradient(#161F19,#161F19),linear-gradient(135deg,#F0D078,#FF8A00_60%,#C9A227)] [background-origin:border-box] [background-clip:padding-box,border-box]"
+          ? `relative p-5 ${HOT_CARD_CLASS}`
           : "relative border border-panel-border bg-panel p-5"
       }
     >

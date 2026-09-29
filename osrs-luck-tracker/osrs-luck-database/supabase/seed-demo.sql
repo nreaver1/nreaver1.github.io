@@ -9,6 +9,9 @@
 -- as, or submit drops for, a demo player; get-player-luck also ranks a
 -- real player above a demo one that shares its IGN.
 --
+-- They're all opted in to the leaderboard (leaderboard_opt_in) so it has
+-- something to show; the site badges every demo account as "Demo".
+--
 -- Kill counts are picked to land each drop on a specific luck label
 -- (flat rates: P = 1 - (1 - n/d)^(kc * rolls); spooned < 0.1,
 -- dry > 0.8, desert > 0.99). The drop_rates table has no multi_roll or
@@ -19,12 +22,12 @@ begin;
 delete from players where account_hash like 'demo%';
 
 insert into players (account_hash, ign, leaderboard_opt_in, created_at, last_updated) values
-  ('demo-zezima',     'Zezima',     false, now() - interval '200 days', now() - interval '200 days'),
-  ('demo-newscape',   'Newscape',   false, now() - interval '30 days',  now() - interval '30 days'),
-  ('demo-emptylogs',  'EmptyLogs',  false, now() - interval '5 days',   now() - interval '5 days'),
-  ('demo-spoonfed',   'Spoonfed',   false, now() - interval '90 days',  now() - interval '90 days'),
-  ('demo-drybones',   'Dry Bones',  false, now() - interval '365 days', now() - interval '365 days'),
-  ('demo-backlogged', 'Backlogged', false, now() - interval '14 days',  now() - interval '14 days');
+  ('demo-zezima',     'Zezima',     true,  now() - interval '200 days', now() - interval '200 days'),
+  ('demo-newscape',   'Newscape',   true,  now() - interval '30 days',  now() - interval '30 days'),
+  ('demo-emptylogs',  'EmptyLogs',  true,  now() - interval '5 days',   now() - interval '5 days'),
+  ('demo-spoonfed',   'Spoonfed',   true,  now() - interval '90 days',  now() - interval '90 days'),
+  ('demo-drybones',   'Dry Bones',  true,  now() - interval '365 days', now() - interval '365 days'),
+  ('demo-backlogged', 'Backlogged', true,  now() - interval '14 days',  now() - interval '14 days');
 
 -- kc_at_previous_drop = kc_received for a first drop, as ingest-drop does.
 insert into collection_log_drops

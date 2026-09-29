@@ -9,6 +9,7 @@ import SearchBar from "@/components/SearchBar";
 import PlayerLink from "@/components/PlayerLink";
 import CompareCard from "@/components/CompareCard";
 import ComparisonTable from "@/components/ComparisonTable";
+import DemoBadge from "@/components/DemoBadge";
 
 type Compared =
   | { name: string; status: "ok"; data: PlayerLuckResponse }
@@ -84,7 +85,13 @@ export default async function PlayerPage({
       <div className="pt-12">
         <h1 className="text-3xl font-medium text-parchment sm:text-4xl">
           {data.ign}&rsquo;s luck
+          {data.demo && <DemoBadge className="ml-3" />}
         </h1>
+        {data.demo && (
+          <p className="mt-2 font-mono text-xs text-parchment-dim">
+            A sample account with made-up drops, here so you can try the site.
+          </p>
+        )}
 
         <div className="mt-6">{compareBar}</div>
         {missingNotice}

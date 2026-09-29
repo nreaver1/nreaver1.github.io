@@ -19,12 +19,17 @@ verify_jwt = false
 [functions.leaderboard]
 verify_jwt = false
 
-# Why verify_jwt = false on all six:
+[functions.update-settings]
+verify_jwt = false
+
+# Why verify_jwt = false on all seven:
 # The new sb_publishable_/sb_secret_ keys are NOT JWTs, so the platform's
 # built-in verify_jwt check (which expects a legacy anon/service_role JWT
 # on the Authorization header) would reject every caller that's already
 # migrated to the new keys. With verify_jwt off, each function is
 # responsible for its own authorization:
+#   - update-settings and the POST form of get-player-luck check
+#     install_token the same way
 #   - ingest-drop and backfill-drop both validate install_token in the
 #     request body (see their index.ts files) — backfill-drop uses the
 #     exact same account-ownership check as ingest-drop, just without

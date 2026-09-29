@@ -14,6 +14,7 @@ supabase/
   migrations/
     0001_initial_schema.sql               -- tables, enum, RLS, leaderboard views (gated)
     0002_backfill_support.sql             -- nullable kc_received + is_backfilled flag, for manual backfill
+    0006_profile_visibility.sql           -- players.profile_public (hide profile); leaderboard views honor it
   functions/
     _shared/types.ts                      -- shared TS types
     _shared/calculations.ts               -- the luck calculation engine (pure functions)
@@ -23,8 +24,10 @@ supabase/
     ingest-drop/index.ts                  -- POST /ingest-drop (anti-cheat + insert)
     backfill-drop/index.ts                -- POST /backfill-drop (single item or batch; no KC, no anti-cheat)
     drop-rates-catalog/index.ts           -- GET /drop-rates-catalog (public, feeds the plugin's backfill dropdown)
-    get-player-luck/index.ts              -- GET /get-player-luck?ign=X  (v1 priority endpoint)
-    leaderboard/index.ts                  -- GET /leaderboard (built, returns 501 until enabled)
+    get-player-luck/index.ts              -- GET /get-player-luck?ign=X (404 if hidden); POST with install_token for the owner
+    update-settings/index.ts              -- POST /update-settings (profile_public, leaderboard_opt_in; install_token checked)
+    leaderboard/index.ts                  -- GET /leaderboard (luckiest/driest players; 501 unless LEADERBOARD_ENABLED=true)
+    _shared/leaderboard.ts                -- player ranking: average P over rated drops, min 3
 scripts/
   sync-drop-rates.ts                      -- wiki sync: a rate for every Bosses/Raids collection log item
   drop-rate-rules.ts (+ .test.ts)         -- pure rules turning wiki drop rows into one rate per item
@@ -49,7 +52,8 @@ data/
 | `/backfill-drop` | Done — records "obtained, KC unknown" entries, explicitly flagged (`is_backfilled`), never computes a fake probability. Accepts one item or a `drops: [...]` batch (up to 500) for the plugin's collection log import. Skips pairs the account already has a row for. Constraint behavior (duplicate rejection, coexistence with a later real drop of the same item) verified against real Postgres; batch mode has not been run against a live project yet. |
 | `/drop-rates-catalog` | Done — public list of valid item/source pairs, feeds the plugin's backfill dropdown |
 | `/get-player-luck` | Done — the v1-priority solo stats endpoint |
-| `/leaderboard` | Built, **returns 501 until `LEADERBOARD_ENABLED=true`** is set, per scope decision |
+| `/update-settings` | Done — the plugin's "show my log" / "show me on the leaderboard" settings |
+| `/leaderboard` | Done — luckiest and driest players (average P over at least 3 rated drops; only players with `leaderboard_opt_in` and `profile_public`; the seeded demo players are opted in and flagged `demo: true`). The per-item `?item_id=&source_name=` mode has no UI. **Returns 501 unless `LEADERBOARD_ENABLED=true`.** |
 | Wiki sync script | Done. Covers every item on the 57 Bosses and 3 Raids log pages that has a random drop chance (see "Collection log coverage" below). Run on 2026-09-25: 397 rows. |
 | Item name→id resolution | No longer used by the sync, which takes ids from the game cache. Kept in `_shared/item-resolver.ts`, backed by an offline dataset (`data/osrs_items.json`, 16,141 items, trimmed from the MIT-licensed `osrs-item-data` npm package). Exact-name and base-name matching; ambiguous or unmatched names are skipped and logged rather than guessed at (verified against real collisions, e.g. "Tumeken's shadow" correctly flags ambiguous since it has charged/uncharged variants). |
 | Frontend (Next.js) | Done — see `osrs-luck-frontend/README.md` |
@@ -61,8 +65,8 @@ data/
 2. Under **Settings > API Keys**, select the **Publishable and secret API keys** tab and create the `default` publishable and secret keys (older projects need to click "Create new API keys" first). Legacy `anon`/`service_role` keys keep working alongside these — see [Supabase's migration guide](https://supabase.com/docs/guides/getting-started/migrating-to-new-api-keys) for background.
 3. `supabase db push` (or run `0001_initial_schema.sql` then `0002_backfill_support.sql`, in that order, directly) against your project.
 4. Merge `supabase/config.toml` into your project's config (created by `supabase init`). This sets `verify_jwt = false` on all six functions — required because the new secret/publishable keys aren't JWTs, so the platform's default JWT check would otherwise reject every caller. Each function handles its own authorization in code instead (`ingest-drop`/`backfill-drop` check `install_token`; the others are intentionally public reads).
-5. Deploy all six edge functions: `supabase functions deploy register ingest-drop backfill-drop drop-rates-catalog get-player-luck leaderboard`.
-6. Set `LEADERBOARD_ENABLED=false` via `supabase secrets set LEADERBOARD_ENABLED=false` (leave off until solo stats ship). You do **not** need to set `SUPABASE_URL` or a secret key manually — Supabase auto-injects `SUPABASE_URL` and `SUPABASE_SECRET_KEYS` (new) / `SUPABASE_SERVICE_ROLE_KEY` (legacy) into every function's environment. `_shared/secret-key.ts` reads the new one first and falls back to the legacy var automatically.
+5. Deploy all seven edge functions: `supabase functions deploy register ingest-drop backfill-drop drop-rates-catalog get-player-luck leaderboard update-settings`.
+6. Set `LEADERBOARD_ENABLED=true` via `supabase secrets set LEADERBOARD_ENABLED=true` to open the leaderboard (the site shows "not open yet" while it's off). You do **not** need to set `SUPABASE_URL` or a secret key manually — Supabase auto-injects `SUPABASE_URL` and `SUPABASE_SECRET_KEYS` (new) / `SUPABASE_SERVICE_ROLE_KEY` (legacy) into every function's environment. `_shared/secret-key.ts` reads the new one first and falls back to the legacy var automatically.
 7. Before running `scripts/sync-drop-rates.ts`, export its config manually — **this script runs standalone, outside the Edge Functions runtime, so it does not get the auto-injected vars**:
    ```bash
    export SUPABASE_URL=https://<your-ref>.supabase.co
@@ -127,7 +131,6 @@ infobox data. Re-pull and re-trim periodically if new items ship and
 aren't resolving.
 
 ## What's intentionally NOT built yet
-- Leaderboard exposure — schema/queries exist, endpoint gated off.
 - Automated wiki sync scheduling (cron/edge function trigger) — script
   exists, not yet hooked to a schedule.
 - Non-boss collection log sources (clues, skilling pets, minigames) in
