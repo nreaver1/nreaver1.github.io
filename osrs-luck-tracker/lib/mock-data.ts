@@ -1,4 +1,5 @@
 import type { LeaderboardEntry, LeaderboardResponse, PlayerLuckResponse } from "./types";
+import { MIN_RATED_DROPS, isRated } from "./overall";
 
 // A few demo players, each built to exercise a different part of the UI:
 // every luck label (spooned/average/dry/desert), estimated vs exact
@@ -229,11 +230,10 @@ export function mockPlayerLuck(ign: string): PlayerLuckResponse | null {
 // average probability of each player's rated drops, at least
 // MIN_RATED_DROPS of them, luckiest below 50% and driest above. Every demo
 // player is opted in, as in seed-demo.sql.
-const MIN_RATED_DROPS = 3;
 
 export function mockLeaderboard(): LeaderboardResponse {
   const scored = Object.values(DEMO_PLAYERS).flatMap((p) => {
-    const rated = p.results.filter((r) => r.supported && !r.backfilled && Number.isFinite(r.probability));
+    const rated = p.results.filter(isRated);
     if (rated.length < MIN_RATED_DROPS) return [];
     const average = rated.reduce((sum, r) => sum + r.probability, 0) / rated.length;
     const byP = [...rated].sort((a, b) => a.probability - b.probability);
