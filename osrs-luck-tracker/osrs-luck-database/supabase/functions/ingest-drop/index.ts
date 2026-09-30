@@ -17,6 +17,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { getSecretKey } from "../_shared/secret-key.ts";
 import { matchSource } from "../_shared/kc-aliases.ts";
+import { pageSourceForKc, raiseKc, recordDropOnPage } from "../_shared/page-updates.ts";
 import {
   isAccountHash,
   isInstallToken,
@@ -187,6 +188,15 @@ Deno.serve(async (req) => {
     }
     return serverError("ingest-drop: insert failed", insertError);
   }
+
+  // Keep the page read and still-hunting rows current (migration 0009).
+  // The drop is already recorded, so a failure here is logged, not returned;
+  // the next page read corrects the page anyway.
+  const pageError = await recordDropOnPage(supabase, account_hash, item_id, source_name) ??
+    (pageSourceForKc(body.source_name as string, [source_name])
+      ? await raiseKc(supabase, account_hash, source_name, current_kc)
+      : null);
+  if (pageError) console.error("ingest-drop: page update failed", pageError);
 
   return json({ drop: inserted }, 201);
 });
