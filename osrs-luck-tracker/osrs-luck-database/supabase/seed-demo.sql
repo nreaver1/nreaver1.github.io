@@ -59,6 +59,7 @@ values
   ('demo-drybones', 12004, 'Kraken',            1500,  1500,  false, now() - interval '200 days', now() - interval '200 days'), -- dry
   ('demo-drybones', 13200, 'Zulrah',            20000, 20000, false, now() - interval '100 days', now() - interval '100 days'), -- dry
   ('demo-drybones', 23757, 'The Gauntlet',      2400,  2400,  false, now() - interval '50 days',  now() - interval '50 days'),  -- average
+  ('demo-drybones', 21907, 'Vorkath',           50,    50,    false, now() - interval '150 days', now() - interval '150 days'), -- pity (guaranteed on kill 50)
 
   -- Backlogged: imported an existing log, one drop tracked since.
   ('demo-backlogged', 11832, 'General Graardor', null, null,  true,  null,                        now() - interval '14 days'),
@@ -135,6 +136,7 @@ insert into boss_kc (account_hash, boss_name, current_kc) values
   ('demo-drybones',   'Kraken',            1733),
   ('demo-drybones',   'Zulrah',            20108),
   ('demo-drybones',   'The Gauntlet',      2461),
+  ('demo-drybones',   'Vorkath',           380),
   ('demo-backlogged', 'Cerberus',          712);
 
 commit;
