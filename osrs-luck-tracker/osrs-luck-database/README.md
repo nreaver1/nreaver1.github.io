@@ -156,10 +156,16 @@ overall luck and comparisons never see it.
 On Barrows Chests all 24 pieces share one rate, so at a given kill
 count every piece with one copy gets the same estimate, and every
 missing piece the same "still hunting" number: one fact repeated 24
-times. For sources in `POOLED_SOURCES` (`_shared/pools.ts`; Barrows
-Chests and Moons of Peril so far), items with a shared flat rate (at
-least 3 of them) are rated together from the page's latest read in
-`log_pages`:
+times. `POOLS` in `_shared/pools.ts` lists, per source, items that share
+one flat rate (at least 3) and are rated together from the page's
+latest read in `log_pages`: Barrows, Moons of Peril, Cerberus, Zulrah,
+Nex, the Bandos and Armadyl armour, Araxxor, Abyssal Sire,
+Alchemical Hydra and Yama. Items are listed by hand because a slot the
+log fills on several drop sources' pages (godsword shards, Virtus,
+uncut onyx) counts copies from all of them, and the page needs a single
+kill count for the plugin to send a read (so no Dagannoth Kings,
+Nightmare or Wintertodt). If the listed items stop sharing one rate,
+say after a wiki resync, the pool is dropped rather than mixed:
 
 - **Uniques:** total copies against Binomial(kc × rolls_per_kill, Σp).
 - **Log slots:** different items against Binomial(pool size, chance a
