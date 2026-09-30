@@ -10,9 +10,12 @@ const LABEL_FILL_CLASS: Record<LuckLabel, string> = {
 export default function LuckBar({
   probability,
   label,
+  description = "likely to have taken this long or less",
 }: {
   probability: number;
   label: LuckLabel;
+  /** Screen-reader wording after the percentage. */
+  description?: string;
 }) {
   const pct = Math.round(probability * 100);
   return (
@@ -20,7 +23,7 @@ export default function LuckBar({
       <div
         className="h-1.5 w-24 shrink-0 bg-panel-border sm:w-32"
         role="img"
-        aria-label={`${pct}% likely to have taken this long or less`}
+        aria-label={`${pct}% ${description}`}
       >
         <div
           className={`h-full ${LABEL_FILL_CLASS[label]}`}

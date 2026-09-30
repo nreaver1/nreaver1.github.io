@@ -15,6 +15,7 @@ supabase/
     0001_initial_schema.sql               -- tables, enum, RLS, leaderboard views (gated)
     0002_backfill_support.sql             -- nullable kc_received + is_backfilled flag, for manual backfill
     0006_profile_visibility.sql           -- players.profile_public (hide profile); leaderboard views honor it
+    0007_backfill_snapshot.sql            -- snapshot_kc + snapshot_quantity on backfilled rows (KC snapshot estimate)
   functions/
     _shared/types.ts                      -- shared TS types
     _shared/calculations.ts               -- the luck calculation engine (pure functions)
@@ -111,6 +112,29 @@ one item from a dropdown, or confirming an import list built from the
 collection log pages the player opened in-game. See the plugin README's
 "Collection log import" section for how that list is built and why
 shared items are left out.
+
+### KC snapshots (migration 0007)
+
+The log page an item was imported from does show two things: the page's
+kill count and how many of the item the player has. Imports carry them
+as `snapshot_kc` and `snapshot_quantity`, which answer a different
+question from a tracked drop: not "how lucky was this drop" but "how
+lucky is having k copies after N kills". `snapshotLuck()` treats the
+count as Binomial(N x rolls_per_kill, p) and scores it with the mid-p
+value `P(X > k) + P(X = k) / 2`: high means fewer copies than most
+players would have (dry), low means more (spooned), and for a fair
+player it averages exactly 0.5, so `labelFor`'s thresholds carry over.
+The half term matters: `P(X >= 1)` alone tends to 1 as N grows, so one
+copy at high KC would always read as "desert".
+
+It's returned as a separate `snapshot` field on the result; the row
+keeps `probability: NaN` and `backfilled: true`, so the leaderboard,
+the overall-luck card and comparison winners never see it. Only
+`flat_geometric` rates get one. A pity timer resets on every drop and
+raid points aren't per-kill rolls, so a count doesn't fit either model.
+`/backfill-drop` fills a snapshot in on an earlier backfill that lacks
+one, but never overwrites one, and skips pairs tracking has since
+recorded a drop for (the log's quantity would count that copy twice).
 
 ## Verifying the calculation engine
 

@@ -1,8 +1,9 @@
 // GET /drop-rates-catalog
 //
 // Public, read-only list of every (item_id, source_name) pair we have a
-// drop rate for. Used by the plugin to populate its manual backfill
-// dropdown — the plugin can't submit a backfill for an item/source pair
+// drop rate for, with its distribution_type. Used by the plugin to
+// populate its manual backfill dropdown (and to know which imported items
+// a KC snapshot can rate) — the plugin can't submit a backfill for an item/source pair
 // this endpoint doesn't return, since backfill-drop checks the same
 // drop_rates table via foreign key.
 //
@@ -34,7 +35,7 @@ Deno.serve(async (req) => {
 
   const { data, error } = await supabase
     .from("drop_rates")
-    .select("item_id, source_name")
+    .select("item_id, source_name, distribution_type")
     .order("source_name");
 
   if (error) return serverError("drop-rates-catalog: query failed", error);
