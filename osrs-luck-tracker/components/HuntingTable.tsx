@@ -1,3 +1,6 @@
+"use client";
+
+import { useState } from "react";
 import type { HuntingResult } from "@/lib/types";
 import { luckTier, type LuckTier } from "@/lib/luck-tier";
 import LuckBar from "./LuckBar";
@@ -24,24 +27,140 @@ function KcText({ h }: { h: HuntingResult }) {
   return <>{h.kc.toLocaleString()} KC, none yet</>;
 }
 
+type SortKey = "item" | "source" | "kc" | "chance";
+type SortDir = "asc" | "desc";
+interface Sort {
+  key: SortKey;
+  dir: SortDir;
+}
+
+const SORT_VALUE: Record<SortKey, (h: HuntingResult) => string | number> = {
+  item: itemName,
+  source: (h) => h.source_name,
+  kc: (h) => h.kc,
+  chance: (h) => h.probability,
+};
+
+// The direction a column starts in when first clicked: names A–Z, numbers biggest first.
+const FIRST_DIR: Record<SortKey, SortDir> = {
+  item: "asc",
+  source: "asc",
+  kc: "desc",
+  chance: "desc",
+};
+
+const DEFAULT_SORT: Sort = { key: "chance", dir: "desc" }; // driest first
+
+function sortHunting(hunting: HuntingResult[], { key, dir }: Sort) {
+  const value = SORT_VALUE[key];
+  return [...hunting].sort((ha, hb) => {
+    const a = value(ha);
+    const b = value(hb);
+    const c = typeof a === "string" && typeof b === "string" ? a.localeCompare(b) : (a as number) - (b as number);
+    if (c !== 0) return dir === "asc" ? c : -c;
+    // Then by item and source, for a stable order.
+    return itemName(ha).localeCompare(itemName(hb)) || ha.source_name.localeCompare(hb.source_name);
+  });
+}
+
+const COLUMNS: { key: SortKey; label: string }[] = [
+  { key: "item", label: "Item" },
+  { key: "source", label: "Source" },
+  { key: "kc", label: "So far" },
+  { key: "chance", label: "Would have it by now" },
+];
+
+// Phone cards have no header row, so they get a dropdown instead.
+const MOBILE_SORTS: { sort: Sort; label: string }[] = [
+  { sort: { key: "chance", dir: "desc" }, label: "Driest first" },
+  { sort: { key: "chance", dir: "asc" }, label: "Earliest first" },
+  { sort: { key: "kc", dir: "desc" }, label: "Most KC" },
+  { sort: { key: "kc", dir: "asc" }, label: "Least KC" },
+  { sort: { key: "item", dir: "asc" }, label: "Item A–Z" },
+  { sort: { key: "item", dir: "desc" }, label: "Item Z–A" },
+  { sort: { key: "source", dir: "asc" }, label: "Source A–Z" },
+  { sort: { key: "source", dir: "desc" }, label: "Source Z–A" },
+];
+
+const sortId = ({ key, dir }: Sort) => `${key}-${dir}`;
+
+function SortHeader({
+  column,
+  sort,
+  onSort,
+}: {
+  column: (typeof COLUMNS)[number];
+  sort: Sort;
+  onSort: (key: SortKey) => void;
+}) {
+  const active = sort.key === column.key;
+  return (
+    <th
+      className="py-2 pr-4 font-normal"
+      aria-sort={active ? (sort.dir === "asc" ? "ascending" : "descending") : undefined}
+    >
+      <button
+        type="button"
+        onClick={() => onSort(column.key)}
+        className={`inline-flex items-center gap-1 py-1 uppercase tracking-wide hover:text-parchment ${
+          active ? "text-brass" : ""
+        }`}
+      >
+        {column.label}
+        <span aria-hidden className={active ? "" : "invisible"}>
+          {active && sort.dir === "desc" ? "▼" : "▲"}
+        </span>
+      </button>
+    </th>
+  );
+}
+
 /**
  * Items the player's collection log shows they don't have yet, with the
- * chance a fair player would have had the drop by now. The API sends them
- * driest first, which is the order worth reading.
+ * chance a fair player would have had the drop by now. Driest first by
+ * default, and sortable by any column like the drop table.
  */
-export default function HuntingTable({ hunting }: { hunting: HuntingResult[] }) {
-  if (hunting.length === 0) return null;
+export default function HuntingTable({ hunting: allHunting }: { hunting: HuntingResult[] }) {
+  const [sort, setSort] = useState<Sort>(DEFAULT_SORT);
+
+  if (allHunting.length === 0) return null;
+
+  const hunting = sortHunting(allHunting, sort);
+
+  // Clicking the sorted column flips it; another column starts in its own direction.
+  const sortBy = (key: SortKey) =>
+    setSort((s) =>
+      s.key === key ? { key, dir: s.dir === "asc" ? "desc" : "asc" } : { key, dir: FIRST_DIR[key] },
+    );
 
   return (
     <div>
+      {hunting.length > 1 && (
+        <label className="mb-4 inline-flex items-center gap-2 font-mono text-xs uppercase tracking-wide text-parchment-dim sm:hidden">
+          Sort
+          <select
+            value={sortId(sort)}
+            onChange={(e) =>
+              setSort(MOBILE_SORTS.find((o) => sortId(o.sort) === e.target.value)?.sort ?? DEFAULT_SORT)
+            }
+            className="border border-panel-border bg-panel px-2 py-1.5 normal-case tracking-normal text-parchment"
+          >
+            {MOBILE_SORTS.map((o) => (
+              <option key={sortId(o.sort)} value={sortId(o.sort)}>
+                {o.label}
+              </option>
+            ))}
+          </select>
+        </label>
+      )}
+
       {/* Desktop / tablet */}
       <table className="hidden w-full border-collapse text-sm sm:table">
         <thead>
           <tr className="border-b border-panel-border text-left font-mono text-xs uppercase tracking-wide text-parchment-dim">
-            <th className="py-3 pr-4 font-normal">Item</th>
-            <th className="py-3 pr-4 font-normal">Source</th>
-            <th className="py-3 pr-4 font-normal">So far</th>
-            <th className="py-3 pr-4 font-normal">Would have it by now</th>
+            {COLUMNS.map((c) => (
+              <SortHeader key={c.key} column={c} sort={sort} onSort={sortBy} />
+            ))}
           </tr>
         </thead>
         <tbody>
