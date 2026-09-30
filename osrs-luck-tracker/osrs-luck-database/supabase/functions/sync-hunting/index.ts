@@ -186,9 +186,20 @@ Deno.serve(async (req) => {
   if (existingError) return serverError("sync-hunting: existing lookup failed", existingError);
   const existingKc = new Map((existing ?? []).map((r) => [pairKey(r), r.kc as number]));
 
+  // A pair with any recorded drop isn't being hunted, whatever an older
+  // page read says (ingest-drop ends the hunt when the drop lands).
+  const { data: dropped, error: droppedError } = await supabase
+    .from("collection_log_drops")
+    .select("item_id, source_name")
+    .eq("account_hash", account_hash)
+    .in("item_id", itemIds);
+  if (droppedError) return serverError("sync-hunting: drop lookup failed", droppedError);
+  const droppedPairs = new Set((dropped ?? []).map(pairKey));
+
   const unknown = [...wanted.values()].filter((h) => !knownPairs.has(pairKey(h)));
   const rows = [...wanted.values()]
     .filter((h) => knownPairs.has(pairKey(h)))
+    .filter((h) => !droppedPairs.has(pairKey(h)))
     .filter((h) => h.kc > (existingKc.get(pairKey(h)) ?? 0))
     .map((h) => ({ account_hash, ...h, updated_at: new Date().toISOString() }));
 

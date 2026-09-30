@@ -127,7 +127,9 @@ Deno.serve(async (req) => {
 
   if (pagesError) return serverError("get-player-luck: page lookup failed", pagesError);
 
-  const ownerPages = isOwner ? { log_pages: logPages ?? [] } : {};
+  // Owner only: what the backend stores, unfiltered, so the plugin can send
+  // just what changed. (`hunting` hides pooled and recorded pairs.)
+  const ownerPages = isOwner ? { log_pages: logPages ?? [], hunting_rows: huntingRows ?? [] } : {};
 
   if ((!drops || drops.length === 0) && (!huntingRows || huntingRows.length === 0) && (!logPages || logPages.length === 0)) {
     return json({ ign: player.ign, demo, results: [], hunting: [], pools: [], mostSpooned: null, driest: null, ...ownerPages }, 200);

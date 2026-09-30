@@ -68,7 +68,7 @@ data/
 2. Under **Settings > API Keys**, select the **Publishable and secret API keys** tab and create the `default` publishable and secret keys (older projects need to click "Create new API keys" first). Legacy `anon`/`service_role` keys keep working alongside these — see [Supabase's migration guide](https://supabase.com/docs/guides/getting-started/migrating-to-new-api-keys) for background.
 3. `supabase db push` (or run `0001_initial_schema.sql` then `0002_backfill_support.sql`, in that order, directly) against your project.
 4. Merge `supabase/config.toml` into your project's config (created by `supabase init`). This sets `verify_jwt = false` on all six functions — required because the new secret/publishable keys aren't JWTs, so the platform's default JWT check would otherwise reject every caller. Each function handles its own authorization in code instead (`ingest-drop`/`backfill-drop` check `install_token`; the others are intentionally public reads).
-5. Deploy all eight edge functions: `supabase functions deploy register ingest-drop backfill-drop drop-rates-catalog get-player-luck leaderboard update-settings sync-hunting`.
+5. Deploy all nine edge functions: `supabase functions deploy register ingest-drop backfill-drop drop-rates-catalog get-player-luck leaderboard update-settings sync-hunting update-kc`.
 6. Set `LEADERBOARD_ENABLED=true` via `supabase secrets set LEADERBOARD_ENABLED=true` to open the leaderboard (the site shows "not open yet" while it's off). You do **not** need to set `SUPABASE_URL` or a secret key manually — Supabase auto-injects `SUPABASE_URL` and `SUPABASE_SECRET_KEYS` (new) / `SUPABASE_SERVICE_ROLE_KEY` (legacy) into every function's environment. `_shared/secret-key.ts` reads the new one first and falls back to the legacy var automatically.
 7. Before running `scripts/sync-drop-rates.ts`, export its config manually — **this script runs standalone, outside the Edge Functions runtime, so it does not get the auto-injected vars**:
    ```bash
@@ -174,6 +174,23 @@ say after a wiki resync, the pool is dropped rather than mixed:
 Both use the same mid-p as snapshots, so high is dry. A pooled item
 then gets no per-item snapshot or hunting row. The total is left out if
 an obtained pool item had no quantity (a stackable slot).
+
+### Keeping page reads current
+
+Between log reads, two things move a player's stored page reads and
+hunting rows forward (`_shared/page-updates.ts`):
+
+- `/update-kc` takes the kill counts the plugin saw in chat, in batches,
+  and raises each matching source's page read and hunting rows. A
+  kill-count name only raises its own page: an exact match, or an alias
+  that's the only one pointing at that page. So Dagannoth Kings, Royal
+  Titans and the wilderness pairs wait for a real read, and Tempoross
+  (whose page counts reward permits) is never raised.
+- `ingest-drop` marks a tracked drop obtained on its page read (counting
+  the copy for a pooled item) and deletes its hunting row.
+
+The next real read replaces both, since `/sync-hunting` accepts any read
+whose kill count is at least the stored one.
 
 ## Verifying the calculation engine
 
