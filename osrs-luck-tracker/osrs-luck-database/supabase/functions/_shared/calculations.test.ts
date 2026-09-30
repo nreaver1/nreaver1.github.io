@@ -4,6 +4,7 @@
 import {
   calculateLuck,
   geometricCDF,
+  huntingLuck,
   pointsBasedApprox,
   snapshotLuck,
   streakAdjustedApprox,
@@ -178,6 +179,22 @@ Deno.test("a backfilled drop's snapshot stays out of probability", () => {
 
   const without = calculateLuck(drop({ is_backfilled: true, kc_received: null }), rate({}));
   assert(without.snapshot === undefined, "no snapshot without the columns");
+});
+
+Deno.test("huntingLuck is the chance a fair player would have it by now", () => {
+  // 200 Barrows chests, no Ahrim's hood: 1/2448 per roll, 7 rolls a chest.
+  const hood = rate({ denominator: 2448, rolls_per_kill: 7 });
+  const h = huntingLuck({ item_id: 1, source_name: "Test", kc: 200 }, hood)!;
+  assertClose(h.probability, geometricCDF(200, 1, 2448, 7));
+  assert(h.label === "average", `got ${h.probability}`);
+  assert(huntingLuck({ item_id: 1, source_name: "Test", kc: 1000 }, hood)!.label === "dry", "1,000 chests is dry");
+});
+
+Deno.test("huntingLuck only rates flat rates with kills", () => {
+  const row = { item_id: 1, source_name: "Test", kc: 100 };
+  assert(huntingLuck(row, rate({ distribution_type: "points_based" })) === null, "points_based");
+  assert(huntingLuck(row, rate({ distribution_type: "streak_adjusted" })) === null, "streak_adjusted");
+  assert(huntingLuck({ ...row, kc: 0 }, rate({})) === null, "no kills");
 });
 
 Deno.test("streak_adjusted uses kills since the previous drop", () => {

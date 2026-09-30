@@ -27,11 +27,28 @@ export interface LuckResult {
   item_name?: string; // resolved client-side or by the API for display
 }
 
+/**
+ * An item the player's log shows they don't have yet, after `kc` kills of
+ * its source. Kept apart from `results`: it never feeds comparisons, the
+ * leaderboard or overall luck. Mirrors HuntingResult in _shared/types.ts.
+ */
+export interface HuntingResult {
+  item_id: number;
+  source_name: string;
+  kc: number;
+  /** Chance a fair player would have had the drop by now; high is dry. */
+  probability: number;
+  label: LuckLabel;
+  item_name?: string;
+}
+
 export interface PlayerLuckResponse {
   ign: string;
   /** A seeded sample account (seed-demo.sql), badged as "Demo". */
   demo?: boolean;
   results: LuckResult[];
+  /** Driest first. Missing from APIs older than migration 0008. */
+  hunting?: HuntingResult[];
   mostSpooned: LuckResult | null;
   driest: LuckResult | null;
 }

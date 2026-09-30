@@ -1,6 +1,6 @@
 -- Demo players for the live site (the home page links to Zezima,
 -- Newscape and EmptyLogs). Safe to re-run: it deletes every demo player
--- first, which cascades to their drops and boss_kc rows.
+-- first, which cascades to their drops, boss_kc and hunting_items rows.
 --
 --   npx supabase db query --linked -f supabase/seed-demo.sql
 --
@@ -85,6 +85,17 @@ where d.account_hash = 'demo-backlogged'
   and d.is_backfilled
   and d.item_id = v.item_id
   and d.source_name = v.source_name;
+
+-- "Still hunting" rows (migration 0008): rated items whose log slot was
+-- empty at the page's kill count. get-player-luck rates them with
+-- huntingLuck(), P = 1 - (1 - n/d)^(kc * rolls).
+insert into hunting_items (account_hash, item_id, source_name, kc) values
+  ('demo-backlogged', 11812, 'General Graardor', 1100), -- Bandos hilt, dry
+  ('demo-backlogged', 12650, 'General Graardor', 1100), -- pet, average
+  ('demo-backlogged',  4734, 'Barrows Chests',   200),  -- Karil's crossbow, average
+  ('demo-backlogged',  4726, 'Barrows Chests',   200),  -- Guthan's warspear, average
+  ('demo-drybones',   12819, 'Corporeal Beast',  30420), -- Elysian sigil, desert
+  ('demo-drybones',   12921, 'Zulrah',           20108); -- pet, desert
 
 -- current_kc per boss at or above the highest drop kc, as the plugin reports.
 insert into boss_kc (account_hash, boss_name, current_kc) values

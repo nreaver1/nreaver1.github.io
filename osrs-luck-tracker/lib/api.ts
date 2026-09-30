@@ -38,6 +38,7 @@ export async function getPlayerLuck(
           driest: mock.driest
             ? { ...mock.driest, item_name: resolveItemName(mock.driest.item_id) }
             : null,
+          hunting: (mock.hunting ?? []).map((h) => ({ ...h, item_name: resolveItemName(h.item_id) })),
         }
       : null;
   }
@@ -63,6 +64,7 @@ export async function getPlayerLuck(
     driest: data.driest
       ? { ...data.driest, item_name: resolveItemName(data.driest.item_id) }
       : null,
+    hunting: (data.hunting ?? []).map((h) => ({ ...h, item_name: resolveItemName(h.item_id) })),
   };
 }
 

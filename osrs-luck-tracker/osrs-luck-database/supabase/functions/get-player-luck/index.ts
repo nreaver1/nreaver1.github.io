@@ -9,10 +9,12 @@
 //
 // Both return the player's full luck breakdown plus a most-spooned /
 // driest summary for their profile page, and `demo: true` for the seeded
-// sample accounts.
+// sample accounts. `hunting` lists rated items the player has none of yet
+// (migration 0008), driest first; it's kept apart from `results` so the
+// summary and everything built on results never count it.
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { calculateLuck, summarizePlayerLuck } from "../_shared/calculations.ts";
+import { calculateLuck, huntingLuck, summarizePlayerLuck } from "../_shared/calculations.ts";
 import { getSecretKey } from "../_shared/secret-key.ts";
 import {
   isAccountHash,
@@ -24,7 +26,7 @@ import {
   tokensMatch,
 } from "../_shared/http.ts";
 import { isDemoAccount, pickPlayer } from "../_shared/players.ts";
-import type { CollectionLogDrop, DropRate } from "../_shared/types.ts";
+import type { CollectionLogDrop, DropRate, HuntingResult, HuntingRow } from "../_shared/types.ts";
 
 const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
 const serviceRoleKey = getSecretKey();
@@ -104,15 +106,27 @@ Deno.serve(async (req) => {
 
   if (dropsError) return serverError("get-player-luck: drops lookup failed", dropsError);
 
-  if (!drops || drops.length === 0) {
-    return json({ ign: player.ign, demo, results: [], mostSpooned: null, driest: null }, 200);
+  const { data: huntingRows, error: huntingError } = await supabase
+    .from("hunting_items")
+    .select("item_id, source_name, kc")
+    .eq("account_hash", player.account_hash);
+
+  if (huntingError) return serverError("get-player-luck: hunting lookup failed", huntingError);
+
+  if ((!drops || drops.length === 0) && (!huntingRows || huntingRows.length === 0)) {
+    return json({ ign: player.ign, demo, results: [], hunting: [], mostSpooned: null, driest: null }, 200);
   }
 
   // Batch-fetch drop_rates rows for these items; matched to exact
   // (item_id, source_name) pairs via rateMap below. Filtering by item_id
   // alone avoids building a PostgREST filter string out of source names,
   // which can contain commas and parentheses.
-  const itemIds = [...new Set(drops.map((d: CollectionLogDrop) => d.item_id))];
+  const itemIds = [
+    ...new Set([
+      ...(drops ?? []).map((d: CollectionLogDrop) => d.item_id),
+      ...(huntingRows ?? []).map((h: HuntingRow) => h.item_id),
+    ]),
+  ];
   const { data: rates, error: ratesError } = await supabase
     .from("drop_rates")
     .select("*")
@@ -125,7 +139,7 @@ Deno.serve(async (req) => {
     rateMap.set(`${r.item_id}::${r.source_name}`, r);
   }
 
-  const results = drops
+  const results = (drops ?? [])
     .map((d: CollectionLogDrop) => {
       const rate = rateMap.get(`${d.item_id}::${d.source_name}`);
       if (!rate) return null; // no reference rate yet — skip rather than guess
@@ -135,5 +149,17 @@ Deno.serve(async (req) => {
 
   const { mostSpooned, driest } = summarizePlayerLuck(results as any);
 
-  return json({ ign: player.ign, demo, results, mostSpooned, driest }, 200);
+  // A recorded drop (tracked or backfilled) means the hunt is over, even
+  // before the plugin next reads the page and clears the row.
+  const recorded = new Set((drops ?? []).map((d: CollectionLogDrop) => `${d.item_id}::${d.source_name}`));
+  const hunting = (huntingRows ?? [])
+    .filter((h: HuntingRow) => !recorded.has(`${h.item_id}::${h.source_name}`))
+    .map((h: HuntingRow) => {
+      const rate = rateMap.get(`${h.item_id}::${h.source_name}`);
+      return rate ? huntingLuck(h, rate) : null;
+    })
+    .filter((h): h is HuntingResult => h !== null)
+    .sort((a, b) => b.probability - a.probability);
+
+  return json({ ign: player.ign, demo, results, hunting, mostSpooned, driest }, 200);
 });

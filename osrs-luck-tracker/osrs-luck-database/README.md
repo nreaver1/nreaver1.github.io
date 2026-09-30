@@ -16,6 +16,7 @@ supabase/
     0002_backfill_support.sql             -- nullable kc_received + is_backfilled flag, for manual backfill
     0006_profile_visibility.sql           -- players.profile_public (hide profile); leaderboard views honor it
     0007_backfill_snapshot.sql            -- snapshot_kc + snapshot_quantity on backfilled rows (KC snapshot estimate)
+    0008_hunting_items.sql                -- hunting_items: rated items a player's log shows as not yet obtained
   functions/
     _shared/types.ts                      -- shared TS types
     _shared/calculations.ts               -- the luck calculation engine (pure functions)
@@ -66,7 +67,7 @@ data/
 2. Under **Settings > API Keys**, select the **Publishable and secret API keys** tab and create the `default` publishable and secret keys (older projects need to click "Create new API keys" first). Legacy `anon`/`service_role` keys keep working alongside these — see [Supabase's migration guide](https://supabase.com/docs/guides/getting-started/migrating-to-new-api-keys) for background.
 3. `supabase db push` (or run `0001_initial_schema.sql` then `0002_backfill_support.sql`, in that order, directly) against your project.
 4. Merge `supabase/config.toml` into your project's config (created by `supabase init`). This sets `verify_jwt = false` on all six functions — required because the new secret/publishable keys aren't JWTs, so the platform's default JWT check would otherwise reject every caller. Each function handles its own authorization in code instead (`ingest-drop`/`backfill-drop` check `install_token`; the others are intentionally public reads).
-5. Deploy all seven edge functions: `supabase functions deploy register ingest-drop backfill-drop drop-rates-catalog get-player-luck leaderboard update-settings`.
+5. Deploy all eight edge functions: `supabase functions deploy register ingest-drop backfill-drop drop-rates-catalog get-player-luck leaderboard update-settings sync-hunting`.
 6. Set `LEADERBOARD_ENABLED=true` via `supabase secrets set LEADERBOARD_ENABLED=true` to open the leaderboard (the site shows "not open yet" while it's off). You do **not** need to set `SUPABASE_URL` or a secret key manually — Supabase auto-injects `SUPABASE_URL` and `SUPABASE_SECRET_KEYS` (new) / `SUPABASE_SERVICE_ROLE_KEY` (legacy) into every function's environment. `_shared/secret-key.ts` reads the new one first and falls back to the legacy var automatically.
 7. Before running `scripts/sync-drop-rates.ts`, export its config manually — **this script runs standalone, outside the Edge Functions runtime, so it does not get the auto-injected vars**:
    ```bash
@@ -135,6 +136,19 @@ raid points aren't per-kill rolls, so a count doesn't fit either model.
 `/backfill-drop` fills a snapshot in on an earlier backfill that lacks
 one, but never overwrites one, and skips pairs tracking has since
 recorded a drop for (the log's quantity would count that copy twice).
+
+### Still hunting (migration 0008)
+
+The same log pages show which slots are still empty, and an empty slot
+means none of that item from any source. `/sync-hunting` stores those as
+`hunting_items` rows with the page's kill count (only ever raised, and
+deleted when the plugin reads the slot as obtained). `get-player-luck`
+returns them as `hunting`, rated by `huntingLuck()`: the geometric CDF
+at that kill count, the same "chance a fair player would have had it by
+now" as a tracked drop, so high is dry. Flat rates only. A pair the
+account has any drop row for is left out, so a tracked drop takes over
+immediately. The list stays out of `results`, so the leaderboard,
+overall luck and comparisons never see it.
 
 ## Verifying the calculation engine
 
