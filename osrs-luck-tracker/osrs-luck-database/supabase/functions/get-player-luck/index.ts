@@ -173,7 +173,14 @@ Deno.serve(async (req) => {
     .map((d: CollectionLogDrop) => {
       const rate = rateMap.get(`${d.item_id}::${d.source_name}`);
       if (!rate) return null; // no reference rate yet — skip rather than guess
-      const result = calculateLuck(d, rate);
+      const computed = calculateLuck(d, rate);
+      // The plugin offers "Add luck estimates" for backfilled rows with no
+      // stored snapshot. Whether one is shown isn't the same thing (pooled
+      // items hide theirs, non-flat rates never get one), so the owner is
+      // told directly.
+      const result = isOwner && d.is_backfilled
+        ? { ...computed, snapshot_stored: d.snapshot_kc != null }
+        : computed;
       if (result.snapshot && pooledPairs.has(`${d.item_id}::${d.source_name}`)) {
         const { snapshot: _pooled, ...rest } = result;
         return rest;
