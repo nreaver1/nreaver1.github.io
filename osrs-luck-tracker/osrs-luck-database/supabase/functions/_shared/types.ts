@@ -35,6 +35,20 @@ export interface CollectionLogDrop {
   date_received: string | null;
   date_submitted: string;
   is_backfilled: boolean;
+  // Backfilled rows only, both or neither (migration 0007): the log page's
+  // kill count and the item's quantity when the plugin read the page.
+  snapshot_kc?: number | null;
+  snapshot_quantity?: number | null;
+}
+
+// "k copies after N kills", for a backfilled item. Kept apart from
+// LuckResult.probability, which stays NaN for backfilled rows, so nothing
+// that averages probabilities picks it up by accident.
+export interface SnapshotLuck {
+  kc: number; // the log page's kill count when it was read
+  quantity: number; // copies the log showed then
+  probability: number; // mid-p: chance a fair player has more, plus half the chance of exactly as many
+  label: "spooned" | "average" | "dry" | "desert";
 }
 
 export interface LuckResult {
@@ -48,4 +62,6 @@ export interface LuckResult {
   supported: boolean; // false for multi_roll / unsupported — don't display P
   backfilled: boolean; // true = "obtained before tracking started, luck unknown" — a
                         // third, distinct state from both a real result and "unsupported"
+  // Backfilled flat-rate items with a KC snapshot only; see SnapshotLuck.
+  snapshot?: SnapshotLuck;
 }

@@ -1,15 +1,38 @@
 "use client";
 
 import { useState } from "react";
-import type { LuckResult } from "@/lib/types";
+import type { LuckResult, SnapshotLuck } from "@/lib/types";
 import BacklogToggle from "./BacklogToggle";
 import LuckBar from "./LuckBar";
 import LuckBadge from "./LuckBadge";
 import ItemIcon from "./ItemIcon";
 
+export const SNAPSHOT_DESCRIPTION = "chance a fair player has more by this KC, counting ties as half";
+
+/** "2 by 200 KC": the log page's count when it was imported. */
+export function snapshotText(s: SnapshotLuck) {
+  return `${s.quantity.toLocaleString()} by ${s.kc.toLocaleString()} KC`;
+}
+
 // The phone card already shows the badge in its header, so only the
 // desktop row asks for it here.
 function LuckCell({ r, showBadge = false }: { r: LuckResult; showBadge?: boolean }) {
+  if (r.backfilled && r.snapshot) {
+    // Rates the count at import, not a drop: always an estimate, and the
+    // backlog line under it says so.
+    return (
+      <div>
+        <div className="flex items-center gap-3">
+          <LuckBar probability={r.snapshot.probability} label={r.snapshot.label} description={SNAPSHOT_DESCRIPTION} />
+          <span className="font-mono text-xs text-parchment-dim">est.</span>
+          {showBadge && <LuckBadge probability={r.snapshot.probability} />}
+        </div>
+        <p className="mt-1 font-mono text-xs text-parchment-dim">
+          logged before tracking &middot; {snapshotText(r.snapshot)}
+        </p>
+      </div>
+    );
+  }
   if (r.backfilled) {
     return (
       <span className="font-mono text-xs text-parchment-dim">
@@ -106,8 +129,16 @@ function sortResults(results: LuckResult[], { key, dir }: Sort) {
     } else if (a !== b) {
       return a === null ? 1 : -1;
     }
-    // Unrated luck: unsupported above backlogged. Then by item, for a stable order.
+    // Unrated luck: unsupported above backlogged, and backlogged items
+    // with a snapshot ordered by it, above those without. Then by item,
+    // for a stable order.
     if (key === "luck" && ra.backfilled !== rb.backfilled) return ra.backfilled ? 1 : -1;
+    if (key === "luck" && ra.backfilled) {
+      const sa = ra.snapshot?.probability ?? null;
+      const sb = rb.snapshot?.probability ?? null;
+      if (sa !== null && sb !== null && sa !== sb) return dir === "asc" ? sa - sb : sb - sa;
+      if (sa !== sb) return sa === null ? 1 : -1;
+    }
     return itemName(ra).localeCompare(itemName(rb)) || ra.source_name.localeCompare(rb.source_name);
   });
 }
@@ -281,6 +312,7 @@ export default function LuckTable({ results: allResults }: { results: LuckResult
                 </p>
               </div>
               {r.supported && !r.backfilled && <LuckBadge probability={r.probability} />}
+              {r.backfilled && r.snapshot && <LuckBadge probability={r.snapshot.probability} />}
             </div>
             <div className="mt-3">
               <LuckCell r={r} />

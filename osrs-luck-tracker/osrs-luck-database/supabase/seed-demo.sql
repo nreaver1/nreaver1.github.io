@@ -68,6 +68,24 @@ values
   ('demo-backlogged',  4718, 'Barrows Chests',   null, null,  true,  null,                        now() - interval '14 days'),
   ('demo-backlogged', 13227, 'Cerberus',         700,  700,   false, now() - interval '3 days',   now() - interval '3 days');   -- average
 
+-- Backlogged's log page snapshot at import (migration 0007): the page's
+-- KC and each item's quantity, which get-player-luck rates as "k copies
+-- after N kills". Zezima's Amoxliatl stays snapshot-free, like an import
+-- from before snapshots existed.
+update collection_log_drops d
+set snapshot_kc = v.kc, snapshot_quantity = v.quantity
+from (values
+  (11832, 'General Graardor', 1100, 1), -- dry
+  (11834, 'General Graardor', 1100, 3), -- average
+  (11836, 'General Graardor', 1100, 2), -- average
+  ( 4708, 'Barrows Chests',   200, 1),  -- average
+  ( 4718, 'Barrows Chests',   200, 2)   -- spooned
+) as v(item_id, source_name, kc, quantity)
+where d.account_hash = 'demo-backlogged'
+  and d.is_backfilled
+  and d.item_id = v.item_id
+  and d.source_name = v.source_name;
+
 -- current_kc per boss at or above the highest drop kc, as the plugin reports.
 insert into boss_kc (account_hash, boss_name, current_kc) values
   ('demo-zezima',     'The Gauntlet',      310),

@@ -1,5 +1,18 @@
 export type LuckLabel = "spooned" | "average" | "dry" | "desert";
 
+/**
+ * "k copies after N kills" for a backfilled item, read off its collection
+ * log page at import. Rates the count, not a drop, so it's always an
+ * estimate and never feeds comparisons, the leaderboard or overall luck.
+ * Mirrors SnapshotLuck in _shared/types.ts.
+ */
+export interface SnapshotLuck {
+  kc: number;
+  quantity: number;
+  probability: number; // 0-1, same scale and labels as LuckResult.probability
+  label: LuckLabel;
+}
+
 export interface LuckResult {
   item_id: number;
   source_name: string;
@@ -10,6 +23,7 @@ export interface LuckResult {
   estimated: boolean;
   supported: boolean;
   backfilled: boolean; // true = "obtained before tracking started, luck unknown"
+  snapshot?: SnapshotLuck; // backfilled flat-rate items with a KC snapshot only
   item_name?: string; // resolved client-side or by the API for display
 }
 

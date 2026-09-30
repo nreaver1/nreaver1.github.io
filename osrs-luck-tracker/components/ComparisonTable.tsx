@@ -6,6 +6,7 @@ import type { ComparisonRow } from "@/lib/compare";
 import BacklogToggle from "./BacklogToggle";
 import LuckBadge from "./LuckBadge";
 import ItemIcon from "./ItemIcon";
+import { snapshotText } from "./LuckTable";
 
 const FILL_CLASS: Record<LuckResult["label"], string> = {
   spooned: "bg-flame",
@@ -22,6 +23,20 @@ function Cell({ r }: { r: LuckResult | null }) {
 
   const kc = r.kc_received !== null ? `${r.kc_received.toLocaleString()} KC` : null;
 
+  if (r.backfilled && r.snapshot) {
+    // Never a comparison winner (lib/compare.ts), so just the numbers.
+    const snapPct = Math.round(r.snapshot.probability * 100);
+    return (
+      <div className="font-mono text-xs text-parchment-dim">
+        <p>
+          backlog &middot; {snapshotText(r.snapshot)}
+        </p>
+        <p className="mt-0.5">
+          <span className="tabular-nums">{snapPct}%</span> est. <LuckBadge probability={r.snapshot.probability} />
+        </p>
+      </div>
+    );
+  }
   if (r.backfilled) {
     return <span className="font-mono text-xs text-parchment-dim">obtained &middot; luck unknown</span>;
   }
@@ -67,6 +82,13 @@ function MobileRow({ name, r, luckiest }: { name: string; r: LuckResult | null; 
 
   if (!r) {
     detail = <span className="text-parchment-dim/60">not logged</span>;
+  } else if (r.backfilled && r.snapshot) {
+    detail = (
+      <span className="text-parchment-dim">
+        backlog &middot; {snapshotText(r.snapshot)} &middot;{" "}
+        <span className="tabular-nums">{Math.round(r.snapshot.probability * 100)}%</span> est.
+      </span>
+    );
   } else if (r.backfilled) {
     detail = <span className="text-parchment-dim">luck unknown</span>;
   } else if (!r.supported) {

@@ -10,7 +10,7 @@
 //   multi_roll        - not supported in v1, returns `supported: false`
 //   unsupported       - not supported, returns `supported: false`
 
-import type { CollectionLogDrop, DropRate, LuckResult } from "./types.ts";
+import type { CollectionLogDrop, DropRate, LuckResult, SnapshotLuck } from "./types.ts";
 
 function labelFor(probability: number): LuckResult["label"] {
   if (probability > 0.99) return "desert";
@@ -70,6 +70,51 @@ export function pointsBasedApprox(
   const equivalentRolls =
     (kcReceived * avgPointsPerActivity) / pointsPerRoll;
   return geometricCDF(equivalentRolls, rate.numerator, rate.denominator, 1);
+}
+
+/**
+ * Snapshot luck for a backfilled item: the player had `quantity` copies
+ * when the log page read `kc` kills. Which kills dropped them is unknown,
+ * so this rates the count, not a drop: X ~ Binomial(kc * rolls_per_kill, p)
+ * copies for a fair-luck player, and the score is the mid-p value
+ *
+ *   P(X > k) + P(X = k) / 2
+ *
+ * High means fewer copies than most players would have (dry), low means
+ * more (spooned), and for a fair player it's roughly uniform on 0-1 like
+ * geometricCDF's, so labelFor's thresholds mean the same thing. The half
+ * term keeps "one copy at high KC" from reading as desert just because
+ * P(X >= 1) tends to 1.
+ *
+ * Flat rates only. Returns null for anything the count can't support:
+ * other distribution types (a pity timer resets per drop, raid points
+ * aren't per-kill rolls), no kills, or more copies than rolls.
+ */
+export function snapshotLuck(
+  kc: number,
+  quantity: number,
+  rate: DropRate,
+): SnapshotLuck | null {
+  if (rate.distribution_type !== "flat_geometric") return null;
+  if (!Number.isInteger(kc) || !Number.isInteger(quantity) || kc <= 0 || quantity < 1) {
+    return null;
+  }
+  const trials = kc * rate.rolls_per_kill;
+  const p = rate.numerator / rate.denominator;
+  if (quantity > trials || !(p > 0 && p < 1)) return null;
+
+  // Walk the pmf in log space, since P(X = 0) = (1-p)^n underflows for
+  // long grinds.
+  const logRatio = Math.log(p) - Math.log1p(-p);
+  let logPmf = trials * Math.log1p(-p);
+  let below = 0; // P(X < k)
+  for (let j = 0; j < quantity; j++) {
+    below += Math.exp(logPmf);
+    logPmf += Math.log(trials - j) - Math.log(j + 1) + logRatio;
+  }
+  const exactly = Math.exp(logPmf); // P(X = k)
+  const probability = Math.min(1, Math.max(0, 1 - below - exactly / 2));
+  return { kc, quantity, probability, label: labelFor(probability) };
 }
 
 export interface PityRamp {
@@ -178,8 +223,12 @@ export function calculateLuck(
   // runs — there's no kc_received to feed a calculation with, and even
   // if there were, we would not want to. This check comes first,
   // deliberately, so no future change to the switch below can
-  // accidentally start computing a probability for one of these.
+  // accidentally start computing a probability for one of these. A KC
+  // snapshot, if there is one, goes in its own `snapshot` field.
   if (drop.is_backfilled) {
+    const snapshot = drop.snapshot_kc != null && drop.snapshot_quantity != null
+      ? snapshotLuck(drop.snapshot_kc, drop.snapshot_quantity, rate)
+      : null;
     return {
       ...base,
       probability: NaN,
@@ -187,6 +236,7 @@ export function calculateLuck(
       estimated: false,
       supported: false,
       backfilled: true,
+      ...(snapshot ? { snapshot } : {}),
     };
   }
 

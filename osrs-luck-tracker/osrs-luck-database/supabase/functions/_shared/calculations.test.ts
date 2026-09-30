@@ -5,6 +5,7 @@ import {
   calculateLuck,
   geometricCDF,
   pointsBasedApprox,
+  snapshotLuck,
   streakAdjustedApprox,
 } from "./calculations.ts";
 import type { CollectionLogDrop, DropRate } from "./types.ts";
@@ -116,6 +117,67 @@ Deno.test("backfilled drops never get a probability", () => {
   );
   assert(result.backfilled && !result.supported, "backfilled flags wrong");
   assert(Number.isNaN(result.probability), "probability should be NaN");
+});
+
+function binomialPmf(n: number, p: number, k: number) {
+  let c = 1;
+  for (let i = 0; i < k; i++) c = (c * (n - i)) / (i + 1);
+  return c * Math.pow(p, k) * Math.pow(1 - p, n - k);
+}
+
+Deno.test("snapshotLuck is the binomial mid-p over kc * rolls_per_kill", () => {
+  // 5 kills at 2 rolls each, 1/10 per roll, 2 copies.
+  const r = rate({ denominator: 10, rolls_per_kill: 2 });
+  const below = binomialPmf(10, 0.1, 0) + binomialPmf(10, 0.1, 1);
+  const expected = 1 - below - binomialPmf(10, 0.1, 2) / 2;
+  assertClose(snapshotLuck(5, 2, r)!.probability, expected, 1e-12);
+});
+
+Deno.test("snapshotLuck: 200 Barrows chests, one piece is average, two is spooned", () => {
+  const piece = rate({ denominator: 2448, rolls_per_kill: 7 });
+  const one = snapshotLuck(200, 1, piece)!;
+  const two = snapshotLuck(200, 2, piece)!;
+  assert(one.label === "average", `one piece: ${one.probability}`);
+  assert(two.label === "spooned", `two pieces: ${two.probability}`);
+  assert(one.kc === 200 && one.quantity === 1, "echoes the snapshot");
+});
+
+Deno.test("snapshotLuck averages 0.5 for a fair player", () => {
+  // The mid-p score's expectation under the null is exactly one half,
+  // the property that lets labelFor's thresholds carry over.
+  const r = rate({ denominator: 20 });
+  const n = 60;
+  let mean = 0;
+  for (let k = 1; k <= n; k++) mean += binomialPmf(n, 1 / 20, k) * snapshotLuck(n, k, r)!.probability;
+  // k = 0 isn't a backfilled item; its score is 1 - P(X=0)/2.
+  const zero = binomialPmf(n, 1 / 20, 0);
+  mean += zero * (1 - zero / 2);
+  assertClose(mean, 0.5, 1e-9);
+});
+
+Deno.test("snapshotLuck doesn't underflow on a long grind", () => {
+  const s = snapshotLuck(100_000, 1, rate({ denominator: 512 }))!;
+  assert(Number.isFinite(s.probability) && s.label === "desert", `got ${s.probability}`);
+});
+
+Deno.test("snapshotLuck only rates flat rates with a sane count", () => {
+  assert(snapshotLuck(100, 1, rate({ distribution_type: "points_based" })) === null, "points_based");
+  assert(snapshotLuck(100, 1, rate({ distribution_type: "streak_adjusted" })) === null, "streak_adjusted");
+  assert(snapshotLuck(0, 1, rate({})) === null, "no kills");
+  assert(snapshotLuck(3, 4, rate({})) === null, "more copies than rolls");
+});
+
+Deno.test("a backfilled drop's snapshot stays out of probability", () => {
+  const withSnapshot = calculateLuck(
+    drop({ is_backfilled: true, kc_received: null, snapshot_kc: 150, snapshot_quantity: 1 }),
+    rate({ denominator: 100 }),
+  );
+  assert(Number.isNaN(withSnapshot.probability), "probability stays NaN");
+  assert(withSnapshot.backfilled && !withSnapshot.supported, "still backfilled");
+  assert(withSnapshot.snapshot?.kc === 150, "snapshot attached");
+
+  const without = calculateLuck(drop({ is_backfilled: true, kc_received: null }), rate({}));
+  assert(without.snapshot === undefined, "no snapshot without the columns");
 });
 
 Deno.test("streak_adjusted uses kills since the previous drop", () => {

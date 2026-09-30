@@ -1,4 +1,4 @@
-import type { LeaderboardEntry, LeaderboardResponse, PlayerLuckResponse } from "./types";
+import type { LeaderboardEntry, LeaderboardResponse, PlayerLuckResponse, SnapshotLuck } from "./types";
 import { MIN_RATED_DROPS, isRated, overallLuck } from "./overall";
 
 // Drop dates relative to now, like seed-demo.sql's `now() - interval`.
@@ -173,7 +173,7 @@ const flat = (
   backfilled: false,
 });
 
-const backfilled = (item_id: number, source_name: string) => ({
+const backfilled = (item_id: number, source_name: string, snapshot?: SnapshotLuck) => ({
   item_id,
   source_name,
   kc_received: null,
@@ -183,6 +183,14 @@ const backfilled = (item_id: number, source_name: string) => ({
   estimated: false,
   supported: false,
   backfilled: true,
+  ...(snapshot ? { snapshot } : {}),
+});
+
+const snapshot = (kc: number, quantity: number, probability: number, label: SnapshotLuck["label"]) => ({
+  kc,
+  quantity,
+  probability,
+  label,
 });
 
 // Everything early.
@@ -217,16 +225,17 @@ const DRY_BONES: PlayerLuckResponse = {
 DRY_BONES.mostSpooned = DRY_BONES.results[3];
 DRY_BONES.driest = DRY_BONES.results[0];
 
-// Imported an existing log; one drop tracked since.
+// Imported an existing log (with seed-demo.sql's KC snapshots); one drop
+// tracked since.
 const BACKLOGGED: PlayerLuckResponse = {
   ign: "Backlogged",
   demo: true,
   results: [
-    backfilled(11832, "General Graardor"),
-    backfilled(11834, "General Graardor"),
-    backfilled(11836, "General Graardor"),
-    backfilled(4708, "Barrows Chests"),
-    backfilled(4718, "Barrows Chests"),
+    backfilled(11832, "General Graardor", snapshot(1100, 1, 0.864, "dry")),
+    backfilled(11834, "General Graardor", snapshot(1100, 3, 0.439, "average")),
+    backfilled(11836, "General Graardor", snapshot(1100, 2, 0.668, "average")),
+    backfilled(4708, "Barrows Chests", snapshot(200, 1, 0.274, "average")),
+    backfilled(4718, "Barrows Chests", snapshot(200, 2, 0.067, "spooned")),
     flat(13227, "Cerberus", 700, 0.74, "average", 3),
   ],
   mostSpooned: null,
