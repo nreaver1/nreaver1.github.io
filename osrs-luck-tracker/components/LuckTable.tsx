@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import type { LuckResult, SnapshotLuck } from "@/lib/types";
-import BacklogToggle from "./BacklogToggle";
+import BacklogToggle, { EstimatesToggle, withoutEstimate } from "./BacklogToggle";
 import LuckBar from "./LuckBar";
 import LuckBadge from "./LuckBadge";
 import ItemIcon from "./ItemIcon";
@@ -200,6 +200,7 @@ function SortHeader({
 
 export default function LuckTable({ results: allResults }: { results: LuckResult[] }) {
   const [showBacklog, setShowBacklog] = useState(true);
+  const [showEstimates, setShowEstimates] = useState(true);
   const [sort, setSort] = useState<Sort>(DEFAULT_SORT);
 
   if (allResults.length === 0) {
@@ -211,10 +212,10 @@ export default function LuckTable({ results: allResults }: { results: LuckResult
   }
 
   const backlogCount = allResults.filter((r) => r.backfilled).length;
-  const results = sortResults(
-    showBacklog ? allResults : allResults.filter((r) => !r.backfilled),
-    sort,
-  );
+  const hasEstimates = allResults.some((r) => r.snapshot);
+  // Without its snapshot a backlogged row reads, and sorts, as "luck unknown".
+  const visible = showBacklog ? allResults : allResults.filter((r) => !r.backfilled);
+  const results = sortResults(showEstimates && showBacklog ? visible : visible.map(withoutEstimate), sort);
 
   // Clicking the sorted column flips it; another column starts in its own direction.
   const sortBy = (key: SortKey) =>
@@ -226,7 +227,12 @@ export default function LuckTable({ results: allResults }: { results: LuckResult
     <div>
       <div className="flex flex-wrap items-center justify-between gap-x-6">
         {backlogCount > 0 && (
-          <BacklogToggle shown={showBacklog} count={backlogCount} onChange={setShowBacklog} />
+          <div className="flex flex-wrap items-center gap-x-6">
+            <BacklogToggle shown={showBacklog} count={backlogCount} onChange={setShowBacklog} />
+            {hasEstimates && (
+              <EstimatesToggle shown={showEstimates} disabled={!showBacklog} onChange={setShowEstimates} />
+            )}
+          </div>
         )}
         {results.length > 1 && (
           <label className="mb-4 inline-flex items-center gap-2 font-mono text-xs uppercase tracking-wide text-parchment-dim sm:hidden">

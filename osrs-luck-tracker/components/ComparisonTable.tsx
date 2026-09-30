@@ -3,7 +3,7 @@
 import { useState } from "react";
 import type { LuckResult } from "@/lib/types";
 import type { ComparisonRow } from "@/lib/compare";
-import BacklogToggle from "./BacklogToggle";
+import BacklogToggle, { EstimatesToggle, withoutEstimate } from "./BacklogToggle";
 import LuckBadge from "./LuckBadge";
 import ItemIcon from "./ItemIcon";
 import { snapshotText } from "./LuckTable";
@@ -148,18 +148,31 @@ export default function ComparisonTable({
   rows: ComparisonRow[];
 }) {
   const [showBacklog, setShowBacklog] = useState(true);
+  const [showEstimates, setShowEstimates] = useState(true);
 
   if (allRows.length === 0) {
     return <p className="text-sm text-parchment-dim">None of these players have logged drops yet.</p>;
   }
 
   const backlogCount = allRows.filter(isBacklogOnly).length;
-  const rows = showBacklog ? allRows : allRows.filter((row) => !isBacklogOnly(row));
+  const hasEstimates = allRows.some((row) => row.cells.some((c) => c?.snapshot));
+  const visible = showBacklog ? allRows : allRows.filter((row) => !isBacklogOnly(row));
+  // Estimates never pick the luckiest player, so only the cells change.
+  // Rows that mix backlogged and tracked cells stay when backlog is
+  // hidden, and the disabled checkbox reads unchecked, so hide them there too.
+  const rows = showEstimates && showBacklog
+    ? visible
+    : visible.map((row) => ({ ...row, cells: row.cells.map((c) => (c ? withoutEstimate(c) : c)) }));
 
   return (
     <div>
       {backlogCount > 0 && (
-        <BacklogToggle shown={showBacklog} count={backlogCount} onChange={setShowBacklog} />
+        <div className="flex flex-wrap items-center gap-x-6">
+          <BacklogToggle shown={showBacklog} count={backlogCount} onChange={setShowBacklog} />
+          {hasEstimates && (
+            <EstimatesToggle shown={showEstimates} disabled={!showBacklog} onChange={setShowEstimates} />
+          )}
+        </div>
       )}
 
       {rows.length === 0 && (
