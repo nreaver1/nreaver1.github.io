@@ -237,6 +237,22 @@ export function streakAdjustedApprox(
 }
 
 /**
+ * Whether a streak_adjusted drop came on the exact kill its pity timer
+ * guarantees it (Vorkath's head on the 50th, Slepey tablet on the 25th):
+ * the pity_thresholds step that ends at this kc rolls at 100%. Ramps
+ * (pity_ramp) only raise the odds, so they never count.
+ */
+export function isPityDrop(kc: number, rate: DropRate): boolean {
+  if (rate.distribution_type !== "streak_adjusted") return false;
+  const thresholds = rate.metadata["pity_thresholds"] as
+    | Array<{ kc: number; denominator: number }>
+    | undefined;
+  return (thresholds ?? []).some(
+    (step) => step.kc === kc && step.denominator > 0 && rate.numerator / step.denominator >= 1,
+  );
+}
+
+/**
  * Dispatches to the correct calculation for a single drop, given its
  * matching drop_rates row. Returns supported:false rather than a number
  * for distribution types v1 doesn't model, so the caller can hide the
@@ -327,6 +343,7 @@ export function calculateLuck(
         estimated: true,
         supported: true,
         backfilled: false,
+        ...(isPityDrop(kcSinceLastDrop, rate) ? { pity: true } : {}),
       };
     }
     case "multi_roll":

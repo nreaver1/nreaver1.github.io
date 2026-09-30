@@ -5,6 +5,7 @@ import type { LuckResult } from "@/lib/types";
 import type { ComparisonRow } from "@/lib/compare";
 import BacklogToggle, { EstimatesToggle, withoutEstimate } from "./BacklogToggle";
 import LuckBadge from "./LuckBadge";
+import PityBadge from "./PityBadge";
 import ItemIcon from "./ItemIcon";
 import { snapshotText } from "./LuckTable";
 
@@ -65,8 +66,9 @@ function Cell({ r }: { r: LuckResult | null }) {
         </div>
         <span className="font-mono text-xs tabular-nums text-parchment-dim">{pct}%</span>
       </div>
-      <div className="mt-0.5">
+      <div className="mt-0.5 flex items-center gap-2">
         <LuckBadge probability={r.probability} />
+        {r.pity && <PityBadge />}
       </div>
     </div>
   );
@@ -107,6 +109,7 @@ function MobileRow({ name, r, luckiest }: { name: string; r: LuckResult | null; 
         </span>
         <span className="tabular-nums text-parchment-dim">{pct}%</span>
         <LuckBadge probability={r.probability} />
+        {r.pity && <PityBadge />}
       </>
     );
     bar = (

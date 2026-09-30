@@ -24,6 +24,7 @@ export interface LuckResult {
   supported: boolean;
   backfilled: boolean; // true = "obtained before tracking started, luck unknown"
   snapshot?: SnapshotLuck; // backfilled flat-rate items with a KC snapshot only
+  pity?: true; // came on the kill its pity timer guarantees it (Vorkath's head at 50)
   item_name?: string; // resolved client-side or by the API for display
 }
 

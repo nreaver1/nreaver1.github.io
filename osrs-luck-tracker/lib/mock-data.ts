@@ -80,6 +80,19 @@ const ZEZIMA: PlayerLuckResponse = {
       backfilled: false,
     },
     {
+      // Guaranteed on the 50th kill: the pity badge.
+      item_id: 21907,
+      source_name: "Vorkath",
+      kc_received: 50,
+      date_received: daysAgo(90),
+      probability: 1,
+      label: "desert",
+      estimated: true,
+      supported: true,
+      backfilled: false,
+      pity: true,
+    },
+    {
       item_id: 27382,
       source_name: "Tumeken's Warden",
       kc_received: 640,

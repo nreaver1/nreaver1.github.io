@@ -111,6 +111,29 @@ Deno.test("pity_ramp: rate climbs linearly, then holds", () => {
   }
 });
 
+Deno.test("pity flag: only on the guaranteed kill, never on a ramp", () => {
+  const head = rate({
+    distribution_type: "streak_adjusted",
+    denominator: 50,
+    metadata: {
+      pity_thresholds: [{ kc: 49, denominator: 50 }, { kc: 50, denominator: 1 }],
+    },
+  });
+  const at = (kc: number, r: DropRate) =>
+    calculateLuck(drop({ kc_received: kc, kc_at_previous_drop: null }), r).pity;
+  assert(at(50, head) === true, "50th kill should be pity");
+  assert(at(49, head) === undefined, "49th kill is a normal roll");
+  assert(at(80, head) === undefined, "past the guarantee isn't the pity kill");
+
+  const thread = rate({
+    distribution_type: "streak_adjusted",
+    denominator: 10,
+    metadata: { pity_ramp: { start_denominator: 10, end_denominator: 10 / 3, ramp_kc: 15 } },
+  });
+  assert(at(15, thread) === undefined, "ramps never count");
+  assert(at(50, rate({ denominator: 50 })) === undefined, "flat rates never count");
+});
+
 Deno.test("backfilled drops never get a probability", () => {
   const result = calculateLuck(
     drop({ is_backfilled: true, kc_received: null }),
