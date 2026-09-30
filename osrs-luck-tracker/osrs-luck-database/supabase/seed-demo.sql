@@ -1,6 +1,6 @@
 -- Demo players for the live site (the home page links to Zezima,
 -- Newscape and EmptyLogs). Safe to re-run: it deletes every demo player
--- first, which cascades to their drops, boss_kc and hunting_items rows.
+-- first, which cascades to their drops, boss_kc, hunting_items and log_pages rows.
 --
 --   npx supabase db query --linked -f supabase/seed-demo.sql
 --
@@ -66,6 +66,12 @@ values
   ('demo-backlogged', 11836, 'General Graardor', null, null,  true,  null,                        now() - interval '14 days'),
   ('demo-backlogged',  4708, 'Barrows Chests',   null, null,  true,  null,                        now() - interval '14 days'),
   ('demo-backlogged',  4718, 'Barrows Chests',   null, null,  true,  null,                        now() - interval '14 days'),
+  ('demo-backlogged',  4712, 'Barrows Chests',   null, null,  true,  null,                        now() - interval '14 days'),
+  ('demo-backlogged',  4720, 'Barrows Chests',   null, null,  true,  null,                        now() - interval '14 days'),
+  ('demo-backlogged',  4730, 'Barrows Chests',   null, null,  true,  null,                        now() - interval '14 days'),
+  ('demo-backlogged',  4745, 'Barrows Chests',   null, null,  true,  null,                        now() - interval '14 days'),
+  ('demo-backlogged',  4755, 'Barrows Chests',   null, null,  true,  null,                        now() - interval '14 days'),
+  ('demo-backlogged',  4759, 'Barrows Chests',   null, null,  true,  null,                        now() - interval '14 days'),
   ('demo-backlogged', 13227, 'Cerberus',         700,  700,   false, now() - interval '3 days',   now() - interval '3 days');   -- average
 
 -- Backlogged's log page snapshot at import (migration 0007): the page's
@@ -78,8 +84,14 @@ from (values
   (11832, 'General Graardor', 1100, 1), -- dry
   (11834, 'General Graardor', 1100, 3), -- average
   (11836, 'General Graardor', 1100, 2), -- average
-  ( 4708, 'Barrows Chests',   200, 1),  -- average
-  ( 4718, 'Barrows Chests',   200, 2)   -- spooned
+  ( 4708, 'Barrows Chests',   200, 1),  -- pooled (see log_pages below)
+  ( 4718, 'Barrows Chests',   200, 2),
+  ( 4712, 'Barrows Chests',   200, 1),
+  ( 4720, 'Barrows Chests',   200, 1),
+  ( 4730, 'Barrows Chests',   200, 1),
+  ( 4745, 'Barrows Chests',   200, 1),
+  ( 4755, 'Barrows Chests',   200, 1),
+  ( 4759, 'Barrows Chests',   200, 1)
 ) as v(item_id, source_name, kc, quantity)
 where d.account_hash = 'demo-backlogged'
   and d.is_backfilled
@@ -92,10 +104,17 @@ where d.account_hash = 'demo-backlogged'
 insert into hunting_items (account_hash, item_id, source_name, kc) values
   ('demo-backlogged', 11812, 'General Graardor', 1100), -- Bandos hilt, dry
   ('demo-backlogged', 12650, 'General Graardor', 1100), -- pet, average
-  ('demo-backlogged',  4734, 'Barrows Chests',   200),  -- Karil's crossbow, average
-  ('demo-backlogged',  4726, 'Barrows Chests',   200),  -- Guthan's warspear, average
   ('demo-drybones',   12819, 'Corporeal Beast',  30420), -- Elysian sigil, desert
   ('demo-drybones',   12921, 'Zulrah',           20108); -- pet, desert
+
+-- Backlogged's Barrows page as the plugin last read it (migration 0009).
+-- Barrows is a pooled source (_shared/pools.ts), so get-player-luck rates
+-- the page as a whole instead of each piece: 9 uniques in 200 chests
+-- (13.7 expected) and 8 of 24 pieces (10.5 expected), both dry.
+insert into log_pages (account_hash, source_name, kc, obtained, quantities) values
+  ('demo-backlogged', 'Barrows Chests', 200,
+   '{4708,4712,4718,4720,4730,4745,4755,4759}',
+   '{"4708": 1, "4712": 1, "4718": 2, "4720": 1, "4730": 1, "4745": 1, "4755": 1, "4759": 1}');
 
 -- current_kc per boss at or above the highest drop kc, as the plugin reports.
 insert into boss_kc (account_hash, boss_name, current_kc) values
