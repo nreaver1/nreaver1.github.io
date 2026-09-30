@@ -12,7 +12,7 @@
 
 import type { CollectionLogDrop, DropRate, HuntingResult, HuntingRow, LuckResult, SnapshotLuck } from "./types.ts";
 
-function labelFor(probability: number): LuckResult["label"] {
+export function labelFor(probability: number): LuckResult["label"] {
   if (probability > 0.99) return "desert";
   if (probability > 0.8) return "dry";
   if (probability < 0.1) return "spooned";
@@ -101,20 +101,32 @@ export function snapshotLuck(
   }
   const trials = kc * rate.rolls_per_kill;
   const p = rate.numerator / rate.denominator;
-  if (quantity > trials || !(p > 0 && p < 1)) return null;
+  const probability = binomialMidP(trials, p, quantity);
+  if (probability === null) return null;
+  return { kc, quantity, probability, label: labelFor(probability) };
+}
+
+/**
+ * Mid-p of k successes in `trials` tries at chance p: P(X > k) + P(X = k)/2
+ * for X ~ Binomial(trials, p). High means fewer than most fair players
+ * would get. Null when k can't happen (more than trials) or p isn't a
+ * real chance. Also used for whole-page pools (_shared/pools.ts).
+ */
+export function binomialMidP(trials: number, p: number, k: number): number | null {
+  if (!Number.isInteger(trials) || !Number.isInteger(k) || k < 0 || k > trials) return null;
+  if (!(p > 0 && p < 1)) return null;
 
   // Walk the pmf in log space, since P(X = 0) = (1-p)^n underflows for
   // long grinds.
   const logRatio = Math.log(p) - Math.log1p(-p);
   let logPmf = trials * Math.log1p(-p);
   let below = 0; // P(X < k)
-  for (let j = 0; j < quantity; j++) {
+  for (let j = 0; j < k; j++) {
     below += Math.exp(logPmf);
     logPmf += Math.log(trials - j) - Math.log(j + 1) + logRatio;
   }
   const exactly = Math.exp(logPmf); // P(X = k)
-  const probability = Math.min(1, Math.max(0, 1 - below - exactly / 2));
-  return { kc, quantity, probability, label: labelFor(probability) };
+  return Math.min(1, Math.max(0, 1 - below - exactly / 2));
 }
 
 /**

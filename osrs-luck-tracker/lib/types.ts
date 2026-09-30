@@ -42,6 +42,32 @@ export interface HuntingResult {
   item_name?: string;
 }
 
+/** One of a pool's two questions; high `probability` is dry, as everywhere. */
+export interface PoolScore {
+  count: number;
+  expected: number;
+  probability: number;
+  label: LuckLabel;
+}
+
+/**
+ * A log page rated as a whole, for pages where many items share one rate
+ * (Barrows, Moons of Peril). Mirrors PoolResult in _shared/pools.ts.
+ */
+export interface PoolResult {
+  source_name: string;
+  kc: number;
+  item_ids: number[];
+  obtained_ids: number[];
+  quantities: Record<string, number>;
+  /** Copies of any pool item. Null when a slot had no quantity to count. */
+  total: PoolScore | null;
+  /** Different pool items obtained, out of `of`. */
+  distinct: PoolScore & { of: number };
+  /** Resolved client-side, by item id. */
+  item_names?: Record<string, string>;
+}
+
 export interface PlayerLuckResponse {
   ign: string;
   /** A seeded sample account (seed-demo.sql), badged as "Demo". */
@@ -49,6 +75,8 @@ export interface PlayerLuckResponse {
   results: LuckResult[];
   /** Driest first. Missing from APIs older than migration 0008. */
   hunting?: HuntingResult[];
+  /** Whole-page luck. Missing from APIs older than migration 0009. */
+  pools?: PoolResult[];
   mostSpooned: LuckResult | null;
   driest: LuckResult | null;
 }

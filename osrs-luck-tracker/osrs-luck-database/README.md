@@ -17,6 +17,7 @@ supabase/
     0006_profile_visibility.sql           -- players.profile_public (hide profile); leaderboard views honor it
     0007_backfill_snapshot.sql            -- snapshot_kc + snapshot_quantity on backfilled rows (KC snapshot estimate)
     0008_hunting_items.sql                -- hunting_items: rated items a player's log shows as not yet obtained
+    0009_log_pages.sql                    -- log_pages: each page's latest read, for whole-page (pooled) luck
   functions/
     _shared/types.ts                      -- shared TS types
     _shared/calculations.ts               -- the luck calculation engine (pure functions)
@@ -149,6 +150,24 @@ now" as a tracked drop, so high is dry. Flat rates only. A pair the
 account has any drop row for is left out, so a tracked drop takes over
 immediately. The list stays out of `results`, so the leaderboard,
 overall luck and comparisons never see it.
+
+### Pooled log pages (migration 0009)
+
+On Barrows Chests all 24 pieces share one rate, so at a given kill
+count every piece with one copy gets the same estimate, and every
+missing piece the same "still hunting" number: one fact repeated 24
+times. For sources in `POOLED_SOURCES` (`_shared/pools.ts`; Barrows
+Chests and Moons of Peril so far), items with a shared flat rate (at
+least 3 of them) are rated together from the page's latest read in
+`log_pages`:
+
+- **Uniques:** total copies against Binomial(kc × rolls_per_kill, Σp).
+- **Log slots:** different items against Binomial(pool size, chance a
+  given one has dropped by now).
+
+Both use the same mid-p as snapshots, so high is dry. A pooled item
+then gets no per-item snapshot or hunting row. The total is left out if
+an obtained pool item had no quantity (a stackable slot).
 
 ## Verifying the calculation engine
 

@@ -11,10 +11,16 @@
 // driest summary for their profile page, and `demo: true` for the seeded
 // sample accounts. `hunting` lists rated items the player has none of yet
 // (migration 0008), driest first; it's kept apart from `results` so the
-// summary and everything built on results never count it.
+// summary and everything built on results never count it. `pools` rates
+// whole log pages whose items share one rate (migration 0009,
+// _shared/pools.ts); a pooled item then has no per-item snapshot or
+// hunting row, since the pool says the same thing once. The POST form
+// also returns `log_pages`, the page reads the backend holds, so the
+// plugin can send only what changed.
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { calculateLuck, huntingLuck, summarizePlayerLuck } from "../_shared/calculations.ts";
+import { POOLED_SOURCES, poolsForPage, type LogPage, type PoolResult } from "../_shared/pools.ts";
 import { getSecretKey } from "../_shared/secret-key.ts";
 import {
   isAccountHash,
@@ -48,6 +54,7 @@ Deno.serve(async (req) => {
   if (limited) return limited;
 
   let player: { account_hash: string; ign: string };
+  const isOwner = req.method === "POST";
 
   if (req.method === "POST") {
     let body: { install_token?: unknown; account_hash?: unknown };
@@ -113,8 +120,17 @@ Deno.serve(async (req) => {
 
   if (huntingError) return serverError("get-player-luck: hunting lookup failed", huntingError);
 
-  if ((!drops || drops.length === 0) && (!huntingRows || huntingRows.length === 0)) {
-    return json({ ign: player.ign, demo, results: [], hunting: [], mostSpooned: null, driest: null }, 200);
+  const { data: logPages, error: pagesError } = await supabase
+    .from("log_pages")
+    .select("source_name, kc, obtained, quantities")
+    .eq("account_hash", player.account_hash);
+
+  if (pagesError) return serverError("get-player-luck: page lookup failed", pagesError);
+
+  const ownerPages = isOwner ? { log_pages: logPages ?? [] } : {};
+
+  if ((!drops || drops.length === 0) && (!huntingRows || huntingRows.length === 0) && (!logPages || logPages.length === 0)) {
+    return json({ ign: player.ign, demo, results: [], hunting: [], pools: [], mostSpooned: null, driest: null, ...ownerPages }, 200);
   }
 
   // Batch-fetch drop_rates rows for these items; matched to exact
@@ -134,6 +150,20 @@ Deno.serve(async (req) => {
 
   if (ratesError) return serverError("get-player-luck: rate lookup failed", ratesError);
 
+  // A pool needs every rate from its source, not just the player's items.
+  const pooledPages = (logPages ?? []).filter((p: LogPage) => POOLED_SOURCES.has(p.source_name));
+  let poolRates: DropRate[] = [];
+  if (pooledPages.length > 0) {
+    const { data, error } = await supabase
+      .from("drop_rates")
+      .select("*")
+      .in("source_name", pooledPages.map((p: LogPage) => p.source_name));
+    if (error) return serverError("get-player-luck: pool rate lookup failed", error);
+    poolRates = data ?? [];
+  }
+  const pools: PoolResult[] = pooledPages.flatMap((p: LogPage) => poolsForPage(p, poolRates));
+  const pooledPairs = new Set(pools.flatMap((p) => p.item_ids.map((id) => `${id}::${p.source_name}`)));
+
   const rateMap = new Map<string, DropRate>();
   for (const r of rates ?? []) {
     rateMap.set(`${r.item_id}::${r.source_name}`, r);
@@ -143,7 +173,12 @@ Deno.serve(async (req) => {
     .map((d: CollectionLogDrop) => {
       const rate = rateMap.get(`${d.item_id}::${d.source_name}`);
       if (!rate) return null; // no reference rate yet — skip rather than guess
-      return calculateLuck(d, rate);
+      const result = calculateLuck(d, rate);
+      if (result.snapshot && pooledPairs.has(`${d.item_id}::${d.source_name}`)) {
+        const { snapshot: _pooled, ...rest } = result;
+        return rest;
+      }
+      return result;
     })
     .filter((r) => r !== null);
 
@@ -154,6 +189,7 @@ Deno.serve(async (req) => {
   const recorded = new Set((drops ?? []).map((d: CollectionLogDrop) => `${d.item_id}::${d.source_name}`));
   const hunting = (huntingRows ?? [])
     .filter((h: HuntingRow) => !recorded.has(`${h.item_id}::${h.source_name}`))
+    .filter((h: HuntingRow) => !pooledPairs.has(`${h.item_id}::${h.source_name}`))
     .map((h: HuntingRow) => {
       const rate = rateMap.get(`${h.item_id}::${h.source_name}`);
       return rate ? huntingLuck(h, rate) : null;
@@ -161,5 +197,5 @@ Deno.serve(async (req) => {
     .filter((h): h is HuntingResult => h !== null)
     .sort((a, b) => b.probability - a.probability);
 
-  return json({ ign: player.ign, demo, results, hunting, mostSpooned, driest }, 200);
+  return json({ ign: player.ign, demo, results, hunting, pools, mostSpooned, driest, ...ownerPages }, 200);
 });

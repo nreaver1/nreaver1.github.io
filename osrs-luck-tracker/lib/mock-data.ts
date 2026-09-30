@@ -234,8 +234,15 @@ const BACKLOGGED: PlayerLuckResponse = {
     backfilled(11832, "General Graardor", snapshot(1100, 1, 0.864, "dry")),
     backfilled(11834, "General Graardor", snapshot(1100, 3, 0.439, "average")),
     backfilled(11836, "General Graardor", snapshot(1100, 2, 0.668, "average")),
-    backfilled(4708, "Barrows Chests", snapshot(200, 1, 0.274, "average")),
-    backfilled(4718, "Barrows Chests", snapshot(200, 2, 0.067, "spooned")),
+    // Barrows is pooled (BACKLOGGED.pools below), so these have no per-item estimate.
+    backfilled(4708, "Barrows Chests"),
+    backfilled(4718, "Barrows Chests"),
+    backfilled(4712, "Barrows Chests"),
+    backfilled(4720, "Barrows Chests"),
+    backfilled(4730, "Barrows Chests"),
+    backfilled(4745, "Barrows Chests"),
+    backfilled(4755, "Barrows Chests"),
+    backfilled(4759, "Barrows Chests"),
     flat(13227, "Cerberus", 700, 0.74, "average", 3),
   ],
   mostSpooned: null,
@@ -251,16 +258,30 @@ const hunting = (item_id: number, source_name: string, kc: number, probability: 
 });
 BACKLOGGED.hunting = [
   hunting(11812, "General Graardor", 1100, 0.8855, "dry"),
-  hunting(4734, "Barrows Chests", 200, 0.4356, "average"),
-  hunting(4726, "Barrows Chests", 200, 0.4356, "average"),
   hunting(12650, "General Graardor", 1100, 0.1975, "average"),
+];
+// Mirrors seed-demo.sql's log_pages row, with the numbers get-player-luck returns for it.
+const BARROWS_PIECES = [
+  4708, 4710, 4712, 4714, 4716, 4718, 4720, 4722, 4724, 4726, 4728, 4730, 4732, 4734, 4736, 4738, 4745, 4747, 4749,
+  4751, 4753, 4755, 4757, 4759,
+];
+BACKLOGGED.pools = [
+  {
+    source_name: "Barrows Chests",
+    kc: 200,
+    item_ids: BARROWS_PIECES,
+    obtained_ids: [4708, 4712, 4718, 4720, 4730, 4745, 4755, 4759],
+    quantities: { "4708": 1, "4712": 1, "4718": 2, "4720": 1, "4730": 1, "4745": 1, "4755": 1, "4759": 1 },
+    total: { count: 9, expected: 13.725, probability: 0.9041, label: "dry" },
+    distinct: { count: 8, of: 24, expected: 10.455, probability: 0.8388, label: "dry" },
+  },
 ];
 DRY_BONES.hunting = [
   hunting(12819, "Corporeal Beast", 30420, 0.9994, "desert"),
   hunting(12921, "Zulrah", 20108, 0.9934, "desert"),
 ];
-BACKLOGGED.mostSpooned = BACKLOGGED.results[5];
-BACKLOGGED.driest = BACKLOGGED.results[5];
+BACKLOGGED.mostSpooned = BACKLOGGED.results[BACKLOGGED.results.length - 1];
+BACKLOGGED.driest = BACKLOGGED.results[BACKLOGGED.results.length - 1];
 
 const DEMO_PLAYERS: Record<string, PlayerLuckResponse> = {
   zezima: ZEZIMA,

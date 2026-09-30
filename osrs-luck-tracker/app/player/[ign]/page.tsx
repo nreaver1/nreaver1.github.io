@@ -6,6 +6,7 @@ import SummaryCard from "@/components/SummaryCard";
 import LuckScale from "@/components/LuckScale";
 import LuckTable from "@/components/LuckTable";
 import HuntingTable from "@/components/HuntingTable";
+import PoolCard from "@/components/PoolCard";
 import SearchBar from "@/components/SearchBar";
 import PlayerLink from "@/components/PlayerLink";
 import CompareCard from "@/components/CompareCard";
@@ -120,6 +121,22 @@ export default async function PlayerPage({
           </div>
           <LuckTable results={data.results} />
         </div>
+
+        {data.pools && data.pools.length > 0 && (
+          <div className="mt-10">
+            <h2 className="font-mono text-xs uppercase tracking-wide text-parchment-dim">By log page</h2>
+            <p className="mb-4 mt-1 max-w-xl text-sm text-parchment-dim">
+              Every unique on these pages shares one drop rate, so each item alone would show the same number. Rated
+              as a page instead: how many uniques, and how many different ones, against a fair player at the same
+              kill count.
+            </p>
+            <div className="grid gap-4 sm:grid-cols-2">
+              {data.pools.map((pool) => (
+                <PoolCard key={pool.source_name} pool={pool} />
+              ))}
+            </div>
+          </div>
+        )}
 
         {data.hunting && data.hunting.length > 0 && (
           <div className="mt-10">
