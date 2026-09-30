@@ -6,6 +6,7 @@ import BacklogToggle, { EstimatesToggle, withoutEstimate } from "./BacklogToggle
 import LuckBar from "./LuckBar";
 import LuckBadge from "./LuckBadge";
 import ItemIcon from "./ItemIcon";
+import PityBadge from "./PityBadge";
 
 export const SNAPSHOT_DESCRIPTION = "chance a fair player has more by this KC, counting ties as half";
 
@@ -54,6 +55,7 @@ function LuckCell({ r, showBadge = false }: { r: LuckResult; showBadge?: boolean
         <span className="font-mono text-xs text-parchment-dim">est.</span>
       )}
       {showBadge && <LuckBadge probability={r.probability} />}
+      {r.pity && <PityBadge />}
     </div>
   );
 }

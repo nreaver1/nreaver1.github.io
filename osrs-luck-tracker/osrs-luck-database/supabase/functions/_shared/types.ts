@@ -81,6 +81,9 @@ export interface LuckResult {
                         // third, distinct state from both a real result and "unsupported"
   // Backfilled flat-rate items with a KC snapshot only; see SnapshotLuck.
   snapshot?: SnapshotLuck;
+  // Set when the drop came on the kill its pity timer guarantees it
+  // (isPityDrop in calculations.ts). Absent otherwise.
+  pity?: true;
   // POST (owner) responses only, on backfilled rows: whether the row has a
   // stored KC snapshot, shown or not. The plugin uses it to know which
   // imports still need one.
