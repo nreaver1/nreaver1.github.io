@@ -16,12 +16,35 @@
 import { binomialMidP, geometricCDF, labelFor } from "./calculations.ts";
 import type { DropRate, LuckResult } from "./types.ts";
 
-// Pages rated as pools, by drop_rates source name. Start small: these are
-// the pages where every unique shares one rate.
-export const POOLED_SOURCES = new Set(["Barrows Chests", "Moons of Peril"]);
+// The pools, by drop_rates source name: items that share one flat rate
+// and appear only on that source's log page. A slot the log fills on
+// several drop sources' pages (godsword shards, Virtus, uncut onyx)
+// counts copies from all of them, so it's never listed; pages that only
+// index items, like "Slayer" for the Hydra parts, don't matter. Each
+// page also needs a single kill count for the plugin to send a read, which
+// rules out Dagannoth Kings, The Nightmare and Wintertodt.
+export const POOLS: Record<string, number[]> = {
+  "Abyssal Sire": [13274, 13275, 13276], // bludgeon pieces
+  "Alchemical Hydra": [22969, 22971, 22973], // heart, fang, eye
+  "Araxxor": [29790, 29792, 29794], // noxious pieces
+  "Barrows Chests": [
+    4708, 4710, 4712, 4714, 4716, 4718, 4720, 4722, 4724, 4726, 4728, 4730,
+    4732, 4734, 4736, 4738, 4745, 4747, 4749, 4751, 4753, 4755, 4757, 4759,
+  ], // the 24 brothers' pieces
+  "Cerberus": [13227, 13229, 13231, 13233], // crystals and smouldering stone
+  "General Graardor": [11832, 11834, 11836], // Bandos armour
+  "Kree'arra": [11826, 11828, 11830], // Armadyl armour
+  "Moons of Peril": [
+    28988, 28997, 29000, 29004, 29007, 29010, 29013, 29016, 29019, 29022, 29025, 29028,
+  ], // the three moons' armour and weapons
+  "Nex": [26372, 26376, 26378, 26380], // Torva and Nihil horn
+  // Not Royal Titans: each kill loots one titan, so only two of its four
+  // uniques can roll, and a prayer scroll stops dropping once read.
+  "Yama": [30750, 30753, 30756], // Oathplate
+  "Zulrah": [12922, 12927, 12932], // fang, visage, magic fang
+};
 
-// Fewer shared-rate items than this and per-item numbers say enough.
-const MIN_POOL_SIZE = 3;
+export const POOLED_SOURCES = new Set(Object.keys(POOLS));
 
 export interface LogPage {
   source_name: string;
@@ -52,69 +75,70 @@ export interface PoolResult {
 const rateKey = (r: DropRate) => `${r.numerator}/${r.denominator}x${r.rolls_per_kill}`;
 
 /**
- * The pools for one log page: each group of at least MIN_POOL_SIZE
- * flat-rate items from the page's source sharing one rate. Empty for a
- * source not in POOLED_SOURCES.
+ * The pool for one log page, as a list of zero or one: POOLS' items for
+ * the page's source. Empty for a source without a pool, and also when
+ * any listed item is missing from the catalog or the items no longer
+ * share one flat rate (say a wiki resync changed one), rather than
+ * rating a mix of rates as if they were one.
  */
 export function poolsForPage(page: LogPage, rates: DropRate[]): PoolResult[] {
-  if (!POOLED_SOURCES.has(page.source_name) || !(page.kc > 0)) return [];
+  const ids = POOLS[page.source_name];
+  if (!ids || !(page.kc > 0)) return [];
 
-  const groups = new Map<string, DropRate[]>();
-  for (const r of rates) {
-    if (r.source_name !== page.source_name || r.distribution_type !== "flat_geometric") continue;
-    const group = groups.get(rateKey(r)) ?? [];
+  const byItem = new Map(
+    rates.filter((r) => r.source_name === page.source_name).map((r) => [r.item_id, r]),
+  );
+  const group: DropRate[] = [];
+  for (const id of ids) {
+    const r = byItem.get(id);
+    if (!r || r.distribution_type !== "flat_geometric") return [];
     group.push(r);
-    groups.set(rateKey(r), group);
   }
+  if (new Set(group.map(rateKey)).size !== 1) return [];
 
+  const { numerator, denominator, rolls_per_kill } = group[0];
+  const p = numerator / denominator;
+  const trials = page.kc * rolls_per_kill;
+  const itemIds = [...ids].sort((a, b) => a - b);
   const obtained = new Set(page.obtained);
-  const results: PoolResult[] = [];
-  for (const group of groups.values()) {
-    if (group.length < MIN_POOL_SIZE) continue;
-    const { numerator, denominator, rolls_per_kill } = group[0];
-    const p = numerator / denominator;
-    const trials = page.kc * rolls_per_kill;
-    const itemIds = group.map((r) => r.item_id).sort((a, b) => a - b);
-    const obtainedIds = itemIds.filter((id) => obtained.has(id));
+  const obtainedIds = itemIds.filter((id) => obtained.has(id));
 
-    const quantities: Record<string, number> = {};
-    let total = 0;
-    let counted = true;
-    for (const id of obtainedIds) {
-      const q = page.quantities[String(id)];
-      if (!(Number.isInteger(q) && q >= 1)) {
-        counted = false;
-        continue;
-      }
-      quantities[String(id)] = q;
-      total += q;
+  const quantities: Record<string, number> = {};
+  let total = 0;
+  let counted = true;
+  for (const id of obtainedIds) {
+    const q = page.quantities[String(id)];
+    if (!(Number.isInteger(q) && q >= 1)) {
+      counted = false;
+      continue;
     }
-
-    // Chance one given item has dropped at least once by now.
-    const eachByNow = geometricCDF(page.kc, numerator, denominator, rolls_per_kill);
-    const distinctP = binomialMidP(itemIds.length, eachByNow, obtainedIds.length);
-    if (distinctP === null) continue;
-
-    const poolP = p * itemIds.length;
-    const totalP = counted && poolP < 1 ? binomialMidP(trials, poolP, total) : null;
-
-    results.push({
-      source_name: page.source_name,
-      kc: page.kc,
-      item_ids: itemIds,
-      obtained_ids: obtainedIds,
-      quantities,
-      total: totalP === null
-        ? null
-        : { count: total, expected: trials * poolP, probability: totalP, label: labelFor(totalP) },
-      distinct: {
-        count: obtainedIds.length,
-        of: itemIds.length,
-        expected: itemIds.length * eachByNow,
-        probability: distinctP,
-        label: labelFor(distinctP),
-      },
-    });
+    quantities[String(id)] = q;
+    total += q;
   }
-  return results;
+
+  // Chance one given item has dropped at least once by now.
+  const eachByNow = geometricCDF(page.kc, numerator, denominator, rolls_per_kill);
+  const distinctP = binomialMidP(itemIds.length, eachByNow, obtainedIds.length);
+  if (distinctP === null) return [];
+
+  const poolP = p * itemIds.length;
+  const totalP = counted && poolP < 1 ? binomialMidP(trials, poolP, total) : null;
+
+  return [{
+    source_name: page.source_name,
+    kc: page.kc,
+    item_ids: itemIds,
+    obtained_ids: obtainedIds,
+    quantities,
+    total: totalP === null
+      ? null
+      : { count: total, expected: trials * poolP, probability: totalP, label: labelFor(totalP) },
+    distinct: {
+      count: obtainedIds.length,
+      of: itemIds.length,
+      expected: itemIds.length * eachByNow,
+      probability: distinctP,
+      label: labelFor(distinctP),
+    },
+  }];
 }
