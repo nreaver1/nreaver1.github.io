@@ -1,6 +1,6 @@
 {
   "_about": [
-    "Hand-curated drop_rates rows for drops the wiki sync can't parse: raid uniques (points_based) and pity-timer drops (streak_adjusted).",
+    "Hand-curated drop_rates rows for drops the wiki sync can't parse: raid uniques (points_based), pity-timer drops (streak_adjusted), and flat rates the sync gets wrong (Royal Titans, where a kill loots one of two titans).",
     "Load with scripts/load-manual-rates.ts. sync-drop-rates.ts skips every (item_id, source_name) listed here so it can't overwrite them.",
     "Transcribed from the OSRS Wiki on 2026-09-24 (CoX weights reflect the 12 August 2026 change). `wiki` names the page each row came from; `item_name` is for reading only.",
     "points_based: chance per activity ~ (avg_points_per_activity / points_per_roll) * numerator / denominator. streak_adjusted: see streakAdjustedApprox in supabase/functions/_shared/calculations.ts."
@@ -1220,6 +1220,62 @@
         "assumption": "First quartz only: 1/200 rising linearly to 1/50 over the first 300 kills, adjusted for the earlier rolls that have to fail first (1/215.2 to 1/53.8). Normal (not awakened) kills."
       },
       "wiki": "Shadow quartz"
+    },
+    {
+      "rolls_per_kill": 1,
+      "item_id": 30626,
+      "item_name": "Deadeye prayer scroll",
+      "source_name": "Royal Titans",
+      "distribution_type": "flat_geometric",
+      "numerator": 1,
+      "denominator": 150,
+      "metadata": {
+        "assumption": "1/75 per titan looted (Royal Titans page, pre-roll table), and a kill loots one titan: Branda drops the fire crown and Mystic vigour scroll, Eldric the ice crown and Deadeye scroll. Assumes every kill is looted, half from each titan, so 1/150 per kill. A prayer scroll stops dropping once read, so it only has a first copy.",
+        "titan": "Eldric"
+      },
+      "wiki": "Royal Titans"
+    },
+    {
+      "rolls_per_kill": 1,
+      "item_id": 30627,
+      "item_name": "Mystic vigour prayer scroll",
+      "source_name": "Royal Titans",
+      "distribution_type": "flat_geometric",
+      "numerator": 1,
+      "denominator": 150,
+      "metadata": {
+        "assumption": "1/75 per titan looted (Royal Titans page, pre-roll table), and a kill loots one titan: Branda drops the fire crown and Mystic vigour scroll, Eldric the ice crown and Deadeye scroll. Assumes every kill is looted, half from each titan, so 1/150 per kill. A prayer scroll stops dropping once read, so it only has a first copy.",
+        "titan": "Branda"
+      },
+      "wiki": "Royal Titans"
+    },
+    {
+      "rolls_per_kill": 1,
+      "item_id": 30628,
+      "item_name": "Ice element staff crown",
+      "source_name": "Royal Titans",
+      "distribution_type": "flat_geometric",
+      "numerator": 1,
+      "denominator": 150,
+      "metadata": {
+        "assumption": "1/75 per titan looted (Royal Titans page, pre-roll table), and a kill loots one titan: Branda drops the fire crown and Mystic vigour scroll, Eldric the ice crown and Deadeye scroll. Assumes every kill is looted, half from each titan, so 1/150 per kill. A prayer scroll stops dropping once read, so it only has a first copy.",
+        "titan": "Eldric"
+      },
+      "wiki": "Royal Titans"
+    },
+    {
+      "rolls_per_kill": 1,
+      "item_id": 30631,
+      "item_name": "Fire element staff crown",
+      "source_name": "Royal Titans",
+      "distribution_type": "flat_geometric",
+      "numerator": 1,
+      "denominator": 150,
+      "metadata": {
+        "assumption": "1/75 per titan looted (Royal Titans page, pre-roll table), and a kill loots one titan: Branda drops the fire crown and Mystic vigour scroll, Eldric the ice crown and Deadeye scroll. Assumes every kill is looted, half from each titan, so 1/150 per kill. A prayer scroll stops dropping once read, so it only has a first copy.",
+        "titan": "Branda"
+      },
+      "wiki": "Royal Titans"
     }
   ]
 }
