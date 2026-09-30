@@ -1,4 +1,4 @@
-import type { LeaderboardEntry, LeaderboardResponse, PlayerLuckResponse, SnapshotLuck } from "./types";
+import type { LeaderboardEntry, LeaderboardResponse, LuckLabel, PlayerLuckResponse, SnapshotLuck } from "./types";
 import { MIN_RATED_DROPS, isRated, overallLuck } from "./overall";
 
 // Drop dates relative to now, like seed-demo.sql's `now() - interval`.
@@ -241,6 +241,24 @@ const BACKLOGGED: PlayerLuckResponse = {
   mostSpooned: null,
   driest: null,
 };
+// Mirrors seed-demo.sql's hunting_items, driest first as the API sorts them.
+const hunting = (item_id: number, source_name: string, kc: number, probability: number, label: LuckLabel) => ({
+  item_id,
+  source_name,
+  kc,
+  probability,
+  label,
+});
+BACKLOGGED.hunting = [
+  hunting(11812, "General Graardor", 1100, 0.8855, "dry"),
+  hunting(4734, "Barrows Chests", 200, 0.4356, "average"),
+  hunting(4726, "Barrows Chests", 200, 0.4356, "average"),
+  hunting(12650, "General Graardor", 1100, 0.1975, "average"),
+];
+DRY_BONES.hunting = [
+  hunting(12819, "Corporeal Beast", 30420, 0.9994, "desert"),
+  hunting(12921, "Zulrah", 20108, 0.9934, "desert"),
+];
 BACKLOGGED.mostSpooned = BACKLOGGED.results[5];
 BACKLOGGED.driest = BACKLOGGED.results[5];
 

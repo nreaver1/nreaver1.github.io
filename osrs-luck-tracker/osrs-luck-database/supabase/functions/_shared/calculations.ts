@@ -10,7 +10,7 @@
 //   multi_roll        - not supported in v1, returns `supported: false`
 //   unsupported       - not supported, returns `supported: false`
 
-import type { CollectionLogDrop, DropRate, LuckResult, SnapshotLuck } from "./types.ts";
+import type { CollectionLogDrop, DropRate, HuntingResult, HuntingRow, LuckResult, SnapshotLuck } from "./types.ts";
 
 function labelFor(probability: number): LuckResult["label"] {
   if (probability > 0.99) return "desert";
@@ -115,6 +115,28 @@ export function snapshotLuck(
   const exactly = Math.exp(logPmf); // P(X = k)
   const probability = Math.min(1, Math.max(0, 1 - below - exactly / 2));
   return { kc, quantity, probability, label: labelFor(probability) };
+}
+
+/**
+ * "Still hunting": the player has none of the item after `kc` kills (its
+ * collection log slot is empty). Rated like a tracked drop that hasn't
+ * happened yet: geometricCDF(kc), the chance a fair player would have had
+ * it by now, so high is dry and the labels mean the same as for drops.
+ *
+ * Flat rates only, for the same reasons as snapshotLuck. Null for other
+ * distribution types or no kills.
+ */
+export function huntingLuck(row: HuntingRow, rate: DropRate): HuntingResult | null {
+  if (rate.distribution_type !== "flat_geometric") return null;
+  if (!Number.isInteger(row.kc) || row.kc <= 0) return null;
+  const probability = geometricCDF(row.kc, rate.numerator, rate.denominator, rate.rolls_per_kill);
+  return {
+    item_id: row.item_id,
+    source_name: row.source_name,
+    kc: row.kc,
+    probability,
+    label: labelFor(probability),
+  };
 }
 
 export interface PityRamp {

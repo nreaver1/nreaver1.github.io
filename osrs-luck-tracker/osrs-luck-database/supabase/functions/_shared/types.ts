@@ -51,6 +51,23 @@ export interface SnapshotLuck {
   label: "spooned" | "average" | "dry" | "desert";
 }
 
+// "N kills and no drop yet" for an item whose log slot is still empty
+// (migration 0008). Returned in its own `hunting` list, never mixed into
+// `results`, so leaderboard, overall luck and comparisons can't use it.
+export interface HuntingResult {
+  item_id: number;
+  source_name: string;
+  kc: number; // the log page's kill count when last read
+  probability: number; // chance a fair player would have had the drop by now
+  label: "spooned" | "average" | "dry" | "desert";
+}
+
+export interface HuntingRow {
+  item_id: number;
+  source_name: string;
+  kc: number;
+}
+
 export interface LuckResult {
   item_id: number;
   source_name: string;

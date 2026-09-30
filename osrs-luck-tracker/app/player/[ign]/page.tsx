@@ -5,6 +5,7 @@ import type { PlayerLuckResponse } from "@/lib/types";
 import SummaryCard from "@/components/SummaryCard";
 import LuckScale from "@/components/LuckScale";
 import LuckTable from "@/components/LuckTable";
+import HuntingTable from "@/components/HuntingTable";
 import SearchBar from "@/components/SearchBar";
 import PlayerLink from "@/components/PlayerLink";
 import CompareCard from "@/components/CompareCard";
@@ -119,6 +120,17 @@ export default async function PlayerPage({
           </div>
           <LuckTable results={data.results} />
         </div>
+
+        {data.hunting && data.hunting.length > 0 && (
+          <div className="mt-10">
+            <h2 className="font-mono text-xs uppercase tracking-wide text-parchment-dim">Still hunting</h2>
+            <p className="mb-4 mt-1 max-w-xl text-sm text-parchment-dim">
+              Drops the collection log shows {data.ign} doesn&rsquo;t have yet, and how many players would have
+              had one by the same kill count.
+            </p>
+            <HuntingTable hunting={data.hunting} />
+          </div>
+        )}
       </div>
     );
   }
