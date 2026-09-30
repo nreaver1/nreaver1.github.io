@@ -148,7 +148,7 @@ export default function ComparisonTable({
   rows: ComparisonRow[];
 }) {
   const [showBacklog, setShowBacklog] = useState(true);
-  const [showEstimates, setShowEstimates] = useState(true);
+  const [showEstimates, setShowEstimates] = useState(false);
 
   if (allRows.length === 0) {
     return <p className="text-sm text-parchment-dim">None of these players have logged drops yet.</p>;

@@ -200,7 +200,7 @@ function SortHeader({
 
 export default function LuckTable({ results: allResults }: { results: LuckResult[] }) {
   const [showBacklog, setShowBacklog] = useState(true);
-  const [showEstimates, setShowEstimates] = useState(true);
+  const [showEstimates, setShowEstimates] = useState(false);
   const [sort, setSort] = useState<Sort>(DEFAULT_SORT);
 
   if (allResults.length === 0) {
