@@ -21,12 +21,12 @@ A shared ledger for tracking wins and losses between friends across any game or 
 
 ---
 
-### [OSRS Luck Tracker](https://osrs-luck-tracker.vercel.app)
+### [Clog Casino](https://osrs-luck-tracker.vercel.app)
 Shows how "spooned" or "dry" an Old School RuneScape player was for each collection log drop. A RuneLite plugin reports new drops (and can import an existing collection log), a Supabase backend works out the odds of getting each item at that kill count, and the website shows a player's luck drop by drop, an overall luck percentile, side-by-side comparisons with other players, and a luckiest/driest leaderboard.
 
 Built with Next.js, Tailwind, Supabase (Postgres + Deno edge functions) and a Java RuneLite plugin.
 
-**→ Repo:** [github.com/nreaver1/nreaver1.github.io/tree/master/osrs-luck-tracker](https://github.com/nreaver1/nreaver1.github.io/tree/master/osrs-luck-tracker)
+**→ Repo:** [github.com/nreaver1/nreaver1.github.io/tree/master/osrs-luck-tracker](https://github.com/nreaver1/nreaver1.github.io/tree/master/osrs-luck-tracker) · plugin: [github.com/nreaver1/osrs-luck-tracker-plugin](https://github.com/nreaver1/osrs-luck-tracker-plugin)
 
 ---
 
