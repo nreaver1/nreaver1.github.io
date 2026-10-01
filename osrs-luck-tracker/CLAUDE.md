@@ -10,7 +10,7 @@ OSRS Collection Log Luck Tracker: shows how "spooned" or "dry" a player was for 
 |---|---|---|
 | `./` (root: `app/`, `components/`, `lib/`) | Website: home search + player profile | Next.js 16 App Router, React 18, Tailwind 3, TypeScript |
 | `osrs-luck-database/` | Schema, luck calculation engine, edge functions | Supabase (Postgres + Deno edge functions) |
-| `osrs-luck-plugin/` | RuneLite plugin that reports new drops | Java 11, Gradle, Lombok |
+| `osrs-luck-plugin/` | RuneLite plugin that reports new drops (git submodule of [nreaver1/osrs-luck-tracker-plugin](https://github.com/nreaver1/osrs-luck-tracker-plugin)) | Java 11, Gradle, Lombok |
 
 Data flow: the plugin calls `/register` (mints an `install_token`), then `/ingest-drop` or `/backfill-drop`. The site calls `/get-player-luck?ign=X`. Each sub-project has its own README with detailed status and rationale, so read that before making larger changes.
 
@@ -36,7 +36,7 @@ npx deno test --no-config --allow-read supabase/functions/_shared/ scripts/
 ```
 `supabase projects api-keys --project-ref <ref> --reveal` prints the secret key (without `--reveal` it's masked and gets "Invalid API key").
 
-Plugin (from `osrs-luck-plugin/`):
+Plugin (from `osrs-luck-plugin/`). It's a git submodule: the code lives in its own public repo (the Plugin Hub builds from a repo root), so a fresh clone needs `git submodule update --init`. Commit and push plugin changes inside `osrs-luck-plugin/` to that repo first, then commit the updated submodule pointer here. `run-dev-client.bat` is a local, ignored launcher.
 ```bash
 ./gradlew build
 ./gradlew test --tests com.osrslucktracker.LuckTrackerPluginTest

@@ -60,7 +60,7 @@ data/
 | Wiki sync script | Done. Covers every item on the 57 Bosses and 3 Raids log pages that has a random drop chance (see "Collection log coverage" below). Run on 2026-09-25: 397 rows. |
 | Item name→id resolution | No longer used by the sync, which takes ids from the game cache. Kept in `_shared/item-resolver.ts`, backed by an offline dataset (`data/osrs_items.json`, 16,141 items, trimmed from the MIT-licensed `osrs-item-data` npm package). Exact-name and base-name matching; ambiguous or unmatched names are skipped and logged rather than guessed at (verified against real collisions, e.g. "Tumeken's shadow" correctly flags ambiguous since it has charged/uncharged variants). |
 | Frontend (Next.js) | Done — see `osrs-luck-frontend/README.md` |
-| RuneLite plugin (Java) | First draft, connected and running against a real deployment — see `osrs-luck-plugin/README.md` for what's verified vs. not |
+| RuneLite plugin (Java) | Running against the live deployment; being prepared for the Plugin Hub. Lives in its own repo, [nreaver1/osrs-luck-tracker-plugin](https://github.com/nreaver1/osrs-luck-tracker-plugin), included here as the `osrs-luck-plugin/` submodule |
 
 ## Setup
 

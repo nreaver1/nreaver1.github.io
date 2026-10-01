@@ -1,0 +1,3 @@
+[submodule "osrs-luck-tracker/osrs-luck-plugin"]
+	path = osrs-luck-tracker/osrs-luck-plugin
+	url = https://github.com/nreaver1/osrs-luck-tracker-plugin.git
