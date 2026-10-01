@@ -1,4 +1,4 @@
-# OSRS Luck Tracker — Frontend
+# Clog Casino — Frontend
 
 Next.js (App Router) + Tailwind. Pages: home (search), player profile
 (luck stats, comparison) and `/leaderboard` (luckiest and driest

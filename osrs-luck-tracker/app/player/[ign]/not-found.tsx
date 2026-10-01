@@ -7,9 +7,10 @@ export default function NotFound() {
         No player logged under that name yet
       </h1>
       <p className="mt-4 max-w-prose text-parchment-dim">
-        Either the name is misspelled, or that player hasn&rsquo;t run the
-        RuneLite plugin yet. Once a collection log slot is filled with
-        the plugin installed, this page fills in automatically.
+        Either the name is misspelled, that player hasn&rsquo;t run the
+        Clog Casino RuneLite plugin yet, or their log is private. Logs
+        show up here once &ldquo;Show my log on the website&rdquo; is
+        turned on in the plugin&rsquo;s settings.
       </p>
       <Link
         href="/"

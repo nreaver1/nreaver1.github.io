@@ -5,7 +5,7 @@ import LuckScale from "@/components/LuckScale";
 import DemoBadge from "@/components/DemoBadge";
 
 export const metadata: Metadata = {
-  title: "Leaderboard · OSRS Luck Tracker",
+  title: "Leaderboard · Clog Casino",
   description: "The luckiest and driest players across every tracked collection log drop.",
 };
 
@@ -62,7 +62,7 @@ export default async function LeaderboardPage() {
 
       <p className="mt-8 max-w-prose font-mono text-xs text-parchment-dim">
         Only players who turn on &ldquo;Show me on the leaderboard&rdquo; in
-        the Luck Tracker RuneLite plugin&rsquo;s settings are listed. Players
+        the Clog Casino RuneLite plugin&rsquo;s settings are listed. Players
         who hide their log from the website are never shown.
       </p>
     </div>

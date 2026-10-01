@@ -18,7 +18,7 @@ const oswald = Oswald({
 });
 
 export const metadata: Metadata = {
-  title: "OSRS Luck Tracker",
+  title: "Clog Casino",
   description:
     "See exactly how spooned or dry you were for every item in your collection log.",
 };

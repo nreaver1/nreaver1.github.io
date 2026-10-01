@@ -1,4 +1,4 @@
-# OSRS Collection Log Luck Tracker — Backend
+# Clog Casino — Backend
 
 Database schema + luck calculation engine. See
 `phase1_db_and_calc_engine_spec.md` (in the parent conversation) for the

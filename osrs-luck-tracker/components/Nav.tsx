@@ -9,7 +9,7 @@ export default function Nav() {
         className="inline-flex items-baseline gap-2 text-parchment no-underline"
       >
         <span className="text-lg font-medium">
-          Luck <span className="text-brass">Tracker</span>
+          Clog <span className="text-brass">Casino</span>
         </span>
         <span className="font-mono text-xs text-parchment-dim">
           osrs collection log
