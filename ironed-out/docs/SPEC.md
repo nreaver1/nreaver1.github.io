@@ -266,8 +266,19 @@ items, max 5, newest first) plus `last_event_id`. `POST /outings/:id/seen {last_
       `outing_views.viewer_key` is `anon:<sha256>`. The first visit only records a baseline (no
       banner). A viewer's own changes are left out; identical lines collapse; the cursor never
       moves backwards or past the newest event. The organizer sees the banner too (no grab button)._
-- [ ] **M6 Notifications** – prefs UI, SMS/email fan-out, coalescing, quiet hours, reminders,
+- [x] **M6 Notifications** – prefs UI, SMS/email fan-out, coalescing, quiet hours, reminders,
       STOP handling.
+      _Done 2026-10-02. Decided with the owner: a Postgres outbox table `notifications` instead of
+      pg-boss (no always-on worker on Vercel). Rows are written in the same transaction as the
+      outing event; change alerts for one player/outing/channel merge while pending (2-minute
+      window). `/api/internal/dispatch` (Bearer `CRON_SECRET`) schedules reminders and sends
+      what's due; GitHub Actions calls it every 5 minutes (`.github/workflows/ironed-out-dispatch.yml`
+      at the repo root) and Vercel Cron daily as a backstop, plus a best-effort run right after
+      each change. Removed players always get told (unless they replied STOP). The 2-hour
+      reminder ignores quiet hours (an early tee time would otherwise miss it). Account holders
+      verify a phone on the Alerts screen; phone-only players manage texts with STOP/START.
+      Inbound texts: `/api/webhooks/twilio/sms` (signature-checked). In SMS demo mode texts are
+      recorded as sent and shown on the Alerts screen; message bodies are stored without the link._
 - [ ] **M7 Crews** – crews, crew invite links, start outing from crew, notify crew on new outing.
 - [ ] **M8 Partner API** – OAuth client credentials, scopes, idempotency, OpenAPI, webhooks with
       signing + retries, API docs page.

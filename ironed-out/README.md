@@ -63,6 +63,11 @@ Live at **https://ironed-out-alpha.vercel.app** (sample invite: `/demo`).
   `DATABASE_URL_UNPOOLED` (owner). Production builds run `scripts/migrate.ts` and
   `scripts/seed.ts` first; migrate creates/updates the `ironed_app` login role from
   `APP_DB_PASSWORD`, and the app connects as that role so Row-Level Security applies.
-- Production env: `APP_SECRET`, `APP_DB_PASSWORD`, `APP_URL`. Optional: `RESEND_API_KEY` +
-  `EMAIL_FROM` (email), `TWILIO_*` (real SMS; without them the app runs in SMS demo mode).
+- Production env: `APP_SECRET`, `APP_DB_PASSWORD`, `APP_URL`, `CRON_SECRET`. Optional:
+  `RESEND_API_KEY` + `EMAIL_FROM` (email), `TWILIO_*` (real SMS; without them the app runs in
+  SMS demo mode). With Twilio, point the Messaging Service's inbound webhook at
+  `/api/webhooks/twilio/sms`.
+- Texts/emails: `/api/internal/dispatch` sends what's due. The repo-root workflow
+  `ironed-out-dispatch.yml` calls it every 5 minutes with the `IRONED_OUT_CRON_SECRET` repo
+  secret (same value as `CRON_SECRET`); Vercel Cron calls it daily as a backstop.
 - Preview deployments build but aren't configured to run (no secrets on Preview).

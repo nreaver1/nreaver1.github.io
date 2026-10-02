@@ -71,6 +71,20 @@
       "when": 1790969691113,
       "tag": "0009_invites_rls",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1790972811877,
+      "tag": "0010_notifications",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1790972812954,
+      "tag": "0011_notifications_rls",
+      "breakpoints": true
     }
   ]
 }

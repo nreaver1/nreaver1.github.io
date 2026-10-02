@@ -5,6 +5,7 @@ import { claimAsPlayer, confirmClaim, dropOut, startClaim } from '@/server/domai
 import { markSeen, viewerKeyOf } from '@/server/domain/feed';
 import { resolveInviteToken } from '@/server/domain/invites';
 import { DomainError, isDomainError } from '@/server/errors';
+import { dispatchSoon } from '@/web/dispatch';
 import { getServices } from '@/web/services';
 import { requestContext } from '@/web/session';
 import { clearDeviceCookie, ensureAnonKey, getViewer, setDeviceCookie } from '@/web/viewer';
@@ -24,6 +25,7 @@ export type ClaimActionState = {
 const refresh = (token: string) => {
   revalidatePath(`/t/${token}`);
   revalidatePath('/home');
+  dispatchSoon();
 };
 
 async function outingFor(token: string) {

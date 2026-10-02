@@ -6,6 +6,7 @@ import { CONSUMER_TENANT_SLUG } from '@/server/db/seed';
 import type { Db } from '@/server/db/types';
 import { appSecret, getEnv, isSmsDemo } from '@/server/env';
 import { OutboxMailer, ResendMailer, type Mailer } from '@/server/notify/email';
+import { DemoSms, TwilioSms, type SmsSender } from '@/server/notify/sms';
 import { DemoVerifier, TwilioVerifier, type PhoneVerifier } from '@/server/notify/verify';
 import { hibpBreachChecker, type BreachChecker } from '@/server/security/password';
 
@@ -14,6 +15,7 @@ export type Services = {
   tenantId: string;
   mailer: Mailer;
   verifier: PhoneVerifier;
+  sms: SmsSender;
   isBreached: BreachChecker;
   appUrl: string;
   secret: string;
@@ -46,6 +48,14 @@ function getVerifier(db: Db): PhoneVerifier {
   return new DemoVerifier(db, appSecret(env));
 }
 
+function getSms(): SmsSender {
+  const env = getEnv();
+  if (env.TWILIO_ACCOUNT_SID && env.TWILIO_AUTH_TOKEN && env.TWILIO_MESSAGING_SERVICE_SID) {
+    return new TwilioSms(env.TWILIO_ACCOUNT_SID, env.TWILIO_AUTH_TOKEN, env.TWILIO_MESSAGING_SERVICE_SID);
+  }
+  return new DemoSms();
+}
+
 async function getConsumerTenantId(db: Db): Promise<string> {
   if (globalForServices.__ioTenantId) return globalForServices.__ioTenantId;
   const [t] = await db.select({ id: tenants.id }).from(tenants).where(eq(tenants.slug, CONSUMER_TENANT_SLUG));
@@ -63,6 +73,7 @@ export async function getServices(): Promise<Services> {
     tenantId: await getConsumerTenantId(db),
     mailer: getMailer(),
     verifier: getVerifier(db),
+    sms: getSms(),
     isBreached: hibpBreachChecker(),
     appUrl: env.APP_URL.replace(/\/$/, ''),
     secret: appSecret(env),

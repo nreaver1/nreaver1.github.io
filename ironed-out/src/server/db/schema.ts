@@ -16,6 +16,7 @@ import {
   primaryKey,
   smallint,
   text,
+  time,
   timestamp,
   uniqueIndex,
   uuid,
@@ -361,3 +362,92 @@ export const verificationCodes = pgTable(
   },
   (t) => [index('verification_codes_phone_idx').on(t.phoneE164, t.createdAt)],
 );
+
+/** Player-owned rows are visible when the player is (players carry the tenant policy). */
+const viaPlayer = (table: string) =>
+  pgPolicy(`${table}_via_player`, {
+    as: 'permissive',
+    for: 'all',
+    using: sql`player_id in (select id from players)`,
+    withCheck: sql`player_id in (select id from players)`,
+  });
+
+/** The alert types a player can switch on/off per channel (SPEC §3.5). */
+export const alertType = pgEnum('alert_type', ['join', 'drop', 'change', 'remind_day', 'remind_2h']);
+
+export const notificationPrefs = pgTable(
+  'notification_prefs',
+  {
+    playerId: uuid('player_id')
+      .notNull()
+      .references(() => players.id, { onDelete: 'cascade' }),
+    eventType: alertType('event_type').notNull(),
+    sms: boolean('sms').notNull(),
+    email: boolean('email').notNull(),
+    ...timestamps,
+  },
+  (t) => [primaryKey({ columns: [t.playerId, t.eventType] }), viaPlayer('notification_prefs')],
+).enableRLS();
+
+export const notificationSettings = pgTable(
+  'notification_settings',
+  {
+    playerId: uuid('player_id')
+      .primaryKey()
+      .references(() => players.id, { onDelete: 'cascade' }),
+    /** Null start/end = quiet hours off. No row = defaults (10 PM to 7 AM). */
+    quietStart: time('quiet_start'),
+    quietEnd: time('quiet_end'),
+    timezone: text('timezone'),
+    smsOptedOutAt: timestamp('sms_opted_out_at', { withTimezone: true }),
+    ...timestamps,
+  },
+  () => [viaPlayer('notification_settings')],
+).enableRLS();
+
+export const notificationChannel = pgEnum('notification_channel', ['sms', 'email']);
+export const notificationKind = pgEnum('notification_kind', ['change', 'removed', 'remind_day', 'remind_2h']);
+export const notificationStatus = pgEnum('notification_status', ['pending', 'sent', 'skipped', 'failed']);
+
+/**
+ * Outbox of texts/emails (replaces pg-boss; see SPEC §5). Rows are written in the same transaction
+ * as the outing event and sent by the dispatcher once `send_after` passes. Change alerts for the
+ * same player, outing and channel coalesce into one pending row.
+ */
+export const notifications = pgTable(
+  'notifications',
+  {
+    id: id(),
+    tenantId: uuid('tenant_id')
+      .notNull()
+      .references(() => tenants.id),
+    playerId: uuid('player_id')
+      .notNull()
+      .references(() => players.id, { onDelete: 'cascade' }),
+    outingId: uuid('outing_id').references(() => outings.id, { onDelete: 'cascade' }),
+    channel: notificationChannel('channel').notNull(),
+    kind: notificationKind('kind').notNull(),
+    /** Merge key for pending change alerts; once-only key for reminders. */
+    key: text('key'),
+    eventIds: jsonb('event_ids').$type<number[]>().notNull().default([]),
+    sendAfter: timestamp('send_after', { withTimezone: true }).notNull(),
+    status: notificationStatus('status').notNull().default('pending'),
+    attempts: smallint('attempts').notNull().default(0),
+    lastError: text('last_error'),
+    /** What was sent, without the link (kept for the demo history and support). */
+    body: text('body'),
+    sentAt: timestamp('sent_at', { withTimezone: true }),
+    ...timestamps,
+  },
+  (t) => [
+    uniqueIndex('notifications_pending_key')
+      .on(t.key)
+      .where(sql`${t.status} = 'pending' and ${t.key} is not null`),
+    uniqueIndex('notifications_reminder_once')
+      .on(t.key)
+      .where(sql`${t.kind} in ('remind_day', 'remind_2h')`),
+    index('notifications_due_idx').on(t.status, t.sendAfter),
+    index('notifications_player_idx').on(t.playerId, t.createdAt),
+    tenantIsolation('notifications'),
+  ],
+).enableRLS();

@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
+import { BottomNav } from '@/components/BottomNav';
 import { PlusIcon } from '@/components/icons';
 import styles from '@/components/outing/outing.module.css';
 import { spotsText, teeSummary } from '@/components/outing/spots';
@@ -19,44 +20,47 @@ export default async function HomePage() {
   const [next, ...later] = outings;
 
   return (
-    <main className="page">
-      <div>
-        <h1 style={{ fontSize: 46 }}>Hey {firstName(user.name)}</h1>
-        <p className="muted">
-          {next ? 'Here’s what’s on the tee sheet.' : 'Nothing on the tee sheet yet. Start one below.'}
-        </p>
-      </div>
+    <>
+      <main className="page">
+        <div>
+          <h1 style={{ fontSize: 46 }}>Hey {firstName(user.name)}</h1>
+          <p className="muted">
+            {next ? 'Here’s what’s on the tee sheet.' : 'Nothing on the tee sheet yet. Start one below.'}
+          </p>
+        </div>
 
-      {next && <NextUp view={next} />}
+        {next && <NextUp view={next} />}
 
-      <ButtonLink href="/outings/new" variant="danger">
-        <PlusIcon /> New outing
-      </ButtonLink>
+        <ButtonLink href="/outings/new" variant="danger">
+          <PlusIcon /> New outing
+        </ButtonLink>
 
-      {later.length > 0 && (
-        <section aria-labelledby="later" className={home.list}>
-          <h2 id="later" className={home.sectionTitle}>
-            Coming up
-          </h2>
-          {later.map((o) => (
-            <Link key={o.id} href={`/outings/${o.id}`} className={home.row}>
-              <span>
-                <span className={`display ${home.rowTitle}`}>{o.course.name}</span>
-                <span className="muted">
-                  {formatPlayDate(o.playDate)} · {spotsText(o)}
+        {later.length > 0 && (
+          <section aria-labelledby="later" className={home.list}>
+            <h2 id="later" className={home.sectionTitle}>
+              Coming up
+            </h2>
+            {later.map((o) => (
+              <Link key={o.id} href={`/outings/${o.id}`} className={home.row}>
+                <span>
+                  <span className={`display ${home.rowTitle}`}>{o.course.name}</span>
+                  <span className="muted">
+                    {formatPlayDate(o.playDate)} · {spotsText(o)}
+                  </span>
                 </span>
-              </span>
-            </Link>
-          ))}
-        </section>
-      )}
+              </Link>
+            ))}
+          </section>
+        )}
 
-      <form action={logOutAction} style={{ alignSelf: 'center' }}>
-        <Button type="submit" variant="ghost" style={{ color: 'var(--muted)' }}>
-          Log out
-        </Button>
-      </form>
-    </main>
+        <form action={logOutAction} style={{ alignSelf: 'center' }}>
+          <Button type="submit" variant="ghost" style={{ color: 'var(--muted)' }}>
+            Log out
+          </Button>
+        </form>
+      </main>
+      <BottomNav current="home" />
+    </>
   );
 }
 

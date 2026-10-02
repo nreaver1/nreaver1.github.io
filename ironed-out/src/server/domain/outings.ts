@@ -6,6 +6,7 @@ import { courses, outingEvents, outings, players, slots, teeTimes } from '../db/
 import { withTenant } from '../db/tenant';
 import type { Db, Tx } from '../db/types';
 import { DomainError } from '../errors';
+import { enqueueForEvent } from './notifications';
 import { parseInput } from '../validation';
 
 export type OutingsDeps = { db: Db; tenantId: string; now?: () => Date };
@@ -266,7 +267,10 @@ export async function recordEvent(
     .update(outings)
     .set({ version: sql`${outings.version} + 1` })
     .where(eq(outings.id, outingId));
-  return Number(e!.id);
+  const eventId = Number(e!.id);
+  // Texts/emails go into the outbox in the same transaction (SPEC §5).
+  await enqueueForEvent(tx, { id: eventId, outingId, type, actorPlayerId, payload });
+  return eventId;
 }
 
 export async function lockOuting(tx: Tx, outingId: string) {

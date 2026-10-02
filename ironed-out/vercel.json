@@ -3,5 +3,11 @@
   "framework": "nextjs",
   "installCommand": "npx -y pnpm@12.8.1 install --frozen-lockfile",
   "buildCommand": "node scripts/vercel-build.mjs",
-  "ignoreCommand": "[ -n \"$VERCEL_GIT_PREVIOUS_SHA\" ] && git diff --quiet $VERCEL_GIT_PREVIOUS_SHA HEAD ./"
+  "ignoreCommand": "[ -n \"$VERCEL_GIT_PREVIOUS_SHA\" ] && git diff --quiet $VERCEL_GIT_PREVIOUS_SHA HEAD ./",
+  "crons": [
+    {
+      "path": "/api/internal/dispatch",
+      "schedule": "0 13 * * *"
+    }
+  ]
 }

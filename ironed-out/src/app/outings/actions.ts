@@ -18,6 +18,7 @@ import {
 } from '@/server/domain/outings';
 import { isDomainError } from '@/server/errors';
 import { str, toFormState, type FormState } from '@/web/form-state';
+import { dispatchSoon } from '@/web/dispatch';
 import { getServices } from '@/web/services';
 import { requestContext, requireUser } from '@/web/session';
 
@@ -34,6 +35,7 @@ async function organizerAction(run: (actor: { playerId: string; ip: string | nul
   }
   revalidatePath('/outings/[id]', 'page');
   revalidatePath('/home');
+  dispatchSoon();
   return {};
 }
 
@@ -120,6 +122,7 @@ export async function memberDropOutAction(outingId: string): Promise<ClaimAction
   }
   revalidatePath('/outings/[id]', 'page');
   revalidatePath('/home');
+  dispatchSoon();
   return { ok: true };
 }
 

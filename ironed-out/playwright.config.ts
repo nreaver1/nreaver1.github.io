@@ -37,6 +37,8 @@ export default defineConfig({
         APP_URL: `http://localhost:${PORT}`,
         APP_SECRET: 'e2e-only-app-secret-0123456789abcdef',
         NEXT_DIST_DIR: '.next-e2e',
+        CRON_SECRET: 'e2e-cron-secret-0123456789',
+        NOTIFY_COALESCE_SECONDS: '0',
       },
       url: `http://localhost:${PORT}/api/v1/health`,
       reuseExistingServer: false,

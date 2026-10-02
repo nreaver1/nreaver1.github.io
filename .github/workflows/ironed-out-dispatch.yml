@@ -1,0 +1,28 @@
+# Ironed Out: sends due texts/emails and schedules reminders every 5 minutes.
+# Vercel's free plan only runs cron daily, so GitHub Actions does the frequent calls.
+# (GitHub may delay scheduled runs by a few minutes when busy.)
+name: Ironed Out dispatch
+
+on:
+  schedule:
+    - cron: '*/5 * * * *'
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: ironed-out-dispatch
+  cancel-in-progress: false
+
+jobs:
+  dispatch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Call the dispatcher
+        env:
+          CRON_SECRET: ${{ secrets.IRONED_OUT_CRON_SECRET }}
+        run: |
+          curl --fail-with-body --silent --show-error --max-time 60 \
+            -X POST -H "Authorization: Bearer $CRON_SECRET" \
+            https://ironed-out-alpha.vercel.app/api/internal/dispatch

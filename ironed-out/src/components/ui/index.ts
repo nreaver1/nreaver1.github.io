@@ -4,3 +4,4 @@ export { Input, type InputProps } from './Input';
 export { Pill, PillGroup, type PillOption, type PillProps } from './Pill';
 export { Sheet, type SheetProps } from './Sheet';
 export { Stepper, type StepperProps } from './Stepper';
+export { Switch, type SwitchProps } from './Switch';

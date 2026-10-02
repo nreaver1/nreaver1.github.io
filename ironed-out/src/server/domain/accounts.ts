@@ -6,6 +6,8 @@ import { withTenant } from '../db/tenant';
 import type { Db } from '../db/types';
 import { DomainError } from '../errors';
 import type { Mailer } from '../notify/email';
+import type { PhoneVerifier } from '../notify/verify';
+import { maskPhone, normalizePhone } from '../phone';
 import {
   PASSWORD_MAX,
   PASSWORD_MIN,
@@ -284,4 +286,79 @@ export async function resetPassword(deps: AccountsDeps, input: unknown, ctx: Req
     return claimed.userId;
   });
   return { userId, session: await createSession(deps, userId, ctx) };
+}
+
+// ---------------------------------------------------------------------------------------------
+// Phone for alerts (Alerts screen): verify a number for an account holder.
+// ---------------------------------------------------------------------------------------------
+
+export type PhoneDeps = { db: Db; tenantId: string; verifier: PhoneVerifier; now?: () => Date };
+
+const PhoneOnly = z.object({
+  phone: z
+    .string()
+    .trim()
+    .transform((v, c) => {
+      const e164 = normalizePhone(v);
+      if (!e164) {
+        c.addIssue({ code: 'custom', message: 'Enter a 10-digit mobile number.' });
+        return z.NEVER;
+      }
+      return e164;
+    }),
+});
+const PhoneAndCode = PhoneOnly.extend({
+  code: z
+    .string()
+    .trim()
+    .regex(/^\d{6}$/, 'Enter the 6-digit code.'),
+});
+
+export async function startPhoneVerification(
+  deps: PhoneDeps,
+  userId: string,
+  input: unknown,
+  ctx: RequestContext,
+) {
+  const { phone } = parseInput(PhoneOnly, input);
+  await hit(
+    deps.db,
+    [
+      { key: `code:phone:${sha256(phone)}`, max: 5, windowSec: 3600 },
+      { key: `code:user:${userId}`, max: 10, windowSec: 3600 },
+      { key: `code:ip:${ipKey(ctx)}`, max: 20, windowSec: 3600 },
+    ],
+    nowOf(deps),
+  );
+  const r = await deps.verifier.start(phone, 'phone');
+  return { phoneMasked: maskPhone(phone), demoCode: r.demoCode };
+}
+
+export async function confirmPhoneVerification(
+  deps: PhoneDeps,
+  userId: string,
+  input: unknown,
+  ctx: RequestContext,
+) {
+  const { phone, code } = parseInput(PhoneAndCode, input);
+  await hit(deps.db, [{ key: `code-check:ip:${ipKey(ctx)}`, max: 30, windowSec: 3600 }], nowOf(deps));
+  const result = await deps.verifier.check(phone, code, 'phone');
+  if (result !== 'ok') {
+    const message = result === 'wrong' ? "That code didn't match." : 'That code expired. Send a new one.';
+    throw new DomainError(result === 'wrong' ? 'invalid_input' : 'gone', message, {
+      fields: { code: message },
+    });
+  }
+  await withTenant(deps.db, deps.tenantId, async (tx) => {
+    await tx
+      .update(users)
+      .set({ phoneE164: phone, phoneVerifiedAt: nowOf(deps) })
+      .where(eq(users.id, userId));
+    await audit(tx, {
+      tenantId: deps.tenantId,
+      actor: `user:${userId}`,
+      action: 'auth.phone_verified',
+      ip: ctx.ip,
+    });
+  });
 }
