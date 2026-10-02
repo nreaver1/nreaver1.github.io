@@ -7,8 +7,14 @@ import { withTenant } from '../db/tenant';
 import { OutboxMailer } from '../notify/email';
 import { DemoSms } from '../notify/sms';
 import {
+  acceptCrewInvite,
+  cancelCrewInvite,
   createCrew,
+  declineCrewInvite,
+  deliverCrewInvite,
   getCrew,
+  inviteToCrew,
+  invitesForUser,
   joinCrew,
   leaveCrew,
   listCrews,
@@ -18,7 +24,7 @@ import {
   type CrewDeps,
 } from './crews';
 import { ensureInviteLink } from './invites';
-import { runDispatch, setQuietHours } from './notifications';
+import { handleInboundSms, runDispatch, setQuietHours } from './notifications';
 import { createOuting } from './outings';
 
 let t: TestDb;
@@ -169,5 +175,138 @@ describe('starting an outing with a crew', () => {
       return tx.select({ crewId: outings.crewId }).from(outings).where(eq(outings.id, outingId));
     });
     expect(saved?.crewId).toBe(crewId);
+  });
+});
+
+describe('personal invites ("invited" members)', () => {
+  const services = () => ({
+    ...deps,
+    sms: new DemoSms(),
+    mailer: new OutboxMailer(),
+    appUrl: 'https://ironed.test',
+  });
+
+  it('invites by phone or email, shows them as invited, and delivers a personal link', async () => {
+    const mike = await account('Mike Golfer');
+    const crewId = await createCrew(deps, mike.userId, { name: 'Saturday Hackers' });
+    const s = services();
+
+    const byPhone = await inviteToCrew(deps, mike.userId, crewId, {
+      name: 'Alex Ace',
+      contact: '(410) 555-0401',
+    });
+    expect(await deliverCrewInvite(s, byPhone)).toBe('sms');
+    expect(s.sms.sent[0]).toEqual({
+      to: '+14105550401',
+      body: `Ironed Out: Mike invited you to Saturday Hackers, their golf crew. Join to hear about tee times: https://ironed.test/g/${byPhone.token} Reply STOP to opt out.`,
+    });
+
+    const byEmail = await inviteToCrew(deps, mike.userId, crewId, {
+      name: 'Rob Rough',
+      contact: 'ROB@example.com',
+    });
+    expect(await deliverCrewInvite(s, byEmail)).toBe('email');
+    expect(s.mailer.messages[0]).toMatchObject({
+      to: 'rob@example.com',
+      subject: 'Mike invited you to Saturday Hackers on Ironed Out',
+    });
+
+    const view = (await getCrew(deps, mike.userId, crewId))!;
+    expect(view.invited.map((i) => `${i.name}:${i.contact}`)).toEqual([
+      'Alex Ace:•••-•••-0401',
+      'Rob Rough:rob@example.com',
+    ]);
+    expect((await listCrews(deps, mike.userId))[0]).toMatchObject({ memberCount: 1, pendingCount: 2 });
+
+    // Re-inviting the same number refreshes the invite instead of adding another.
+    const again = await inviteToCrew(deps, mike.userId, crewId, { name: 'Alex A.', contact: '4105550401' });
+    expect(again.inviteId).toBe(byPhone.inviteId);
+    expect((await getCrew(deps, mike.userId, crewId))!.invited).toHaveLength(2);
+
+    await expect(
+      inviteToCrew(deps, mike.userId, crewId, { name: 'Nobody', contact: 'not a contact' }),
+    ).rejects.toMatchObject({ code: 'invalid_input' });
+  });
+
+  it('only the owner invites, and members don’t see contact details', async () => {
+    const mike = await account('Mike Golfer');
+    const jen = await account('Jen Putts');
+    const crewId = await createCrew(deps, mike.userId, { name: 'Crew' });
+    await joinCrew(deps, jen.userId, (await getCrew(deps, mike.userId, crewId))!.inviteToken);
+    await inviteToCrew(deps, mike.userId, crewId, { name: 'Alex Ace', contact: 'alex@example.com' });
+    await expect(
+      inviteToCrew(deps, jen.userId, crewId, { name: 'Sam', contact: 'sam@example.com' }),
+    ).rejects.toMatchObject({ code: 'forbidden' });
+    expect((await getCrew(deps, jen.userId, crewId))!.invited).toEqual([
+      { inviteId: expect.any(String), name: 'Alex Ace', contact: null, token: null },
+    ]);
+  });
+
+  it('someone with a matching account accepts from Home; declining hides it', async () => {
+    const mike = await account('Mike Golfer');
+    const crewId = await createCrew(deps, mike.userId, { name: 'Saturday Hackers' });
+    const tony = await account('Tony Fairway', '+14105550402');
+    const dee = await account('Dee Long');
+    const deeEmail = await withTenant(t.db, t.tenantId, async (tx) => {
+      const [u] = await tx.select({ email: users.email }).from(users).where(eq(users.id, dee.userId));
+      return u!.email;
+    });
+    await inviteToCrew(deps, mike.userId, crewId, { name: 'Tony', contact: '410-555-0402' });
+    await inviteToCrew(deps, mike.userId, crewId, { name: 'Dee', contact: deeEmail });
+
+    const forTony = await invitesForUser(deps, tony.userId);
+    expect(forTony).toEqual([
+      { inviteId: expect.any(String), crewId, crewName: 'Saturday Hackers', fromName: 'Mike Golfer' },
+    ]);
+    await acceptCrewInvite(deps, tony.userId, forTony[0]!.inviteId);
+    expect(await invitesForUser(deps, tony.userId)).toEqual([]);
+    expect((await getCrew(deps, tony.userId, crewId))!.members.map((m) => m.name)).toContain('Tony Fairway');
+
+    const forDee = await invitesForUser(deps, dee.userId);
+    await declineCrewInvite(deps, dee.userId, forDee[0]!.inviteId);
+    expect(await invitesForUser(deps, dee.userId)).toEqual([]);
+    expect((await getCrew(deps, mike.userId, crewId))!.invited).toEqual([]);
+
+    // Someone else can't accept an invite that wasn't for them.
+    const sam = await account('Sam Bunker');
+    const inv = await inviteToCrew(deps, mike.userId, crewId, { name: 'Pat', contact: 'pat@example.com' });
+    await expect(acceptCrewInvite(deps, sam.userId, inv.inviteId)).rejects.toMatchObject({ code: 'gone' });
+  });
+
+  it('a personal link works once, the owner can cancel it, and STOP blocks invite texts', async () => {
+    const mike = await account('Mike Golfer');
+    const crewId = await createCrew(deps, mike.userId, { name: 'Saturday Hackers' });
+    const inv = await inviteToCrew(deps, mike.userId, crewId, {
+      name: 'Alex Ace',
+      contact: 'alex2@example.com',
+    });
+    expect(await resolveCrewToken(deps, inv.token)).toMatchObject({
+      name: 'Saturday Hackers',
+      inviteeName: 'Alex Ace',
+    });
+
+    const alex = await account('Alex Ace');
+    await joinCrew(deps, alex.userId, inv.token);
+    expect(await resolveCrewToken(deps, inv.token)).toBeNull();
+    expect((await getCrew(deps, mike.userId, crewId))!.invited).toEqual([]);
+
+    const other = await inviteToCrew(deps, mike.userId, crewId, { name: 'Rob', contact: '4105550403' });
+    await cancelCrewInvite(deps, mike.userId, other.inviteId);
+    expect(await resolveCrewToken(deps, other.token)).toBeNull();
+
+    // A number that replied STOP doesn't get invite texts.
+    const stopper = await withTenant(t.db, t.tenantId, async (tx) => {
+      const [p] = await tx
+        .insert(players)
+        .values({ tenantId: t.tenantId, displayName: 'Stop Stu', phoneE164: '+14105550404' })
+        .returning();
+      return p!;
+    });
+    await handleInboundSms(t.db, '+14105550404', 'STOP');
+    const s = services();
+    const toStopper = await inviteToCrew(deps, mike.userId, crewId, { name: 'Stu', contact: '4105550404' });
+    expect(await deliverCrewInvite(s, toStopper)).toBe('skipped');
+    expect(s.sms.sent).toEqual([]);
+    expect(stopper.displayName).toBe('Stop Stu');
   });
 });

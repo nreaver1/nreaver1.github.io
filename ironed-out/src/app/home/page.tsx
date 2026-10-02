@@ -6,12 +6,13 @@ import styles from '@/components/outing/outing.module.css';
 import { spotsText, teeSummary } from '@/components/outing/spots';
 import { Button, ButtonLink, Card } from '@/components/ui';
 import { firstName, formatPlayDate } from '@/lib/format';
-import { listCrews } from '@/server/domain/crews';
+import { invitesForUser, listCrews } from '@/server/domain/crews';
 import { listUpcomingOutings, type OutingView } from '@/server/domain/outings';
 import { getServices } from '@/web/services';
 import { requireUser } from '@/web/session';
 import { logOutAction } from '../(auth)/actions';
 import { CrewList } from '../crews/CrewList';
+import { CrewInvites } from './CrewInvites';
 import home from './home.module.css';
 
 export const metadata: Metadata = { title: 'Home' };
@@ -19,9 +20,10 @@ export const metadata: Metadata = { title: 'Home' };
 export default async function HomePage() {
   const user = await requireUser('/home');
   const services = await getServices();
-  const [outings, crews] = await Promise.all([
+  const [outings, crews, crewInvites] = await Promise.all([
     listUpcomingOutings(services, user.playerId),
     listCrews(services, user.userId),
+    invitesForUser(services, user.userId),
   ]);
   const [next, ...later] = outings;
 
@@ -35,6 +37,7 @@ export default async function HomePage() {
           </p>
         </div>
 
+        {crewInvites.length > 0 && <CrewInvites invites={crewInvites} />}
         {next && <NextUp view={next} />}
 
         <ButtonLink href="/outings/new" variant="danger">

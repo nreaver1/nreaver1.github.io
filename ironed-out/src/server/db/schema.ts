@@ -507,7 +507,14 @@ export const crewMembers = pgTable(
   ],
 ).enableRLS();
 
-/** Crew invite links: token derived from the row id with the app secret; only the hash stored. */
+export const crewInviteKind = pgEnum('crew_invite_kind', ['link', 'personal']);
+export const crewInviteStatus = pgEnum('crew_invite_status', ['open', 'accepted', 'declined', 'canceled']);
+
+/**
+ * Crew invites. `link` rows are the crew's shareable link; `personal` rows invite one person by
+ * name + phone or email and show as "invited" until they join. Either way the token is derived
+ * from the row id with the app secret and only its hash is stored.
+ */
 export const crewInvites = pgTable(
   'crew_invites',
   {
@@ -515,11 +522,30 @@ export const crewInvites = pgTable(
     crewId: uuid('crew_id')
       .notNull()
       .references(() => crews.id, { onDelete: 'cascade' }),
+    kind: crewInviteKind('kind').notNull().default('link'),
     tokenHash: text('token_hash').notNull().unique(),
+    inviteeName: text('invitee_name'),
+    inviteeEmail: citext('invitee_email'),
+    inviteePhone: text('invitee_phone'),
+    status: crewInviteStatus('status').notNull().default('open'),
+    acceptedBy: uuid('accepted_by').references(() => users.id, { onDelete: 'set null' }),
     expiresAt: timestamp('expires_at', { withTimezone: true }),
     revokedAt: timestamp('revoked_at', { withTimezone: true }),
     createdBy: uuid('created_by').references(() => users.id),
     ...timestamps,
   },
-  (t) => [index('crew_invites_crew_idx').on(t.crewId), viaCrew('crew_invites')],
+  (t) => [
+    index('crew_invites_crew_idx').on(t.crewId),
+    index('crew_invites_email_idx')
+      .on(t.inviteeEmail)
+      .where(sql`${t.status} = 'open'`),
+    index('crew_invites_phone_idx')
+      .on(t.inviteePhone)
+      .where(sql`${t.status} = 'open'`),
+    check(
+      'crew_invites_personal_shape',
+      sql`${t.kind} = 'link' or (${t.inviteeName} is not null and (${t.inviteeEmail} is not null or ${t.inviteePhone} is not null))`,
+    ),
+    viaCrew('crew_invites'),
+  ],
 ).enableRLS();

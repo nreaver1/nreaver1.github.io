@@ -31,7 +31,10 @@ export default async function CrewInvitePage({ params }: { params: Promise<{ tok
   const next = encodeURIComponent(`/g/${token}`);
   return (
     <main className="page">
-      <p className="muted">{crew.ownerName.split(' ')[0]} invited you to</p>
+      <p className="muted">
+        {crew.ownerName.split(' ')[0]} invited you
+        {crew.inviteeName ? `, ${crew.inviteeName.split(' ')[0]},` : ''} to
+      </p>
       <h1 style={{ fontSize: 52, color: 'var(--fairway-dark)' }}>{crew.name}</h1>
       <p style={{ fontSize: 19 }}>
         {crew.memberCount} {crew.memberCount === 1 ? 'golfer' : 'golfers'} so far. Join and you’ll get a text

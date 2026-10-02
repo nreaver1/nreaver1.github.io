@@ -110,3 +110,45 @@
   color: var(--red-text);
   min-height: 1px;
 }
+
+.inviteList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.inviteRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 0;
+  border-bottom: 2px dashed var(--dash-faint);
+}
+
+.inviteRow:last-child {
+  border-bottom: none;
+}
+
+.inviteWho {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  font-size: 18px;
+  line-height: 1.15;
+  overflow-wrap: anywhere;
+}
+
+.inviteActions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex-shrink: 0;
+}
+
+.inviteActions .remove {
+  width: var(--touch);
+  height: var(--touch);
+}

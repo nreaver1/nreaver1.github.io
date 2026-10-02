@@ -95,7 +95,11 @@ sessions(id, user_id, token_hash, expires_at, ip, user_agent, revoked_at)
 players(id, tenant_id, user_id null unique, display_name, phone_e164 null, phone_verified_at null)
 crews(id, tenant_id, name, owner_user_id)
 crew_members(crew_id, user_id, role enum(owner,member), status enum(active,pending), PK(crew_id,user_id))
-crew_invites(id, crew_id, token_hash unique, expires_at, revoked_at, created_by)
+crew_invites(id, crew_id, kind enum(link,personal), token_hash unique, invitee_name null,
+             invitee_email null, invitee_phone null, status enum(open,accepted,declined,canceled),
+             accepted_by null, expires_at, revoked_at, created_by)
+  -- kind=link: the crew's shareable link. kind=personal: one person invited by name + phone or
+  -- email; shown as "invited" (dashed) until they join. Added 2026-10-02 with the owner's OK.
 courses(id, name, address, city, region, country, lat, lng, is_public bool,
         source enum(seed,provider,manual), external_ids jsonb, geog geography(Point) )
 outings(id, tenant_id, organizer_player_id, crew_id null, course_id, play_date date, timezone,
@@ -283,8 +287,11 @@ items, max 5, newest first) plus `last_event_id`. `POST /outings/:id/seen {last_
       _Done 2026-10-02. Crew links live at `/g/<token>` (token derived from the invite id with
       `APP_SECRET`, only the hash stored; owners can make a new link). Joining needs an account;
       people without one sign up and come straight back to the invite. Members join as `active`;
-      the `pending` status from section 4 is supported in the data and UI but nothing creates
-      pending members yet (there's no invite-by-email). Owners can remove members; an owner can
+      owners can also invite one person by name + phone or email (a `personal` crew invite): they
+      get a text or email with their own join link and show as "· invited" until they join.
+      Someone whose account email or verified phone matches sees the invite on Home (Join / No
+      thanks); a personal link stops working once used, canceled, or after 30 days.
+      `crew_members.status = pending` is unused (pending people live in `crew_invites`). Owners can remove members; an owner can
       leave only when alone, which deletes the crew. "New outing" alerts go by text when the
       member has a verified phone (respecting STOP and quiet hours), otherwise by email, and link
       to the outing's invite page. Notification kind `new_outing` added._

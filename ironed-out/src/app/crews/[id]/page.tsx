@@ -19,7 +19,7 @@ export default async function CrewPage({ params }: { params: Promise<{ id: strin
     <>
       <main className="page">
         <h1 className={styles.title}>Your crew</h1>
-        <CrewClient crew={crew} url={`${services.appUrl}/g/${crew.inviteToken}`} />
+        <CrewClient crew={crew} url={`${services.appUrl}/g/${crew.inviteToken}`} appUrl={services.appUrl} />
       </main>
       <BottomNav current="crew" />
     </>
