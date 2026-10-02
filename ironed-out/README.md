@@ -52,3 +52,17 @@ Every tenant-owned table has a `tenant_id` column, RLS enabled **and forced**, a
 - Adding a tenant-owned table: add `tenantIsolation('<table>')` + `.enableRLS()` in `schema.ts`,
   then `ALTER TABLE … FORCE ROW LEVEL SECURITY` in a migration. The "rls coverage" test fails if
   you forget.
+
+## Deployment
+
+Live at **https://ironed-out-alpha.vercel.app** (sample invite: `/demo`).
+
+- Vercel project `ironed-out`, git-connected to `nreaver1/nreaver1.github.io` with Root Directory
+  `ironed-out`. Pushes to `master` that touch this folder deploy to production.
+- Database: Neon Postgres (Vercel marketplace, `iad1`). The integration sets `DATABASE_URL` /
+  `DATABASE_URL_UNPOOLED` (owner). Production builds run `scripts/migrate.ts` and
+  `scripts/seed.ts` first; migrate creates/updates the `ironed_app` login role from
+  `APP_DB_PASSWORD`, and the app connects as that role so Row-Level Security applies.
+- Production env: `APP_SECRET`, `APP_DB_PASSWORD`, `APP_URL`. Optional: `RESEND_API_KEY` +
+  `EMAIL_FROM` (email), `TWILIO_*` (real SMS; without them the app runs in SMS demo mode).
+- Preview deployments build but aren't configured to run (no secrets on Preview).
