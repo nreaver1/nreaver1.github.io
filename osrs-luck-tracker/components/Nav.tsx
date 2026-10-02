@@ -15,10 +15,10 @@ export default function Nav() {
           osrs collection log
         </span>
       </Link>
-      <div className="flex w-full items-center gap-5 sm:w-auto">
+      <div className="flex w-full items-start gap-5 sm:w-auto">
         <Link
           href="/leaderboard"
-          className="shrink-0 font-mono text-sm text-parchment-dim no-underline transition-colors hover:text-brass"
+          className="shrink-0 font-mono text-sm leading-[38px] text-parchment-dim no-underline transition-colors hover:text-brass"
         >
           Leaderboard
         </Link>

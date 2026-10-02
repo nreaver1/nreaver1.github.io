@@ -8,6 +8,7 @@ import LuckTable from "@/components/LuckTable";
 import HuntingGroups from "@/components/HuntingGroups";
 import PoolCard from "@/components/PoolCard";
 import SearchBar from "@/components/SearchBar";
+import DemoQuickLinks from "@/components/DemoQuickLinks";
 import PlayerLink from "@/components/PlayerLink";
 import CompareCard from "@/components/CompareCard";
 import ComparisonTable from "@/components/ComparisonTable";
@@ -63,6 +64,7 @@ export default async function PlayerPage({
   const compareBar = (
     <div className="max-w-md">
       <SearchBar mode="compare" primary={ign} compared={compared} />
+      <DemoQuickLinks mode="compare" primary={ign} compared={compared} />
     </div>
   );
 
@@ -103,6 +105,7 @@ export default async function PlayerPage({
           <OverallCard overall={overallLuck(data.results)} />
           <div className="sm:pt-1">
             <SearchBar mode="compare" primary={ign} compared={compared} compact />
+            <DemoQuickLinks mode="compare" primary={ign} compared={compared} />
             {missingNotice}
           </div>
         </div>

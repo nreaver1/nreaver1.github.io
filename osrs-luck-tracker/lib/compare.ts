@@ -12,7 +12,7 @@ export const MAX_COMPARED = 4;
 // Two spellings of the same player: OSRS treats space, non-breaking
 // space, "_" and "-" in a name as one character, and the backend looks
 // names up case-insensitively (normalizeIgn in the edge functions).
-function nameKey(name: string): string {
+export function nameKey(name: string): string {
   return name.replace(/[\u00a0_-]/g, " ").trim().toLowerCase();
 }
 
