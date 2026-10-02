@@ -2,6 +2,7 @@ import type { LuckResult } from "@/lib/types";
 import LuckBar from "./LuckBar";
 import ItemIcon from "./ItemIcon";
 import PityBadge from "./PityBadge";
+import SourceLink from "./SourceLink";
 
 /** Flame-gradient border and glow, reserved for jackpot/spooned cards. */
 export const HOT_CARD_CLASS =
@@ -61,7 +62,7 @@ export default function SummaryCard({
           </div>
           <p className="mt-1 font-mono text-sm text-parchment-dim">
             {result.kc_received !== null ? `${result.kc_received.toLocaleString()} KC` : ""}
-            {result.kc_received !== null ? " · " : ""}{result.source_name}
+            {result.kc_received !== null ? " · " : ""}<SourceLink source={result.source_name} />
             {result.estimated ? " · estimated" : ""}
             {result.pity && <PityBadge className="ml-2" />}
           </p>

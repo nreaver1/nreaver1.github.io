@@ -2,6 +2,7 @@ import type { PoolResult, PoolScore } from "@/lib/types";
 import LuckBar from "./LuckBar";
 import LuckBadge from "./LuckBadge";
 import ItemIcon from "./ItemIcon";
+import SourceLink from "./SourceLink";
 
 const oneDecimal = (n: number) => n.toLocaleString(undefined, { maximumFractionDigits: 1 });
 
@@ -41,7 +42,7 @@ export default function PoolCard({ pool }: { pool: PoolResult }) {
   return (
     <div className="border border-panel-border bg-panel p-5">
       <div className="flex flex-wrap items-baseline justify-between gap-x-3">
-        <p className="text-lg font-medium text-parchment">{pool.source_name}</p>
+        <p className="text-lg font-medium text-parchment"><SourceLink source={pool.source_name} /></p>
         <p className="font-mono text-xs tabular-nums text-parchment-dim">
           {pool.kc.toLocaleString()} KC at last log read
         </p>

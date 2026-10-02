@@ -40,6 +40,8 @@ export interface HuntingResult {
   /** Chance a fair player would have had the drop by now; high is dry. */
   probability: number;
   label: LuckLabel;
+  /** When `kc` last went up; null if unknown. Missing from older APIs. */
+  updated_at?: string | null;
   item_name?: string;
 }
 

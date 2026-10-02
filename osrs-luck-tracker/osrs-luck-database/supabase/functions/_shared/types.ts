@@ -60,12 +60,16 @@ export interface HuntingResult {
   kc: number; // the log page's kill count when last read
   probability: number; // chance a fair player would have had the drop by now
   label: "spooned" | "average" | "dry" | "desert";
+  // When kc last went up (a page read or a kill-count message), so the
+  // site can put the bosses played most recently first. Null if unknown.
+  updated_at: string | null;
 }
 
 export interface HuntingRow {
   item_id: number;
   source_name: string;
   kc: number;
+  updated_at?: string | null;
 }
 
 export interface LuckResult {

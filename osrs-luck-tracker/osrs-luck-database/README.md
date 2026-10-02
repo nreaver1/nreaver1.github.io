@@ -146,7 +146,10 @@ means none of that item from any source. `/sync-hunting` stores those as
 deleted when the plugin reads the slot as obtained). `get-player-luck`
 returns them as `hunting`, rated by `huntingLuck()`: the geometric CDF
 at that kill count, the same "chance a fair player would have had it by
-now" as a tracked drop, so high is dry. Flat rates only. A pair the
+now" as a tracked drop, so high is dry. Flat rates only. Each row
+carries its `updated_at` (when its kill count last went up), and the list
+comes most recent first, then driest, so the site can group it by source
+with the bosses played lately on top. A pair the
 account has any drop row for is left out, so a tracked drop takes over
 immediately. The list stays out of `results`, so the leaderboard,
 overall luck and comparisons never see it.

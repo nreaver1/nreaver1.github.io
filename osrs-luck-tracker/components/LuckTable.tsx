@@ -7,6 +7,7 @@ import LuckBar from "./LuckBar";
 import LuckBadge from "./LuckBadge";
 import ItemIcon from "./ItemIcon";
 import PityBadge from "./PityBadge";
+import SourceLink from "./SourceLink";
 
 export const SNAPSHOT_DESCRIPTION = "chance a fair player has more by this KC, counting ties as half";
 
@@ -283,7 +284,7 @@ export default function LuckTable({ results: allResults }: { results: LuckResult
                   {itemName(r)}
                 </span>
               </td>
-              <td className="py-3 pr-4 text-parchment-dim">{r.source_name}</td>
+              <td className="py-3 pr-4 text-parchment-dim"><SourceLink source={r.source_name} /></td>
               <td className="py-3 pr-4 font-mono tabular-nums text-parchment-dim">
                 <KcCell r={r} />
               </td>
@@ -310,7 +311,7 @@ export default function LuckTable({ results: allResults }: { results: LuckResult
               <div className="min-w-0 flex-1">
                 <p className="text-parchment">{itemName(r)}</p>
                 <p className="mt-0.5 font-mono text-xs text-parchment-dim">
-                  {r.source_name} · <KcCell r={r} /> {r.kc_received !== null && "KC"}
+                  <SourceLink source={r.source_name} /> · <KcCell r={r} /> {r.kc_received !== null && "KC"}
                   {r.date_received && (
                     <>
                       {" "}

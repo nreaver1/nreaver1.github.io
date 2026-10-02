@@ -148,6 +148,7 @@ export function huntingLuck(row: HuntingRow, rate: DropRate): HuntingResult | nu
     kc: row.kc,
     probability,
     label: labelFor(probability),
+    updated_at: row.updated_at ?? null,
   };
 }
 

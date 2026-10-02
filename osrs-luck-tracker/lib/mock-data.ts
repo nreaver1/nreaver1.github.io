@@ -261,17 +261,26 @@ const BACKLOGGED: PlayerLuckResponse = {
   mostSpooned: null,
   driest: null,
 };
-// Mirrors seed-demo.sql's hunting_items, driest first as the API sorts them.
-const hunting = (item_id: number, source_name: string, kc: number, probability: number, label: LuckLabel) => ({
+// Mirrors seed-demo.sql's hunting_items, most recently raised first, then
+// driest, as the API sorts them.
+const hunting = (
+  item_id: number,
+  source_name: string,
+  kc: number,
+  probability: number,
+  label: LuckLabel,
+  updated_at: string,
+) => ({
   item_id,
   source_name,
   kc,
   probability,
   label,
+  updated_at,
 });
 BACKLOGGED.hunting = [
-  hunting(11812, "General Graardor", 1100, 0.8855, "dry"),
-  hunting(12650, "General Graardor", 1100, 0.1975, "average"),
+  hunting(11812, "General Graardor", 1100, 0.8855, "dry", "2026-01-02T00:00:00Z"),
+  hunting(12650, "General Graardor", 1100, 0.1975, "average", "2026-01-02T00:00:00Z"),
 ];
 // Mirrors seed-demo.sql's log_pages row, with the numbers get-player-luck returns for it.
 const BARROWS_PIECES = [
@@ -290,8 +299,8 @@ BACKLOGGED.pools = [
   },
 ];
 DRY_BONES.hunting = [
-  hunting(12819, "Corporeal Beast", 30420, 0.9994, "desert"),
-  hunting(12921, "Zulrah", 20108, 0.9934, "desert"),
+  hunting(12921, "Zulrah", 20108, 0.9934, "desert", "2026-01-02T00:00:00Z"),
+  hunting(12819, "Corporeal Beast", 30420, 0.9994, "desert", "2026-01-01T00:00:00Z"),
 ];
 BACKLOGGED.mostSpooned = BACKLOGGED.results[BACKLOGGED.results.length - 1];
 BACKLOGGED.driest = BACKLOGGED.results[BACKLOGGED.results.length - 1];

@@ -8,6 +8,7 @@ import LuckBadge from "./LuckBadge";
 import PityBadge from "./PityBadge";
 import ItemIcon from "./ItemIcon";
 import { snapshotText } from "./LuckTable";
+import SourceLink from "./SourceLink";
 
 const FILL_CLASS: Record<LuckResult["label"], string> = {
   spooned: "bg-flame",
@@ -206,7 +207,7 @@ export default function ComparisonTable({
                     <ItemIcon itemId={row.item_id} name={row.item_name} />
                     <div className="min-w-0">
                       <p className="text-parchment">{row.item_name}</p>
-                      <p className="mt-0.5 font-mono text-xs text-parchment-dim">{row.source_name}</p>
+                      <p className="mt-0.5 font-mono text-xs text-parchment-dim"><SourceLink source={row.source_name} /></p>
                     </div>
                   </div>
                 </td>
@@ -242,7 +243,7 @@ export default function ComparisonTable({
               <ItemIcon itemId={row.item_id} name={row.item_name} />
               <div className="min-w-0">
                 <p className="text-parchment">{row.item_name}</p>
-                <p className="mt-0.5 font-mono text-xs text-parchment-dim">{row.source_name}</p>
+                <p className="mt-0.5 font-mono text-xs text-parchment-dim"><SourceLink source={row.source_name} /></p>
               </div>
             </div>
             <div className="mt-3 flex flex-col gap-3">

@@ -10,8 +10,9 @@
 // Both return the player's full luck breakdown plus a most-spooned /
 // driest summary for their profile page, and `demo: true` for the seeded
 // sample accounts. `hunting` lists rated items the player has none of yet
-// (migration 0008), driest first; it's kept apart from `results` so the
-// summary and everything built on results never count it. `pools` rates
+// (migration 0008), most recently raised kill count first, then driest;
+// it's kept apart from `results` so the summary and everything built on
+// results never count it. `pools` rates
 // whole log pages whose items share one rate (migration 0009,
 // _shared/pools.ts); a pooled item then has no per-item snapshot or
 // hunting row, since the pool says the same thing once. The POST form
@@ -115,7 +116,7 @@ Deno.serve(async (req) => {
 
   const { data: huntingRows, error: huntingError } = await supabase
     .from("hunting_items")
-    .select("item_id, source_name, kc")
+    .select("item_id, source_name, kc, updated_at")
     .eq("account_hash", player.account_hash);
 
   if (huntingError) return serverError("get-player-luck: hunting lookup failed", huntingError);
@@ -204,7 +205,9 @@ Deno.serve(async (req) => {
       return rate ? huntingLuck(h, rate) : null;
     })
     .filter((h): h is HuntingResult => h !== null)
-    .sort((a, b) => b.probability - a.probability);
+    // Most recently raised kill count first (the site groups by source in
+    // this order), then driest first.
+    .sort((a, b) => (b.updated_at ?? "").localeCompare(a.updated_at ?? "") || b.probability - a.probability);
 
   return json({ ign: player.ign, demo, results, hunting, pools, mostSpooned, driest, ...ownerPages }, 200);
 });

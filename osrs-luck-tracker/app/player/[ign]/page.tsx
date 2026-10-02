@@ -5,7 +5,7 @@ import type { PlayerLuckResponse } from "@/lib/types";
 import SummaryCard from "@/components/SummaryCard";
 import LuckScale from "@/components/LuckScale";
 import LuckTable from "@/components/LuckTable";
-import HuntingTable from "@/components/HuntingTable";
+import HuntingGroups from "@/components/HuntingGroups";
 import PoolCard from "@/components/PoolCard";
 import SearchBar from "@/components/SearchBar";
 import PlayerLink from "@/components/PlayerLink";
@@ -143,9 +143,9 @@ export default async function PlayerPage({
             <h2 className="font-mono text-xs uppercase tracking-wide text-parchment-dim">Still hunting</h2>
             <p className="mb-4 mt-1 max-w-xl text-sm text-parchment-dim">
               Drops the collection log shows {data.ign} doesn&rsquo;t have yet, and how many players would have
-              had one by the same kill count.
+              had one by the same kill count. Bosses with the latest kill counts come first.
             </p>
-            <HuntingTable hunting={data.hunting} />
+            <HuntingGroups hunting={data.hunting} />
           </div>
         )}
       </div>

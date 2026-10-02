@@ -103,11 +103,13 @@ where d.account_hash = 'demo-backlogged'
 -- "Still hunting" rows (migration 0008): rated items whose log slot was
 -- empty at the page's kill count. get-player-luck rates them with
 -- huntingLuck(), P = 1 - (1 - n/d)^(kc * rolls).
-insert into hunting_items (account_hash, item_id, source_name, kc) values
-  ('demo-backlogged', 11812, 'General Graardor', 1100), -- Bandos hilt, dry
-  ('demo-backlogged', 12650, 'General Graardor', 1100), -- pet, average
-  ('demo-drybones',   12819, 'Corporeal Beast',  30420), -- Elysian sigil, desert
-  ('demo-drybones',   12921, 'Zulrah',           20108); -- pet, desert
+-- updated_at orders the site's groups (latest kill count first), so
+-- Dry Bones' Zulrah comes before Corp.
+insert into hunting_items (account_hash, item_id, source_name, kc, updated_at) values
+  ('demo-backlogged', 11812, 'General Graardor', 1100,  '2026-01-02'), -- Bandos hilt, dry
+  ('demo-backlogged', 12650, 'General Graardor', 1100,  '2026-01-02'), -- pet, average
+  ('demo-drybones',   12819, 'Corporeal Beast',  30420, '2026-01-01'), -- Elysian sigil, desert
+  ('demo-drybones',   12921, 'Zulrah',           20108, '2026-01-02'); -- pet, desert
 
 -- Backlogged's Barrows page as the plugin last read it (migration 0009).
 -- Barrows is a pooled source (_shared/pools.ts), so get-player-luck rates
