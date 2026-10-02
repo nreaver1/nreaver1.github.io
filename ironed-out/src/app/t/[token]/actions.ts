@@ -2,11 +2,12 @@
 
 import { revalidatePath } from 'next/cache';
 import { claimAsPlayer, confirmClaim, dropOut, startClaim } from '@/server/domain/claims';
+import { markSeen, viewerKeyOf } from '@/server/domain/feed';
 import { resolveInviteToken } from '@/server/domain/invites';
 import { DomainError, isDomainError } from '@/server/errors';
 import { getServices } from '@/web/services';
 import { requestContext } from '@/web/session';
-import { clearDeviceCookie, getViewer, setDeviceCookie } from '@/web/viewer';
+import { clearDeviceCookie, ensureAnonKey, getViewer, setDeviceCookie } from '@/web/viewer';
 
 export type ClaimActionState = {
   ok?: boolean;
@@ -106,4 +107,14 @@ export async function dropOutAction(token: string): Promise<ClaimActionState> {
 export async function forgetDeviceAction(token: string): Promise<void> {
   await clearDeviceCookie();
   revalidatePath(`/t/${token}`);
+}
+
+/** "Got it", a first visit (sets the baseline), or after a claim. */
+export async function markSeenAction(token: string, lastEventId: number): Promise<void> {
+  const services = await getServices();
+  const outingId = await resolveInviteToken(services, token);
+  if (!outingId) return;
+  const viewer = await getViewer();
+  const key = viewer.playerId ?? viewerKeyOf(null, await ensureAnonKey());
+  if (key) await markSeen(services, outingId, key, lastEventId);
 }

@@ -5,6 +5,7 @@ import { redirect } from 'next/navigation';
 import type { ClaimActionState } from '@/app/t/[token]/actions';
 import { dropOut } from '@/server/domain/claims';
 import { SeedProvider, type CourseResult } from '@/server/domain/courses';
+import { markSeen } from '@/server/domain/feed';
 import { rotateInviteLink } from '@/server/domain/invites';
 import {
   addTeeTime,
@@ -120,4 +121,10 @@ export async function memberDropOutAction(outingId: string): Promise<ClaimAction
   revalidatePath('/outings/[id]', 'page');
   revalidatePath('/home');
   return { ok: true };
+}
+
+/** Signed-in viewers of /outings/:id mark the change feed as seen. */
+export async function markSeenOutingAction(outingId: string, lastEventId: number): Promise<void> {
+  const user = await requireUser();
+  await markSeen(await getServices(), outingId, user.playerId, lastEventId);
 }

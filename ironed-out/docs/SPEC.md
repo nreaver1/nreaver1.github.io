@@ -261,7 +261,11 @@ items, max 5, newest first) plus `last_event_id`. `POST /outings/:id/seen {last_
       claim sheet and codes live in `verification_codes` (keyed hash, 10 min, 5 tries); with
       Twilio Verify configured, Twilio issues and checks codes. Signed-in users and verified
       devices claim without a code. Phone parsing is US-first (other countries need a leading +)._
-- [ ] **M5 Change feed** – outing_events everywhere, "Since you last looked" banner, highlights.
+- [x] **M5 Change feed** – outing_events everywhere, "Since you last looked" banner, highlights.
+      _Done 2026-10-02. Viewers we don't know yet get a random `io_anon` cookie; their
+      `outing_views.viewer_key` is `anon:<sha256>`. The first visit only records a baseline (no
+      banner). A viewer's own changes are left out; identical lines collapse; the cursor never
+      moves backwards or past the newest event. The organizer sees the banner too (no grab button)._
 - [ ] **M6 Notifications** – prefs UI, SMS/email fan-out, coalescing, quiet hours, reminders,
       STOP handling.
 - [ ] **M7 Crews** – crews, crew invite links, start outing from crew, notify crew on new outing.

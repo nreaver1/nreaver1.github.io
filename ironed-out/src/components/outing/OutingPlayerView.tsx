@@ -1,13 +1,15 @@
 'use client';
 
-import { useState, useTransition } from 'react';
+import { useEffect, useRef, useState, useTransition } from 'react';
 import type { ClaimActionState } from '@/app/t/[token]/actions';
 import { CalendarIcon } from '@/components/icons';
 import { Button, ButtonLink, Sheet } from '@/components/ui';
 import { formatTime } from '@/lib/format';
+import type { Feed } from '@/server/domain/feed';
 import type { OutingView } from '@/server/domain/outings';
 import { ClaimSheet, type ClaimActions, type ClaimTarget } from './ClaimSheet';
 import styles from './outing.module.css';
+import { SinceBanner } from './SinceBanner';
 import { TeeSheet } from './TeeSheet';
 
 export type PlayerViewProps = {
@@ -18,10 +20,9 @@ export type PlayerViewProps = {
   knownName: string | null;
   smsDemo: boolean;
   calendar: { ics: string; google: string } | null;
-  freshSlotIds?: string[];
-  newTeeTimeIds?: string[];
-  /** Rendered above the tee sheet (the "Since you last looked" banner). */
-  banner?: (grab: (slotId: string) => void) => React.ReactNode;
+  /** "Since you last looked" data; omitted where there's no feed. */
+  feed?: Feed;
+  markSeen?: (lastEventId: number) => Promise<void>;
 };
 
 /** What a player (not the organizer) sees: the tee sheet, the claim sheet, drop out, calendar. */
@@ -32,9 +33,8 @@ export function OutingPlayerView({
   knownName,
   smsDemo,
   calendar,
-  freshSlotIds,
-  newTeeTimeIds,
-  banner,
+  feed,
+  markSeen,
 }: PlayerViewProps) {
   const [target, setTarget] = useState<ClaimTarget | null>(null);
   const [calOpen, setCalOpen] = useState(false);
@@ -43,6 +43,24 @@ export function OutingPlayerView({
   const [pending, start] = useTransition();
   const time = (iso: string) => formatTime(iso, view.timezone);
   const inOuting = !!view.viewerTeeTimeId;
+  const [dismissed, setDismissed] = useState(false);
+
+  // First visit: record a baseline so the next visit can say what changed.
+  const baselined = useRef(false);
+  useEffect(() => {
+    if (feed && !feed.hasRecord && markSeen && !baselined.current) {
+      baselined.current = true;
+      void markSeen(view.lastEventId);
+    }
+  }, [feed, markSeen, view.lastEventId]);
+
+  const seen = () => {
+    setDismissed(true);
+    void markSeen?.(view.lastEventId);
+  };
+  const showFeed = feed && !dismissed;
+  const freshSlotIds = showFeed ? feed.freshSlotIds : [];
+  const newTeeTimeIds = showFeed ? feed.newTeeTimeIds : [];
 
   const pick = (slotId: string) => {
     const tee = view.teeTimes.find((t) => t.slots.some((s) => s.id === slotId));
@@ -55,9 +73,17 @@ export function OutingPlayerView({
     if (next) pick(next.id);
   };
 
+  const firstFresh = view.teeTimes
+    .flatMap((t) => t.slots.map((s) => ({ s, t })))
+    .find(({ s }) => s.open && freshSlotIds.includes(s.id));
+  const grab =
+    firstFresh && actions && !inOuting && !view.locked
+      ? { label: `Grab the ${time(firstFresh.t.startsAt)} spot`, onGrab: () => pick(firstFresh.s.id) }
+      : null;
+
   return (
     <>
-      {banner?.(pick)}
+      {feed && !dismissed && <SinceBanner feed={feed} inOuting={inOuting} grab={grab} onSeen={seen} />}
       <TeeSheet
         view={view}
         mode="friend"
@@ -85,6 +111,7 @@ export function OutingPlayerView({
           actions={actions}
           smsDemo={smsDemo}
           onTaken={offerNext}
+          onClaimed={seen}
           calendar={calendar}
         />
       )}
@@ -111,7 +138,9 @@ export function OutingPlayerView({
       <Sheet open={dropping} onClose={() => setDropping(false)} title="Drop out?">
         <p>
           Your spot
-          {view.teeTimes.some((t) => t.slots.some((s) => s.isYourGuest)) ? ' and your guests’ spots' : ''}{' '}
+          {view.teeTimes.some((t) => t.slots.some((s) => s.isYourGuest))
+            ? ' and your guests’ spots'
+            : ''}{' '}
           will open up for the crew.
         </p>
         <Button

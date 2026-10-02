@@ -36,6 +36,7 @@ export function ClaimSheet({
   actions,
   smsDemo,
   onTaken,
+  onClaimed,
   calendar,
 }: {
   target: ClaimTarget | null;
@@ -48,6 +49,8 @@ export function ClaimSheet({
   smsDemo: boolean;
   /** The spot went to someone else; the parent offers the next open one. */
   onTaken: () => void;
+  /** Called once a claim succeeds. */
+  onClaimed?: () => void;
   calendar: { ics: string; google: string } | null;
 }) {
   const [step, setStep] = useState<Step>('details');
@@ -92,6 +95,7 @@ export function ClaimSheet({
     setState(r);
     if (r.reason === 'slot_taken' || r.reason === 'slot_gone') onTaken();
     if (r.ok) next?.();
+    if (r.ok && r.startsAt) onClaimed?.();
   };
 
   const sendCode = () =>

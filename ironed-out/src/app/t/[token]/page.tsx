@@ -3,9 +3,10 @@ import Link from 'next/link';
 import { OutingHero } from '@/components/outing/OutingHero';
 import { OutingPlayerView } from '@/components/outing/OutingPlayerView';
 import { spotsText, teeSummary } from '@/components/outing/spots';
-import { TeeSheet } from '@/components/outing/TeeSheet';
-import { ButtonLink, buttonClassName } from '@/components/ui';
+import { OrganizerView } from '@/components/outing/OrganizerView';
+import { buttonClassName } from '@/components/ui';
 import { formatPlayDate } from '@/lib/format';
+import { getFeed } from '@/server/domain/feed';
 import { resolveInviteToken } from '@/server/domain/invites';
 import { getOutingView, getPlayerName } from '@/server/domain/outings';
 import { calendarLinks } from '@/web/outing-links';
@@ -16,8 +17,10 @@ import {
   confirmClaimAction,
   dropOutAction,
   forgetDeviceAction,
+  markSeenAction,
   startClaimAction,
 } from './actions';
+import { markSeenOutingAction } from '../../outings/actions';
 
 type Props = { params: Promise<{ token: string }> };
 
@@ -54,16 +57,13 @@ export default async function InvitePage({ params }: Props) {
   if (!data) return <ExpiredInvite />;
   const { view, viewer, services } = data;
   const calendar = calendarLinks(view, `${services.appUrl}/t/${token}`, `/t/${token}/calendar`);
+  const feed = await getFeed(services, view, viewer.viewerKey, viewer.playerId);
 
   if (view.isOrganizer) {
     return (
       <main className="page page-tight">
         <OutingHero view={view} />
-        <TeeSheet view={view} mode="organizer">
-          <ButtonLink href={`/outings/${view.id}/share`} variant="primary">
-            Share the link again
-          </ButtonLink>
-        </TeeSheet>
+        <OrganizerView view={view} feed={feed} markSeen={markSeenOutingAction.bind(null, view.id)} />
       </main>
     );
   }
@@ -90,6 +90,8 @@ export default async function InvitePage({ params }: Props) {
           forgetDevice: viewer.via === 'device' ? forgetDeviceAction.bind(null, token) : undefined,
         }}
         dropOut={viewer.playerId ? dropOutAction.bind(null, token) : undefined}
+        feed={feed}
+        markSeen={markSeenAction.bind(null, token)}
       />
       {viewer.via === 'anonymous' && (
         <p className="muted" style={{ fontSize: 16, textAlign: 'center' }}>
