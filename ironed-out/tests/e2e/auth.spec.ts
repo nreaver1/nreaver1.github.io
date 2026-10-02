@@ -1,9 +1,11 @@
 import { expect, test } from '@playwright/test';
+import { freshIp } from './helpers';
 
 const email = `mike+${Date.now()}@example.com`;
 const password = 'fairway-7-iron-e2e';
 
 test('sign up, log out, log in', async ({ page }) => {
+  await freshIp(page);
   await page.goto('/');
   await page.getByRole('link', { name: 'Create an account' }).click();
   await expect(page.getByRole('heading', { name: 'Make an account' })).toBeVisible();
@@ -35,6 +37,7 @@ test('sign up, log out, log in', async ({ page }) => {
 });
 
 test('sign-up shows field errors next to the right input', async ({ page }) => {
+  await freshIp(page);
   await page.goto('/signup');
   await page.getByLabel('Your name').fill('Jen');
   await page.getByLabel('Email').fill('not-an-email');
@@ -45,6 +48,7 @@ test('sign-up shows field errors next to the right input', async ({ page }) => {
 });
 
 test('password reset through the dev outbox', async ({ page }) => {
+  await freshIp(page);
   const resetEmail = `jen+${Date.now()}@example.com`;
   await page.goto('/signup');
   await page.getByLabel('Your name').fill('Jen');

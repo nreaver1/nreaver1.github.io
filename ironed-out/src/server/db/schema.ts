@@ -1,5 +1,6 @@
 import { sql } from 'drizzle-orm';
 import {
+  type AnyPgColumn,
   bigint,
   bigserial,
   boolean,
@@ -209,8 +210,7 @@ export const outings = pgTable(
     organizerPlayerId: uuid('organizer_player_id')
       .notNull()
       .references(() => players.id),
-    /** FK to crews is added with crews (M7). */
-    crewId: uuid('crew_id'),
+    crewId: uuid('crew_id').references((): AnyPgColumn => crews.id, { onDelete: 'set null' }),
     courseId: uuid('course_id')
       .notNull()
       .references(() => courses.id),
@@ -406,7 +406,13 @@ export const notificationSettings = pgTable(
 ).enableRLS();
 
 export const notificationChannel = pgEnum('notification_channel', ['sms', 'email']);
-export const notificationKind = pgEnum('notification_kind', ['change', 'removed', 'remind_day', 'remind_2h']);
+export const notificationKind = pgEnum('notification_kind', [
+  'change',
+  'removed',
+  'remind_day',
+  'remind_2h',
+  'new_outing',
+]);
 export const notificationStatus = pgEnum('notification_status', ['pending', 'sent', 'skipped', 'failed']);
 
 /**
@@ -450,4 +456,70 @@ export const notifications = pgTable(
     index('notifications_player_idx').on(t.playerId, t.createdAt),
     tenantIsolation('notifications'),
   ],
+).enableRLS();
+
+/** Crew child tables are visible when their crew is (crews carry the tenant policy). */
+const viaCrew = (table: string) =>
+  pgPolicy(`${table}_via_crew`, {
+    as: 'permissive',
+    for: 'all',
+    using: sql`crew_id in (select id from crews)`,
+    withCheck: sql`crew_id in (select id from crews)`,
+  });
+
+/** A named group of account holders ("Saturday Hackers"). */
+export const crews = pgTable(
+  'crews',
+  {
+    id: id(),
+    tenantId: uuid('tenant_id')
+      .notNull()
+      .references(() => tenants.id),
+    name: text('name').notNull(),
+    ownerUserId: uuid('owner_user_id')
+      .notNull()
+      .references(() => users.id),
+    ...timestamps,
+  },
+  (t) => [index('crews_owner_idx').on(t.ownerUserId), tenantIsolation('crews')],
+).enableRLS();
+
+export const crewRole = pgEnum('crew_role', ['owner', 'member']);
+export const crewMemberStatus = pgEnum('crew_member_status', ['active', 'pending']);
+
+export const crewMembers = pgTable(
+  'crew_members',
+  {
+    crewId: uuid('crew_id')
+      .notNull()
+      .references(() => crews.id, { onDelete: 'cascade' }),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    role: crewRole('role').notNull().default('member'),
+    status: crewMemberStatus('status').notNull().default('active'),
+    ...timestamps,
+  },
+  (t) => [
+    primaryKey({ columns: [t.crewId, t.userId] }),
+    index('crew_members_user_idx').on(t.userId),
+    viaCrew('crew_members'),
+  ],
+).enableRLS();
+
+/** Crew invite links: token derived from the row id with the app secret; only the hash stored. */
+export const crewInvites = pgTable(
+  'crew_invites',
+  {
+    id: id(),
+    crewId: uuid('crew_id')
+      .notNull()
+      .references(() => crews.id, { onDelete: 'cascade' }),
+    tokenHash: text('token_hash').notNull().unique(),
+    expiresAt: timestamp('expires_at', { withTimezone: true }),
+    revokedAt: timestamp('revoked_at', { withTimezone: true }),
+    createdBy: uuid('created_by').references(() => users.id),
+    ...timestamps,
+  },
+  (t) => [index('crew_invites_crew_idx').on(t.crewId), viaCrew('crew_invites')],
 ).enableRLS();

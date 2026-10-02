@@ -9,11 +9,21 @@ export const uniquePhone = () => `410555${String((Date.now() + n++) % 10000).pad
 
 export const PASSWORD = 'fairway-7-iron-e2e';
 
+/**
+ * Gives this browser its own client IP (the app reads X-Forwarded-For, like on Vercel), so a full
+ * test run doesn't trip the per-IP sign-up limit.
+ */
+export async function freshIp(page: Page) {
+  const r = () => Math.floor(Math.random() * 250) + 1;
+  await page.setExtraHTTPHeaders({ 'x-forwarded-for': `10.${r()}.${r()}.${r()}` });
+}
+
 export async function signUp(
   page: Page,
   name: string,
   email = uniqueEmail(name.split(' ')[0]!.toLowerCase()),
 ) {
+  await freshIp(page);
   await page.goto('/signup');
   await page.getByLabel('Your name').fill(name);
   await page.getByLabel('Email').fill(email);

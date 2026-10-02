@@ -279,7 +279,15 @@ items, max 5, newest first) plus `last_event_id`. `POST /outings/:id/seen {last_
       verify a phone on the Alerts screen; phone-only players manage texts with STOP/START.
       Inbound texts: `/api/webhooks/twilio/sms` (signature-checked). In SMS demo mode texts are
       recorded as sent and shown on the Alerts screen; message bodies are stored without the link._
-- [ ] **M7 Crews** – crews, crew invite links, start outing from crew, notify crew on new outing.
+- [x] **M7 Crews** – crews, crew invite links, start outing from crew, notify crew on new outing.
+      _Done 2026-10-02. Crew links live at `/g/<token>` (token derived from the invite id with
+      `APP_SECRET`, only the hash stored; owners can make a new link). Joining needs an account;
+      people without one sign up and come straight back to the invite. Members join as `active`;
+      the `pending` status from section 4 is supported in the data and UI but nothing creates
+      pending members yet (there's no invite-by-email). Owners can remove members; an owner can
+      leave only when alone, which deletes the crew. "New outing" alerts go by text when the
+      member has a verified phone (respecting STOP and quiet hours), otherwise by email, and link
+      to the outing's invite page. Notification kind `new_outing` added._
 - [ ] **M8 Partner API** – OAuth client credentials, scopes, idempotency, OpenAPI, webhooks with
       signing + retries, API docs page.
 - [ ] **M9 Hardening** – security headers/CSP, PII encryption, retention jobs, load test the claim

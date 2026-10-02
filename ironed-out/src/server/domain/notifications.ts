@@ -21,6 +21,7 @@ import type { Mailer } from '../notify/email';
 import { DEFAULT_QUIET, nextSendTime, zonedTime } from '../notify/quiet';
 import { HELP_WORDS, START_WORDS, STOP_WORDS, type SmsSender } from '../notify/sms';
 import { derivedToken } from '../security/tokens';
+import { crewMemberPlayerIds } from './crews';
 import { describeEvent } from './feed';
 import { loadOutingView, type OutingView } from './outings';
 
@@ -205,6 +206,38 @@ export async function enqueueForEvent(
   }
 }
 
+/** "Members get a text when you post a new outing" (crew screen). One alert per member. */
+export async function enqueueCrewNewOuting(
+  tx: Tx,
+  outingId: string,
+  crewId: string,
+  organizerPlayerId: string,
+  now = new Date(),
+) {
+  const [outing] = await tx.select().from(outings).where(eq(outings.id, outingId));
+  if (!outing) return;
+  const memberIds = (await crewMemberPlayerIds(tx, crewId)).filter((id) => id !== organizerPlayerId);
+  const contacts = await contactsFor(tx, memberIds);
+  for (const id of memberIds) {
+    const c = contacts.get(id);
+    if (!c) continue;
+    const channel: Channel | null = canSms(c) ? 'sms' : c.email ? 'email' : null;
+    if (!channel) continue;
+    await tx
+      .insert(notifications)
+      .values({
+        tenantId: outing.tenantId,
+        playerId: id,
+        outingId,
+        channel,
+        kind: 'new_outing',
+        key: `${id}:${outingId}:new_outing`,
+        sendAfter: channel === 'sms' ? nextSendTime(now, c.timezone ?? outing.timezone, c.quiet) : now,
+      })
+      .onConflictDoNothing();
+  }
+}
+
 // ---------------------------------------------------------------------------------------------
 // Reminders (scheduled by the dispatcher each run; once per player, outing, channel and kind)
 // ---------------------------------------------------------------------------------------------
@@ -331,6 +364,27 @@ export function compose(
         .replace(/^Ironed Out: /, '')
         .replace(link, '')
         .trim()}\n\nDetails: ${link}`,
+    };
+  }
+
+  if (kind === 'new_outing') {
+    const org = firstName(view.organizerName);
+    const times = view.teeTimes.map((t) => timeIn(t.startsAt, tz));
+    const suffix =
+      new Set(times.map((t) => t.slice(-2))).size === 1 && times.length > 1 ? times[0]!.slice(-3) : '';
+    const parts = suffix ? times.map((t) => t.slice(0, -3)) : times;
+    const list =
+      parts.length > 1
+        ? `${parts.slice(0, -1).join(', ')} & ${parts.at(-1)}${suffix}`
+        : `${parts[0] ?? ''}${suffix}`;
+    if (view.openCount === 0) return null;
+    const text = `${org} started an outing at ${course}, ${when} · ${list}. ${spots}`;
+    return {
+      sms: `Ironed Out: ${text} Grab one: ${link}`,
+      subject: `${org} started an outing: ${view.course.name}, ${when}`,
+      email: `${text}
+
+Grab a spot: ${link}`,
     };
   }
 

@@ -11,6 +11,18 @@ const TABS: { id: Tab; href: string; label: string; icon: React.ReactNode }[] = 
     icon: <path d="M4 11 L12 4 L20 11 M6 10 V20 H18 V10" />,
   },
   {
+    id: 'crew',
+    href: '/crews',
+    label: 'Crew',
+    icon: (
+      <>
+        <circle cx="9" cy="8" r="3" />
+        <circle cx="17" cy="9" r="2.5" />
+        <path d="M3 19 c0-3.5 2.7-5.5 6-5.5 s6 2 6 5.5 M15 14.2 c3 0 6 1.5 6 4.8" />
+      </>
+    ),
+  },
+  {
     id: 'alerts',
     href: '/settings/alerts',
     label: 'Alerts',
@@ -26,7 +38,7 @@ const TABS: { id: Tab; href: string; label: string; icon: React.ReactNode }[] = 
 /** The design's bottom navigation for signed-in screens. */
 export function BottomNav({ current }: { current: Tab }) {
   return (
-    <nav className={styles.nav} aria-label="Main">
+    <nav className={styles.nav} aria-label="Main" data-bottom-nav>
       {TABS.map((t) => (
         <Link
           key={t.id}

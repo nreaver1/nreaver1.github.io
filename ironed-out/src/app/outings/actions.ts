@@ -6,7 +6,7 @@ import type { ClaimActionState } from '@/app/t/[token]/actions';
 import { dropOut } from '@/server/domain/claims';
 import { SeedProvider, type CourseResult } from '@/server/domain/courses';
 import { markSeen } from '@/server/domain/feed';
-import { rotateInviteLink } from '@/server/domain/invites';
+import { ensureInviteLink, rotateInviteLink } from '@/server/domain/invites';
 import {
   addTeeTime,
   changeCapacity,
@@ -61,10 +61,17 @@ export async function createOutingAction(_prev: FormState, form: FormData): Prom
     intervalMinutes: str(form, 'intervalMinutes'),
     price: str(form, 'price'),
     note: str(form, 'note'),
+    crewId: str(form, 'crewId'),
   };
   let id: string;
   try {
-    id = await createOuting(await getServices(), { playerId: user.playerId }, input);
+    const services = await getServices();
+    id = await createOuting(services, { playerId: user.playerId }, input);
+    if (input.crewId) {
+      // The crew's "new outing" texts link to the invite page, so make sure the link exists.
+      await ensureInviteLink(services, { playerId: user.playerId }, id);
+      dispatchSoon();
+    }
   } catch (e) {
     return toFormState(e, { price: input.price, note: input.note });
   }

@@ -6,17 +6,23 @@ import styles from '@/components/outing/outing.module.css';
 import { spotsText, teeSummary } from '@/components/outing/spots';
 import { Button, ButtonLink, Card } from '@/components/ui';
 import { firstName, formatPlayDate } from '@/lib/format';
+import { listCrews } from '@/server/domain/crews';
 import { listUpcomingOutings, type OutingView } from '@/server/domain/outings';
 import { getServices } from '@/web/services';
 import { requireUser } from '@/web/session';
 import { logOutAction } from '../(auth)/actions';
+import { CrewList } from '../crews/CrewList';
 import home from './home.module.css';
 
 export const metadata: Metadata = { title: 'Home' };
 
 export default async function HomePage() {
   const user = await requireUser('/home');
-  const outings = await listUpcomingOutings(await getServices(), user.playerId);
+  const services = await getServices();
+  const [outings, crews] = await Promise.all([
+    listUpcomingOutings(services, user.playerId),
+    listCrews(services, user.userId),
+  ]);
   const [next, ...later] = outings;
 
   return (
@@ -52,6 +58,13 @@ export default async function HomePage() {
             ))}
           </section>
         )}
+
+        <section aria-labelledby="your-crew" className={home.list}>
+          <h2 id="your-crew" className={home.sectionTitle}>
+            {crews.length > 1 ? 'Your crews' : 'Your crew'}
+          </h2>
+          {crews.length ? <CrewList crews={crews} /> : <ButtonLink href="/crews/new">Make a crew</ButtonLink>}
+        </section>
 
         <form action={logOutAction} style={{ alignSelf: 'center' }}>
           <Button type="submit" variant="ghost" style={{ color: 'var(--muted)' }}>

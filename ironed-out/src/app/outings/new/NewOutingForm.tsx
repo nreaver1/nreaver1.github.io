@@ -20,11 +20,16 @@ const SCOPES = [
 export function NewOutingForm({
   weekendDates,
   initialCourses,
+  crews,
+  initialCrewId,
 }: {
   weekendDates: string[];
   initialCourses: CourseResult[];
+  crews: { id: string; name: string }[];
+  initialCrewId: string;
 }) {
   const [state, action] = useActionState(createOutingAction, emptyForm);
+  const [crewId, setCrewId] = useState(initialCrewId);
   const [query, setQuery] = useState('');
   const [scope, setScope] = useState<'near' | 'all'>('near');
   const [results, setResults] = useState<CourseResult[]>(initialCourses);
@@ -204,6 +209,28 @@ export function NewOutingForm({
             defaultValue={state.values?.note}
           />
         </div>
+        {crews.length > 0 && (
+          <div className={styles.field}>
+            <span className={styles.label} id="crew-label">
+              Text a crew about it?
+            </span>
+            <PillGroup
+              label="Text a crew about it?"
+              options={[
+                { value: '', label: 'No, just the link' },
+                ...crews.map((c) => ({ value: c.id, label: c.name })),
+              ]}
+              value={crewId}
+              onChange={setCrewId}
+            />
+            <input type="hidden" name="crewId" value={crewId} />
+            {state.fields?.crewId && (
+              <p className={styles.fieldError} role="alert">
+                {state.fields.crewId}
+              </p>
+            )}
+          </div>
+        )}
       </section>
 
       <div className={styles.footer}>

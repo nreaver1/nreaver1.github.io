@@ -85,6 +85,20 @@
       "when": 1790972812954,
       "tag": "0011_notifications_rls",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1790974211474,
+      "tag": "0012_crews",
+      "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1790974212541,
+      "tag": "0013_crews_rls",
+      "breakpoints": true
     }
   ]
 }

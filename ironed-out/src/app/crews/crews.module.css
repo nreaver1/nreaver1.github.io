@@ -1,0 +1,112 @@
+.title {
+  font-size: 46px;
+}
+
+.crewName {
+  font-size: 32px;
+  color: var(--fairway-dark);
+}
+
+.members {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.member {
+  font-size: 17px;
+  padding: 4px 6px 4px 12px;
+  border: var(--border);
+  border-radius: 20px;
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  min-height: var(--touch);
+}
+
+.member:not(:has(button)) {
+  padding-right: 12px;
+}
+
+.pending {
+  border-style: dashed;
+  border-color: var(--dash-strong);
+  background: transparent;
+  color: var(--muted);
+}
+
+.remove {
+  width: 36px;
+  height: 36px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  color: var(--red-text);
+  cursor: pointer;
+  padding: 0;
+}
+
+.invite {
+  border-top: 2px dashed var(--dash);
+  padding-top: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.linkRow {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.link {
+  flex: 1;
+  min-width: 0;
+  font-size: 17px;
+  min-height: var(--btn-height);
+  display: flex;
+  align-items: center;
+  padding: 8px 12px;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  color: var(--muted);
+  border: var(--border);
+  border-radius: var(--radius-input);
+  background: var(--white);
+}
+
+.row {
+  border: var(--border);
+  border-radius: var(--radius-card);
+  background: var(--white);
+  padding: 14px 16px;
+  color: var(--ink);
+  text-decoration: none;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 18px;
+}
+
+.rowText {
+  display: flex;
+  flex-direction: column;
+}
+
+.rowTitle {
+  font-size: 26px;
+  line-height: 1;
+}
+
+.toast {
+  font-size: 17px;
+  color: var(--red-text);
+  min-height: 1px;
+}

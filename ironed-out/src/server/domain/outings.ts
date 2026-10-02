@@ -6,7 +6,8 @@ import { courses, outingEvents, outings, players, slots, teeTimes } from '../db/
 import { withTenant } from '../db/tenant';
 import type { Db, Tx } from '../db/types';
 import { DomainError } from '../errors';
-import { enqueueForEvent } from './notifications';
+import { isCrewMember } from './crews';
+import { enqueueCrewNewOuting, enqueueForEvent } from './notifications';
 import { parseInput } from '../validation';
 
 export type OutingsDeps = { db: Db; tenantId: string; now?: () => Date };
@@ -40,6 +41,11 @@ export const CreateOutingInput = z.object({
     .refine((v) => (INTERVALS as readonly number[]).includes(v), 'Pick 8, 9, 10 or 12 minutes.'),
   price: Dollars.optional().transform((v) => v ?? null),
   note: z.string().trim().max(500, 'Keep the note under 500 characters.').default(''),
+  /** Optional crew to start the outing with; its members get a "new outing" alert. */
+  crewId: z
+    .union([z.literal(''), z.uuid()])
+    .optional()
+    .transform((v) => v || null),
 });
 
 export const UpdateDetailsInput = z.object({
@@ -315,11 +321,18 @@ export async function createOuting(deps: OutingsDeps, actor: Actor, input: unkno
       });
     }
 
+    if (data.crewId && !(await isCrewMember(tx, data.crewId, actor.playerId))) {
+      throw new DomainError('invalid_input', 'You’re not in that crew.', {
+        fields: { crewId: 'You’re not in that crew.' },
+      });
+    }
+
     const [outing] = await tx
       .insert(outings)
       .values({
         tenantId: deps.tenantId,
         organizerPlayerId: actor.playerId,
+        crewId: data.crewId,
         courseId: course.id,
         playDate: data.playDate,
         timezone: course.timezone,
@@ -354,7 +367,9 @@ export async function createOuting(deps: OutingsDeps, actor: Actor, input: unkno
     await recordEvent(tx, outing.id, 'outing_created', actor.playerId, {
       teeTimes: data.teeTimeCount,
       spots: data.teeTimeCount * data.playersEach,
+      crewId: data.crewId,
     });
+    if (data.crewId) await enqueueCrewNewOuting(tx, outing.id, data.crewId, actor.playerId, deps.now?.());
     return outing.id;
   });
 }
