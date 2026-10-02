@@ -1,0 +1,30 @@
+.row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.label {
+  font-size: 19px;
+  line-height: 1.1;
+}
+
+.hint {
+  display: block;
+  font-size: 15px;
+  color: var(--muted);
+}
+
+.controls {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.value {
+  min-width: 72px;
+  text-align: center;
+  font-size: 21px;
+}

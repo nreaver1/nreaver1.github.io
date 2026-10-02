@@ -1,0 +1,42 @@
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.error {
+  font-size: 17px;
+  color: var(--red-text);
+  border: 2px solid var(--red-button);
+  border-radius: var(--radius-input);
+  background: var(--white);
+  padding: 8px 12px;
+}
+
+.note {
+  font-size: 16px;
+  color: var(--muted);
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+}
+
+.note svg {
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.links {
+  display: flex;
+  justify-content: space-between;
+  flex-wrap: wrap;
+}
+
+.title {
+  font-size: 48px;
+  color: var(--fairway-dark);
+}
+
+.lede {
+  font-size: 19px;
+}

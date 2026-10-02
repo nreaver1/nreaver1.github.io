@@ -1,0 +1,10 @@
+.next
+node_modules
+pnpm-lock.yaml
+drizzle/meta
+design
+playwright-report
+test-results
+*.md
+.next-e2e
+.pglite

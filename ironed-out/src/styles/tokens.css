@@ -1,0 +1,46 @@
+/* Design tokens from docs/SPEC.md §9. Don't add colors here without updating the spec. */
+:root {
+  --ink: #2b2a26;
+  --paper: #fbf6e9;
+  --paper-dot: #e9e0c9;
+  --white: #ffffff;
+
+  --fairway: #3f7a3a;
+  --fairway-dark: #2f5e2c;
+  --fairway-light: #6fa35f;
+  --hills: #a8cc94;
+  --green: #4e8b4a;
+  --success-bg: #e3efd9;
+
+  --flag-red: #c0392b;
+  --red-button: #b5361f;
+  --red-text: #a3301f;
+
+  --sand: #f7e3b5;
+  --sun: #f2c14e;
+
+  --muted: #5e574b;
+  --dash-strong: #8a8270;
+  --dash: #cfc5ae;
+  --dash-faint: #e3d9c2;
+
+  --avatar-1: #cfe3c2;
+  --avatar-2: #f3d9b1;
+  --avatar-3: #d3e1f2;
+  --avatar-4: #f2cbc2;
+  --avatar-5: #e2d6f0;
+
+  /* Hand-drawn shapes */
+  --radius-btn: 14px 5px 13px 6px / 6px 13px 5px 14px;
+  --radius-card: 18px 6px 16px 5px / 6px 16px 6px 18px;
+  --radius-input: 10px 4px 9px 5px / 4px 9px 5px 10px;
+  --radius-pill: 12px 5px 11px 6px / 5px 11px 6px 12px;
+  --border: 2px solid var(--ink);
+  --shadow: 3px 3px 0 var(--ink);
+  --shadow-card: 4px 4px 0 var(--ink);
+
+  --touch: 44px;
+  --btn-height: 48px;
+  --gutter: 20px;
+  --max-width: 480px;
+}

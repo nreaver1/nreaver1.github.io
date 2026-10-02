@@ -1,0 +1,73 @@
+.button {
+  font-family: inherit;
+  font-size: 20px;
+  line-height: 1.1;
+  min-height: var(--btn-height);
+  padding: 8px 18px;
+  border: var(--border);
+  border-radius: var(--radius-btn);
+  box-shadow: var(--shadow);
+  background: var(--white);
+  color: var(--ink);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  cursor: pointer;
+  text-decoration: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.button:active:not(:disabled) {
+  transform: translate(2px, 2px);
+  box-shadow: 1px 1px 0 var(--ink);
+}
+
+.button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+  box-shadow: none;
+}
+
+.primary {
+  background: var(--fairway);
+  color: var(--white);
+}
+
+.danger {
+  background: var(--red-button);
+  color: var(--white);
+}
+
+.sm {
+  font-size: 17px;
+  min-height: var(--touch);
+  padding: 4px 12px;
+}
+
+.block {
+  width: 100%;
+}
+
+.icon {
+  width: var(--touch);
+  min-width: var(--touch);
+  min-height: var(--touch);
+  padding: 0;
+}
+
+.ghost {
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  color: var(--fairway-dark);
+  text-decoration: underline;
+  font-size: 18px;
+  min-height: var(--touch);
+  padding: 0 6px;
+}
+
+.ghost:active:not(:disabled) {
+  transform: none;
+  box-shadow: none;
+}

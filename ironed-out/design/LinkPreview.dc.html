@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Link preview</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Caveat:wght@600;700&amp;family=Patrick+Hand&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+</style>
+</helmet>
+<div style="width: 600px; height: 315px; box-sizing: border-box; position: relative; overflow: hidden; background: #FBF6E9; font-family: 'Patrick Hand', cursive; color: #2B2A26; border: 3px solid #2B2A26">
+<svg viewBox="0 0 600 315" width="600" height="315" style="position: absolute; left: 0; top: 0" aria-hidden="true">
+<circle cx="540" cy="52" r="22" fill="#F2C14E" stroke="#2B2A26" stroke-width="2.5"></circle>
+<path d="M420 70 q7 -16 24 -9 q10 -14 26 -2 q16 0 12 14 z" fill="#FFFFFF" stroke="#2B2A26" stroke-width="2.5" stroke-linejoin="round"></path>
+<path d="M0 240 Q160 200 320 228 T600 214 L600 315 L0 315Z" fill="#A8CC94" stroke="#2B2A26" stroke-width="2.5"></path>
+<path d="M0 282 Q200 252 400 274 T600 268 L600 315 L0 315Z" fill="#6FA35F" stroke="#2B2A26" stroke-width="2.5"></path>
+<ellipse cx="480" cy="232" rx="60" ry="13" fill="#4E8B4A" stroke="#2B2A26" stroke-width="2.5"></ellipse>
+<ellipse cx="486" cy="232" rx="8" ry="3" fill="#2B2A26"></ellipse>
+<line x1="486" y1="232" x2="486" y2="122" stroke="#2B2A26" stroke-width="3.5" stroke-linecap="round"></line>
+<path d="M486 122 L532 136 L486 150Z" fill="#C0392B" stroke="#2B2A26" stroke-width="2.5" stroke-linejoin="round"></path>
+</svg>
+<div style="position: absolute; left: 36px; top: 26px; width: 400px; display: flex; flex-direction: column; gap: 4px">
+<div style="font-family: 'Caveat', cursive; font-weight: 700; font-size: 26px; color: #2F5E2C">Ironed Out</div>
+<div style="font-family: 'Caveat', cursive; font-weight: 700; font-size: 50px; line-height: 0.95">Saturday at Mount Pleasant</div>
+<div style="font-size: 22px; margin-top: 6px">Sat, Oct 10 · 7:40, 7:50 &amp; 8:00 AM</div>
+<div style="align-self: flex-start; margin-top: 10px; font-size: 26px; background: #FFFFFF; color: #A3301F; border: 2.5px solid #2B2A26; border-radius: 14px 5px 13px 6px/6px 13px 5px 14px; padding: 2px 14px; box-shadow: 3px 3px 0 #2B2A26; transform: rotate(-1.5deg)">4 of 12 spots open. Tap to grab one</div>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":600,"height":315}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

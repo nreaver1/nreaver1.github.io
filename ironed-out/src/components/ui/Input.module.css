@@ -1,0 +1,42 @@
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.label {
+  font-size: 17px;
+  color: var(--muted);
+}
+
+.input {
+  font-family: inherit;
+  font-size: 19px;
+  width: 100%;
+  min-height: var(--btn-height);
+  padding: 8px 12px;
+  border: var(--border);
+  border-radius: var(--radius-input);
+  background: var(--white);
+  color: var(--ink);
+}
+
+.input:focus,
+.input:focus-visible {
+  outline: 3px solid var(--sun);
+  outline-offset: 1px;
+}
+
+.input[aria-invalid='true'] {
+  border-color: var(--red-button);
+}
+
+.hint {
+  font-size: 15px;
+  color: var(--muted);
+}
+
+.error {
+  font-size: 16px;
+  color: var(--red-text);
+}

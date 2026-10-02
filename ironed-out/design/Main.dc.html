@@ -1,0 +1,740 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Ironed Out prototype</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Caveat:wght@600;700&amp;family=Patrick+Hand&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+.io,.io *{box-sizing:border-box}
+.io{font-family:'Patrick Hand',cursive;color:#2B2A26}
+.hd{font-family:'Caveat',cursive;font-weight:700}
+.paper{background-color:#FBF6E9;background-image:radial-gradient(#E9E0C9 1px,transparent 1.2px);background-size:20px 20px}
+.sk{border:2px solid #2B2A26;border-radius:18px 6px 16px 5px/6px 16px 6px 18px;background:#FFFFFF}
+.btn{font-family:'Patrick Hand',cursive;font-size:20px;min-height:48px;padding:8px 18px;border:2px solid #2B2A26;border-radius:14px 5px 13px 6px/6px 13px 5px 14px;box-shadow:3px 3px 0 #2B2A26;cursor:pointer;background:#FFFFFF;color:#2B2A26;display:inline-flex;align-items:center;justify-content:center;gap:8px;text-decoration:none}
+.btn:active{transform:translate(2px,2px);box-shadow:1px 1px 0 #2B2A26}
+.go{background:#3F7A3A;color:#FFFFFF}
+.red{background:#B5361F;color:#FFFFFF}
+.sm{font-size:17px;min-height:44px;padding:4px 12px}
+.inp{font-family:'Patrick Hand',cursive;font-size:19px;width:100%;min-height:48px;padding:8px 12px;border:2px solid #2B2A26;border-radius:10px 4px 9px 5px/4px 9px 5px 10px;background:#FFFFFF;color:#2B2A26}
+.inp:focus{outline:3px solid #F2C14E;outline-offset:1px}
+.lbl{display:block;font-size:17px;color:#5E574B;margin:0 0 4px}
+.ghost{background:transparent;border:none;font-family:'Patrick Hand',cursive;font-size:18px;color:#2F5E2C;text-decoration:underline;cursor:pointer;min-height:44px;padding:0 6px}
+.ico{width:44px;height:44px;display:inline-flex;align-items:center;justify-content:center;background:transparent;border:none;cursor:pointer;color:#2B2A26;padding:0}
+.scroll{scrollbar-width:none}
+.scroll::-webkit-scrollbar{display:none}
+.pulse{animation:pulse 1.6s ease-in-out infinite}
+@keyframes pulse{0%,100%{transform:rotate(-0.6deg)}50%{transform:rotate(0.6deg) scale(1.015)}}
+.ballDrop{animation:ballDrop 1.1s cubic-bezier(.5,0,.5,1) both}
+@keyframes ballDrop{0%{transform:translate(-90px,-70px)}55%{transform:translate(0,0)}70%{transform:translate(0,-10px)}85%{transform:translate(0,0)}100%{transform:translate(0,14px);opacity:0}}
+.flagWave{transform-origin:0 50%;animation:wave 1.4s ease-in-out infinite}
+@keyframes wave{0%,100%{transform:skewY(0)}50%{transform:skewY(-6deg)}}
+a{color:#2F5E2C}a:hover{color:#1F4A1D}
+</style>
+</helmet>
+<div class="io paper" style="width: 390px; height: 844px; position: relative; overflow: hidden; display: flex; flex-direction: column">
+
+<!-- WELCOME -->
+<sc-if value="{{isWelcome}}" hint-placeholder-val="{{true}}">
+<div class="scroll" style="flex-grow: 1; overflow-y: auto; padding: 44px 28px 28px; display: flex; flex-direction: column; gap: 18px">
+<div>
+<div class="hd" style="font-size: 72px; line-height: 0.85; color: #2F5E2C">Ironed</div>
+<div class="hd" style="font-size: 72px; line-height: 0.85; color: #2F5E2C; padding-left: 60px">Out.</div>
+</div>
+<p style="margin: 0; font-size: 22px; line-height: 1.3">Book the tee time. Drop one link in the group chat. Let the foursome sort itself out.</p>
+<svg viewBox="0 0 334 210" width="334" height="210" aria-hidden="true">
+<circle cx="285" cy="42" r="18" fill="#F2C14E" stroke="#2B2A26" stroke-width="2"></circle>
+<path d="M40 52 q6 -14 20 -8 q8 -12 22 -2 q14 0 10 12 z" fill="#FFFFFF" stroke="#2B2A26" stroke-width="2" stroke-linejoin="round"></path>
+<path d="M0 140 Q80 92 170 126 T334 110 L334 210 L0 210Z" fill="#A8CC94" stroke="#2B2A26" stroke-width="2"></path>
+<path d="M0 172 Q120 142 230 166 T334 160 L334 210 L0 210Z" fill="#6FA35F" stroke="#2B2A26" stroke-width="2"></path>
+<ellipse cx="226" cy="146" rx="52" ry="12" fill="#4E8B4A" stroke="#2B2A26" stroke-width="2"></ellipse>
+<ellipse cx="232" cy="146" rx="7" ry="2.6" fill="#2B2A26"></ellipse>
+<line x1="232" y1="146" x2="232" y2="66" stroke="#2B2A26" stroke-width="3" stroke-linecap="round"></line>
+<path class="flagWave" d="M232 66 L270 77 L232 89 Z" fill="#C0392B" stroke="#2B2A26" stroke-width="2" stroke-linejoin="round"></path>
+<path d="M30 196 Q80 40 128 156" fill="none" stroke="#2B2A26" stroke-width="2" stroke-dasharray="3 7" stroke-linecap="round"></path>
+<circle cx="128" cy="160" r="7" fill="#FFFFFF" stroke="#2B2A26" stroke-width="2"></circle>
+</svg>
+<div style="display: flex; flex-direction: column; gap: 14px">
+<button class="btn go" type="button" onClick="{{toSignup}}">Create an account</button>
+<button class="btn" type="button" onClick="{{toLogin}}">I already have one</button>
+</div>
+<p style="margin: 0; font-size: 17px; color: #5E574B; text-align: center">Got an invite link from a friend? Just tap it. No account needed to grab a spot.</p>
+</div>
+</sc-if>
+
+<!-- SIGN UP -->
+<sc-if value="{{isSignup}}" hint-placeholder-val="{{false}}">
+<div class="scroll" style="flex-grow: 1; overflow-y: auto; padding: 16px 24px 28px; display: flex; flex-direction: column; gap: 16px">
+<button class="ico" type="button" aria-label="Back" onClick="{{toWelcome}}"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5 L8 12 L15 19"></path></svg></button>
+<div class="hd" style="font-size: 48px; line-height: 1; color: #2F5E2C">Make an account</div>
+<p style="margin: 0; font-size: 19px">So you can start outings and keep your crew in one place.</p>
+<div><label class="lbl" for="su-name">Your name</label><input class="inp" id="su-name" placeholder="Mike" value="{{authName}}" onChange="{{onAuthName}}"></div>
+<div><label class="lbl" for="su-email">Email</label><input class="inp" id="su-email" type="email" placeholder="you@example.com" value="{{authEmail}}" onChange="{{onAuthEmail}}"></div>
+<div><label class="lbl" for="su-pass">Password</label><input class="inp" id="su-pass" type="password" placeholder="8+ characters" value="{{authPass}}" onChange="{{onAuthPass}}"></div>
+<button class="btn go" type="button" onClick="{{toHome}}">Create account</button>
+<p style="margin: 0; font-size: 16px; color: #5E574B; display: flex; gap: 8px; align-items: flex-start"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0; margin-top: 2px"><rect x="5" y="11" width="14" height="9" rx="2"></rect><path d="M8 11 V8 a4 4 0 0 1 8 0 V11"></path></svg>Your password is salted and hashed. We never store or see it.</p>
+<button class="ghost" type="button" onClick="{{toLogin}}">Already have one? Log in</button>
+</div>
+</sc-if>
+
+<!-- LOG IN -->
+<sc-if value="{{isLogin}}" hint-placeholder-val="{{false}}">
+<div class="scroll" style="flex-grow: 1; overflow-y: auto; padding: 16px 24px 28px; display: flex; flex-direction: column; gap: 16px">
+<button class="ico" type="button" aria-label="Back" onClick="{{toWelcome}}"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5 L8 12 L15 19"></path></svg></button>
+<div class="hd" style="font-size: 48px; line-height: 1; color: #2F5E2C">Welcome back</div>
+<div><label class="lbl" for="li-email">Email</label><input class="inp" id="li-email" type="email" placeholder="you@example.com" value="{{authEmail}}" onChange="{{onAuthEmail}}"></div>
+<div><label class="lbl" for="li-pass">Password</label><input class="inp" id="li-pass" type="password" placeholder="Password" value="{{authPass}}" onChange="{{onAuthPass}}"></div>
+<button class="btn go" type="button" onClick="{{toHome}}">Log in</button>
+<div style="display: flex; justify-content: space-between">
+<button class="ghost" type="button">Forgot password?</button>
+<button class="ghost" type="button" onClick="{{toSignup}}">Create account</button>
+</div>
+</div>
+</sc-if>
+
+<!-- HOME -->
+<sc-if value="{{isHome}}" hint-placeholder-val="{{false}}">
+<div class="scroll" style="flex-grow: 1; overflow-y: auto; padding: 28px 20px 24px; display: flex; flex-direction: column; gap: 18px">
+<div>
+<div class="hd" style="font-size: 46px; line-height: 1">Hey Mike</div>
+<p style="margin: 0; font-size: 19px; color: #5E574B">Here's what's on the tee sheet.</p>
+</div>
+<div class="sk" style="padding: 18px; display: flex; flex-direction: column; gap: 10px; box-shadow: 4px 4px 0 #2B2A26">
+<div style="font-size: 16px; color: #5E574B">NEXT UP</div>
+<div class="hd" style="font-size: 32px; line-height: 1; color: #2F5E2C">{{outing.course}}</div>
+<div style="font-size: 18px">{{outing.date}} · {{teeSummary}}</div>
+<div style="display: flex; flex-wrap: wrap; gap: 6px; padding: 4px 0">
+<sc-for list="{{dots}}" as="d" hint-placeholder-count="12"><div style="{{d.style}}"></div></sc-for>
+</div>
+<div style="font-size: 20px; color: #A3301F">{{spotsText}}</div>
+<div style="display: flex; gap: 10px">
+<button class="btn go sm" type="button" onClick="{{toInvite}}" style="flex-grow: 1">Open invite</button>
+<button class="btn sm" type="button" onClick="{{toShare}}" style="flex-grow: 1">Share link</button>
+</div>
+</div>
+<button class="btn red" type="button" onClick="{{toNew}}"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5 V19 M5 12 H19"></path></svg>New outing</button>
+<div class="hd" style="font-size: 30px; line-height: 1; margin-top: 6px">Your crew</div>
+<button class="sk" type="button" onClick="{{toGroups}}" style="padding: 14px 16px; text-align: left; font-family: inherit; font-size: 18px; color: #2B2A26; cursor: pointer; display: flex; justify-content: space-between; align-items: center">
+<span><span class="hd" style="font-size: 26px; display: block; line-height: 1">Saturday Hackers</span><span style="color: #5E574B">8 members · 2 invites pending</span></span>
+<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5 L16 12 L9 19"></path></svg>
+</button>
+<button class="ghost" type="button" onClick="{{resetDemo}}" style="align-self: center; color: #5E574B">Reset demo data</button>
+</div>
+</sc-if>
+
+<!-- GROUPS -->
+<sc-if value="{{isGroups}}" hint-placeholder-val="{{false}}">
+<div class="scroll" style="flex-grow: 1; overflow-y: auto; padding: 28px 20px 24px; display: flex; flex-direction: column; gap: 16px">
+<div class="hd" style="font-size: 46px; line-height: 1">Your crew</div>
+<div class="sk" style="padding: 18px; display: flex; flex-direction: column; gap: 12px">
+<div class="hd" style="font-size: 32px; line-height: 1; color: #2F5E2C">Saturday Hackers</div>
+<div style="display: flex; flex-wrap: wrap; gap: 8px">
+<sc-for list="{{members}}" as="m" hint-placeholder-count="8">
+<div style="{{m.style}}">{{m.name}}</div>
+</sc-for>
+</div>
+<div style="border-top: 2px dashed #CFC5AE; padding-top: 12px">
+<div style="font-size: 19px; margin-bottom: 8px">Invite friends to the crew</div>
+<div style="display: flex; gap: 8px; align-items: center">
+<div class="inp" style="font-size: 17px; display: flex; align-items: center; overflow: hidden; white-space: nowrap; color: #5E574B">ironedout.golf/g/hackers-9fT2</div>
+<button class="btn sm" type="button" onClick="{{copyGroup}}" style="flex-shrink: 0">{{groupCopyLabel}}</button>
+</div>
+<p style="margin: 8px 0 0; font-size: 16px; color: #5E574B">Members get a text when you post a new outing.</p>
+</div>
+</div>
+<button class="btn go" type="button" onClick="{{toNew}}">Start an outing with this crew</button>
+<button class="btn" type="button">Make a new crew</button>
+</div>
+</sc-if>
+
+<!-- SETTINGS -->
+<sc-if value="{{isSettings}}" hint-placeholder-val="{{false}}">
+<div class="scroll" style="flex-grow: 1; overflow-y: auto; padding: 28px 20px 24px; display: flex; flex-direction: column; gap: 16px">
+<div>
+<div class="hd" style="font-size: 46px; line-height: 1">Alerts</div>
+<p style="margin: 0; font-size: 19px; color: #5E574B">Pick what pings you, and how.</p>
+</div>
+<div class="sk" style="padding: 14px 16px; display: flex; justify-content: space-between; align-items: center">
+<div><div style="font-size: 16px; color: #5E574B">Texts go to</div><div style="font-size: 20px">(410) 555-0142</div></div>
+<div style="font-size: 16px; color: #2F5E2C; display: flex; align-items: center; gap: 4px"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12 L10 17 L19 7"></path></svg>Verified</div>
+</div>
+<div class="sk" style="padding: 6px 16px">
+<sc-for list="{{notifRows}}" as="r" hint-placeholder-count="5">
+<div style="display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 0; border-bottom: 2px dashed #E3D9C2">
+<div style="font-size: 18px; line-height: 1.15">{{r.label}}</div>
+<div style="display: flex; gap: 6px; flex-shrink: 0">
+<button type="button" aria-pressed="{{r.textOn}}" onClick="{{r.onText}}" style="{{r.textStyle}}">Text</button>
+<button type="button" aria-pressed="{{r.emailOn}}" onClick="{{r.onEmail}}" style="{{r.emailStyle}}">Email</button>
+</div>
+</div>
+</sc-for>
+<div style="display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 12px 0">
+<div style="font-size: 18px; line-height: 1.15">Quiet hours<br><span style="color: #5E574B; font-size: 16px">No texts 10 PM to 7 AM</span></div>
+<button type="button" aria-pressed="{{quiet}}" aria-label="Quiet hours" onClick="{{toggleQuiet}}" style="{{quietStyle}}"><span style="{{quietKnob}}"></span></button>
+</div>
+</div>
+<p style="margin: 0; font-size: 16px; color: #5E574B">Reply STOP to any text to opt out. Standard message rates may apply.</p>
+<button class="ghost" type="button" onClick="{{toWelcome}}" style="align-self: flex-start">Log out</button>
+</div>
+</sc-if>
+
+<!-- NEW OUTING -->
+<sc-if value="{{isNew}}" hint-placeholder-val="{{false}}">
+<div style="display: flex; align-items: center; gap: 4px; padding: 10px 12px 0">
+<button class="ico" type="button" aria-label="Back to home" onClick="{{toHome}}"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5 L8 12 L15 19"></path></svg></button>
+<div class="hd" style="font-size: 38px; line-height: 1">New outing</div>
+</div>
+<div class="scroll" style="flex-grow: 1; overflow-y: auto; padding: 8px 20px 20px; display: flex; flex-direction: column; gap: 22px">
+
+<section style="display: flex; flex-direction: column; gap: 10px">
+<div class="hd" style="font-size: 28px; line-height: 1">1. Where?</div>
+<div style="position: relative">
+<label class="lbl" for="course-q" style="position: absolute; left: -9999px">Search courses</label>
+<input class="inp" id="course-q" placeholder="Search courses or towns" value="{{query}}" onChange="{{onQuery}}" style="padding-left: 40px">
+<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#5E574B" stroke-width="2.2" stroke-linecap="round" style="position: absolute; left: 12px; top: 14px"><circle cx="11" cy="11" r="6"></circle><path d="M16 16 L20 20"></path></svg>
+</div>
+<div style="display: flex; gap: 8px">
+<button type="button" aria-pressed="{{scopeNear}}" onClick="{{setNear}}" style="{{nearStyle}}">Within 2 hrs of Baltimore</button>
+<button type="button" aria-pressed="{{scopeAll}}" onClick="{{setAll}}" style="{{allStyle}}">All courses</button>
+</div>
+<div class="sk scroll" style="max-height: 252px; overflow-y: auto; padding: 4px 6px">
+<sc-for list="{{courseResults}}" as="c" hint-placeholder-count="5">
+<button type="button" onClick="{{c.pick}}" aria-pressed="{{c.selected}}" style="{{c.style}}">
+<span style="display: flex; flex-direction: column; text-align: left"><span style="font-size: 19px; line-height: 1.1">{{c.name}}</span><span style="font-size: 16px; color: #5E574B">{{c.town}}</span></span>
+<span style="font-size: 16px; color: #2F5E2C; flex-shrink: 0">{{c.drive}}</span>
+</button>
+</sc-for>
+<sc-if value="{{noResults}}" hint-placeholder-val="{{false}}"><div style="padding: 14px; font-size: 18px; color: #5E574B">No courses match. Try "All courses".</div></sc-if>
+</div>
+</section>
+
+<section style="display: flex; flex-direction: column; gap: 10px">
+<div class="hd" style="font-size: 28px; line-height: 1">2. When?</div>
+<div style="display: flex; flex-wrap: wrap; gap: 8px">
+<sc-for list="{{dates}}" as="dt" hint-placeholder-count="4">
+<button type="button" aria-pressed="{{dt.selected}}" onClick="{{dt.pick}}" style="{{dt.style}}">{{dt.label}}</button>
+</sc-for>
+</div>
+</section>
+
+<section style="display: flex; flex-direction: column; gap: 10px">
+<div class="hd" style="font-size: 28px; line-height: 1">3. Tee times</div>
+<sc-for list="{{steppers}}" as="st" hint-placeholder-count="3">
+<div style="display: flex; align-items: center; justify-content: space-between">
+<div style="font-size: 19px">{{st.label}}</div>
+<div style="display: flex; align-items: center; gap: 6px">
+<button class="btn sm" type="button" aria-label="{{st.minusAria}}" onClick="{{st.minus}}" style="width: 44px; padding: 0">−</button>
+<div style="min-width: 88px; text-align: center; font-size: 21px">{{st.value}}</div>
+<button class="btn sm" type="button" aria-label="{{st.plusAria}}" onClick="{{st.plus}}" style="width: 44px; padding: 0">+</button>
+</div>
+</div>
+</sc-for>
+<div style="display: flex; align-items: center; justify-content: space-between; gap: 8px">
+<div style="font-size: 19px">Minutes apart</div>
+<div style="display: flex; gap: 6px">
+<sc-for list="{{intervals}}" as="iv" hint-placeholder-count="4">
+<button type="button" aria-pressed="{{iv.selected}}" onClick="{{iv.pick}}" style="{{iv.style}}">{{iv.label}}</button>
+</sc-for>
+</div>
+</div>
+<div style="background: #F7E3B5; border: 2px dashed #8A6D2E; border-radius: 12px 5px 11px 6px/5px 11px 6px 12px; padding: 12px 14px; display: flex; flex-direction: column; gap: 6px">
+<div style="font-size: 18px">{{previewTimes}}</div>
+<div class="hd" style="font-size: 28px; line-height: 1; color: #A3301F">{{previewSpots}}</div>
+</div>
+</section>
+
+<section style="display: flex; flex-direction: column; gap: 12px">
+<div class="hd" style="font-size: 28px; line-height: 1">4. The details</div>
+<div><label class="lbl" for="price">Cost per player (paid at the course)</label>
+<div style="position: relative"><span style="position: absolute; left: 14px; top: 11px; font-size: 19px">$</span><input class="inp" id="price" inputmode="decimal" value="{{price}}" onChange="{{onPrice}}" style="padding-left: 28px"></div></div>
+<div><label class="lbl" for="note">Note for the crew</label><textarea class="inp" id="note" rows="3" value="{{note}}" onChange="{{onNote}}" placeholder="Carts or walking, where to meet, etc."></textarea></div>
+</section>
+</div>
+<div style="padding: 12px 20px 18px; border-top: 2px solid #2B2A26; background: #FBF6E9">
+<button class="btn red" type="button" onClick="{{createOuting}}" style="width: 100%">Create &amp; get the link</button>
+</div>
+</sc-if>
+
+<!-- SHARE -->
+<sc-if value="{{isShare}}" hint-placeholder-val="{{false}}">
+<div style="display: flex; align-items: center; gap: 4px; padding: 10px 12px 0">
+<button class="ico" type="button" aria-label="Back to home" onClick="{{toHome}}"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5 L8 12 L15 19"></path></svg></button>
+</div>
+<div class="scroll" style="flex-grow: 1; overflow-y: auto; padding: 0 20px 24px; display: flex; flex-direction: column; gap: 16px">
+<div class="hd" style="font-size: 50px; line-height: 0.95; color: #2F5E2C">Link's ready!</div>
+<p style="margin: 0; font-size: 19px">Drop it in the group chat. Friends tap, pick a time, done.</p>
+<div style="display: flex; gap: 8px; align-items: center">
+<div class="inp" style="display: flex; align-items: center; overflow: hidden; white-space: nowrap">ironedout.golf/t/k7Qx2</div>
+<button class="btn sm" type="button" onClick="{{copyLink}}" style="flex-shrink: 0">{{copyLabel}}</button>
+</div>
+<div class="sk" style="padding: 16px; display: flex; flex-direction: column; gap: 10px; background: #F4F1EA">
+<div style="font-size: 15px; color: #5E574B; text-align: center">Saturday Hackers</div>
+<div style="align-self: flex-end; max-width: 82%; background: #3F7A3A; color: #FFFFFF; font-size: 18px; padding: 8px 14px; border-radius: 18px 18px 4px 18px">Who's in? Grab a spot</div>
+<div style="align-self: flex-end; width: 82%; border: 2px solid #2B2A26; border-radius: 14px; overflow: hidden; background: #FFFFFF">
+<div style="background: #A8CC94; height: 70px; position: relative; border-bottom: 2px solid #2B2A26; overflow: hidden">
+<svg viewBox="0 0 260 70" width="100%" height="70" preserveAspectRatio="xMidYMax slice" aria-hidden="true"><path d="M0 50 Q90 26 170 44 T260 38 L260 70 L0 70Z" fill="#6FA35F" stroke="#2B2A26" stroke-width="2"></path><line x1="190" y1="44" x2="190" y2="12" stroke="#2B2A26" stroke-width="2.5"></line><path d="M190 12 L212 18 L190 25Z" fill="#C0392B" stroke="#2B2A26" stroke-width="1.5"></path><circle cx="40" cy="22" r="10" fill="#F2C14E" stroke="#2B2A26" stroke-width="2"></circle></svg>
+</div>
+<div style="padding: 8px 12px">
+<div class="hd" style="font-size: 22px; line-height: 1">{{outing.course}}</div>
+<div style="font-size: 15px; color: #5E574B">{{outing.date}} · {{spotsText}}</div>
+<div style="font-size: 14px; color: #5E574B">ironedout.golf</div>
+</div>
+</div>
+<sc-if value="{{sent}}" hint-placeholder-val="{{false}}"><div style="align-self: flex-end; font-size: 15px; color: #5E574B">Delivered</div></sc-if>
+</div>
+<button class="btn go" type="button" onClick="{{sendText}}">{{sendLabel}}</button>
+<button class="btn" type="button" onClick="{{toInvite}}">See the invite page</button>
+</div>
+</sc-if>
+
+<!-- INVITE PAGE -->
+<sc-if value="{{isInvite}}" hint-placeholder-val="{{false}}">
+<div style="display: flex; align-items: center; justify-content: space-between; padding: 8px 12px 0">
+<button class="ico" type="button" aria-label="Back to home" onClick="{{toHome}}"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5 L8 12 L15 19"></path></svg></button>
+<div style="display: flex; align-items: center; gap: 6px; border: 2px dashed #8A8270; border-radius: 10px; padding: 3px 4px 3px 10px">
+<span style="font-size: 15px; color: #5E574B">Demo · view as</span>
+<button type="button" aria-pressed="{{isFriend}}" onClick="{{asFriend}}" style="{{friendStyle}}">Friend</button>
+<button type="button" aria-pressed="{{isOrg}}" onClick="{{asOrg}}" style="{{orgStyle}}">Organizer</button>
+</div>
+</div>
+<div class="scroll" style="flex-grow: 1; overflow-y: auto; padding: 4px 18px 24px; display: flex; flex-direction: column; gap: 14px">
+
+<div class="sk" style="overflow: hidden; box-shadow: 4px 4px 0 #2B2A26">
+<div style="background: #CFE6F2; border-bottom: 2px solid #2B2A26; height: 96px; position: relative">
+<svg viewBox="0 0 354 96" width="100%" height="96" preserveAspectRatio="xMidYMax slice" aria-hidden="true">
+<path d="M30 30 q5 -11 16 -6 q7 -9 17 -1 q11 0 8 9 z" fill="#FFFFFF" stroke="#2B2A26" stroke-width="2" stroke-linejoin="round"></path>
+<circle cx="310" cy="26" r="13" fill="#F2C14E" stroke="#2B2A26" stroke-width="2"></circle>
+<path d="M0 66 Q90 38 180 58 T354 50 L354 96 L0 96Z" fill="#A8CC94" stroke="#2B2A26" stroke-width="2"></path>
+<path d="M0 84 Q120 66 240 80 T354 78 L354 96 L0 96Z" fill="#6FA35F" stroke="#2B2A26" stroke-width="2"></path>
+<ellipse cx="236" cy="64" rx="34" ry="8" fill="#4E8B4A" stroke="#2B2A26" stroke-width="2"></ellipse>
+<line x1="240" y1="64" x2="240" y2="18" stroke="#2B2A26" stroke-width="2.5" stroke-linecap="round"></line>
+<path class="flagWave" d="M240 18 L266 26 L240 34Z" fill="#C0392B" stroke="#2B2A26" stroke-width="2" stroke-linejoin="round"></path>
+</svg>
+<sc-if value="{{locked}}" hint-placeholder-val="{{false}}">
+<div class="hd" style="position: absolute; left: 14px; top: 14px; transform: rotate(-8deg); border: 3px solid #B5361F; color: #B5361F; background: #FFFFFF; font-size: 26px; padding: 0 10px; border-radius: 8px">Locked in</div>
+</sc-if>
+</div>
+<div style="padding: 14px 16px; display: flex; flex-direction: column; gap: 4px">
+<div style="font-size: 16px; color: #5E574B">Mike's outing</div>
+<div class="hd" style="font-size: 34px; line-height: 1; color: #2F5E2C">{{outing.course}}</div>
+<div style="font-size: 18px">{{outing.town}}</div>
+<div style="font-size: 19px">{{outing.date}} · {{teeSummary}}</div>
+<div style="font-size: 18px">${{outing.price}} / player · pay at the course</div>
+<sc-if value="{{hasNote}}" hint-placeholder-val="{{true}}"><div style="font-size: 17px; color: #5E574B; border-top: 2px dashed #E3D9C2; padding-top: 6px; margin-top: 4px">“{{outing.note}}”</div></sc-if>
+</div>
+</div>
+
+<sc-if value="{{showBanner}}" hint-placeholder-val="{{true}}">
+<div class="pulse" role="status" style="background: #F7E3B5; border: 2px solid #B5361F; border-radius: 16px 6px 15px 6px/6px 15px 6px 16px; padding: 12px 14px; display: flex; flex-direction: column; gap: 8px; box-shadow: 3px 3px 0 #B5361F">
+<div style="display: flex; align-items: center; gap: 8px">
+<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#A3301F" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 16 V11 a6 6 0 0 1 12 0 V16 L20 18 H4 Z"></path><path d="M10 21 h4"></path></svg>
+<div class="hd" style="font-size: 26px; line-height: 1; color: #A3301F">Since you last looked</div>
+</div>
+<sc-for list="{{bannerItems}}" as="b" hint-placeholder-count="3">
+<div style="display: flex; gap: 8px; font-size: 18px; line-height: 1.2"><span style="width: 8px; height: 8px; background: #2B2A26; border-radius: 50%; margin-top: 7px; flex-shrink: 0"></span><span>{{b.text}}</span></div>
+</sc-for>
+<div style="display: flex; gap: 8px; align-items: center">
+<button class="btn red sm" type="button" onClick="{{grabFromBanner}}">Grab the 7:50 spot</button>
+<button class="ghost" type="button" onClick="{{dismissBanner}}">Got it</button>
+</div>
+</div>
+</sc-if>
+
+<sc-if value="{{showJoined}}" hint-placeholder-val="{{false}}">
+<div style="background: #E3EFD9; border: 2px solid #2F5E2C; border-radius: 16px 6px 15px 6px/6px 15px 6px 16px; padding: 10px 14px; font-size: 18px; display: flex; align-items: center; gap: 8px">
+<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#2F5E2C" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12 L10 17 L19 7"></path></svg>
+<span>You're in. No changes since you joined.</span>
+</div>
+</sc-if>
+
+<div style="display: flex; justify-content: space-between; align-items: baseline">
+<div class="hd" style="font-size: 30px; line-height: 1">The tee sheet</div>
+<div style="font-size: 19px; color: #A3301F">{{spotsText}}</div>
+</div>
+
+<sc-for list="{{tees}}" as="t" hint-placeholder-count="3">
+<div class="sk" style="padding: 12px 14px; display: flex; flex-direction: column; gap: 10px">
+<div style="display: flex; justify-content: space-between; align-items: center; gap: 8px">
+<div style="display: flex; align-items: baseline; gap: 10px">
+<div class="hd" style="font-size: 32px; line-height: 1">{{t.time}}</div>
+<div style="font-size: 17px; color: #5E574B">{{t.count}}</div>
+<sc-if value="{{t.isNew}}" hint-placeholder-val="{{false}}"><div style="font-size: 14px; background: #2B2A26; color: #FFFFFF; padding: 1px 8px; border-radius: 8px">new</div></sc-if>
+</div>
+<sc-if value="{{t.isOrg}}" hint-placeholder-val="{{false}}">
+<div style="display: flex; gap: 2px">
+<button class="ico" type="button" aria-label="{{t.lessAria}}" onClick="{{t.onLess}}" style="{{t.lessStyle}}"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M5 12 H19"></path></svg></button>
+<button class="ico" type="button" aria-label="{{t.addAria}}" onClick="{{t.onAdd}}" style="{{t.addStyle}}"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5 V19 M5 12 H19"></path></svg></button>
+<button class="ico" type="button" aria-label="{{t.delAria}}" onClick="{{t.onDel}}" style="{{t.delStyle}}"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 7 H19 M9 7 V4 H15 V7 M7 7 L8 20 H16 L17 7"></path></svg></button>
+</div>
+</sc-if>
+</div>
+<div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px">
+<sc-for list="{{t.slots}}" as="sl" hint-placeholder-count="4">
+<sc-if value="{{sl.open}}" hint-placeholder-val="{{true}}">
+<button type="button" aria-label="{{sl.aria}}" onClick="{{sl.onClaim}}" style="{{sl.style}}">{{sl.label}}</button>
+</sc-if>
+<sc-if value="{{sl.filled}}" hint-placeholder-val="{{false}}">
+<div style="min-height: 56px; display: flex; align-items: center; gap: 8px; padding: 4px 4px 4px 8px; border: 2px solid #2B2A26; border-radius: 12px 5px 11px 6px/5px 11px 6px 12px; background: #FFFDF7">
+<div style="{{sl.avatarStyle}}">{{sl.initials}}</div>
+<div style="flex-grow: 1; min-width: 0; line-height: 1.05">
+<div style="font-size: 17px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap">{{sl.name}}</div>
+<sc-if value="{{sl.hasTag}}" hint-placeholder-val="{{false}}"><div style="font-size: 14px; color: #5E574B">{{sl.tag}}</div></sc-if>
+<sc-if value="{{sl.canDrop}}" hint-placeholder-val="{{false}}"><button type="button" onClick="{{sl.onDrop}}" style="background: transparent; border: none; padding: 0; font-family: inherit; font-size: 15px; color: #A3301F; text-decoration: underline; cursor: pointer; min-height: 24px">Drop out</button></sc-if>
+</div>
+<sc-if value="{{sl.canRemove}}" hint-placeholder-val="{{false}}">
+<button class="ico" type="button" aria-label="{{sl.removeAria}}" onClick="{{sl.onRemove}}" style="width: 36px; height: 44px; flex-shrink: 0; color: #A3301F"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M6 6 L18 18 M18 6 L6 18"></path></svg></button>
+</sc-if>
+</div>
+</sc-if>
+</sc-for>
+</div>
+</div>
+</sc-for>
+
+<sc-if value="{{isOrg}}" hint-placeholder-val="{{false}}">
+<div style="display: flex; flex-direction: column; gap: 12px; padding-top: 4px">
+<button class="btn" type="button" onClick="{{addTee}}"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5 V19 M5 12 H19"></path></svg>Add another tee time</button>
+<button class="btn" type="button" aria-pressed="{{locked}}" onClick="{{toggleLock}}" style="{{lockStyle}}">{{lockLabel}}</button>
+<button class="btn go" type="button" onClick="{{toShare}}">Share the link again</button>
+<p style="margin: 0; font-size: 16px; color: #5E574B">Removing someone texts them. Locking stops new claims and drop-outs.</p>
+</div>
+</sc-if>
+<sc-if value="{{isFriend}}" hint-placeholder-val="{{true}}">
+<button class="btn" type="button" style="margin-top: 4px"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="5" width="16" height="15" rx="2"></rect><path d="M4 10 H20 M9 3 V7 M15 3 V7"></path></svg>Add to my calendar</button>
+</sc-if>
+</div>
+</sc-if>
+
+<!-- BOTTOM NAV -->
+<sc-if value="{{showNav}}" hint-placeholder-val="{{false}}">
+<nav style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); border-top: 2px solid #2B2A26; background: #FBF6E9; padding: 4px 8px 10px">
+<sc-for list="{{navItems}}" as="n" hint-placeholder-count="3">
+<button type="button" onClick="{{n.go}}" aria-current="{{n.current}}" style="{{n.style}}">
+<sc-if value="{{n.isHome}}" hint-placeholder-val="{{true}}"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 21 V4 M7 4 L17 7.5 L7 11"></path><path d="M3 21 H21"></path></svg></sc-if>
+<sc-if value="{{n.isGroups}}" hint-placeholder-val="{{false}}"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.2"></circle><circle cx="17" cy="9" r="2.6"></circle><path d="M3 20 c0 -4 3 -6 6 -6 s6 2 6 6 M15 14.5 c3 0 6 1.5 6 5"></path></svg></sc-if>
+<sc-if value="{{n.isAlerts}}" hint-placeholder-val="{{false}}"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 16 V11 a6 6 0 0 1 12 0 V16 L20 18 H4 Z"></path><path d="M10 21 h4"></path></svg></sc-if>
+<span>{{n.label}}</span>
+</button>
+</sc-for>
+</nav>
+</sc-if>
+
+<!-- CLAIM SHEET -->
+<sc-if value="{{sheetOpen}}" hint-placeholder-val="{{false}}">
+<div style="position: absolute; inset: 0; background: rgba(43,42,38,0.5); display: flex; flex-direction: column; justify-content: flex-end">
+<div role="dialog" aria-modal="true" aria-label="Grab a spot" style="background: #FBF6E9; border-top: 3px solid #2B2A26; border-radius: 28px 22px 0 0; padding: 10px 22px 26px; display: flex; flex-direction: column; gap: 14px">
+<div style="display: flex; justify-content: space-between; align-items: center">
+<div style="width: 44px"></div>
+<div style="width: 54px; height: 5px; background: #CFC5AE; border-radius: 3px"></div>
+<button class="ico" type="button" aria-label="Close" onClick="{{closeSheet}}"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M6 6 L18 18 M18 6 L6 18"></path></svg></button>
+</div>
+
+<sc-if value="{{stepDetails}}" hint-placeholder-val="{{true}}">
+<div class="hd" style="font-size: 40px; line-height: 1; color: #2F5E2C">Grab {{sheetTime}}</div>
+<p style="margin: 0; font-size: 18px; color: #5E574B">No account needed. We'll text a code to confirm it's you.</p>
+<div><label class="lbl" for="cl-name">Your name</label><input class="inp" id="cl-name" placeholder="Chris" value="{{claimName}}" onChange="{{onClaimName}}"></div>
+<div><label class="lbl" for="cl-phone">Mobile number</label><input class="inp" id="cl-phone" type="tel" placeholder="(410) 555-0199" value="{{claimPhone}}" onChange="{{onClaimPhone}}"></div>
+<div style="display: flex; align-items: center; justify-content: space-between">
+<div style="font-size: 19px; line-height: 1.1">Bringing a buddy?<br><span style="font-size: 15px; color: #5E574B">{{guestHint}}</span></div>
+<div style="display: flex; align-items: center; gap: 6px">
+<button class="btn sm" type="button" aria-label="One fewer guest" onClick="{{guestMinus}}" style="width: 44px; padding: 0">−</button>
+<div style="min-width: 44px; text-align: center; font-size: 22px">+{{guests}}</div>
+<button class="btn sm" type="button" aria-label="One more guest" onClick="{{guestPlus}}" style="width: 44px; padding: 0">+</button>
+</div>
+</div>
+<button class="btn go" type="button" onClick="{{sendCode}}">Text me a code</button>
+<p style="margin: 0; font-size: 14px; color: #5E574B">By continuing you agree to get texts about this outing. Reply STOP anytime.</p>
+</sc-if>
+
+<sc-if value="{{stepCode}}" hint-placeholder-val="{{false}}">
+<div class="hd" style="font-size: 40px; line-height: 1; color: #2F5E2C">Check your texts</div>
+<p style="margin: 0; font-size: 18px; color: #5E574B">We sent a 6-digit code to {{phoneShown}}. It expires in 10 minutes.</p>
+<div><label class="lbl" for="cl-code">Code</label><input class="inp" id="cl-code" inputmode="numeric" autocomplete="one-time-code" placeholder="000000" value="{{claimCode}}" onChange="{{onClaimCode}}" style="font-size: 30px; letter-spacing: 12px; text-align: center"></div>
+<button class="btn go" type="button" onClick="{{verify}}">Lock in my spot</button>
+<button class="ghost" type="button" style="align-self: center">Resend code</button>
+<p style="margin: 0; font-size: 14px; color: #5E574B; text-align: center">Demo: any code works.</p>
+</sc-if>
+
+<sc-if value="{{stepDone}}" hint-placeholder-val="{{false}}">
+<svg viewBox="0 0 220 120" width="220" height="120" style="align-self: center" aria-hidden="true">
+<path d="M0 96 Q110 70 220 96 L220 120 L0 120Z" fill="#6FA35F" stroke="#2B2A26" stroke-width="2"></path>
+<ellipse cx="128" cy="92" rx="16" ry="5" fill="#2B2A26"></ellipse>
+<line x1="134" y1="92" x2="134" y2="22" stroke="#2B2A26" stroke-width="3" stroke-linecap="round"></line>
+<path class="flagWave" d="M134 22 L168 32 L134 42Z" fill="#C0392B" stroke="#2B2A26" stroke-width="2" stroke-linejoin="round"></path>
+<g class="ballDrop"><circle cx="122" cy="84" r="7" fill="#FFFFFF" stroke="#2B2A26" stroke-width="2"></circle></g>
+</svg>
+<div class="hd" style="font-size: 44px; line-height: 1; color: #2F5E2C; text-align: center">You're in!</div>
+<p style="margin: 0; font-size: 19px; text-align: center">{{doneText}}</p>
+<button class="btn go" type="button" onClick="{{closeSheet}}">Sweet</button>
+</sc-if>
+</div>
+</div>
+</sc-if>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"startScreen":{"editor":"enum","options":["welcome","signup","login","home","groups","settings","newOuting","share","invite"],"default":"welcome"},"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  defaults() {
+    return {
+      screen: this.props.startScreen || 'welcome',
+      role: 'friend', locked: false, banner: true, joined: false,
+      teeTimes: [
+        { id: 't1', time: 460, slots: [{ name: 'Mike', owner: 'org' }, { name: 'Marcus', owner: 'marcus' }, { name: 'Jen', owner: 'jen' }, { name: "Jen's guest", owner: 'jen', guest: true }] },
+        { id: 't2', time: 470, fresh: 2, slots: [{ name: 'Tony', owner: 'tony' }, { name: 'Priya', owner: 'priya' }, null, { name: 'Sam', owner: 'sam' }] },
+        { id: 't3', time: 480, added: true, slots: [{ name: 'Dee', owner: 'dee' }, null, null, null] }
+      ],
+      outing: { course: 'Mount Pleasant Golf Course', town: '6001 Hillen Rd, Baltimore, MD', date: 'Sat, Oct 10', price: '45', note: 'Walking unless it rains. Crab cakes after.' },
+      sheet: null, claimName: '', claimPhone: '', claimCode: '', guests: 0,
+      query: '', scope: 'near', courseId: 'mp',
+      dateIdx: 2, start: 460, interval: 10, numTimes: 3, perTime: 4, price: '45', note: '',
+      copied: false, sent: false, groupCopied: false, quiet: true,
+      notif: { join: { text: true, email: false }, drop: { text: true, email: true }, change: { text: true, email: true }, remind1: { text: false, email: true }, remind2: { text: true, email: false } },
+      authEmail: '', authPass: '', authName: ''
+    };
+  }
+  componentDidUpdate(prev) {
+    if (prev.startScreen !== this.props.startScreen && this.props.startScreen) this.setState({ screen: this.props.startScreen, sheet: null });
+  }
+  fmt(m) {
+    const h = Math.floor(m / 60), mm = m % 60, ap = h >= 12 ? 'PM' : 'AM', h12 = ((h + 11) % 12) + 1;
+    return h12 + ':' + (mm < 10 ? '0' : '') + mm + ' ' + ap;
+  }
+  courses() {
+    return [
+      { id: 'mp', name: 'Mount Pleasant Golf Course', town: 'Baltimore, MD', d: 12, near: true },
+      { id: 'cp', name: 'Clifton Park Golf Course', town: 'Baltimore, MD', d: 10, near: true },
+      { id: 'cr', name: 'Carroll Park Golf Course', town: 'Baltimore, MD', d: 8, near: true },
+      { id: 'fp', name: 'Forest Park Golf Course', town: 'Baltimore, MD', d: 15, near: true },
+      { id: 'pr', name: 'Pine Ridge Golf Course', town: 'Lutherville, MD', d: 25, near: true },
+      { id: 'rp', name: 'Rocky Point Golf Course', town: 'Essex, MD', d: 25, near: true },
+      { id: 'dr', name: 'Diamond Ridge Golf Course', town: 'Windsor Mill, MD', d: 20, near: true },
+      { id: 'wl', name: 'The Woodlands Golf Course', town: 'Windsor Mill, MD', d: 20, near: true },
+      { id: 'fh', name: 'Fox Hollow Golf Course', town: 'Timonium, MD', d: 25, near: true },
+      { id: 'ww', name: 'Waverly Woods Golf Course', town: 'Marriottsville, MD', d: 30, near: true },
+      { id: 'mb', name: 'Mountain Branch Golf Course', town: 'Joppa, MD', d: 35, near: true },
+      { id: 'gs', name: 'Greystone Golf Course', town: 'White Hall, MD', d: 40, near: true },
+      { id: 'rd', name: 'Renditions Golf Course', town: 'Davidsonville, MD', d: 40, near: true },
+      { id: 'br', name: 'Bulle Rock', town: 'Havre de Grace, MD', d: 45, near: true },
+      { id: 'wc', name: 'Whiskey Creek Golf Club', town: 'Ijamsville, MD', d: 55, near: true },
+      { id: 'ep', name: 'East Potomac Golf Links', town: 'Washington, DC', d: 55, near: true },
+      { id: 'qh', name: 'Queenstown Harbor', town: 'Queenstown, MD', d: 60, near: true },
+      { id: 'mr', name: 'Musket Ridge Golf Club', town: 'Myersville, MD', d: 65, near: true },
+      { id: 'pn', name: 'Penn National Golf Club', town: 'Fayetteville, PA', d: 95, near: true },
+      { id: 'bp', name: 'Bethpage Black', town: 'Farmingdale, NY', d: 230, near: false },
+      { id: 'ph', name: 'Pinehurst No. 2', town: 'Pinehurst, NC', d: 360, near: false },
+      { id: 'ts', name: 'TPC Sawgrass', town: 'Ponte Vedra Beach, FL', d: 720, near: false },
+      { id: 'pb', name: 'Pebble Beach Golf Links', town: 'Pebble Beach, CA', d: 9999, near: false }
+    ];
+  }
+  dates() { return ['Sat, Oct 3', 'Sun, Oct 4', 'Sat, Oct 10', 'Sun, Oct 11', 'Sat, Oct 17']; }
+  pill(on) {
+    return 'font-family:inherit;font-size:17px;min-height:44px;padding:4px 12px;cursor:pointer;border:2px solid #2B2A26;border-radius:12px 5px 11px 6px/5px 11px 6px 12px;background:' + (on ? '#3F7A3A' : '#FFFFFF') + ';color:' + (on ? '#FFFFFF' : '#2B2A26');
+  }
+  cloneTees(s) { return s.teeTimes.map((t) => Object.assign({}, t, { slots: t.slots.slice() })); }
+  removeSlot(tid, i) {
+    const tees = this.cloneTees(this.state);
+    const t = tees.find((x) => x.id === tid); t.slots[i] = null;
+    this.setState({ teeTimes: tees });
+  }
+  dropMe() {
+    const tees = this.cloneTees(this.state).map((t) => Object.assign(t, { slots: t.slots.map((sl) => (sl && sl.owner === 'me' ? null : sl)) }));
+    this.setState({ teeTimes: tees, joined: false });
+  }
+  verify() {
+    const s = this.state;
+    const name = (s.claimName || '').trim() || 'Chris';
+    const tees = this.cloneTees(s);
+    const ti = tees.findIndex((t) => t.id === s.sheet.tid);
+    tees[ti].slots[s.sheet.idx] = { name: name, owner: 'me' };
+    let g = s.guests;
+    const fillIn = (t) => { for (let k = 0; k < t.slots.length && g > 0; k++) if (!t.slots[k]) { t.slots[k] = { name: name + "'s guest", owner: 'me', guest: true }; g--; } };
+    fillIn(tees[ti]); tees.forEach(fillIn);
+    this.setState({ teeTimes: tees, sheet: Object.assign({}, s.sheet, { step: 'done' }), banner: false, joined: true });
+  }
+  renderVals() {
+    if (!this.state || !this.state.teeTimes) this.state = Object.assign(this.defaults(), this.state || {});
+    const s = this.state;
+    const fmt = (m) => this.fmt(m);
+    const go = (screen) => () => this.setState({ screen: screen, sheet: null, copied: false, sent: false });
+    const isOrg = s.role === 'organizer';
+    const palette = ['#CFE3C2', '#F3D9B1', '#D3E1F2', '#F2CBC2', '#E2D6F0'];
+
+    let open = 0, total = 0;
+    const dots = [];
+    const tees = s.teeTimes.map((t) => {
+      const cap = t.slots.length;
+      const filled = t.slots.filter(Boolean).length;
+      open += cap - filled; total += cap;
+      const slots = t.slots.map((sl, i) => {
+        dots.push({ style: 'width:16px;height:16px;border:2px solid #2B2A26;border-radius:50%;background:' + (sl ? '#3F7A3A' : '#FFFFFF') });
+        if (!sl) {
+          const fresh = s.banner && !isOrg && t.fresh === i;
+          const canClaim = !s.locked && !isOrg;
+          return {
+            open: true, filled: false,
+            style: 'width:100%;min-height:56px;font-family:inherit;font-size:18px;cursor:' + (canClaim ? 'pointer' : 'default') + ';border:2px dashed ' + (fresh ? '#B5361F' : '#8A8270') + ';border-radius:12px 5px 11px 6px/5px 11px 6px 12px;background:' + (fresh ? '#F7E3B5' : '#FFFFFF') + ';color:' + (fresh ? '#A3301F' : (canClaim ? '#2F5E2C' : '#5E574B')),
+            label: s.locked ? 'Locked' : (isOrg ? 'Open' : (fresh ? 'Just opened!' : 'Open · grab it')),
+            aria: 'Open spot at ' + fmt(t.time),
+            onClaim: () => { if (canClaim) this.setState({ sheet: { tid: t.id, idx: i, step: 'details' }, guests: 0, claimCode: '' }); }
+          };
+        }
+        const isMe = sl.owner === 'me';
+        const isOrgSlot = sl.owner === 'org';
+        const tag = isOrgSlot ? 'organizer' : (sl.guest ? 'guest' : '');
+        return {
+          open: false, filled: true,
+          name: isOrgSlot && isOrg ? 'Mike (you)' : (isMe && !sl.guest ? sl.name + ' (you)' : sl.name),
+          initials: sl.guest ? '+1' : sl.name.slice(0, 1).toUpperCase(),
+          avatarStyle: 'width:34px;height:34px;flex-shrink:0;border:2px solid #2B2A26;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:17px;background:' + (isMe ? '#F2C14E' : (sl.guest ? '#FFFFFF' : palette[sl.name.charCodeAt(0) % palette.length])),
+          tag: tag, hasTag: !!tag,
+          canRemove: isOrg && !isOrgSlot && !s.locked,
+          canDrop: !isOrg && isMe && !sl.guest && !s.locked,
+          removeAria: 'Remove ' + sl.name,
+          onRemove: () => this.removeSlot(t.id, i),
+          onDrop: () => this.dropMe()
+        };
+      });
+      const canAdd = cap < 5, canLess = cap > 2 && !t.slots[cap - 1], canDel = s.teeTimes.length > 1 && filled === 0;
+      const dim = (ok) => 'color:' + (ok ? '#2B2A26' : '#B9B09C') + ';cursor:' + (ok ? 'pointer' : 'default');
+      return {
+        time: fmt(t.time), count: filled + ' of ' + cap + ' filled', isOrg: isOrg && !s.locked,
+        isNew: !!t.added && s.banner && !isOrg,
+        slots: slots,
+        addStyle: dim(canAdd), lessStyle: dim(canLess), delStyle: dim(canDel),
+        addAria: 'Add a spot to ' + fmt(t.time), lessAria: 'Remove an empty spot from ' + fmt(t.time), delAria: 'Delete the ' + fmt(t.time) + ' tee time',
+        onAdd: () => { if (!canAdd) return; const x = this.cloneTees(s); x.find((y) => y.id === t.id).slots.push(null); this.setState({ teeTimes: x }); },
+        onLess: () => { if (!canLess) return; const x = this.cloneTees(s); x.find((y) => y.id === t.id).slots.pop(); this.setState({ teeTimes: x }); },
+        onDel: () => { if (!canDel) return; this.setState({ teeTimes: s.teeTimes.filter((y) => y.id !== t.id) }); }
+      };
+    });
+    const first = s.teeTimes.length ? s.teeTimes[0].time : 460;
+    const teeSummary = s.teeTimes.length === 1 ? fmt(first) : s.teeTimes.length + ' tee times from ' + fmt(first);
+    const spotsText = open === 0 ? 'Full! ' + total + ' of ' + total : open + ' of ' + total + ' spots open';
+
+    // courses
+    const q = (s.query || '').toLowerCase().trim();
+    const all = this.courses();
+    const courseResults = all.filter((c) => (s.scope === 'all' || c.near) && (!q || (c.name + ' ' + c.town).toLowerCase().indexOf(q) >= 0)).map((c) => {
+      const sel = c.id === s.courseId;
+      const drive = c.d >= 9999 ? 'far' : (c.d >= 60 ? '~' + Math.floor(c.d / 60) + ' hr' + (c.d % 60 ? ' ' + (c.d % 60) + 'm' : '') : '~' + c.d + ' min');
+      return {
+        name: c.name, town: c.town, drive: drive, selected: sel,
+        style: 'width:100%;display:flex;justify-content:space-between;align-items:center;gap:8px;padding:8px 10px;margin:2px 0;min-height:52px;font-family:inherit;color:#2B2A26;cursor:pointer;border:2px solid ' + (sel ? '#2F5E2C' : 'transparent') + ';border-radius:10px 4px 9px 5px/4px 9px 5px 10px;background:' + (sel ? '#E3EFD9' : 'transparent'),
+        pick: () => this.setState({ courseId: c.id })
+      };
+    });
+    const dates = this.dates().map((d, i) => ({ label: d, selected: i === s.dateIdx, style: this.pill(i === s.dateIdx), pick: () => this.setState({ dateIdx: i }) }));
+    const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+    const steppers = [
+      { label: 'First tee time', value: fmt(s.start), minusAria: 'Earlier', plusAria: 'Later', minus: () => this.setState({ start: clamp(s.start - s.interval, 360, 1080) }), plus: () => this.setState({ start: clamp(s.start + s.interval, 360, 1080) }) },
+      { label: 'Tee times', value: String(s.numTimes), minusAria: 'Fewer tee times', plusAria: 'More tee times', minus: () => this.setState({ numTimes: clamp(s.numTimes - 1, 1, 6) }), plus: () => this.setState({ numTimes: clamp(s.numTimes + 1, 1, 6) }) },
+      { label: 'Players each', value: String(s.perTime), minusAria: 'Fewer players per tee time', plusAria: 'More players per tee time', minus: () => this.setState({ perTime: clamp(s.perTime - 1, 2, 5) }), plus: () => this.setState({ perTime: clamp(s.perTime + 1, 2, 5) }) }
+    ];
+    const intervals = [8, 9, 10, 12].map((v) => ({ label: String(v), selected: v === s.interval, style: this.pill(v === s.interval) + ';min-width:44px;padding:4px 8px', pick: () => this.setState({ interval: v }) }));
+    const times = []; for (let i = 0; i < s.numTimes; i++) times.push(fmt(s.start + i * s.interval).replace(' AM', '').replace(' PM', ''));
+    const ampm = fmt(s.start).slice(-2);
+    const previewTimes = (s.numTimes === 1 ? 'Tee time: ' : 'Tee times: ') + times.join(' · ') + ' ' + ampm;
+    const previewSpots = (s.numTimes * s.perTime) + ' spots to fill';
+
+    const createOuting = () => {
+      const c = all.find((x) => x.id === s.courseId) || all[0];
+      const tt = [];
+      for (let i = 0; i < s.numTimes; i++) {
+        const slots = []; for (let k = 0; k < s.perTime; k++) slots.push(null);
+        if (i === 0) slots[0] = { name: 'Mike', owner: 'org' };
+        tt.push({ id: 'n' + i, time: s.start + i * s.interval, slots: slots });
+      }
+      this.setState({ outing: { course: c.name, town: c.town, date: this.dates()[s.dateIdx], price: s.price || '0', note: s.note || '' }, teeTimes: tt, banner: false, joined: false, role: 'organizer', locked: false, screen: 'share', copied: false, sent: false });
+    };
+
+    // notifications
+    const nLabels = [['join', 'Someone grabs a spot'], ['drop', 'Someone drops out'], ['change', 'Tee times change'], ['remind1', 'Day-before reminder'], ['remind2', '2 hours before']];
+    const notifRows = nLabels.map((p) => {
+      const k = p[0], v = s.notif[k];
+      const flip = (ch) => () => { const n = Object.assign({}, s.notif); n[k] = Object.assign({}, v); n[k][ch] = !v[ch]; this.setState({ notif: n }); };
+      return { label: p[1], textOn: v.text, emailOn: v.email, textStyle: this.pill(v.text) + ';font-size:16px;padding:4px 10px', emailStyle: this.pill(v.email) + ';font-size:16px;padding:4px 10px', onText: flip('text'), onEmail: flip('email') };
+    });
+
+    const members = [['Mike', 'org'], ['Marcus'], ['Jen'], ['Tony'], ['Priya'], ['Sam'], ['Dee'], ['Dave'], ['Alex', 'pending'], ['Rob', 'pending']].map((m) => ({
+      name: m[1] === 'pending' ? m[0] + ' · invited' : (m[1] === 'org' ? m[0] + ' · you' : m[0]),
+      style: 'font-size:17px;padding:4px 12px;border:2px ' + (m[1] === 'pending' ? 'dashed #8A8270' : 'solid #2B2A26') + ';border-radius:20px;background:' + (m[1] === 'pending' ? 'transparent' : palette[m[0].charCodeAt(0) % palette.length]) + ';color:' + (m[1] === 'pending' ? '#5E574B' : '#2B2A26')
+    }));
+
+    const nav = [['home', 'Home'], ['groups', 'Crew'], ['settings', 'Alerts']].map((n) => {
+      const cur = s.screen === n[0];
+      return { label: n[1], isHome: n[0] === 'home', isGroups: n[0] === 'groups', isAlerts: n[0] === 'settings', current: cur ? 'page' : 'false', go: go(n[0]),
+        style: 'display:flex;flex-direction:column;align-items:center;gap:0;min-height:56px;justify-content:center;background:transparent;border:none;cursor:pointer;font-family:inherit;font-size:16px;color:' + (cur ? '#2F5E2C' : '#5E574B') + ';text-decoration:' + (cur ? 'underline' : 'none') + ';text-decoration-thickness:2px;text-underline-offset:4px' };
+    });
+
+    const sheet = s.sheet;
+    let sheetTime = '', guestMax = 0;
+    if (sheet) {
+      const t = s.teeTimes.find((x) => x.id === sheet.tid);
+      sheetTime = t ? fmt(t.time) : '';
+      guestMax = Math.max(0, open - 1);
+    }
+    const name = (s.claimName || '').trim() || 'Chris';
+    const doneText = sheetTime + (s.guests ? ', plus ' + s.guests + (s.guests === 1 ? ' guest' : ' guests') : '') + '. We’ll text you if anything changes.';
+    const grabFromBanner = () => {
+      let target = null;
+      s.teeTimes.forEach((t) => { if (!target && t.fresh !== undefined && !t.slots[t.fresh]) target = { tid: t.id, idx: t.fresh }; });
+      s.teeTimes.forEach((t) => { if (!target) { const i = t.slots.indexOf(null); if (i >= 0) target = { tid: t.id, idx: i }; } });
+      if (target) this.setState({ sheet: Object.assign(target, { step: 'details' }), guests: 0, claimCode: '' });
+    };
+    const val = (k) => (e) => { const o = {}; o[k] = e.target.value; this.setState(o); };
+
+    return {
+      isWelcome: s.screen === 'welcome', isSignup: s.screen === 'signup', isLogin: s.screen === 'login',
+      isHome: s.screen === 'home', isGroups: s.screen === 'groups', isSettings: s.screen === 'settings',
+      isNew: s.screen === 'newOuting', isShare: s.screen === 'share', isInvite: s.screen === 'invite',
+      showNav: ['home', 'groups', 'settings'].indexOf(s.screen) >= 0, navItems: nav,
+      toWelcome: go('welcome'), toSignup: go('signup'), toLogin: go('login'), toHome: go('home'), toGroups: go('groups'),
+      toNew: go('newOuting'), toShare: go('share'), toInvite: go('invite'),
+      authName: s.authName, authEmail: s.authEmail, authPass: s.authPass,
+      onAuthName: val('authName'), onAuthEmail: val('authEmail'), onAuthPass: val('authPass'),
+      outing: s.outing, hasNote: !!s.outing.note, teeSummary: teeSummary, spotsText: spotsText, dots: dots,
+      resetDemo: () => this.setState(Object.assign(this.defaults(), { screen: 'home' })),
+      members: members, groupCopyLabel: s.groupCopied ? 'Copied!' : 'Copy', copyGroup: () => this.setState({ groupCopied: true }),
+      notifRows: notifRows, quiet: s.quiet, toggleQuiet: () => this.setState({ quiet: !s.quiet }),
+      quietStyle: 'width:60px;height:34px;flex-shrink:0;border:2px solid #2B2A26;border-radius:18px;cursor:pointer;padding:0;position:relative;background:' + (s.quiet ? '#3F7A3A' : '#FFFFFF'),
+      quietKnob: 'position:absolute;top:3px;left:' + (s.quiet ? '29px' : '3px') + ';width:24px;height:24px;border-radius:50%;border:2px solid #2B2A26;background:#FFFFFF',
+      query: s.query, onQuery: val('query'), scopeNear: s.scope === 'near', scopeAll: s.scope === 'all',
+      nearStyle: this.pill(s.scope === 'near'), allStyle: this.pill(s.scope === 'all'),
+      setNear: () => this.setState({ scope: 'near' }), setAll: () => this.setState({ scope: 'all' }),
+      courseResults: courseResults, noResults: courseResults.length === 0,
+      dates: dates, steppers: steppers, intervals: intervals, previewTimes: previewTimes, previewSpots: previewSpots,
+      price: s.price, onPrice: val('price'), note: s.note, onNote: val('note'), createOuting: createOuting,
+      copyLabel: s.copied ? 'Copied!' : 'Copy', copyLink: () => this.setState({ copied: true }),
+      sent: s.sent, sendLabel: s.sent ? 'Sent to Saturday Hackers' : 'Text it to the group', sendText: () => this.setState({ sent: true }),
+      isOrg: isOrg, isFriend: !isOrg,
+      friendStyle: this.pill(!isOrg) + ';font-size:15px;min-height:36px;padding:2px 8px', orgStyle: this.pill(isOrg) + ';font-size:15px;min-height:36px;padding:2px 8px',
+      asFriend: () => this.setState({ role: 'friend' }), asOrg: () => this.setState({ role: 'organizer' }),
+      locked: s.locked, toggleLock: () => this.setState({ locked: !s.locked }),
+      lockLabel: s.locked ? 'Unlock the outing' : 'Lock the outing',
+      lockStyle: s.locked ? 'background:#F7E3B5' : '',
+      addTee: () => { const last = s.teeTimes[s.teeTimes.length - 1]; const tm = last ? last.time + s.interval : s.start; this.setState({ teeTimes: s.teeTimes.concat([{ id: 'a' + s.teeTimes.length + tm, time: tm, slots: [null, null, null, null] }]) }); },
+      tees: tees,
+      showBanner: s.banner && !isOrg, showJoined: !isOrg && s.joined && !s.banner,
+      bannerItems: [{ text: 'Dave dropped out. A spot opened at 7:50 AM.' }, { text: 'Mike added an 8:00 AM tee time.' }, { text: 'Jen is bringing a guest at 7:40.' }],
+      grabFromBanner: grabFromBanner, dismissBanner: () => this.setState({ banner: false }),
+      sheetOpen: !!sheet, stepDetails: !!sheet && sheet.step === 'details', stepCode: !!sheet && sheet.step === 'code', stepDone: !!sheet && sheet.step === 'done',
+      sheetTime: sheetTime, closeSheet: () => this.setState({ sheet: null }),
+      claimName: s.claimName, claimPhone: s.claimPhone, claimCode: s.claimCode,
+      onClaimName: val('claimName'), onClaimPhone: val('claimPhone'), onClaimCode: val('claimCode'),
+      guests: s.guests, guestHint: guestMax === 0 ? 'No extra spots left' : 'Up to ' + guestMax + ' more spot' + (guestMax === 1 ? '' : 's') + ' open',
+      guestMinus: () => this.setState({ guests: Math.max(0, s.guests - 1) }), guestPlus: () => this.setState({ guests: Math.min(guestMax, s.guests + 1) }),
+      sendCode: () => this.setState({ sheet: Object.assign({}, sheet, { step: 'code' }) }),
+      phoneShown: (s.claimPhone || '').trim() || 'your phone',
+      verify: () => this.verify(), doneText: doneText, myName: name
+    };
+  }
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,29 @@
+.pill {
+  font-family: inherit;
+  font-size: 17px;
+  min-height: var(--touch);
+  min-width: var(--touch);
+  padding: 4px 12px;
+  border: var(--border);
+  border-radius: var(--radius-pill);
+  background: var(--white);
+  color: var(--ink);
+  cursor: pointer;
+}
+
+.pill[aria-pressed='true'],
+.pill[aria-checked='true'] {
+  background: var(--fairway);
+  color: var(--white);
+}
+
+.pill:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}

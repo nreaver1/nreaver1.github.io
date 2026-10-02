@@ -1,0 +1,21 @@
+.card {
+  border: var(--border);
+  border-radius: var(--radius-card);
+  background: var(--white);
+  padding: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.raised {
+  box-shadow: var(--shadow-card);
+}
+
+.success {
+  background: var(--success-bg);
+}
+
+.highlight {
+  background: var(--sand);
+}
