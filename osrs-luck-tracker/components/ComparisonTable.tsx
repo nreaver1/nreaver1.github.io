@@ -151,7 +151,7 @@ export default function ComparisonTable({
   players: string[];
   rows: ComparisonRow[];
 }) {
-  const [showBacklog, setShowBacklog] = useState(true);
+  const [showBacklog, setShowBacklog] = useState(false);
   const [showEstimates, setShowEstimates] = useState(false);
 
   if (allRows.length === 0) {

@@ -202,7 +202,7 @@ function SortHeader({
 }
 
 export default function LuckTable({ results: allResults }: { results: LuckResult[] }) {
-  const [showBacklog, setShowBacklog] = useState(true);
+  const [showBacklog, setShowBacklog] = useState(false);
   const [showEstimates, setShowEstimates] = useState(false);
   const [sort, setSort] = useState<Sort>(DEFAULT_SORT);
 
@@ -216,9 +216,11 @@ export default function LuckTable({ results: allResults }: { results: LuckResult
 
   const backlogCount = allResults.filter((r) => r.backfilled).length;
   const hasEstimates = allResults.some((r) => r.snapshot);
-  // Without its snapshot a backlogged row reads, and sorts, as "luck unknown".
   const visible = showBacklog ? allResults : allResults.filter((r) => !r.backfilled);
-  const results = sortResults(showEstimates && showBacklog ? visible : visible.map(withoutEstimate), sort);
+  // Backlogged rows sort by their snapshot even while estimates are hidden,
+  // so toggling estimates changes what a row shows but never the order.
+  const sorted = sortResults(visible, sort);
+  const results = showEstimates && showBacklog ? sorted : sorted.map(withoutEstimate);
 
   // Clicking the sorted column flips it; another column starts in its own direction.
   const sortBy = (key: SortKey) =>
