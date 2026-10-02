@@ -12,7 +12,7 @@ export type SheetProps = {
 };
 
 /**
- * Modal bottom sheet (claim flow, organizer menus). Uses the native <dialog> so focus is trapped,
+ * Centered modal card (claim flow, confirmations). Uses the native <dialog> so focus is trapped,
  * Esc closes it, the page behind is inert, and focus returns to the opener on close.
  */
 export function Sheet({ open, onClose, title, children, closeLabel = 'Close' }: SheetProps) {
@@ -44,8 +44,9 @@ export function Sheet({ open, onClose, title, children, closeLabel = 'Close' }: 
       {open && (
         <div className={styles.panel}>
           <div className={styles.top}>
-            <div className={styles.spacer} />
-            <div className={styles.grabber} aria-hidden="true" />
+            <h2 id={titleId} className={styles.title}>
+              {title}
+            </h2>
             <button type="button" className={styles.close} aria-label={closeLabel} onClick={onClose}>
               <svg
                 width="22"
@@ -61,9 +62,6 @@ export function Sheet({ open, onClose, title, children, closeLabel = 'Close' }: 
               </svg>
             </button>
           </div>
-          <h2 id={titleId} className={styles.title}>
-            {title}
-          </h2>
           {children}
         </div>
       )}
