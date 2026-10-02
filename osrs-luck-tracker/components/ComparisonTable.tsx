@@ -7,7 +7,7 @@ import BacklogToggle, { EstimatesToggle, withoutEstimate } from "./BacklogToggle
 import LuckBadge from "./LuckBadge";
 import PityBadge from "./PityBadge";
 import ItemIcon from "./ItemIcon";
-import { snapshotText } from "./LuckTable";
+import { compareResults, SNAPSHOT_DESCRIPTION, snapshotText, type SortDir } from "./LuckTable";
 import SourceLink from "./SourceLink";
 
 const FILL_CLASS: Record<LuckResult["label"], string> = {
@@ -26,21 +26,34 @@ function Cell({ r }: { r: LuckResult | null }) {
   const kc = r.kc_received !== null ? `${r.kc_received.toLocaleString()} KC` : null;
 
   if (r.backfilled && r.snapshot) {
-    // Never a comparison winner (lib/compare.ts), so just the numbers.
+    // Drawn like a rated cell, but it's never a comparison winner
+    // (lib/compare.ts) and the backlog line says it's an estimate.
     const snapPct = Math.round(r.snapshot.probability * 100);
     return (
-      <div className="font-mono text-xs text-parchment-dim">
-        <p>
-          backlog &middot; {snapshotText(r.snapshot)}
+      <div>
+        <p className="font-mono text-sm tabular-nums text-parchment">
+          {snapshotText(r.snapshot)}
+          <span className="text-xs text-parchment-dim"> est.</span>
         </p>
-        <p className="mt-0.5">
-          <span className="tabular-nums">{snapPct}%</span> est. <LuckBadge probability={r.snapshot.probability} />
-        </p>
+        <div className="mt-1 flex items-center gap-2">
+          <div
+            className="h-1 w-16 shrink-0 bg-panel-border"
+            role="img"
+            aria-label={`${snapPct}% ${SNAPSHOT_DESCRIPTION}`}
+          >
+            <div className={`h-full ${FILL_CLASS[r.snapshot.label]}`} style={{ width: `${Math.min(snapPct, 100)}%` }} />
+          </div>
+          <span className="font-mono text-xs tabular-nums text-parchment-dim">{snapPct}%</span>
+        </div>
+        <div className="mt-0.5">
+          <LuckBadge probability={r.snapshot.probability} />
+        </div>
+        <p className="mt-1 font-mono text-xs text-parchment-dim">logged before tracking</p>
       </div>
     );
   }
   if (r.backfilled) {
-    return <span className="font-mono text-xs text-parchment-dim">obtained &middot; luck unknown</span>;
+    return <span className="font-mono text-xs text-parchment-dim">logged before tracking &mdash; luck unknown</span>;
   }
   if (!r.supported) {
     return (
@@ -86,14 +99,24 @@ function MobileRow({ name, r, luckiest }: { name: string; r: LuckResult | null; 
   if (!r) {
     detail = <span className="text-parchment-dim/60">not logged</span>;
   } else if (r.backfilled && r.snapshot) {
+    const snapPct = Math.round(r.snapshot.probability * 100);
     detail = (
-      <span className="text-parchment-dim">
-        backlog &middot; {snapshotText(r.snapshot)} &middot;{" "}
-        <span className="tabular-nums">{Math.round(r.snapshot.probability * 100)}%</span> est.
-      </span>
+      <>
+        <span className="tabular-nums text-parchment">
+          {snapshotText(r.snapshot)}
+          <span className="text-parchment-dim"> est.</span>
+        </span>
+        <span className="tabular-nums text-parchment-dim">{snapPct}%</span>
+        <LuckBadge probability={r.snapshot.probability} />
+      </>
+    );
+    bar = (
+      <div className="mt-1.5 h-1 bg-panel-border" role="img" aria-label={`${snapPct}% ${SNAPSHOT_DESCRIPTION}`}>
+        <div className={`h-full ${FILL_CLASS[r.snapshot.label]}`} style={{ width: `${Math.min(snapPct, 100)}%` }} />
+      </div>
     );
   } else if (r.backfilled) {
-    detail = <span className="text-parchment-dim">luck unknown</span>;
+    detail = <span className="text-parchment-dim">backlog &middot; luck unknown</span>;
   } else if (!r.supported) {
     detail = (
       <span className="text-parchment-dim">
@@ -139,6 +162,83 @@ function MobileRow({ name, r, luckiest }: { name: string; r: LuckResult | null; 
   );
 }
 
+// "shared" is buildComparisonRows' order: drops more players have first.
+type CompareSort =
+  | { by: "shared" }
+  | { by: "item" | "source"; dir: SortDir }
+  | { by: "player"; index: number; dir: SortDir };
+type ColumnSort = Exclude<CompareSort, { by: "shared" }>;
+
+const DEFAULT_SORT: CompareSort = { by: "shared" };
+
+// The column a sort is on, ignoring direction.
+const columnId = (s: CompareSort) => (s.by === "player" ? `player-${s.index}` : s.by);
+const sortId = (s: CompareSort) => (s.by === "shared" ? "shared" : `${columnId(s)}-${s.dir}`);
+
+function sortOptions(players: string[]): { sort: CompareSort; label: string }[] {
+  return [
+    { sort: { by: "shared" }, label: "Most shared first" },
+    ...players.flatMap((name, index): { sort: CompareSort; label: string }[] => [
+      { sort: { by: "player", index, dir: "asc" }, label: `${name}: luckiest first` },
+      { sort: { by: "player", index, dir: "desc" }, label: `${name}: driest first` },
+    ]),
+    { sort: { by: "item", dir: "asc" }, label: "Item A–Z" },
+    { sort: { by: "item", dir: "desc" }, label: "Item Z–A" },
+    { sort: { by: "source", dir: "asc" }, label: "Source A–Z" },
+    { sort: { by: "source", dir: "desc" }, label: "Source Z–A" },
+  ];
+}
+
+function sortRows(rows: ComparisonRow[], sort: CompareSort): ComparisonRow[] {
+  if (sort.by === "shared") return rows;
+  const shared = new Map(rows.map((row, i) => [row.key, i]));
+  return [...rows].sort((a, b) => {
+    if (sort.by === "player") {
+      // A player's column sorts like their own luck table; drops they
+      // haven't logged go last, in the default order.
+      const ca = a.cells[sort.index];
+      const cb = b.cells[sort.index];
+      if (ca && cb) return compareResults(ca, cb, { key: "luck", dir: sort.dir });
+      if (ca || cb) return ca ? -1 : 1;
+      return shared.get(a.key)! - shared.get(b.key)!;
+    }
+    const c =
+      sort.by === "item" ? a.item_name.localeCompare(b.item_name) : a.source_name.localeCompare(b.source_name);
+    if (c !== 0) return sort.dir === "asc" ? c : -c;
+    return sort.by === "item"
+      ? a.source_name.localeCompare(b.source_name)
+      : a.item_name.localeCompare(b.item_name);
+  });
+}
+
+function HeaderButton({
+  label,
+  column,
+  sort,
+  onSort,
+  className = "",
+}: {
+  label: string;
+  column: ColumnSort;
+  sort: CompareSort;
+  onSort: (column: ColumnSort) => void;
+  className?: string;
+}) {
+  const active = sort.by !== "shared" && columnId(sort) === columnId(column);
+  return (
+    <button
+      type="button"
+      onClick={() => onSort(column)}
+      className={`inline-flex items-center gap-1 py-1 hover:text-parchment ${active ? "text-brass" : ""} ${className}`}
+    >
+      {label}
+      <span aria-hidden className={active ? "" : "invisible"}>
+        {active && sort.dir === "desc" ? "▼" : "▲"}
+      </span>
+    </button>
+  );
+}
+
 /** A row where everyone who has the item logged it before tracking started. */
 function isBacklogOnly(row: ComparisonRow) {
   return row.cells.every((c) => c === null || c.backfilled);
@@ -153,6 +253,7 @@ export default function ComparisonTable({
 }) {
   const [showBacklog, setShowBacklog] = useState(false);
   const [showEstimates, setShowEstimates] = useState(false);
+  const [sort, setSort] = useState<CompareSort>(DEFAULT_SORT);
 
   if (allRows.length === 0) {
     return <p className="text-sm text-parchment-dim">None of these players have logged drops yet.</p>;
@@ -161,23 +262,56 @@ export default function ComparisonTable({
   const backlogCount = allRows.filter(isBacklogOnly).length;
   const hasEstimates = allRows.some((row) => row.cells.some((c) => c?.snapshot));
   const visible = showBacklog ? allRows : allRows.filter((row) => !isBacklogOnly(row));
+  // As in LuckTable, backlogged cells sort by their snapshot even while
+  // estimates are hidden, so the toggle never reorders rows.
+  const sorted = sortRows(visible, sort);
   // Estimates never pick the luckiest player, so only the cells change.
   // Rows that mix backlogged and tracked cells stay when backlog is
   // hidden, and the disabled checkbox reads unchecked, so hide them there too.
   const rows = showEstimates && showBacklog
-    ? visible
-    : visible.map((row) => ({ ...row, cells: row.cells.map((c) => (c ? withoutEstimate(c) : c)) }));
+    ? sorted
+    : sorted.map((row) => ({ ...row, cells: row.cells.map((c) => (c ? withoutEstimate(c) : c)) }));
+
+  // Clicking the sorted column flips it; another column starts ascending
+  // (A–Z, or luckiest first for a player).
+  const sortBy = (column: ColumnSort) =>
+    setSort((s) =>
+      s.by !== "shared" && columnId(s) === columnId(column)
+        ? { ...column, dir: s.dir === "asc" ? "desc" : "asc" }
+        : { ...column, dir: "asc" },
+    );
+  const options = sortOptions(players);
 
   return (
     <div>
-      {backlogCount > 0 && (
-        <div className="flex flex-wrap items-center gap-x-6">
-          <BacklogToggle shown={showBacklog} count={backlogCount} onChange={setShowBacklog} />
-          {hasEstimates && (
-            <EstimatesToggle shown={showEstimates} disabled={!showBacklog} onChange={setShowEstimates} />
-          )}
-        </div>
-      )}
+      <div className="flex flex-wrap items-center justify-between gap-x-6">
+        {backlogCount > 0 && (
+          <div className="flex flex-wrap items-center gap-x-6">
+            <BacklogToggle shown={showBacklog} count={backlogCount} onChange={setShowBacklog} />
+            {hasEstimates && (
+              <EstimatesToggle shown={showEstimates} disabled={!showBacklog} onChange={setShowEstimates} />
+            )}
+          </div>
+        )}
+        {/* Unlike LuckTable this stays on wide screens too: it's the only
+            way back to the default order. */}
+        {rows.length > 1 && (
+          <label className="mb-4 inline-flex items-center gap-2 font-mono text-xs uppercase tracking-wide text-parchment-dim">
+            Sort
+            <select
+              value={sortId(sort)}
+              onChange={(e) => setSort(options.find((o) => sortId(o.sort) === e.target.value)?.sort ?? DEFAULT_SORT)}
+              className="max-w-[16rem] border border-panel-border bg-panel px-2 py-1.5 normal-case tracking-normal text-parchment"
+            >
+              {options.map((o) => (
+                <option key={sortId(o.sort)} value={sortId(o.sort)}>
+                  {o.label}
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
+      </div>
 
       {rows.length === 0 && (
         <p className="text-sm text-parchment-dim">
@@ -191,10 +325,22 @@ export default function ComparisonTable({
         <table className="w-full border-collapse text-sm">
           <thead>
             <tr className="border-b border-panel-border text-left font-mono text-xs uppercase tracking-wide text-parchment-dim">
-              <th className="sticky left-0 z-10 min-w-[11rem] bg-ink py-2 pr-4 font-normal">Item</th>
-              {players.map((name) => (
-                <th key={name} className="min-w-[9rem] py-2 pl-3 pr-4 font-normal normal-case text-parchment">
-                  {name}
+              <th className="sticky left-0 z-10 min-w-[11rem] bg-ink py-2 pr-4 font-normal">
+                <HeaderButton label="Item" column={{ by: "item", dir: "asc" }} sort={sort} onSort={sortBy} className="uppercase tracking-wide" />
+                <span aria-hidden className="mx-1">/</span>
+                <HeaderButton label="Source" column={{ by: "source", dir: "asc" }} sort={sort} onSort={sortBy} className="uppercase tracking-wide" />
+              </th>
+              {players.map((name, index) => (
+                <th
+                  key={name}
+                  className="min-w-[9rem] py-2 pl-3 pr-4 font-normal normal-case text-parchment"
+                  aria-sort={
+                    sort.by === "player" && sort.index === index
+                      ? sort.dir === "asc" ? "ascending" : "descending"
+                      : undefined
+                  }
+                >
+                  <HeaderButton label={name} column={{ by: "player", index, dir: "asc" }} sort={sort} onSort={sortBy} />
                 </th>
               ))}
             </tr>

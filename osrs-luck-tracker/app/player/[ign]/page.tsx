@@ -206,7 +206,8 @@ export default async function PlayerPage({
         <div className="mb-4 max-w-xl">
           <LuckScale />
         </div>
-        <ComparisonTable players={players.map((p) => p.ign)} rows={rows} />
+        {/* Keyed on the players so a column sort never lands on someone else. */}
+        <ComparisonTable key={players.map((p) => p.ign).join("|")} players={players.map((p) => p.ign)} rows={rows} />
       </div>
     </div>
   );

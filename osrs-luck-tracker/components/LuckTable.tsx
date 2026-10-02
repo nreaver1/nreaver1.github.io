@@ -84,9 +84,9 @@ function DateCell({ r }: { r: LuckResult }) {
   return <time dateTime={r.date_received}>{dateFormat.format(new Date(r.date_received))}</time>;
 }
 
-type SortKey = "item" | "source" | "kc" | "date" | "luck";
-type SortDir = "asc" | "desc";
-interface Sort {
+export type SortKey = "item" | "source" | "kc" | "date" | "luck";
+export type SortDir = "asc" | "desc";
+export interface Sort {
   key: SortKey;
   dir: SortDir;
 }
@@ -105,7 +105,7 @@ const SORT_VALUE: Record<SortKey, (r: LuckResult) => string | number | null> = {
 };
 
 // The direction a column starts in when first clicked.
-const FIRST_DIR: Record<SortKey, SortDir> = {
+export const FIRST_DIR: Record<SortKey, SortDir> = {
   item: "asc",
   source: "asc",
   kc: "asc",
@@ -121,29 +121,35 @@ function compareValues(a: string | number, b: string | number) {
     : (a as number) - (b as number);
 }
 
-function sortResults(results: LuckResult[], { key, dir }: Sort) {
+/**
+ * Orders two results by one column. Exported so the comparison table
+ * sorts a player's column exactly like this table sorts its rows.
+ */
+export function compareResults(ra: LuckResult, rb: LuckResult, { key, dir }: Sort): number {
   const value = SORT_VALUE[key];
-  return [...results].sort((ra, rb) => {
-    const a = value(ra);
-    const b = value(rb);
-    if (a !== null && b !== null) {
-      const c = compareValues(a, b);
-      if (c !== 0) return dir === "asc" ? c : -c;
-    } else if (a !== b) {
-      return a === null ? 1 : -1;
-    }
-    // Unrated luck: unsupported above backlogged, and backlogged items
-    // with a snapshot ordered by it, above those without. Then by item,
-    // for a stable order.
-    if (key === "luck" && ra.backfilled !== rb.backfilled) return ra.backfilled ? 1 : -1;
-    if (key === "luck" && ra.backfilled) {
-      const sa = ra.snapshot?.probability ?? null;
-      const sb = rb.snapshot?.probability ?? null;
-      if (sa !== null && sb !== null && sa !== sb) return dir === "asc" ? sa - sb : sb - sa;
-      if (sa !== sb) return sa === null ? 1 : -1;
-    }
-    return itemName(ra).localeCompare(itemName(rb)) || ra.source_name.localeCompare(rb.source_name);
-  });
+  const a = value(ra);
+  const b = value(rb);
+  if (a !== null && b !== null) {
+    const c = compareValues(a, b);
+    if (c !== 0) return dir === "asc" ? c : -c;
+  } else if (a !== b) {
+    return a === null ? 1 : -1;
+  }
+  // Unrated luck: unsupported above backlogged, and backlogged items
+  // with a snapshot ordered by it, above those without. Then by item,
+  // for a stable order.
+  if (key === "luck" && ra.backfilled !== rb.backfilled) return ra.backfilled ? 1 : -1;
+  if (key === "luck" && ra.backfilled) {
+    const sa = ra.snapshot?.probability ?? null;
+    const sb = rb.snapshot?.probability ?? null;
+    if (sa !== null && sb !== null && sa !== sb) return dir === "asc" ? sa - sb : sb - sa;
+    if (sa !== sb) return sa === null ? 1 : -1;
+  }
+  return itemName(ra).localeCompare(itemName(rb)) || ra.source_name.localeCompare(rb.source_name);
+}
+
+function sortResults(results: LuckResult[], sort: Sort) {
+  return [...results].sort((ra, rb) => compareResults(ra, rb, sort));
 }
 
 const COLUMNS: { key: SortKey; label: string }[] = [

@@ -9,11 +9,12 @@ import DemoQuickLinks from "./DemoQuickLinks";
 export default function NavSearch() {
   const pathname = usePathname();
   if (pathname === "/") return null;
+  // On a player page, leave that player out of the shortcuts.
   const player = pathname.match(/^\/player\/([^/]+)/);
   return (
     <div className="w-full sm:w-72">
       <SearchBar compact />
-      {player && <DemoQuickLinks current={decodeURIComponent(player[1])} />}
+      <DemoQuickLinks current={player ? decodeURIComponent(player[1]) : undefined} />
     </div>
   );
 }
