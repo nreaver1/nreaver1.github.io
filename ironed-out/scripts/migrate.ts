@@ -22,9 +22,14 @@ async function main() {
       const pw = password.replace(/'/g, "''");
       await sql.unsafe(
         exists
-          ? `ALTER ROLE ${ROLE} WITH LOGIN NOSUPERUSER NOBYPASSRLS NOCREATEDB NOCREATEROLE PASSWORD '${pw}'`
+          ? // Only superusers may change SUPERUSER/BYPASSRLS, and they were set at creation.
+            `ALTER ROLE ${ROLE} WITH LOGIN PASSWORD '${pw}'`
           : `CREATE ROLE ${ROLE} WITH LOGIN NOSUPERUSER NOBYPASSRLS NOCREATEDB NOCREATEROLE PASSWORD '${pw}'`,
       );
+      const [flags] = await sql`select rolsuper, rolbypassrls from pg_roles where rolname = ${ROLE}`;
+      if (flags?.rolsuper || flags?.rolbypassrls) {
+        throw new Error(`${ROLE} can bypass Row-Level Security; recreate it without SUPERUSER/BYPASSRLS.`);
+      }
       console.log(`App role ${ROLE} ${exists ? 'updated' : 'created'}.`);
     }
 
