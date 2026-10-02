@@ -7,7 +7,7 @@ Live at **[nreaver1.github.io](https://nreaver1.github.io)**
 
 ## Projects
 
-### [Ironed Out](https://ironed-out.vercel.app/demo)
+### [Ironed Out](https://ironed-out-alpha.vercel.app/demo)
 Organizes golf outings. The organizer books a few tee times and drops one link in the group chat; friends claim spots from their phones with a texted code, no account needed. The tee sheet shows who's in, who's bringing a guest and who dropped out, and a "Since you last looked" banner shows what changed since your last visit.
 
 Built with Next.js, TypeScript, PostgreSQL (Row-Level Security, PostGIS, trigram search), Drizzle and Zod, tested with Vitest and Playwright.
