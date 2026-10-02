@@ -1,0 +1,286 @@
+/* Hero */
+.hero {
+  border: var(--border);
+  border-radius: var(--radius-card);
+  background: var(--white);
+  box-shadow: var(--shadow-card);
+  overflow: hidden;
+}
+
+.heroArt {
+  position: relative;
+  height: 96px;
+  background: var(--sky);
+  border-bottom: var(--border);
+}
+
+.heroArt svg {
+  display: block;
+}
+
+.stamp {
+  position: absolute;
+  left: 14px;
+  top: 14px;
+  transform: rotate(-8deg);
+  border: 3px solid var(--red-button);
+  color: var(--red-button);
+  background: var(--white);
+  font-size: 26px;
+  padding: 0 10px;
+  border-radius: 8px;
+}
+
+.heroBody {
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.heroKicker {
+  font-size: 16px;
+  color: var(--muted);
+}
+
+.heroTitle {
+  font-size: 34px;
+  color: var(--fairway-dark);
+}
+
+.heroNote {
+  font-size: 17px;
+  color: var(--muted);
+  border-top: 2px dashed var(--dash-faint);
+  padding-top: 6px;
+  margin-top: 4px;
+  white-space: pre-wrap;
+}
+
+/* Tee sheet */
+.sheetHead {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.sheetTitle {
+  font-size: 30px;
+}
+
+.spotsText {
+  font-size: 19px;
+  color: var(--red-text);
+}
+
+.tee {
+  border: var(--border);
+  border-radius: var(--radius-card);
+  background: var(--white);
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.teeHead {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+}
+
+.teeTitle {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.teeTime {
+  font-size: 32px;
+}
+
+.teeCount {
+  font-size: 17px;
+  color: var(--muted);
+}
+
+.newTag {
+  font-size: 14px;
+  background: var(--ink);
+  color: var(--white);
+  padding: 1px 8px;
+  border-radius: 8px;
+}
+
+.teeTools {
+  display: flex;
+  gap: 2px;
+}
+
+.tool {
+  width: var(--touch);
+  height: var(--touch);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  color: var(--ink);
+  cursor: pointer;
+  padding: 0;
+  border-radius: 8px;
+}
+
+.tool:disabled {
+  color: var(--muted);
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.open {
+  width: 100%;
+  min-height: 56px;
+  font-family: inherit;
+  font-size: 18px;
+  border: 2px dashed var(--dash-strong);
+  border-radius: var(--radius-pill);
+  background: var(--white);
+  color: var(--fairway-dark);
+  cursor: pointer;
+}
+
+.open:disabled {
+  color: var(--muted);
+  cursor: default;
+}
+
+.fresh {
+  background: var(--sand);
+  border-color: var(--red-button);
+  color: var(--red-text);
+  animation: wiggle 1.6s ease-in-out infinite;
+}
+
+.filled {
+  min-height: 56px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 4px 4px 8px;
+  border: var(--border);
+  border-radius: var(--radius-pill);
+  background: var(--card-warm);
+}
+
+.avatar {
+  width: 34px;
+  height: 34px;
+  flex-shrink: 0;
+  border: var(--border);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 17px;
+}
+
+.who {
+  flex-grow: 1;
+  min-width: 0;
+  line-height: 1.05;
+}
+
+.whoName {
+  font-size: 17px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.whoTag {
+  font-size: 14px;
+  color: var(--muted);
+}
+
+.dropOut {
+  background: transparent;
+  border: none;
+  padding: 0;
+  font-family: inherit;
+  font-size: 15px;
+  color: var(--red-text);
+  text-decoration: underline;
+  cursor: pointer;
+  min-height: 24px;
+}
+
+.remove {
+  width: 36px;
+  height: var(--touch);
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  color: var(--red-text);
+  cursor: pointer;
+  padding: 0;
+}
+
+.orgActions {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding-top: 4px;
+}
+
+.hint {
+  font-size: 16px;
+  color: var(--muted);
+}
+
+.toast {
+  font-size: 17px;
+  color: var(--red-text);
+  min-height: 1px;
+}
+
+/* Home card */
+.dots {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 4px 0;
+}
+
+.dot {
+  width: 16px;
+  height: 16px;
+  border: var(--border);
+  border-radius: 50%;
+  background: var(--white);
+}
+
+.dotFilled {
+  background: var(--fairway);
+}
+
+@keyframes wiggle {
+  0%,
+  100% {
+    transform: rotate(-0.6deg);
+  }
+  50% {
+    transform: rotate(0.6deg) scale(1.015);
+  }
+}

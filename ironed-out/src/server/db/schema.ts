@@ -1,6 +1,11 @@
 import { sql } from 'drizzle-orm';
 import {
+  bigint,
   bigserial,
+  boolean,
+  check,
+  date,
+  doublePrecision,
   index,
   inet,
   integer,
@@ -9,12 +14,13 @@ import {
   pgPolicy,
   pgTable,
   primaryKey,
+  smallint,
   text,
   timestamp,
   uniqueIndex,
   uuid,
 } from 'drizzle-orm/pg-core';
-import { citext, id, timestamps } from './columns';
+import { citext, geographyPoint, id, timestamps } from './columns';
 
 /**
  * Row-Level Security: every tenant-owned table gets this policy. The tenant comes from the
@@ -146,4 +152,174 @@ export const auditLog = pgTable(
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [index('audit_log_tenant_created_idx').on(t.tenantId, t.createdAt), tenantIsolation('audit_log')],
+).enableRLS();
+
+/**
+ * Child tables of an outing don't carry tenant_id; they are visible only when their outing is
+ * (the subquery is itself filtered by the outings policy).
+ */
+const viaOuting = (table: string) =>
+  pgPolicy(`${table}_via_outing`, {
+    as: 'permissive',
+    for: 'all',
+    using: sql`outing_id in (select id from outings)`,
+    withCheck: sql`outing_id in (select id from outings)`,
+  });
+
+export const courseSource = pgEnum('course_source', ['seed', 'provider', 'manual']);
+
+/** Shared catalog (not tenant-owned). */
+export const courses = pgTable(
+  'courses',
+  {
+    id: id(),
+    name: text('name').notNull(),
+    address: text('address'),
+    city: text('city').notNull(),
+    region: text('region').notNull(),
+    country: text('country').notNull().default('US'),
+    lat: doublePrecision('lat').notNull(),
+    lng: doublePrecision('lng').notNull(),
+    /** IANA zone used to turn the outing's local tee times into instants. */
+    timezone: text('timezone').notNull(),
+    isPublic: boolean('is_public').notNull().default(true),
+    source: courseSource('source').notNull().default('seed'),
+    externalIds: jsonb('external_ids').$type<Record<string, string>>().notNull().default({}),
+    geog: geographyPoint('geog').generatedAlwaysAs(
+      sql`(st_setsrid(st_makepoint(lng, lat), 4326))::geography`,
+    ),
+    ...timestamps,
+  },
+  (t) => [
+    uniqueIndex('courses_name_city_key').on(t.name, t.city, t.region),
+    index('courses_name_trgm_idx').using('gin', t.name.op('gin_trgm_ops')),
+    index('courses_city_trgm_idx').using('gin', t.city.op('gin_trgm_ops')),
+    index('courses_geog_idx').using('gist', t.geog),
+  ],
+);
+
+export const outings = pgTable(
+  'outings',
+  {
+    id: id(),
+    tenantId: uuid('tenant_id')
+      .notNull()
+      .references(() => tenants.id),
+    organizerPlayerId: uuid('organizer_player_id')
+      .notNull()
+      .references(() => players.id),
+    /** FK to crews is added with crews (M7). */
+    crewId: uuid('crew_id'),
+    courseId: uuid('course_id')
+      .notNull()
+      .references(() => courses.id),
+    playDate: date('play_date').notNull(),
+    timezone: text('timezone').notNull(),
+    priceCents: integer('price_cents'),
+    currency: text('currency').notNull().default('USD'),
+    note: text('note').notNull().default(''),
+    lockedAt: timestamp('locked_at', { withTimezone: true }),
+    externalRef: text('external_ref'),
+    /** Bumped on every change; used for cache-busting and optimistic checks. */
+    version: integer('version').notNull().default(1),
+    ...timestamps,
+  },
+  (t) => [
+    index('outings_organizer_idx').on(t.organizerPlayerId),
+    index('outings_play_date_idx').on(t.tenantId, t.playDate),
+    check('outings_price_nonnegative', sql`${t.priceCents} is null or ${t.priceCents} >= 0`),
+    tenantIsolation('outings'),
+  ],
+).enableRLS();
+
+export const teeTimes = pgTable(
+  'tee_times',
+  {
+    id: id(),
+    outingId: uuid('outing_id')
+      .notNull()
+      .references(() => outings.id, { onDelete: 'cascade' }),
+    startsAt: timestamp('starts_at', { withTimezone: true }).notNull(),
+    capacity: smallint('capacity').notNull().default(4),
+    sort: smallint('sort').notNull(),
+    ...timestamps,
+  },
+  (t) => [
+    index('tee_times_outing_idx').on(t.outingId, t.sort),
+    check('tee_times_capacity_range', sql`${t.capacity} between 2 and 5`),
+    viaOuting('tee_times'),
+  ],
+).enableRLS();
+
+export const slots = pgTable(
+  'slots',
+  {
+    id: id(),
+    teeTimeId: uuid('tee_time_id')
+      .notNull()
+      .references(() => teeTimes.id, { onDelete: 'cascade' }),
+    /** Denormalized so "one personal slot per player per outing" is a unique index. */
+    outingId: uuid('outing_id')
+      .notNull()
+      .references(() => outings.id, { onDelete: 'cascade' }),
+    position: smallint('position').notNull(),
+    playerId: uuid('player_id').references(() => players.id),
+    guestOfPlayerId: uuid('guest_of_player_id').references(() => players.id),
+    claimedAt: timestamp('claimed_at', { withTimezone: true }),
+    ...timestamps,
+  },
+  (t) => [
+    uniqueIndex('slots_tee_time_position_key').on(t.teeTimeId, t.position),
+    uniqueIndex('slots_one_personal_slot_per_outing')
+      .on(t.outingId, t.playerId)
+      .where(sql`${t.playerId} is not null and ${t.guestOfPlayerId} is null`),
+    index('slots_outing_idx').on(t.outingId),
+    check('slots_guest_shape', sql`${t.guestOfPlayerId} is null or ${t.playerId} is null`),
+    viaOuting('slots'),
+  ],
+).enableRLS();
+
+export const outingEventType = pgEnum('outing_event_type', [
+  'outing_created',
+  'slot_claimed',
+  'slot_released',
+  'player_removed',
+  'guest_added',
+  'tee_time_added',
+  'tee_time_removed',
+  'capacity_changed',
+  'outing_updated',
+  'locked',
+  'unlocked',
+]);
+
+/** Append-only change log. Drives the "Since you last looked" banner, texts and webhooks. */
+export const outingEvents = pgTable(
+  'outing_events',
+  {
+    id: bigserial('id', { mode: 'number' }).primaryKey(),
+    outingId: uuid('outing_id')
+      .notNull()
+      .references(() => outings.id, { onDelete: 'cascade' }),
+    type: outingEventType('type').notNull(),
+    actorPlayerId: uuid('actor_player_id').references(() => players.id),
+    payload: jsonb('payload').$type<Record<string, unknown>>().notNull().default({}),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index('outing_events_outing_idx').on(t.outingId, t.id), viaOuting('outing_events')],
+).enableRLS();
+
+/** Cursor for the "Since you last looked" banner. */
+export const outingViews = pgTable(
+  'outing_views',
+  {
+    outingId: uuid('outing_id')
+      .notNull()
+      .references(() => outings.id, { onDelete: 'cascade' }),
+    /** player id when known, else a hash of the signed anonymous device id. */
+    viewerKey: text('viewer_key').notNull(),
+    lastSeenEventId: bigint('last_seen_event_id', { mode: 'number' }).notNull().default(0),
+    ...timestamps,
+  },
+  (t) => [primaryKey({ columns: [t.outingId, t.viewerKey] }), viaOuting('outing_views')],
 ).enableRLS();

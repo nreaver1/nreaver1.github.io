@@ -34,7 +34,8 @@ async function getConsumerTenantId(db: Db): Promise<string> {
   if (globalForServices.__ioTenantId) return globalForServices.__ioTenantId;
   const [t] = await db.select({ id: tenants.id }).from(tenants).where(eq(tenants.slug, CONSUMER_TENANT_SLUG));
   if (!t) throw new Error('Consumer tenant missing. Run `pnpm db:seed`.');
-  globalForServices.__ioTenantId = t.id;
+  // Only cache in production: in dev the local database gets reset under a running server.
+  if (process.env.NODE_ENV === 'production') globalForServices.__ioTenantId = t.id;
   return t.id;
 }
 

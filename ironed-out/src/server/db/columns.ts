@@ -21,3 +21,10 @@ export const timestamps = {
     .defaultNow()
     .$onUpdateFn(() => new Date()),
 };
+
+/** PostGIS geography point (WGS 84). Read/written as WKT or computed in SQL. */
+export const geographyPoint = customType<{ data: string }>({
+  dataType() {
+    return 'geography(Point,4326)';
+  },
+});

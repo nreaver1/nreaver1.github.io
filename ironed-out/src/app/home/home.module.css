@@ -1,0 +1,34 @@
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.sectionTitle {
+  font-size: 30px;
+  margin-top: 6px;
+}
+
+.row {
+  border: var(--border);
+  border-radius: var(--radius-card);
+  background: var(--white);
+  padding: 14px 16px;
+  color: var(--ink);
+  text-decoration: none;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 18px;
+  min-height: var(--touch);
+}
+
+.row > span {
+  display: flex;
+  flex-direction: column;
+}
+
+.rowTitle {
+  font-size: 26px;
+  line-height: 1;
+}

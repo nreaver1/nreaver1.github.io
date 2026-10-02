@@ -84,13 +84,14 @@ describe('withTenant + row-level security', () => {
 });
 
 describe('rls coverage', () => {
-  it('every table with a tenant_id column has RLS enabled, forced and a policy', async () => {
+  it('every table with a tenant_id or outing_id column has RLS enabled, forced and a policy', async () => {
     const res = await t.pg.query<{ table: string; rls: boolean; forced: boolean; policies: number }>(`
-      select c.relname as table, c.relrowsecurity as rls, c.relforcerowsecurity as forced,
+      select distinct c.relname as table, c.relrowsecurity as rls, c.relforcerowsecurity as forced,
              (select count(*)::int from pg_policies p where p.tablename = c.relname) as policies
       from pg_class c
       join pg_namespace n on n.oid = c.relnamespace and n.nspname = 'public'
-      join information_schema.columns col on col.table_name = c.relname and col.column_name = 'tenant_id'
+      join information_schema.columns col
+        on col.table_name = c.relname and col.column_name in ('tenant_id', 'outing_id')
       where c.relkind = 'r'
     `);
     expect(res.rows.length).toBeGreaterThan(1);

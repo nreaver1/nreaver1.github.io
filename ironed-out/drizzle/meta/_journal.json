@@ -36,6 +36,27 @@
       "when": 1790968171250,
       "tag": "0004_accounts_rls",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1790968818854,
+      "tag": "0005_search_extensions",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1790968869994,
+      "tag": "0006_outings",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1790968871109,
+      "tag": "0007_outings_rls",
+      "breakpoints": true
     }
   ]
 }

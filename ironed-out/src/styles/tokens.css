@@ -30,6 +30,11 @@
   --avatar-4: #f2cbc2;
   --avatar-5: #e2d6f0;
 
+  /* Also used by the approved design (SPEC section 9, "from the design") */
+  --sky: #cfe6f2;
+  --card-warm: #fffdf7;
+  --chat-bg: #f4f1ea;
+
   /* Hand-drawn shapes */
   --radius-btn: 14px 5px 13px 6px / 6px 13px 5px 14px;
   --radius-card: 18px 6px 16px 5px / 6px 16px 6px 18px;

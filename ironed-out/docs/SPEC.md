@@ -220,6 +220,8 @@ items, max 5, newest first) plus `last_event_id`. `POST /outings/:id/seen {last_
   - sand highlight `#F7E3B5`, sun/"you" avatar `#F2C14E`
   - muted text `#5E574B`, dashed lines `#8A8270` / `#CFC5AE` / `#E3D9C2`
   - avatar pastels `#CFE3C2 #F3D9B1 #D3E1F2 #F2CBC2 #E2D6F0`
+  - from the design: sky `#CFE6F2` (invite hero), warm card `#FFFDF7` (filled slot),
+    chat bubble background `#F4F1EA` (share preview)
 - Hand-drawn shapes: 2px ink borders with uneven radii, e.g.
   `border-radius: 14px 5px 13px 6px / 6px 13px 5px 14px`; cards `18px 6px 16px 5px / 6px 16px 6px 18px`.
 - Buttons: min-height 48px, hard offset shadow `3px 3px 0 #2B2A26`, pressed state shifts 2px.
@@ -242,8 +244,14 @@ items, max 5, newest first) plus `last_event_id`. `POST /outings/:id/seen {last_
       (Postgres fixed-window counters, so limits work on serverless). Email goes through Resend
       when `RESEND_API_KEY` is set, otherwise to an in-memory outbox (`/dev/outbox` in dev).
       CSRF: server actions only accept same-origin requests (Next.js checks Origin)._
-- [ ] **M3 Outings** – courses seed + search, New outing flow, Home, tee sheet data model,
+- [x] **M3 Outings** – courses seed + search, New outing flow, Home, tee sheet data model,
       organizer controls (capacity, add/delete tee time, remove player, lock).
+      _Done 2026-10-02. Additions to section 4: `courses.timezone` (turns local tee times into
+      instants). `tee_times`, `slots`, `outing_events` and `outing_views` have no tenant_id, so
+      their RLS policy is "outing visible to this tenant". Locking also freezes the organizer's
+      structural edits (tee times, capacity, removals) until unlocked; note/price stay editable.
+      Drive times are estimated as 6 min + 1.35 min per straight-line mile. Seed coordinates and
+      addresses are approximate; verify before launch._
 - [ ] **M4 Invite & claim** – invite links, public invite page, phone OTP claim with guests,
       race-safe claim, drop out, device cookie, calendar export, OG preview image.
 - [ ] **M5 Change feed** – outing_events everywhere, "Since you last looked" banner, highlights.

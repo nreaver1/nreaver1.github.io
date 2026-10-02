@@ -10,3 +10,4 @@ playwright-report
 test-results
 .pglite
 .next-e2e
+*.tmp.mjs
