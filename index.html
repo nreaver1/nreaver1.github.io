@@ -689,6 +689,35 @@
 
         <div class="projects">
 
+          <!-- Ironed Out -->
+          <article class="project reveal">
+            <a class="preview" href="https://ironed-out.vercel.app/demo" target="_blank" rel="noopener" aria-label="Open the Ironed Out live demo">
+              <div class="preview-bar"><span class="dots"><i></i><i></i><i></i></span><span class="url">ironed-out.vercel.app/demo</span></div>
+              <div class="preview-shot"><img src="assets/previews/ironed-out.png" alt="Ironed Out invite page for a Saturday outing at Mount Pleasant Golf Course, with a hand-drawn course illustration, the price and note, and the start of the tee sheet showing 4 of 12 spots open" loading="lazy" width="1440" height="900" /></div>
+            </a>
+            <div>
+              <p class="project-kicker">Full-stack · Multi-tenant · Mobile-first</p>
+              <h3>Ironed Out</h3>
+              <p class="project-desc">
+                Organizes golf outings. The organizer books a few tee times, drops one link in the group chat, and friends claim spots from their phones with a texted code. No account needed.
+              </p>
+              <ul class="built">
+                <li><strong>Race-safe claiming</strong> with row locks and unique constraints, so two friends can never get the same spot</li>
+                <li><strong>Postgres Row-Level Security</strong> per tenant, built API-first for booking platforms to plug into later</li>
+                <li>A <strong>"Since you last looked" change feed</strong> driven by an append-only event log</li>
+                <li>Argon2id accounts, hashed one-time codes, signed device cookies, and generated <strong>link-preview images</strong></li>
+              </ul>
+              <div class="chips">
+                <span class="chip">Next.js</span><span class="chip">TypeScript</span><span class="chip">PostgreSQL</span>
+                <span class="chip">PostGIS</span><span class="chip">Drizzle</span><span class="chip">Zod</span><span class="chip">Vitest</span><span class="chip">Playwright</span>
+              </div>
+              <div class="project-actions">
+                <a class="btn btn-primary btn-sm" href="https://ironed-out.vercel.app/demo" target="_blank" rel="noopener">Live demo ↗</a>
+                <a class="btn btn-sm" href="https://github.com/nreaver1/nreaver1.github.io/tree/master/ironed-out" target="_blank" rel="noopener">Source code</a>
+              </div>
+            </div>
+          </article>
+
           <!-- Clog Casino -->
           <article class="project reveal">
             <a class="preview" href="https://osrs-luck-tracker.vercel.app/player/Zezima" target="_blank" rel="noopener" aria-label="Open the Clog Casino live demo">
