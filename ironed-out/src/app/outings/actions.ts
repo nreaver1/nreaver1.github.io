@@ -2,7 +2,10 @@
 
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
+import type { ClaimActionState } from '@/app/t/[token]/actions';
+import { dropOut } from '@/server/domain/claims';
 import { SeedProvider, type CourseResult } from '@/server/domain/courses';
+import { rotateInviteLink } from '@/server/domain/invites';
 import {
   addTeeTime,
   changeCapacity,
@@ -63,7 +66,7 @@ export async function createOutingAction(_prev: FormState, form: FormData): Prom
     return toFormState(e, { price: input.price, note: input.note });
   }
   revalidatePath('/home');
-  redirect(`/outings/${id}`);
+  redirect(`/outings/${id}/share`);
 }
 
 export async function addTeeTimeAction(outingId: string): Promise<ActionResult> {
@@ -96,4 +99,25 @@ export async function updateDetailsAction(
   return organizerAction(async (actor) =>
     updateDetails(await getServices(), actor, outingId, { price, note }),
   );
+}
+
+export async function rotateLinkAction(outingId: string): Promise<ActionResult> {
+  return organizerAction(async (actor) => {
+    await rotateInviteLink(await getServices(), actor, outingId);
+    revalidatePath('/outings/[id]/share', 'page');
+  });
+}
+
+/** A signed-in member drops out from the outing page. */
+export async function memberDropOutAction(outingId: string): Promise<ClaimActionState> {
+  const user = await requireUser();
+  try {
+    await dropOut(await getServices(), outingId, user.playerId);
+  } catch (e) {
+    if (isDomainError(e)) return { error: e.message };
+    throw e;
+  }
+  revalidatePath('/outings/[id]', 'page');
+  revalidatePath('/home');
+  return { ok: true };
 }

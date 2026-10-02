@@ -57,6 +57,20 @@
       "when": 1790968871109,
       "tag": "0007_outings_rls",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1790969689984,
+      "tag": "0008_invites",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1790969691113,
+      "tag": "0009_invites_rls",
+      "breakpoints": true
     }
   ]
 }

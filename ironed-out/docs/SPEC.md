@@ -252,8 +252,15 @@ items, max 5, newest first) plus `last_event_id`. `POST /outings/:id/seen {last_
       structural edits (tee times, capacity, removals) until unlocked; note/price stay editable.
       Drive times are estimated as 6 min + 1.35 min per straight-line mile. Seed coordinates and
       addresses are approximate; verify before launch._
-- [ ] **M4 Invite & claim** – invite links, public invite page, phone OTP claim with guests,
+- [x] **M4 Invite & claim** – invite links, public invite page, phone OTP claim with guests,
       race-safe claim, drop out, device cookie, calendar export, OG preview image.
+      _Done 2026-10-02. Invite tokens are derived from the link id with `APP_SECRET` (HMAC), so
+      the organizer can see the link again; only the SHA-256 is stored. The device cookie is a
+      signed value (player id + expiry), not a stored token, so it can't be revoked server-side
+      before its 90 days are up. SMS demo mode: without Twilio keys the code is shown in the
+      claim sheet and codes live in `verification_codes` (keyed hash, 10 min, 5 tries); with
+      Twilio Verify configured, Twilio issues and checks codes. Signed-in users and verified
+      devices claim without a code. Phone parsing is US-first (other countries need a leading +)._
 - [ ] **M5 Change feed** – outing_events everywhere, "Since you last looked" banner, highlights.
 - [ ] **M6 Notifications** – prefs UI, SMS/email fan-out, coalescing, quiet hours, reminders,
       STOP handling.

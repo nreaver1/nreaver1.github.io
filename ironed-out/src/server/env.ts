@@ -1,5 +1,7 @@
 import { z } from 'zod';
 
+const DEV_SECRET = 'dev-only-secret-not-for-production-0123456789';
+
 const EnvSchema = z
   .object({
     NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
@@ -7,19 +9,22 @@ const EnvSchema = z
     MIGRATION_DATABASE_URL: z.url().optional(),
     DATABASE_POOL_MAX: z.coerce.number().int().min(1).max(50).default(5),
     APP_URL: z.url().default('http://localhost:3000'),
-    /** Signs device cookies. At least 32 random chars; required in production. */
-    COOKIE_SECRET: z.string().min(32).optional(),
+    /**
+     * Server secret (≥ 32 random chars). Signs device cookies, derives invite-link tokens and keys
+     * verification-code hashes. Required in production; rotating it invalidates existing links.
+     */
+    APP_SECRET: z.string().min(32).optional(),
     RESEND_API_KEY: z.string().min(1).optional(),
     EMAIL_FROM: z.string().min(3).default('Ironed Out <noreply@example.com>'),
     TWILIO_ACCOUNT_SID: z.string().min(1).optional(),
     TWILIO_AUTH_TOKEN: z.string().min(1).optional(),
     TWILIO_VERIFY_SERVICE_SID: z.string().min(1).optional(),
     TWILIO_MESSAGING_SERVICE_SID: z.string().min(1).optional(),
-    /** Secret for Vercel Cron calls to /api/internal/*. */
+    /** Secret for scheduled calls to /api/internal/*. */
     CRON_SECRET: z.string().min(16).optional(),
   })
-  .refine((e) => e.NODE_ENV !== 'production' || !!e.COOKIE_SECRET, {
-    path: ['COOKIE_SECRET'],
+  .refine((e) => e.NODE_ENV !== 'production' || !!e.APP_SECRET, {
+    path: ['APP_SECRET'],
     message: 'required in production',
   });
 
@@ -39,5 +44,8 @@ export function getEnv(source: NodeJS.ProcessEnv = process.env): Env {
   return parsed.data;
 }
 
+export const appSecret = (env: Env) => env.APP_SECRET ?? DEV_SECRET;
+
 /** True when real SMS isn't configured: codes are shown on screen, texts go to the outbox. */
-export const isSmsDemo = (env: Env) => !(env.TWILIO_ACCOUNT_SID && env.TWILIO_AUTH_TOKEN);
+export const isSmsDemo = (env: Env) =>
+  !(env.TWILIO_ACCOUNT_SID && env.TWILIO_AUTH_TOKEN && env.TWILIO_VERIFY_SERVICE_SID);

@@ -16,7 +16,8 @@ test('organizer creates an outing and manages the tee sheet', async ({ page }) =
   await expect(page.getByRole('option', { name: /Pebble Beach/ })).toBeVisible();
   await page.getByRole('radio', { name: 'Within 2 hrs of Baltimore' }).click();
 
-  await createOuting(page);
+  const { id } = await createOuting(page);
+  await page.goto(`/outings/${id}`);
   await expect(page.getByText('11 of 12 spots open')).toBeVisible();
   await expect(page.getByText('Mike Golfer (you)')).toBeVisible();
   await expect(page.getByText('$45 / player · pay at the course')).toBeVisible();

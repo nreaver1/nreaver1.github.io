@@ -35,7 +35,7 @@ export default defineConfig({
         DATABASE_URL: `postgres://postgres@127.0.0.1:${DB_PORT}/postgres`,
         DATABASE_POOL_MAX: '1',
         APP_URL: `http://localhost:${PORT}`,
-        COOKIE_SECRET: 'e2e-only-cookie-secret-0123456789abcdef',
+        APP_SECRET: 'e2e-only-app-secret-0123456789abcdef',
         NEXT_DIST_DIR: '.next-e2e',
       },
       url: `http://localhost:${PORT}/api/v1/health`,

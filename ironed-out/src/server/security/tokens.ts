@@ -1,4 +1,4 @@
-import { createHash, randomBytes, timingSafeEqual } from 'node:crypto';
+import { createHash, createHmac, randomBytes, timingSafeEqual } from 'node:crypto';
 
 const BASE62 = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz';
 
@@ -23,4 +23,19 @@ export function safeEqual(a: string, b: string): boolean {
   const ab = Buffer.from(a);
   const bb = Buffer.from(b);
   return ab.length === bb.length && timingSafeEqual(ab, bb);
+}
+
+export function hmac(secret: string, value: string): Buffer {
+  return createHmac('sha256', secret).update(value).digest();
+}
+
+/** Deterministic base62 token derived from `value` with a server secret (~131 bits). */
+export function derivedToken(secret: string, value: string, length = 22): string {
+  let n = BigInt(`0x${hmac(secret, value).toString('hex')}`);
+  let out = '';
+  while (out.length < length) {
+    out += BASE62[Number(n % 62n)];
+    n /= 62n;
+  }
+  return out;
 }

@@ -323,3 +323,41 @@ export const outingViews = pgTable(
   },
   (t) => [primaryKey({ columns: [t.outingId, t.viewerKey] }), viaOuting('outing_views')],
 ).enableRLS();
+
+/**
+ * Shareable outing links. The token is derived from the row id with the app secret (so the
+ * organizer can see it again) and only its SHA-256 is stored. Revoke = new row.
+ */
+export const inviteLinks = pgTable(
+  'invite_links',
+  {
+    id: id(),
+    outingId: uuid('outing_id')
+      .notNull()
+      .references(() => outings.id, { onDelete: 'cascade' }),
+    tokenHash: text('token_hash').notNull().unique(),
+    expiresAt: timestamp('expires_at', { withTimezone: true }),
+    revokedAt: timestamp('revoked_at', { withTimezone: true }),
+    createdBy: uuid('created_by').references(() => players.id),
+    ...timestamps,
+  },
+  (t) => [index('invite_links_outing_idx').on(t.outingId), viaOuting('invite_links')],
+).enableRLS();
+
+export const verificationPurpose = pgEnum('verification_purpose', ['claim', 'phone']);
+
+/** Phone codes when we issue them ourselves (SMS demo mode). With Twilio Verify, Twilio keeps them. */
+export const verificationCodes = pgTable(
+  'verification_codes',
+  {
+    id: id(),
+    phoneE164: text('phone_e164').notNull(),
+    codeHash: text('code_hash').notNull(),
+    purpose: verificationPurpose('purpose').notNull(),
+    expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+    attempts: smallint('attempts').notNull().default(0),
+    consumedAt: timestamp('consumed_at', { withTimezone: true }),
+    ...timestamps,
+  },
+  (t) => [index('verification_codes_phone_idx').on(t.phoneE164, t.createdAt)],
+);

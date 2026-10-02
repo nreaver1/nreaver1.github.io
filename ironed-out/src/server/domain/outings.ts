@@ -392,15 +392,13 @@ export async function addTeeTime(deps: OutingsDeps, actor: Actor, outingId: stri
         sort: Math.max(...tees.map((t) => t.sort)) + 1,
       })
       .returning({ id: teeTimes.id });
-    await tx
-      .insert(slots)
-      .values(
-        Array.from({ length: last.capacity }, (_, position) => ({
-          teeTimeId: tee!.id,
-          outingId: o.id,
-          position,
-        })),
-      );
+    await tx.insert(slots).values(
+      Array.from({ length: last.capacity }, (_, position) => ({
+        teeTimeId: tee!.id,
+        outingId: o.id,
+        position,
+      })),
+    );
     await recordEvent(tx, o.id, 'tee_time_added', actor.playerId, {
       teeTimeId: tee!.id,
       startsAt: startsAt.toISOString(),
@@ -562,4 +560,12 @@ export async function openSlotsInOrder(tx: Tx, outingId: string, preferTeeTimeId
     ...rows.filter((r) => r.teeTimeId === preferTeeTimeId),
     ...rows.filter((r) => r.teeTimeId !== preferTeeTimeId),
   ];
+}
+
+export async function getPlayerName(deps: OutingsDeps, playerId: string): Promise<string | null> {
+  if (!z.uuid().safeParse(playerId).success) return null;
+  return withTenant(deps.db, deps.tenantId, async (tx) => {
+    const [p] = await tx.select({ name: players.displayName }).from(players).where(eq(players.id, playerId));
+    return p?.name ?? null;
+  });
 }

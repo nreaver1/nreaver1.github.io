@@ -1,0 +1,1 @@
+ALTER TABLE "invite_links" FORCE ROW LEVEL SECURITY;

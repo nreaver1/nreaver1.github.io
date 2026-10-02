@@ -1,0 +1,84 @@
+.title {
+  font-size: 50px;
+  line-height: 0.95;
+  color: var(--fairway-dark);
+}
+
+.linkRow {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.link {
+  flex: 1;
+  min-width: 0;
+  font-size: 17px;
+  min-height: var(--btn-height);
+  display: flex;
+  align-items: center;
+  padding: 8px 12px;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  color: var(--muted);
+  border: var(--border);
+  border-radius: var(--radius-input);
+  background: var(--white);
+}
+
+.chat {
+  margin: 0;
+  border: var(--border);
+  border-radius: var(--radius-card);
+  background: var(--chat-bg);
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.bubble {
+  align-self: flex-end;
+  max-width: 82%;
+  background: var(--fairway);
+  color: var(--white);
+  font-size: 18px;
+  padding: 8px 14px;
+  border-radius: 18px 18px 4px 18px;
+}
+
+.card {
+  align-self: flex-end;
+  width: 82%;
+  border: var(--border);
+  border-radius: 14px;
+  overflow: hidden;
+  background: var(--white);
+}
+
+.cardArt {
+  background: var(--hills);
+  height: 70px;
+  border-bottom: var(--border);
+  overflow: hidden;
+}
+
+.cardBody {
+  padding: 8px 12px;
+}
+
+.cardTitle {
+  font-size: 22px;
+  line-height: 1;
+}
+
+.cardMeta {
+  font-size: 15px;
+  color: var(--muted);
+}
+
+.cardHost {
+  font-size: 14px;
+  color: var(--muted);
+}

@@ -4,16 +4,20 @@ import { getDb } from '@/server/db/client';
 import { tenants } from '@/server/db/schema';
 import { CONSUMER_TENANT_SLUG } from '@/server/db/seed';
 import type { Db } from '@/server/db/types';
-import { getEnv } from '@/server/env';
+import { appSecret, getEnv, isSmsDemo } from '@/server/env';
 import { OutboxMailer, ResendMailer, type Mailer } from '@/server/notify/email';
+import { DemoVerifier, TwilioVerifier, type PhoneVerifier } from '@/server/notify/verify';
 import { hibpBreachChecker, type BreachChecker } from '@/server/security/password';
 
 export type Services = {
   db: Db;
   tenantId: string;
   mailer: Mailer;
+  verifier: PhoneVerifier;
   isBreached: BreachChecker;
   appUrl: string;
+  secret: string;
+  smsDemo: boolean;
 };
 
 // Module-level singletons survive across requests in one server instance.
@@ -28,6 +32,18 @@ function getMailer(): Mailer {
   const env = getEnv();
   if (env.RESEND_API_KEY) return new ResendMailer(env.RESEND_API_KEY, env.EMAIL_FROM);
   return getOutbox();
+}
+
+function getVerifier(db: Db): PhoneVerifier {
+  const env = getEnv();
+  if (!isSmsDemo(env)) {
+    return new TwilioVerifier(
+      env.TWILIO_ACCOUNT_SID!,
+      env.TWILIO_AUTH_TOKEN!,
+      env.TWILIO_VERIFY_SERVICE_SID!,
+    );
+  }
+  return new DemoVerifier(db, appSecret(env));
 }
 
 async function getConsumerTenantId(db: Db): Promise<string> {
@@ -46,7 +62,10 @@ export async function getServices(): Promise<Services> {
     db,
     tenantId: await getConsumerTenantId(db),
     mailer: getMailer(),
+    verifier: getVerifier(db),
     isBreached: hibpBreachChecker(),
     appUrl: env.APP_URL.replace(/\/$/, ''),
+    secret: appSecret(env),
+    smsDemo: isSmsDemo(env),
   };
 }
