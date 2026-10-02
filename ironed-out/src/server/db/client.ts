@@ -1,6 +1,6 @@
 import { drizzle } from 'drizzle-orm/postgres-js';
 import postgres from 'postgres';
-import { getEnv } from '../env';
+import { appDatabaseUrl, getEnv } from '../env';
 import * as schema from './schema';
 import type { Db } from './types';
 
@@ -13,7 +13,7 @@ const globalForDb = globalThis as unknown as { __ioDb?: Db };
 export function getDb(): Db {
   if (!globalForDb.__ioDb) {
     const env = getEnv();
-    const client = postgres(env.DATABASE_URL, {
+    const client = postgres(appDatabaseUrl(env), {
       max: env.DATABASE_POOL_MAX,
       prepare: false,
       idle_timeout: 20,

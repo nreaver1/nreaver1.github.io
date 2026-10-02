@@ -5,8 +5,17 @@ const DEV_SECRET = 'dev-only-secret-not-for-production-0123456789';
 const EnvSchema = z
   .object({
     NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
+    /** Owner connection (hosting integrations set this). The app itself uses `appDatabaseUrl`. */
     DATABASE_URL: z.url(),
     MIGRATION_DATABASE_URL: z.url().optional(),
+    /** App connection as the non-superuser role. If unset, see APP_DB_PASSWORD. */
+    APP_DATABASE_URL: z.url().optional(),
+    /**
+     * Password for the `ironed_app` role. When set (and APP_DATABASE_URL isn't), the app connects
+     * with DATABASE_URL's host but as `ironed_app`, so Row-Level Security applies. Migrations
+     * create/update the role with this password.
+     */
+    APP_DB_PASSWORD: z.string().min(24).optional(),
     DATABASE_POOL_MAX: z.coerce.number().int().min(1).max(50).default(5),
     APP_URL: z.url().default('http://localhost:3000'),
     /**
@@ -45,6 +54,20 @@ export function getEnv(source: NodeJS.ProcessEnv = process.env): Env {
 }
 
 export const appSecret = (env: Env) => env.APP_SECRET ?? DEV_SECRET;
+
+export const APP_DB_ROLE = 'ironed_app';
+
+/** The connection string the app uses (never the owner when a role password is configured). */
+export function appDatabaseUrl(env: Env): string {
+  if (env.APP_DATABASE_URL) return env.APP_DATABASE_URL;
+  if (env.APP_DB_PASSWORD) {
+    const url = new URL(env.DATABASE_URL);
+    url.username = APP_DB_ROLE;
+    url.password = env.APP_DB_PASSWORD;
+    return url.toString();
+  }
+  return env.DATABASE_URL;
+}
 
 /** True when real SMS isn't configured: codes are shown on screen, texts go to the outbox. */
 export const isSmsDemo = (env: Env) =>

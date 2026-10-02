@@ -44,15 +44,19 @@ export async function logOutAction(): Promise<void> {
 
 export async function forgotAction(_prev: FormState, form: FormData): Promise<FormState> {
   const values = { email: str(form, 'email') };
+  const services = await getServices();
   try {
-    await requestPasswordReset(await getServices(), values, await requestContext());
+    await requestPasswordReset(services, values, await requestContext());
   } catch (e) {
     return toFormState(e, values);
   }
   return {
     ok: true,
     values,
-    message: 'If that email has an account, a reset link is on its way. It expires in 30 minutes.',
+    message:
+      services.mailer.kind === 'outbox' && process.env.NODE_ENV === 'production'
+        ? 'Email isn’t hooked up on this demo yet, so reset links can’t be sent. Make a new account instead.'
+        : 'If that email has an account, a reset link is on its way. It expires in 30 minutes.',
   };
 }
 

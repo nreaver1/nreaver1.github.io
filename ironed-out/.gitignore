@@ -11,3 +11,5 @@ test-results
 .pglite
 .next-e2e
 *.tmp.mjs
+
+.vercel

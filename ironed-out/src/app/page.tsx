@@ -1,6 +1,7 @@
 import { CourseScene } from '@/components/illustrations/CourseScene';
 import { redirect } from 'next/navigation';
-import { ButtonLink } from '@/components/ui';
+import { ButtonLink, buttonClassName } from '@/components/ui';
+import { isSmsDemo, getEnv } from '@/server/env';
 import { getCurrentUser } from '@/web/session';
 import styles from './page.module.css';
 
@@ -24,6 +25,11 @@ export default async function WelcomePage() {
       <p className={styles.footnote}>
         Got an invite link from a friend? Just tap it. No account needed to grab a spot.
       </p>
+      {isSmsDemo(getEnv()) && (
+        <a href="/demo" className={buttonClassName({ variant: 'ghost' })} style={{ alignSelf: 'center' }}>
+          See a sample invite
+        </a>
+      )}
     </main>
   );
 }
