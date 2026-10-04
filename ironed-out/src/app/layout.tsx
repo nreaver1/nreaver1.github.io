@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from 'next';
 import { Caveat, Patrick_Hand } from 'next/font/google';
+import { connection } from 'next/server';
 import type { ReactNode } from 'react';
 import './globals.css';
 
@@ -18,7 +19,9 @@ export const viewport: Viewport = {
   themeColor: '#FBF6E9',
 };
 
-export default function RootLayout({ children }: { children: ReactNode }) {
+export default async function RootLayout({ children }: { children: ReactNode }) {
+  // Render per request: the CSP nonce (src/proxy.ts) can only be applied to dynamic pages.
+  await connection();
   return (
     <html lang="en" className={`${display.variable} ${body.variable}`}>
       <body>{children}</body>

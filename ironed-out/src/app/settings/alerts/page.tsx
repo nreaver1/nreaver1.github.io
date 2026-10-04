@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import { eq } from 'drizzle-orm';
 import { BottomNav } from '@/components/BottomNav';
-import { Button } from '@/components/ui';
+import { Button, ButtonLink } from '@/components/ui';
 import { users } from '@/server/db/schema';
 import { withTenant } from '@/server/db/tenant';
 import { getAlertSettings, recentNotifications } from '@/server/domain/notifications';
@@ -56,6 +56,9 @@ export default async function AlertsPage() {
             when: fmt.format(r.sentAt ?? r.sendAfter),
           }))}
         />
+        <ButtonLink href="/settings/account" variant="ghost">
+          Your account &amp; data
+        </ButtonLink>
         <form action={logOutAction}>
           <Button type="submit" variant="ghost">
             Log out

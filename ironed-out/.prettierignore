@@ -7,4 +7,5 @@ playwright-report
 test-results
 *.md
 .next-e2e
+.next-e2e-prod
 .pglite

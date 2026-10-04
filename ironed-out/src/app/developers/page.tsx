@@ -129,7 +129,7 @@ export default function DevelopersPage() {
           OAuth 2.0 client credentials. Tokens are JWTs that last {ACCESS_TOKEN_TTL_SEC / 60} minutes; ask for
           a subset of your scopes with <code>scope</code>. Revoking a client stops its tokens immediately.
         </p>
-        <pre className={styles.code}>{`curl -s ${api}/oauth/token \\
+        <pre className={styles.code} tabIndex={0}>{`curl -s ${api}/oauth/token \\
   -u "$CLIENT_ID:$CLIENT_SECRET" \\
   -d grant_type=client_credentials \\
   -d scope="outings:read outings:write players:read"
@@ -142,6 +142,7 @@ export default function DevelopersPage() {
         <p>Find the course, then create the outing from the booking. The organizer takes the first spot.</p>
         <pre
           className={styles.code}
+          tabIndex={0}
         >{`curl -s "${api}/courses?query=pleasant" -H "Authorization: Bearer $TOKEN"
 
 curl -s ${api}/outings \\
@@ -244,7 +245,7 @@ curl -s ${api}/outings \\
             ))}
           </tbody>
         </table>
-        <pre className={styles.code}>{`POST /your/endpoint
+        <pre className={styles.code} tabIndex={0}>{`POST /your/endpoint
 Ironed-Signature: t=1791200000,v1=5f2c…
 Ironed-Event: slot.claimed
 Ironed-Delivery: 0199b1c2-…
@@ -267,7 +268,7 @@ Ironed-Delivery: 0199b1c2-…
           than 5 minutes old, and ignore an <code>id</code> you’ve already processed, so a captured request
           can’t be replayed.
         </p>
-        <pre className={styles.code}>{`import { createHmac, timingSafeEqual } from 'node:crypto';
+        <pre className={styles.code} tabIndex={0}>{`import { createHmac, timingSafeEqual } from 'node:crypto';
 
 function verify(secret, rawBody, header) {
   const parts = Object.fromEntries(header.split(',').map((p) => p.split('=')));
@@ -284,7 +285,7 @@ function verify(secret, rawBody, header) {
           Errors are <code>application/problem+json</code> (RFC 9457) with a stable <code>code</code>. The
           token endpoint uses OAuth’s own format instead (<code>{'{ error, error_description }'}</code>).
         </p>
-        <pre className={styles.code}>{`HTTP/1.1 409 Conflict
+        <pre className={styles.code} tabIndex={0}>{`HTTP/1.1 409 Conflict
 Content-Type: application/problem+json
 
 { "type": "${appUrl}/developers#error-slot_taken", "title": "Conflict", "status": 409,

@@ -10,6 +10,7 @@ playwright-report
 test-results
 .pglite
 .next-e2e
+.next-e2e-prod
 *.tmp.mjs
 
 .vercel

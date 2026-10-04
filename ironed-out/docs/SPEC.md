@@ -315,8 +315,29 @@ items, max 5, newest first) plus `last_event_id`. `POST /outings/:id/seen {last_
       for 24 h. `PATCH /tee-times/:id` changes capacity only (moving a start time isn't supported
       yet). `/outings/:id/seen`, `/verification/*` and `/crews` stay app-only in v1 (they're about a
       signed-in person, not a partner). Per-client limit: 300 requests/minute._
-- [ ] **M9 Hardening** – security headers/CSP, PII encryption, retention jobs, load test the claim
+- [x] **M9 Hardening** – security headers/CSP, PII encryption, retention jobs, load test the claim
       endpoint, Playwright E2E for the full organizer → invitee flow, accessibility pass.
+      _Done 2026-10-04. CSP: `src/proxy.ts` sends a per-request nonce (`script-src 'self'
+      'nonce-…' 'strict-dynamic'`, no inline scripts; inline style attributes are still allowed);
+      the root layout renders per request so the nonce applies. HSTS, nosniff, Referrer-Policy,
+      frame-ancestors/X-Frame-Options and Permissions-Policy come from next.config. PII: phone
+      columns (`players`, `users`, `verification_codes`, `crew_invites.invitee_phone`) are
+      encrypted in the app with deterministic AES-256-GCM (key derived from `APP_SECRET`), so
+      equality lookups and unique indexes still work; older plaintext rows still read and are
+      sealed by the retention run. Rotating `APP_SECRET` now also makes stored phones unreadable.
+      Retention runs with the scheduled dispatch: verification codes after 24 h, rate-limit
+      windows after 2 days, ended sessions after 30 days, idempotency keys after 24 h, finished
+      webhook deliveries after 30 days, sent notifications after 90 days, outings
+      `tenants.retention_months` (default 18, added to §4) after their play date, and phone-only
+      players nothing refers to any more. Self-serve account export (JSON) and deletion live at
+      /settings/account (deleting removes upcoming outings they organize, frees their spots with a
+      normal drop-out event, deletes crews they own, and leaves "Former member" on past sheets).
+      Load test: `pnpm load:claim` (200 claims, 40 concurrent, at 6 spots, against a local
+      production build on PGlite) gave exactly 6 winners and 194 clean `409 slot_taken`, p95
+      ≈1 s (PGlite has one connection; Neon should be faster). E2E: `full-flow.spec.ts` (organizer
+      → invitees → remove → lock → export → delete, no CSP violations) and `a11y.spec.ts` (axe
+      WCAG 2.1 A/AA on every main screen); `pnpm test:e2e:prod` runs both against a production
+      build._
 
 ## 11. Open decisions (ask Mike)
 

@@ -120,6 +120,13 @@
       "when": 1791154620810,
       "tag": "0016_partner_api_rls",
       "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1791156039525,
+      "tag": "0017_tenant_retention",
+      "breakpoints": true
     }
   ]
 }

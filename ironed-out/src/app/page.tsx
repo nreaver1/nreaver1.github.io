@@ -5,10 +5,16 @@ import { isSmsDemo, getEnv } from '@/server/env';
 import { getCurrentUser } from '@/web/session';
 import styles from './page.module.css';
 
-export default async function WelcomePage() {
+export default async function WelcomePage({ searchParams }: { searchParams: Promise<{ deleted?: string }> }) {
   if (await getCurrentUser()) redirect('/home');
+  const deleted = (await searchParams).deleted === '1';
   return (
     <main className="page">
+      {deleted && (
+        <p role="status" className={styles.footnote}>
+          Your account is deleted. Thanks for playing a round with us.
+        </p>
+      )}
       <h1 className={styles.logo}>
         Ironed <span className={styles.logoIndent}>Out.</span>
       </h1>

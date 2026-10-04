@@ -27,6 +27,8 @@ pnpm dev          # http://localhost:3000  (component gallery at /styleguide in 
 | `pnpm test:e2e`                   | Playwright at 360px wide                              |
 | `pnpm lint` / `pnpm typecheck` / `pnpm format` | Lint, type-check, format                  |
 | `pnpm api:client create\|list\|revoke` | Issue/revoke partner API clients (runs as the schema owner) |
+| `pnpm test:e2e:prod`              | Full-flow + accessibility specs on a production build (checks the CSP) |
+| `pnpm load:claim --url … --client-id … --client-secret …` | Concurrent-claim load test with invariant checks |
 
 ## Layout
 

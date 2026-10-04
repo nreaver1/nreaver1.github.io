@@ -18,12 +18,14 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:e2e": "playwright test",
+    "test:e2e:prod": "playwright test full-flow a11y",
     "db:up": "docker compose up -d",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "tsx scripts/migrate.ts",
     "db:seed": "tsx scripts/seed.ts",
     "db:local": "tsx scripts/local-db.ts",
     "api:client": "tsx scripts/api-client.ts",
+    "load:claim": "tsx scripts/load-claim.ts",
     "vercel-build": "node scripts/vercel-build.mjs"
   },
   "dependencies": {
@@ -38,6 +40,7 @@
     "zod": "^4.6.5"
   },
   "devDependencies": {
+    "@axe-core/playwright": "^4.13.0",
     "@electric-sql/pglite": "^0.5.8",
     "@electric-sql/pglite-postgis": "0.2.8",
     "@electric-sql/pglite-socket": "0.2.11",

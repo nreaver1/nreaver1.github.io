@@ -1,0 +1,1 @@
+ALTER TABLE "tenants" ADD COLUMN "retention_months" smallint DEFAULT 18 NOT NULL;

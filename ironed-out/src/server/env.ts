@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-const DEV_SECRET = 'dev-only-secret-not-for-production-0123456789';
+export const DEV_SECRET = 'dev-only-secret-not-for-production-0123456789';
 
 const EnvSchema = z
   .object({

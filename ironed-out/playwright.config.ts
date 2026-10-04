@@ -1,6 +1,8 @@
 import { defineConfig, devices } from '@playwright/test';
 import { E2E_API_CLIENT, E2E_CRON_SECRET } from './tests/e2e/api-fixture';
 
+/** `pnpm test:e2e:prod` (or E2E_PROD=1): run against a production build, e.g. to check the CSP. */
+const PROD = !!process.env.E2E_PROD || process.env.npm_lifecycle_event === 'test:e2e:prod';
 const PORT = 3100;
 const DB_PORT = 5434;
 
@@ -34,19 +36,21 @@ export default defineConfig({
       timeout: 60_000,
     },
     {
-      command: `pnpm exec next dev --port ${PORT}`,
+      command: PROD
+        ? `pnpm exec next build && pnpm exec next start --port ${PORT}`
+        : `pnpm exec next dev --port ${PORT}`,
       env: {
         DATABASE_URL: `postgres://postgres@127.0.0.1:${DB_PORT}/postgres`,
         DATABASE_POOL_MAX: '1',
         APP_URL: `http://localhost:${PORT}`,
         APP_SECRET: 'e2e-only-app-secret-0123456789abcdef',
-        NEXT_DIST_DIR: '.next-e2e',
+        NEXT_DIST_DIR: PROD ? '.next-e2e-prod' : '.next-e2e',
         CRON_SECRET: E2E_CRON_SECRET,
         NOTIFY_COALESCE_SECONDS: '0',
       },
       url: `http://localhost:${PORT}/api/v1/health`,
       reuseExistingServer: false,
-      timeout: 120_000,
+      timeout: PROD ? 400_000 : 120_000,
     },
   ],
 });

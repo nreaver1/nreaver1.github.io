@@ -22,7 +22,7 @@ import {
   uniqueIndex,
   uuid,
 } from 'drizzle-orm/pg-core';
-import { citext, geographyPoint, id, timestamps } from './columns';
+import { citext, encryptedPhone, geographyPoint, id, timestamps } from './columns';
 
 /**
  * Row-Level Security: every tenant-owned table gets this policy. The tenant comes from the
@@ -44,6 +44,8 @@ export const tenants = pgTable('tenants', {
   slug: text('slug').notNull().unique(),
   name: text('name').notNull(),
   status: tenantStatus('status').notNull().default('active'),
+  /** Outings are purged this many months after their play date (SPEC §6). */
+  retentionMonths: smallint('retention_months').notNull().default(18),
   ...timestamps,
 });
 
@@ -57,7 +59,7 @@ export const users = pgTable(
     email: citext('email').notNull(),
     passwordHash: text('password_hash').notNull(),
     name: text('name').notNull(),
-    phoneE164: text('phone_e164'),
+    phoneE164: encryptedPhone('phone_e164'),
     phoneVerifiedAt: timestamp('phone_verified_at', { withTimezone: true }),
     emailVerifiedAt: timestamp('email_verified_at', { withTimezone: true }),
     mfaSecretEnc: text('mfa_secret_enc'),
@@ -82,7 +84,7 @@ export const players = pgTable(
       .unique()
       .references(() => users.id, { onDelete: 'set null' }),
     displayName: text('display_name').notNull(),
-    phoneE164: text('phone_e164'),
+    phoneE164: encryptedPhone('phone_e164'),
     phoneVerifiedAt: timestamp('phone_verified_at', { withTimezone: true }),
     ...timestamps,
   },
@@ -355,7 +357,7 @@ export const verificationCodes = pgTable(
   'verification_codes',
   {
     id: id(),
-    phoneE164: text('phone_e164').notNull(),
+    phoneE164: encryptedPhone('phone_e164').notNull(),
     codeHash: text('code_hash').notNull(),
     purpose: verificationPurpose('purpose').notNull(),
     expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
@@ -529,7 +531,7 @@ export const crewInvites = pgTable(
     tokenHash: text('token_hash').notNull().unique(),
     inviteeName: text('invitee_name'),
     inviteeEmail: citext('invitee_email'),
-    inviteePhone: text('invitee_phone'),
+    inviteePhone: encryptedPhone('invitee_phone'),
     status: crewInviteStatus('status').notNull().default('open'),
     acceptedBy: uuid('accepted_by').references(() => users.id, { onDelete: 'set null' }),
     expiresAt: timestamp('expires_at', { withTimezone: true }),

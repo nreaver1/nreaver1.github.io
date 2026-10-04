@@ -7,7 +7,8 @@ const nextConfig: NextConfig = {
   poweredByHeader: false,
   // Server action arguments include phone numbers and codes; never print them (CLAUDE.md rule).
   logging: { serverFunctions: false },
-  // Baseline security headers. A nonce-based CSP for scripts comes with hardening (M9).
+  // Baseline security headers for every response. Pages also get a nonce-based script CSP from
+  // src/proxy.ts; browsers enforce both policies.
   async headers() {
     return [
       {
