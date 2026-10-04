@@ -9,6 +9,7 @@ import { DomainError } from '../errors';
 import { isCrewMember } from './crews';
 import { enqueueCrewNewOuting, enqueueForEvent } from './notifications';
 import { parseInput } from '../validation';
+import { enqueueWebhooks } from './webhooks';
 
 export type OutingsDeps = { db: Db; tenantId: string; now?: () => Date };
 export type Actor = { playerId: string; ip?: string | null };
@@ -274,8 +275,9 @@ export async function recordEvent(
     .set({ version: sql`${outings.version} + 1` })
     .where(eq(outings.id, outingId));
   const eventId = Number(e!.id);
-  // Texts/emails go into the outbox in the same transaction (SPEC §5).
+  // Texts/emails and partner webhooks go into their outboxes in the same transaction (SPEC §5, §7).
   await enqueueForEvent(tx, { id: eventId, outingId, type, actorPlayerId, payload });
+  await enqueueWebhooks(tx, { id: eventId, outingId, type });
   return eventId;
 }
 
@@ -308,70 +310,82 @@ const iso = (d: Date | string) => new Date(d).toISOString();
 
 export async function createOuting(deps: OutingsDeps, actor: Actor, input: unknown): Promise<string> {
   const data = parseInput(CreateOutingInput, input);
-  return withTenant(deps.db, deps.tenantId, async (tx) => {
-    const [course] = await tx.select().from(courses).where(eq(courses.id, data.courseId));
-    if (!course)
-      throw new DomainError('invalid_input', 'Pick a course.', { fields: { courseId: 'Pick a course.' } });
-    const today = new Intl.DateTimeFormat('en-CA', { timeZone: course.timezone }).format(
-      deps.now?.() ?? new Date(),
-    );
-    if (data.playDate < today) {
-      throw new DomainError('invalid_input', 'Pick a date that hasn’t happened yet.', {
-        fields: { playDate: 'Pick a date that hasn’t happened yet.' },
-      });
-    }
+  return withTenant(deps.db, deps.tenantId, (tx) =>
+    insertOuting(tx, { tenantId: deps.tenantId, now: deps.now?.() }, actor.playerId, data),
+  );
+}
 
-    if (data.crewId && !(await isCrewMember(tx, data.crewId, actor.playerId))) {
-      throw new DomainError('invalid_input', 'You’re not in that crew.', {
-        fields: { crewId: 'You’re not in that crew.' },
-      });
-    }
-
-    const [outing] = await tx
-      .insert(outings)
-      .values({
-        tenantId: deps.tenantId,
-        organizerPlayerId: actor.playerId,
-        crewId: data.crewId,
-        courseId: course.id,
-        playDate: data.playDate,
-        timezone: course.timezone,
-        priceCents: data.price,
-        note: data.note,
-      })
-      .returning({ id: outings.id });
-    if (!outing) throw new Error('outing insert failed');
-
-    for (let i = 0; i < data.teeTimeCount; i++) {
-      const minutes = data.firstTeeMinutes + i * data.intervalMinutes;
-      const [tee] = await tx
-        .insert(teeTimes)
-        .values({
-          outingId: outing.id,
-          // Local wall-clock time at the course → instant (Postgres handles DST).
-          startsAt: sql`((${data.playDate}::date + make_interval(mins => ${minutes})) at time zone ${course.timezone})`,
-          capacity: data.playersEach,
-          sort: i,
-        })
-        .returning({ id: teeTimes.id });
-      await tx.insert(slots).values(
-        Array.from({ length: data.playersEach }, (_, position) => ({
-          teeTimeId: tee!.id,
-          outingId: outing.id,
-          position,
-          // The organizer fills slot 1 of the first tee time.
-          ...(i === 0 && position === 0 ? { playerId: actor.playerId, claimedAt: new Date() } : {}),
-        })),
-      );
-    }
-    await recordEvent(tx, outing.id, 'outing_created', actor.playerId, {
-      teeTimes: data.teeTimeCount,
-      spots: data.teeTimeCount * data.playersEach,
-      crewId: data.crewId,
+/**
+ * Creates the outing, its tee times and slots (organizer in slot 1 of the first tee time) inside
+ * the caller's tenant transaction. Shared by the web app and the partner API.
+ */
+export async function insertOuting(
+  tx: Tx,
+  ctx: { tenantId: string; now?: Date; externalRef?: string | null },
+  organizerPlayerId: string,
+  data: z.output<typeof CreateOutingInput>,
+): Promise<string> {
+  const [course] = await tx.select().from(courses).where(eq(courses.id, data.courseId));
+  if (!course)
+    throw new DomainError('invalid_input', 'Pick a course.', { fields: { courseId: 'Pick a course.' } });
+  const today = new Intl.DateTimeFormat('en-CA', { timeZone: course.timezone }).format(ctx.now ?? new Date());
+  if (data.playDate < today) {
+    throw new DomainError('invalid_input', 'Pick a date that hasn’t happened yet.', {
+      fields: { playDate: 'Pick a date that hasn’t happened yet.' },
     });
-    if (data.crewId) await enqueueCrewNewOuting(tx, outing.id, data.crewId, actor.playerId, deps.now?.());
-    return outing.id;
+  }
+
+  if (data.crewId && !(await isCrewMember(tx, data.crewId, organizerPlayerId))) {
+    throw new DomainError('invalid_input', 'You’re not in that crew.', {
+      fields: { crewId: 'You’re not in that crew.' },
+    });
+  }
+
+  const [outing] = await tx
+    .insert(outings)
+    .values({
+      tenantId: ctx.tenantId,
+      organizerPlayerId,
+      crewId: data.crewId,
+      courseId: course.id,
+      playDate: data.playDate,
+      timezone: course.timezone,
+      priceCents: data.price,
+      note: data.note,
+      externalRef: ctx.externalRef ?? null,
+    })
+    .returning({ id: outings.id });
+  if (!outing) throw new Error('outing insert failed');
+
+  for (let i = 0; i < data.teeTimeCount; i++) {
+    const minutes = data.firstTeeMinutes + i * data.intervalMinutes;
+    const [tee] = await tx
+      .insert(teeTimes)
+      .values({
+        outingId: outing.id,
+        // Local wall-clock time at the course → instant (Postgres handles DST).
+        startsAt: sql`((${data.playDate}::date + make_interval(mins => ${minutes})) at time zone ${course.timezone})`,
+        capacity: data.playersEach,
+        sort: i,
+      })
+      .returning({ id: teeTimes.id });
+    await tx.insert(slots).values(
+      Array.from({ length: data.playersEach }, (_, position) => ({
+        teeTimeId: tee!.id,
+        outingId: outing.id,
+        position,
+        // The organizer fills slot 1 of the first tee time.
+        ...(i === 0 && position === 0 ? { playerId: organizerPlayerId, claimedAt: new Date() } : {}),
+      })),
+    );
+  }
+  await recordEvent(tx, outing.id, 'outing_created', organizerPlayerId, {
+    teeTimes: data.teeTimeCount,
+    spots: data.teeTimeCount * data.playersEach,
+    crewId: data.crewId,
   });
+  if (data.crewId) await enqueueCrewNewOuting(tx, outing.id, data.crewId, organizerPlayerId, ctx.now);
+  return outing.id;
 }
 
 export async function updateDetails(deps: OutingsDeps, actor: Actor, outingId: string, input: unknown) {
@@ -427,6 +441,19 @@ export async function addTeeTime(deps: OutingsDeps, actor: Actor, outingId: stri
 }
 
 export async function changeCapacity(deps: OutingsDeps, actor: Actor, teeTimeId: string, delta: 1 | -1) {
+  await resizeTeeTime(deps, actor, teeTimeId, (current) => current + delta);
+}
+
+/**
+ * Sets a tee time's number of spots (2–5). Growing adds open spots at the end; shrinking removes
+ * open spots from the end and fails if there aren't enough. One event, one transaction.
+ */
+export async function resizeTeeTime(
+  deps: OutingsDeps,
+  actor: Actor,
+  teeTimeId: string,
+  target: (current: number) => number,
+) {
   await withTenant(deps.db, deps.tenantId, async (tx) => {
     const t0 = await teeTimeOf(tx, teeTimeId);
     const o = await lockAsOrganizer(tx, t0.outingId, actor);
@@ -436,19 +463,40 @@ export async function changeCapacity(deps: OutingsDeps, actor: Actor, teeTimeId:
       .from(slots)
       .where(eq(slots.teeTimeId, tee.id))
       .orderBy(desc(slots.position));
-    const to = tee.capacity + delta;
+    const to = target(tee.capacity);
+    if (!Number.isInteger(to)) throw new DomainError('invalid_input', 'Capacity must be a whole number.');
     if (to > MAX_CAPACITY)
       throw new DomainError('conflict', `A tee time holds at most ${MAX_CAPACITY} players.`);
     if (to < MIN_CAPACITY)
       throw new DomainError('conflict', `A tee time needs at least ${MIN_CAPACITY} spots.`);
+    if (to === tee.capacity) return;
 
-    if (delta === 1) {
-      const position = (rows[0]?.position ?? -1) + 1;
-      await tx.insert(slots).values({ teeTimeId: tee.id, outingId: o.id, position });
+    if (to > tee.capacity) {
+      const top = rows[0]?.position ?? -1;
+      await tx.insert(slots).values(
+        Array.from({ length: to - tee.capacity }, (_, i) => ({
+          teeTimeId: tee.id,
+          outingId: o.id,
+          position: top + 1 + i,
+        })),
+      );
     } else {
-      const empty = rows.find((s) => !s.playerId && !s.guestOfPlayerId);
-      if (!empty) throw new DomainError('conflict', 'Every spot in that tee time is taken.');
-      await tx.delete(slots).where(eq(slots.id, empty.id));
+      const empty = rows.filter((s) => !s.playerId && !s.guestOfPlayerId);
+      const remove = tee.capacity - to;
+      if (empty.length < remove) {
+        throw new DomainError(
+          'conflict',
+          empty.length
+            ? `Only ${empty.length} spots in that tee time are open.`
+            : 'Every spot in that tee time is taken.',
+        );
+      }
+      await tx.delete(slots).where(
+        inArray(
+          slots.id,
+          empty.slice(0, remove).map((s) => s.id),
+        ),
+      );
     }
     await tx.update(teeTimes).set({ capacity: to }).where(eq(teeTimes.id, tee.id));
     await recordEvent(tx, o.id, 'capacity_changed', actor.playerId, {

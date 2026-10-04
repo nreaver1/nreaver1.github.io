@@ -48,6 +48,7 @@ API, security and milestones. Visual reference lives in `design/` (see `design/R
 - `pnpm db:migrate` / `pnpm db:seed` – migrations and seed data (incl. Baltimore-area courses)
 - `pnpm test` / `pnpm test:e2e`
 - `pnpm lint` / `pnpm typecheck`
+- `pnpm api:client create|list|revoke` – partner API clients
 
 <!-- BEGIN:nextjs-agent-rules -->
 

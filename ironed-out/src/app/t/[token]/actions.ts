@@ -3,12 +3,11 @@
 import { revalidatePath } from 'next/cache';
 import { claimAsPlayer, confirmClaim, dropOut, startClaim } from '@/server/domain/claims';
 import { markSeen, viewerKeyOf } from '@/server/domain/feed';
-import { resolveInviteToken } from '@/server/domain/invites';
 import { DomainError, isDomainError } from '@/server/errors';
 import { dispatchSoon } from '@/web/dispatch';
-import { getServices } from '@/web/services';
+import { resolveInvite } from '@/web/invite';
 import { requestContext } from '@/web/session';
-import { clearDeviceCookie, ensureAnonKey, getViewer, setDeviceCookie } from '@/web/viewer';
+import { clearDeviceCookie, ensureAnonKey, setDeviceCookie } from '@/web/viewer';
 
 export type ClaimActionState = {
   ok?: boolean;
@@ -29,10 +28,9 @@ const refresh = (token: string) => {
 };
 
 async function outingFor(token: string) {
-  const services = await getServices();
-  const outingId = await resolveInviteToken(services, token);
-  if (!outingId) throw new DomainError('gone', 'This invite link has expired or was turned off.');
-  return { services, outingId };
+  const invite = await resolveInvite(token);
+  if (!invite) throw new DomainError('gone', 'This invite link has expired or was turned off.');
+  return invite;
 }
 
 function fail(e: unknown, token?: string): ClaimActionState {
@@ -81,8 +79,7 @@ export async function claimDirectAction(
   input: { slotId: string; guests: number },
 ): Promise<ClaimActionState> {
   try {
-    const { services, outingId } = await outingFor(token);
-    const viewer = await getViewer();
+    const { services, outingId, viewer } = await outingFor(token);
     if (!viewer.playerId) throw new DomainError('unauthorized', 'Confirm your number first.');
     const r = await claimAsPlayer(services, outingId, viewer.playerId, input);
     refresh(token);
@@ -94,8 +91,7 @@ export async function claimDirectAction(
 
 export async function dropOutAction(token: string): Promise<ClaimActionState> {
   try {
-    const { services, outingId } = await outingFor(token);
-    const viewer = await getViewer();
+    const { services, outingId, viewer } = await outingFor(token);
     if (!viewer.playerId) throw new DomainError('unauthorized', 'We don’t know who you are on this device.');
     await dropOut(services, outingId, viewer.playerId);
     refresh(token);
@@ -113,10 +109,9 @@ export async function forgetDeviceAction(token: string): Promise<void> {
 
 /** "Got it", a first visit (sets the baseline), or after a claim. */
 export async function markSeenAction(token: string, lastEventId: number): Promise<void> {
-  const services = await getServices();
-  const outingId = await resolveInviteToken(services, token);
-  if (!outingId) return;
-  const viewer = await getViewer();
+  const invite = await resolveInvite(token);
+  if (!invite) return;
+  const { services, outingId, viewer } = invite;
   const key = viewer.playerId ?? viewerKeyOf(null, await ensureAnonKey());
   if (key) await markSeen(services, outingId, key, lastEventId);
 }

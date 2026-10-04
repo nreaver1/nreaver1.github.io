@@ -26,6 +26,7 @@ pnpm dev          # http://localhost:3000  (component gallery at /styleguide in 
 | `pnpm test`                       | Vitest: components (jsdom) and database tests (in-memory PGlite, no Docker needed) |
 | `pnpm test:e2e`                   | Playwright at 360px wide                              |
 | `pnpm lint` / `pnpm typecheck` / `pnpm format` | Lint, type-check, format                  |
+| `pnpm api:client create\|list\|revoke` | Issue/revoke partner API clients (runs as the schema owner) |
 
 ## Layout
 
@@ -52,6 +53,19 @@ Every tenant-owned table has a `tenant_id` column, RLS enabled **and forced**, a
 - Adding a tenant-owned table: add `tenantIsolation('<table>')` + `.enableRLS()` in `schema.ts`,
   then `ALTER TABLE … FORCE ROW LEVEL SECURITY` in a migration. The "rls coverage" test fails if
   you forget.
+
+## Partner API
+
+`/api/v1` (SPEC §7). Guide at `/developers`, OpenAPI 3.1 at `/api/v1/openapi.json` (generated from
+the Zod schemas). Each partner is its own tenant; issue a client with
+
+```sh
+pnpm api:client create --tenant acme-golf --tenant-name "Acme Golf" --name "Acme prod" \
+  --scopes outings:read,outings:write,players:read,webhooks:manage
+```
+
+which prints the `client_secret` once. Against production, run it with
+`MIGRATION_DATABASE_URL` set to Neon's owner URL. Webhooks go out with the dispatcher run.
 
 ## Deployment
 

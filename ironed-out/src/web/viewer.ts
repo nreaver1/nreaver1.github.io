@@ -1,6 +1,7 @@
 import 'server-only';
 import { cookies } from 'next/headers';
 import { viewerKeyOf } from '@/server/domain/feed';
+import { getPlayerName } from '@/server/domain/outings';
 import { signDevice, verifyDevice } from '@/server/security/device';
 import { randomToken, sha256 } from '@/server/security/tokens';
 import { getServices } from './services';
@@ -48,14 +49,24 @@ export type Viewer = {
   viewerKey: string | null;
 };
 
-/** Who is looking at an invite page. Accounts win over device cookies. */
-export async function getViewer(): Promise<Viewer> {
-  const user = await getCurrentUser();
+/**
+ * Who is looking at an invite page. Accounts win over device cookies. `tenantId` is the outing's
+ * tenant: accounts only exist in the consumer tenant, and a device cookie only counts when its
+ * player belongs to that tenant (players never cross tenants).
+ */
+export async function getViewer(tenantId?: string): Promise<Viewer> {
+  const services = await getServices();
+  const consumer = !tenantId || tenantId === services.tenantId;
+  const user = consumer ? await getCurrentUser() : null;
   if (user) return { playerId: user.playerId, via: 'account', name: user.name, viewerKey: user.playerId };
-  const { secret } = await getServices();
   const jar = await cookies();
-  const playerId = verifyDevice(secret, jar.get(DEVICE_COOKIE)?.value);
-  if (playerId) return { playerId, via: 'device', name: null, viewerKey: playerId };
+  const playerId = verifyDevice(services.secret, jar.get(DEVICE_COOKIE)?.value);
+  if (
+    playerId &&
+    (await getPlayerName({ db: services.db, tenantId: tenantId ?? services.tenantId }, playerId))
+  ) {
+    return { playerId, via: 'device', name: null, viewerKey: playerId };
+  }
   const anon = jar.get(ANON_COOKIE)?.value;
   return {
     playerId: null,

@@ -1,7 +1,7 @@
 import { and, desc, eq, gt, isNull, or } from 'drizzle-orm';
 import { v7 as uuidv7 } from 'uuid';
 import { z } from 'zod';
-import { inviteLinks, outings } from '../db/schema';
+import { inviteLinks, outings, tenants } from '../db/schema';
 import { withTenant } from '../db/tenant';
 import type { Db, Tx } from '../db/types';
 import { DomainError } from '../errors';
@@ -10,7 +10,7 @@ import type { Actor } from './outings';
 
 export type InviteDeps = { db: Db; tenantId: string; secret: string; now?: () => Date };
 
-const tokenFor = (secret: string, linkId: string) => derivedToken(secret, `invite:${linkId}`);
+export const tokenFor = (secret: string, linkId: string) => derivedToken(secret, `invite:${linkId}`);
 
 async function assertOrganizer(tx: Tx, outingId: string, actor: Actor) {
   if (!z.uuid().safeParse(outingId).success) throw new DomainError('not_found', 'That outing is gone.');
@@ -22,7 +22,13 @@ async function assertOrganizer(tx: Tx, outingId: string, actor: Actor) {
   return o;
 }
 
-async function insertLink(tx: Tx, deps: InviteDeps, outingId: string, actor: Actor, expiresAt: Date | null) {
+export async function insertLink(
+  tx: Tx,
+  deps: InviteDeps,
+  outingId: string,
+  actor: Actor,
+  expiresAt: Date | null,
+) {
   const id = uuidv7();
   const token = tokenFor(deps.secret, id);
   await tx.insert(inviteLinks).values({
@@ -112,4 +118,25 @@ export async function resolveInviteToken(deps: InviteDeps, token: string): Promi
       );
     return link?.outingId ?? null;
   });
+}
+
+/**
+ * Token → { tenant, outing } across every active tenant (partner outings use the same /t/ links).
+ * Token hashes are globally unique, so at most one tenant matches.
+ */
+export async function resolveInviteAnyTenant(
+  deps: Omit<InviteDeps, 'tenantId'> & { preferTenantId?: string },
+  token: string,
+): Promise<{ tenantId: string; outingId: string } | null> {
+  if (!/^[0-9A-Za-z]{10,40}$/.test(token)) return null;
+  const rows = await deps.db.select({ id: tenants.id }).from(tenants).where(eq(tenants.status, 'active'));
+  const ordered = [
+    ...rows.filter((t) => t.id === deps.preferTenantId),
+    ...rows.filter((t) => t.id !== deps.preferTenantId),
+  ];
+  for (const { id: tenantId } of ordered) {
+    const outingId = await resolveInviteToken({ ...deps, tenantId }, token);
+    if (outingId) return { tenantId, outingId };
+  }
+  return null;
 }

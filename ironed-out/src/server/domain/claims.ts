@@ -56,7 +56,7 @@ const timeLabel = (startsAt: Date, timeZone: string) =>
  * one outing run one at a time; the slot and open-slot reads happen under that lock; and a partial
  * unique index stops a player from holding two personal slots even if this code is bypassed.
  */
-async function claimSlot(tx: Tx, outingId: string, slotId: string, playerId: string, guests: number) {
+export async function claimSlot(tx: Tx, outingId: string, slotId: string, playerId: string, guests: number) {
   const outing = await lockOuting(tx, outingId);
   if (outing.lockedAt) {
     throw new DomainError('conflict', 'This outing is locked in. Ask the organizer if you want in.', {

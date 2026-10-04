@@ -1,4 +1,5 @@
 import { defineConfig, devices } from '@playwright/test';
+import { E2E_API_CLIENT, E2E_CRON_SECRET } from './tests/e2e/api-fixture';
 
 const PORT = 3100;
 const DB_PORT = 5434;
@@ -24,7 +25,10 @@ export default defineConfig({
   webServer: [
     {
       command: `pnpm exec tsx scripts/local-db.ts --memory`,
-      env: { LOCAL_DB_PORT: String(DB_PORT) },
+      env: {
+        LOCAL_DB_PORT: String(DB_PORT),
+        LOCAL_DB_API_CLIENT: `${E2E_API_CLIENT.id}:${E2E_API_CLIENT.secret}`,
+      },
       port: DB_PORT,
       reuseExistingServer: false,
       timeout: 60_000,
@@ -37,7 +41,7 @@ export default defineConfig({
         APP_URL: `http://localhost:${PORT}`,
         APP_SECRET: 'e2e-only-app-secret-0123456789abcdef',
         NEXT_DIST_DIR: '.next-e2e',
-        CRON_SECRET: 'e2e-cron-secret-0123456789',
+        CRON_SECRET: E2E_CRON_SECRET,
         NOTIFY_COALESCE_SECONDS: '0',
       },
       url: `http://localhost:${PORT}/api/v1/health`,

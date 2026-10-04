@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 import { BackLink } from '@/components/BackLink';
-import { todayIn, upcomingWeekendDates } from '@/lib/format';
+import { hourIn, todayIn, upcomingWeekendDates } from '@/lib/format';
 import { SeedProvider } from '@/server/domain/courses';
 import { listCrews } from '@/server/domain/crews';
 import { getServices } from '@/web/services';
@@ -19,7 +19,9 @@ export default async function NewOutingPage({ searchParams }: { searchParams: Pr
   ]);
   const wanted = (await searchParams).crew;
   const initialCrewId = crews.some((c) => c.id === wanted) ? wanted! : '';
-  const weekendDates = upcomingWeekendDates(todayIn('America/New_York'));
+  const zone = 'America/New_York';
+  // Once the default 7:40 AM first tee time has passed, today isn't a sensible default.
+  const weekendDates = upcomingWeekendDates(todayIn(zone), 6, hourIn(zone) < 7);
   return (
     <main className="page page-tight">
       <div className={styles.header}>

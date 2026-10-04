@@ -71,11 +71,21 @@ export function todayIn(timeZone: string, now = new Date()): string {
   }).format(now);
 }
 
-/** The next `count` Saturdays and Sundays on or after today, as YYYY-MM-DD. */
-export function upcomingWeekendDates(today: string, count = 6): string[] {
+/** The hour (0–23) in a zone. */
+export function hourIn(timeZone: string, now = new Date()): number {
+  return Number(
+    new Intl.DateTimeFormat('en-US', { timeZone, hour: 'numeric', hourCycle: 'h23' }).format(now),
+  );
+}
+
+/**
+ * The next `count` Saturdays and Sundays as YYYY-MM-DD, starting today, or tomorrow when
+ * `includeToday` is false (e.g. once the morning's tee times have passed).
+ */
+export function upcomingWeekendDates(today: string, count = 6, includeToday = true): string[] {
   const [y, m, d] = today.split('-').map(Number);
   const out: string[] = [];
-  for (let i = 0; out.length < count && i < 60; i++) {
+  for (let i = includeToday ? 0 : 1; out.length < count && i < 60; i++) {
     const date = new Date(Date.UTC(y!, m! - 1, d! + i));
     const dow = date.getUTCDay();
     if (dow === 6 || dow === 0) out.push(date.toISOString().slice(0, 10));

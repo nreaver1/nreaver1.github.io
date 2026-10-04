@@ -228,6 +228,9 @@ export const outings = pgTable(
   (t) => [
     index('outings_organizer_idx').on(t.organizerPlayerId),
     index('outings_play_date_idx').on(t.tenantId, t.playDate),
+    index('outings_external_ref_idx')
+      .on(t.tenantId, t.externalRef)
+      .where(sql`${t.externalRef} is not null`),
     check('outings_price_nonnegative', sql`${t.priceCents} is null or ${t.priceCents} >= 0`),
     tenantIsolation('outings'),
   ],
@@ -547,5 +550,122 @@ export const crewInvites = pgTable(
       sql`${t.kind} = 'link' or (${t.inviteeName} is not null and (${t.inviteeEmail} is not null or ${t.inviteePhone} is not null))`,
     ),
     viaCrew('crew_invites'),
+  ],
+).enableRLS();
+
+// ---------------------------------------------------------------------------------------------
+// Partner API (SPEC §7)
+// ---------------------------------------------------------------------------------------------
+
+/**
+ * OAuth client-credentials clients. Only the SHA-256 of the secret is stored. Besides the tenant
+ * policy, one row is readable by its `client_id` while `app.client_id` is set: the token endpoint
+ * doesn't know the tenant until it has found the client (see `withClientLookup`).
+ */
+export const apiClients = pgTable(
+  'api_clients',
+  {
+    id: id(),
+    tenantId: uuid('tenant_id')
+      .notNull()
+      .references(() => tenants.id),
+    name: text('name').notNull(),
+    clientId: text('client_id').notNull().unique(),
+    secretHash: text('secret_hash').notNull(),
+    scopes: text('scopes')
+      .array()
+      .notNull()
+      .default(sql`'{}'::text[]`),
+    lastUsedAt: timestamp('last_used_at', { withTimezone: true }),
+    revokedAt: timestamp('revoked_at', { withTimezone: true }),
+    ...timestamps,
+  },
+  (t) => [
+    index('api_clients_tenant_idx').on(t.tenantId),
+    tenantIsolation('api_clients'),
+    pgPolicy('api_clients_auth_lookup', {
+      as: 'permissive',
+      for: 'select',
+      using: sql`client_id = nullif(current_setting('app.client_id', true), '')`,
+    }),
+  ],
+).enableRLS();
+
+/** Replayable responses for `Idempotency-Key` (kept 24 hours). `response` is null while in flight. */
+export const idempotencyKeys = pgTable(
+  'idempotency_keys',
+  {
+    key: text('key').notNull(),
+    clientId: uuid('client_id')
+      .notNull()
+      .references(() => apiClients.id, { onDelete: 'cascade' }),
+    requestHash: text('request_hash').notNull(),
+    response: jsonb('response').$type<{ status: number; body: unknown }>(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.clientId, t.key] }),
+    index('idempotency_keys_created_idx').on(t.createdAt),
+    pgPolicy('idempotency_keys_via_client', {
+      as: 'permissive',
+      for: 'all',
+      using: sql`client_id in (select id from api_clients)`,
+      withCheck: sql`client_id in (select id from api_clients)`,
+    }),
+  ],
+).enableRLS();
+
+/** Partner webhook endpoints. The signing secret is encrypted with a key derived from APP_SECRET. */
+export const webhookEndpoints = pgTable(
+  'webhook_endpoints',
+  {
+    id: id(),
+    tenantId: uuid('tenant_id')
+      .notNull()
+      .references(() => tenants.id),
+    url: text('url').notNull(),
+    secretEnc: text('secret_enc').notNull(),
+    events: text('events').array().notNull(),
+    description: text('description').notNull().default(''),
+    disabledAt: timestamp('disabled_at', { withTimezone: true }),
+    ...timestamps,
+  },
+  (t) => [index('webhook_endpoints_tenant_idx').on(t.tenantId), tenantIsolation('webhook_endpoints')],
+).enableRLS();
+
+export const webhookDeliveryStatus = pgEnum('webhook_delivery_status', ['pending', 'delivered', 'failed']);
+
+/**
+ * One row per (endpoint, event, webhook type). `event_type` is the public name ("slot.claimed");
+ * one outing event can produce two (a claim that fills the outing also sends "outing.full").
+ */
+export const webhookDeliveries = pgTable(
+  'webhook_deliveries',
+  {
+    id: id(),
+    endpointId: uuid('endpoint_id')
+      .notNull()
+      .references(() => webhookEndpoints.id, { onDelete: 'cascade' }),
+    eventId: bigint('event_id', { mode: 'number' })
+      .notNull()
+      .references(() => outingEvents.id, { onDelete: 'cascade' }),
+    eventType: text('event_type').notNull(),
+    status: webhookDeliveryStatus('status').notNull().default('pending'),
+    attempts: smallint('attempts').notNull().default(0),
+    nextAttemptAt: timestamp('next_attempt_at', { withTimezone: true }).notNull().defaultNow(),
+    lastStatus: smallint('last_status'),
+    lastError: text('last_error'),
+    deliveredAt: timestamp('delivered_at', { withTimezone: true }),
+    ...timestamps,
+  },
+  (t) => [
+    uniqueIndex('webhook_deliveries_once').on(t.endpointId, t.eventId, t.eventType),
+    index('webhook_deliveries_due_idx').on(t.status, t.nextAttemptAt),
+    pgPolicy('webhook_deliveries_via_endpoint', {
+      as: 'permissive',
+      for: 'all',
+      using: sql`endpoint_id in (select id from webhook_endpoints)`,
+      withCheck: sql`endpoint_id in (select id from webhook_endpoints)`,
+    }),
   ],
 ).enableRLS();

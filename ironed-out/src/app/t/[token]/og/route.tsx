@@ -1,6 +1,6 @@
 import { ImageResponse } from 'next/og';
 import { formatPlayDate, formatTime } from '@/lib/format';
-import { resolveInviteToken } from '@/server/domain/invites';
+import { resolveInviteAnyTenant } from '@/server/domain/invites';
 import { getOutingView } from '@/server/domain/outings';
 import { getServices } from '@/web/services';
 
@@ -50,8 +50,10 @@ const joinTimes = (times: string[]) => {
 export async function GET(_req: Request, { params }: { params: Promise<{ token: string }> }) {
   const { token } = await params;
   const services = await getServices();
-  const outingId = await resolveInviteToken(services, token);
-  const view = outingId ? await getOutingView(services, outingId, null) : null;
+  const found = await resolveInviteAnyTenant({ ...services, preferTenantId: services.tenantId }, token);
+  const view = found
+    ? await getOutingView({ ...services, tenantId: found.tenantId }, found.outingId, null)
+    : null;
 
   const weekday = view
     ? new Intl.DateTimeFormat('en-US', { weekday: 'long', timeZone: 'UTC' }).format(

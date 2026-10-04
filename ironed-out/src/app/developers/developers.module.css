@@ -1,0 +1,144 @@
+/* The API guide is read on laptops more than phones: wider than the app, still fine at 360px. */
+.docs {
+  max-width: 820px;
+  gap: 22px;
+}
+
+.title {
+  font-size: 52px;
+}
+
+.lead {
+  font-size: 21px;
+}
+
+.toc {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 16px;
+}
+
+.toc a {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--touch);
+}
+
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  scroll-margin-top: 16px;
+}
+
+.section h2 {
+  font-size: 38px;
+}
+
+.section code,
+.code {
+  font-family: ui-monospace, 'Cascadia Mono', 'SFMono-Regular', Menlo, Consolas, monospace;
+  font-size: 0.82em;
+}
+
+.section p code,
+.list code,
+.table code {
+  background: var(--chat-bg);
+  border-radius: 4px;
+  padding: 1px 4px;
+  overflow-wrap: anywhere;
+}
+
+.code {
+  margin: 0;
+  padding: 14px 16px;
+  background: var(--card-warm);
+  border: var(--border);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-card);
+  font-size: 14px;
+  line-height: 1.5;
+  overflow-x: auto;
+  white-space: pre;
+}
+
+.list {
+  margin: 0;
+  padding-left: 22px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 17px;
+}
+
+.table th,
+.table td {
+  text-align: left;
+  vertical-align: top;
+  padding: 8px 10px 8px 0;
+  border-bottom: 1px dashed var(--dash);
+}
+
+.table th {
+  font-family: var(--font-display), 'Caveat', cursive;
+  font-size: 22px;
+}
+
+.table tr:target {
+  background: var(--sand);
+}
+
+.endpoints {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.endpoints li {
+  display: grid;
+  grid-template-columns: 64px minmax(0, 1fr);
+  gap: 2px 10px;
+  padding: 10px 0;
+  border-bottom: 1px dashed var(--dash);
+}
+
+.method {
+  font-family: ui-monospace, 'Cascadia Mono', Menlo, Consolas, monospace;
+  font-size: 13px;
+  font-weight: 700;
+  align-self: start;
+  text-align: center;
+  padding: 2px 0;
+  border: 2px solid var(--ink);
+  border-radius: var(--radius-pill);
+  background: var(--white);
+}
+
+.method[data-method='GET'] {
+  background: var(--success-bg);
+}
+
+.method[data-method='POST'] {
+  background: var(--sand);
+}
+
+.method[data-method='DELETE'] {
+  background: var(--avatar-4);
+}
+
+.path {
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+.summary {
+  grid-column: 2;
+}

@@ -295,8 +295,26 @@ items, max 5, newest first) plus `last_event_id`. `POST /outings/:id/seen {last_
       leave only when alone, which deletes the crew. "New outing" alerts go by text when the
       member has a verified phone (respecting STOP and quiet hours), otherwise by email, and link
       to the outing's invite page. Notification kind `new_outing` added._
-- [ ] **M8 Partner API** – OAuth client credentials, scopes, idempotency, OpenAPI, webhooks with
+- [x] **M8 Partner API** – OAuth client credentials, scopes, idempotency, OpenAPI, webhooks with
       signing + retries, API docs page.
+      _Done 2026-10-04. Each partner is its own tenant; clients are issued with `pnpm api:client`
+      (operator script; the app role can't insert clients). Tokens are HS256 JWTs (key derived from
+      `APP_SECRET`, 15 min) and every request re-checks that the client isn't revoked. The token
+      endpoint finds a client before it knows the tenant through one extra RLS policy that exposes
+      only the row whose `client_id` matches `app.client_id`. Partners act for the outing's
+      organizer: events are recorded as the organizer's and audited as `client:<id>`. Partner-sent
+      phone numbers match golfers across outings but stay unverified (no texts until the golfer
+      confirms on the invite page). Invite links work across tenants (`/t/<token>` finds the
+      owning tenant); account sessions only count in the consumer tenant. Additions to §4:
+      `api_clients.last_used_at`, `idempotency_keys` stores `{status, body}` and is retried after
+      a server error, `webhook_endpoints.description`, and `webhook_deliveries` has
+      `event_type` (one claim can also emit `outing.full`), `last_status` and `delivered_at`.
+      Webhook secrets are AES-256-GCM sealed; URLs must be public https (private/loopback hosts are
+      refused when registering and again at send time; redirects aren't followed). Deliveries go
+      out with the dispatcher (every 5 min, plus right after each change), backing off 1 min → 1 h
+      for 24 h. `PATCH /tee-times/:id` changes capacity only (moving a start time isn't supported
+      yet). `/outings/:id/seen`, `/verification/*` and `/crews` stay app-only in v1 (they're about a
+      signed-in person, not a partner). Per-client limit: 300 requests/minute._
 - [ ] **M9 Hardening** – security headers/CSP, PII encryption, retention jobs, load test the claim
       endpoint, Playwright E2E for the full organizer → invitee flow, accessibility pass.
 

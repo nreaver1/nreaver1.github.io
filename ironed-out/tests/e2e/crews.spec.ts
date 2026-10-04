@@ -64,7 +64,7 @@ test('invite someone by name, they show as invited, then accept from Home', asyn
 
   // Invite by phone: demo mode says nothing went out and offers the personal link.
   await page.getByRole('button', { name: 'Invite someone by text or email' }).click();
-  let sheet = page.getByRole('dialog');
+  const sheet = page.getByRole('dialog');
   await sheet.getByLabel('Their name').fill('Alex Ace');
   await sheet.getByLabel('Mobile number or email').fill('(410) 555-0499');
   await sheet.getByRole('button', { name: 'Send the invite' }).click();

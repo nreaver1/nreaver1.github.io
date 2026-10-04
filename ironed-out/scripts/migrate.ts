@@ -45,6 +45,7 @@ async function main() {
         GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO ${ROLE};
         REVOKE INSERT, UPDATE, DELETE ON tenants, courses FROM ${ROLE};
         REVOKE UPDATE, DELETE ON audit_log, outing_events FROM ${ROLE};
+        REVOKE INSERT, DELETE ON api_clients FROM ${ROLE};
       `);
       console.log(`Privileges for ${ROLE} checked.`);
     }

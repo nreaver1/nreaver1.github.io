@@ -23,6 +23,7 @@
     "db:migrate": "tsx scripts/migrate.ts",
     "db:seed": "tsx scripts/seed.ts",
     "db:local": "tsx scripts/local-db.ts",
+    "api:client": "tsx scripts/api-client.ts",
     "vercel-build": "node scripts/vercel-build.mjs"
   },
   "dependencies": {

@@ -7,11 +7,9 @@ import { OrganizerView } from '@/components/outing/OrganizerView';
 import { buttonClassName } from '@/components/ui';
 import { formatPlayDate } from '@/lib/format';
 import { getFeed } from '@/server/domain/feed';
-import { resolveInviteToken } from '@/server/domain/invites';
 import { getOutingView, getPlayerName } from '@/server/domain/outings';
 import { calendarLinks } from '@/web/outing-links';
-import { getServices } from '@/web/services';
-import { getViewer } from '@/web/viewer';
+import { resolveInvite } from '@/web/invite';
 import {
   claimDirectAction,
   confirmClaimAction,
@@ -25,10 +23,9 @@ import { markSeenOutingAction } from '../../outings/actions';
 type Props = { params: Promise<{ token: string }> };
 
 async function load(token: string) {
-  const services = await getServices();
-  const outingId = await resolveInviteToken(services, token);
-  if (!outingId) return null;
-  const viewer = await getViewer();
+  const invite = await resolveInvite(token);
+  if (!invite) return null;
+  const { services, outingId, viewer } = invite;
   const view = await getOutingView(services, outingId, viewer.playerId);
   return view ? { services, viewer, view } : null;
 }
