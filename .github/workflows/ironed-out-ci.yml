@@ -1,13 +1,25 @@
-name: CI
+# Ironed Out: typecheck, lint, unit tests, migrations on real Postgres/PostGIS, and Playwright.
+# Lives at the repo root (GitHub only reads workflows here) and only runs for ironed-out/ changes.
+name: Ironed Out CI
 
 on:
   push:
-    branches: [master, main]
+    branches: [master]
+    paths: ['ironed-out/**', '.github/workflows/ironed-out-ci.yml']
   pull_request:
+    paths: ['ironed-out/**', '.github/workflows/ironed-out-ci.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: read
 
 concurrency:
-  group: ci-${{ github.ref }}
+  group: ironed-out-ci-${{ github.ref }}
   cancel-in-progress: true
+
+defaults:
+  run:
+    working-directory: ironed-out
 
 jobs:
   check:
@@ -16,10 +28,13 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
+        with:
+          package_json_file: ironed-out/package.json
       - uses: actions/setup-node@v4
         with:
           node-version: 24
           cache: pnpm
+          cache-dependency-path: ironed-out/pnpm-lock.yaml
       - run: pnpm install --frozen-lockfile
       - run: pnpm typecheck
       - run: pnpm lint
@@ -47,10 +62,13 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
+        with:
+          package_json_file: ironed-out/package.json
       - uses: actions/setup-node@v4
         with:
           node-version: 24
           cache: pnpm
+          cache-dependency-path: ironed-out/pnpm-lock.yaml
       - run: pnpm install --frozen-lockfile
       - run: psql -h localhost -U ironed_owner -d ironed_out -f docker/initdb/01-app-role.sql
       - run: pnpm db:migrate
@@ -59,14 +77,17 @@ jobs:
 
   e2e:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
+        with:
+          package_json_file: ironed-out/package.json
       - uses: actions/setup-node@v4
         with:
           node-version: 24
           cache: pnpm
+          cache-dependency-path: ironed-out/pnpm-lock.yaml
       - run: pnpm install --frozen-lockfile
       - run: pnpm exec playwright install --with-deps chromium
       - run: pnpm test:e2e
@@ -74,5 +95,5 @@ jobs:
         if: failure()
         with:
           name: playwright-report
-          path: test-results/
+          path: ironed-out/test-results/
           retention-days: 7
