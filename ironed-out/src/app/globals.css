@@ -86,7 +86,19 @@ a {
   }
 }
 
+/* SMIL ignores the reduced-motion rule below, so swap in a static ball instead. */
+.ball-rest {
+  display: none;
+}
+
 @media (prefers-reduced-motion: reduce) {
+  .ball-flight {
+    display: none;
+  }
+  .ball-rest {
+    display: inline;
+  }
+
   *,
   *::before,
   *::after {
