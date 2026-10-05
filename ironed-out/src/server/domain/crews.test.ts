@@ -164,8 +164,9 @@ describe('starting an outing with a crew', () => {
       now: () => new Date(Date.now() + 1000),
     });
     expect(sms.sent.map((m) => m.to)).toEqual(['+14105550302']);
+    // Texts go out as GSM-7 (the template's "·" becomes "-"; see notify/gsm.ts).
     expect(sms.sent[0]!.body).toBe(
-      `Ironed Out: Mike started an outing at Mount Pleasant, ${new Intl.DateTimeFormat('en-US', { weekday: 'short', month: 'short', day: 'numeric', timeZone: 'UTC' }).format(new Date(`${base.playDate}T12:00:00Z`))} · 7:40, 7:50 & 8:00 AM. 11 spots open. Grab one: https://ironed.test/t/${link.token}`,
+      `Ironed Out: Mike started an outing at Mount Pleasant, ${new Intl.DateTimeFormat('en-US', { weekday: 'short', month: 'short', day: 'numeric', timeZone: 'UTC' }).format(new Date(`${base.playDate}T12:00:00Z`))} - 7:40, 7:50 & 8:00 AM. 11 spots open. Grab one: https://ironed.test/t/${link.token}`,
     );
     expect(mail.messages.map((m) => m.subject)).toEqual([
       expect.stringMatching(/^Mike started an outing: Mount Pleasant Golf Course, /),

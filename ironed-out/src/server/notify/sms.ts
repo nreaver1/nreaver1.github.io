@@ -1,7 +1,11 @@
 import { createHmac } from 'node:crypto';
 import { safeEqual } from '../security/tokens';
+import { toGsm7 } from './gsm';
 
-/** Sends alert texts. Swappable: demo (records only) or Twilio Messaging. */
+/**
+ * Sends texts (alerts and claim codes). Swappable: demo (records only) or Twilio Messaging.
+ * Both normalize the body to GSM-7 (see gsm.ts) so a stray ’ doesn't triple the segment count.
+ */
 export interface SmsSender {
   readonly kind: 'demo' | 'twilio';
   send(toE164: string, body: string): Promise<{ providerId: string | null }>;
@@ -12,7 +16,7 @@ export class DemoSms implements SmsSender {
   readonly kind = 'demo';
   readonly sent: { to: string; body: string }[] = [];
   async send(to: string, body: string) {
-    this.sent.push({ to, body });
+    this.sent.push({ to, body: toGsm7(body) });
     return { providerId: null };
   }
 }
@@ -36,7 +40,11 @@ export class TwilioSms implements SmsSender {
           Authorization: `Basic ${Buffer.from(`${this.accountSid}:${this.authToken}`).toString('base64')}`,
           'Content-Type': 'application/x-www-form-urlencoded',
         },
-        body: new URLSearchParams({ To: to, MessagingServiceSid: this.messagingServiceSid, Body: body }),
+        body: new URLSearchParams({
+          To: to,
+          MessagingServiceSid: this.messagingServiceSid,
+          Body: toGsm7(body),
+        }),
         signal: AbortSignal.timeout(10_000),
       },
     );

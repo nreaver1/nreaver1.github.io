@@ -19,6 +19,7 @@ import type { Db, Tx } from '../db/types';
 import { DomainError } from '../errors';
 import type { Mailer } from '../notify/email';
 import { DEFAULT_QUIET, nextSendTime, zonedTime } from '../notify/quiet';
+import { toGsm7 } from '../notify/gsm';
 import { HELP_WORDS, START_WORDS, STOP_WORDS, type SmsSender } from '../notify/sms';
 import { derivedToken } from '../security/tokens';
 import { crewMemberPlayerIds } from './crews';
@@ -549,7 +550,9 @@ async function processOne(
         status: 'sent',
         sentAt: now,
         // Keep the wording but not the link (it carries the invite token).
-        body: (n.channel === 'sms' ? msg.sms : `${msg.subject}\n${msg.email}`).split(link).join('[link]'),
+        body: (n.channel === 'sms' ? toGsm7(msg.sms) : `${msg.subject}\n${msg.email}`)
+          .split(link)
+          .join('[link]'),
       })
       .where(eq(notifications.id, n.id));
     return 'sent';

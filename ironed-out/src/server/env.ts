@@ -27,7 +27,6 @@ const EnvSchema = z
     EMAIL_FROM: z.string().min(3).default('Ironed Out <noreply@example.com>'),
     TWILIO_ACCOUNT_SID: z.string().min(1).optional(),
     TWILIO_AUTH_TOKEN: z.string().min(1).optional(),
-    TWILIO_VERIFY_SERVICE_SID: z.string().min(1).optional(),
     TWILIO_MESSAGING_SERVICE_SID: z.string().min(1).optional(),
     /** Secret for scheduled calls to /api/internal/*. */
     CRON_SECRET: z.string().min(16).optional(),
@@ -71,4 +70,4 @@ export function appDatabaseUrl(env: Env): string {
 
 /** True when real SMS isn't configured: codes are shown on screen, texts go to the outbox. */
 export const isSmsDemo = (env: Env) =>
-  !(env.TWILIO_ACCOUNT_SID && env.TWILIO_AUTH_TOKEN && env.TWILIO_VERIFY_SERVICE_SID);
+  !(env.TWILIO_ACCOUNT_SID && env.TWILIO_AUTH_TOKEN && env.TWILIO_MESSAGING_SERVICE_SID);

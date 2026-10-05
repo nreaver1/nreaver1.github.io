@@ -262,8 +262,11 @@ items, max 5, newest first) plus `last_event_id`. `POST /outings/:id/seen {last_
       the organizer can see the link again; only the SHA-256 is stored. The device cookie is a
       signed value (player id + expiry), not a stored token, so it can't be revoked server-side
       before its 90 days are up. SMS demo mode: without Twilio keys the code is shown in the
-      claim sheet and codes live in `verification_codes` (keyed hash, 10 min, 5 tries); with
-      Twilio Verify configured, Twilio issues and checks codes. Signed-in users and verified
+      claim sheet and codes live in `verification_codes` (keyed hash, 10 min, 5 tries). With
+      Twilio Messaging configured the same codes are texted as an ordinary message (changed
+      2026-10-05 with the owner: Twilio Verify costs ~$0.05 more per code). All texts are
+      normalized to GSM-7 (`src/server/notify/gsm.ts`) so typographic characters don't push a
+      message into 70-character UCS-2 segments. Signed-in users and verified
       devices claim without a code. Phone parsing is US-first (other countries need a leading +)._
 - [x] **M5 Change feed** – outing_events everywhere, "Since you last looked" banner, highlights.
       _Done 2026-10-02. Viewers we don't know yet get a random `io_anon` cookie; their

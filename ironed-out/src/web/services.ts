@@ -7,7 +7,7 @@ import type { Db } from '@/server/db/types';
 import { appSecret, getEnv, isSmsDemo } from '@/server/env';
 import { OutboxMailer, ResendMailer, type Mailer } from '@/server/notify/email';
 import { DemoSms, TwilioSms, type SmsSender } from '@/server/notify/sms';
-import { DemoVerifier, TwilioVerifier, type PhoneVerifier } from '@/server/notify/verify';
+import { DemoVerifier, SmsCodeVerifier, type PhoneVerifier } from '@/server/notify/verify';
 import { hibpBreachChecker, type BreachChecker } from '@/server/security/password';
 
 export type Services = {
@@ -38,14 +38,8 @@ function getMailer(): Mailer {
 
 function getVerifier(db: Db): PhoneVerifier {
   const env = getEnv();
-  if (!isSmsDemo(env)) {
-    return new TwilioVerifier(
-      env.TWILIO_ACCOUNT_SID!,
-      env.TWILIO_AUTH_TOKEN!,
-      env.TWILIO_VERIFY_SERVICE_SID!,
-    );
-  }
-  return new DemoVerifier(db, appSecret(env));
+  if (isSmsDemo(env)) return new DemoVerifier(db, appSecret(env));
+  return new SmsCodeVerifier(db, appSecret(env), getSms(), new URL(env.APP_URL).host);
 }
 
 function getSms(): SmsSender {

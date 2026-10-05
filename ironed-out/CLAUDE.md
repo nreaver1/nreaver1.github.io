@@ -17,8 +17,9 @@ API, security and milestones. Visual reference lives in `design/` (see `design/R
 - PostgreSQL + Drizzle ORM + drizzle-kit migrations.
 - Zod for every input boundary; generate the OpenAPI spec from the Zod schemas.
 - Background jobs (texts, emails, webhooks): pg-boss on the same Postgres.
-- SMS + phone verification codes: Twilio (Verify for codes, Messaging for alerts) behind an
-  interface in `src/server/notify` so the provider is swappable.
+- SMS + phone verification codes: Twilio Messaging for alerts and for the codes we generate
+  ourselves (not Twilio Verify, to keep per-code cost down), behind an interface in
+  `src/server/notify` so the provider is swappable. Keep SMS copy GSM-7 (no curly quotes or `·`).
 - Tests: Vitest for unit/domain, Playwright for the claim flow end to end.
 - Package manager: pnpm.
 

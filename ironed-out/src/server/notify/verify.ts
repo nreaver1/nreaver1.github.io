@@ -3,6 +3,7 @@ import { and, desc, eq, gt, isNull, sql } from 'drizzle-orm';
 import { verificationCodes } from '../db/schema';
 import type { Db } from '../db/types';
 import { hmac, safeEqual } from '../security/tokens';
+import type { SmsSender } from './sms';
 
 export const CODE_TTL_MINUTES = 10;
 export const CODE_MAX_ATTEMPTS = 5;
@@ -14,9 +15,9 @@ export type VerifyStart = {
 
 export type VerifyCheck = 'ok' | 'wrong' | 'expired';
 
-/** Sends and checks 6-digit phone codes. Swappable: demo (our DB) or Twilio Verify. */
+/** Sends and checks 6-digit phone codes: shown on screen (demo) or texted (sms). */
 export interface PhoneVerifier {
-  readonly kind: 'demo' | 'twilio';
+  readonly kind: 'demo' | 'sms';
   start(phoneE164: string, purpose: 'claim' | 'phone'): Promise<VerifyStart>;
   check(phoneE164: string, code: string, purpose: 'claim' | 'phone'): Promise<VerifyCheck>;
 }
@@ -26,7 +27,7 @@ export interface PhoneVerifier {
  * Twilio account is connected. Codes are keyed-hashed, expire in 10 minutes and allow 5 tries.
  */
 export class DemoVerifier implements PhoneVerifier {
-  readonly kind = 'demo';
+  readonly kind: 'demo' | 'sms' = 'demo';
   constructor(
     private readonly db: Db,
     private readonly secret: string,
@@ -79,40 +80,29 @@ export class DemoVerifier implements PhoneVerifier {
   }
 }
 
-/** Twilio Verify (https://www.twilio.com/docs/verify/api). Twilio generates, sends and checks codes. */
-export class TwilioVerifier implements PhoneVerifier {
-  readonly kind = 'twilio';
+/**
+ * Real texts: the same codes, generated and checked by us, sent as an ordinary message through the
+ * SMS provider. Cheaper than a hosted verification product (one message, no per-check fee) and
+ * keeps one code path. The last line is the WebOTP/autofill format, so phones can offer the code.
+ */
+export class SmsCodeVerifier extends DemoVerifier {
+  override readonly kind = 'sms';
   constructor(
-    private readonly accountSid: string,
-    private readonly authToken: string,
-    private readonly serviceSid: string,
-    private readonly fetchImpl: typeof fetch = fetch,
-  ) {}
-
-  private async post(path: string, body: Record<string, string>) {
-    const res = await this.fetchImpl(`https://verify.twilio.com/v2/Services/${this.serviceSid}/${path}`, {
-      method: 'POST',
-      headers: {
-        Authorization: `Basic ${Buffer.from(`${this.accountSid}:${this.authToken}`).toString('base64')}`,
-        'Content-Type': 'application/x-www-form-urlencoded',
-      },
-      body: new URLSearchParams(body),
-      signal: AbortSignal.timeout(10_000),
-    });
-    return res;
+    db: Db,
+    secret: string,
+    private readonly sms: SmsSender,
+    private readonly appHost: string,
+    now: () => Date = () => new Date(),
+  ) {
+    super(db, secret, now);
   }
 
-  async start(phoneE164: string): Promise<VerifyStart> {
-    const res = await this.post('Verifications', { To: phoneE164, Channel: 'sms' });
-    if (!res.ok) throw new Error(`Verification provider responded ${res.status}`);
+  override async start(phoneE164: string, purpose: 'claim' | 'phone'): Promise<VerifyStart> {
+    const { demoCode: code } = await super.start(phoneE164, purpose);
+    await this.sms.send(
+      phoneE164,
+      `Ironed Out code: ${code}. It expires in ${CODE_TTL_MINUTES} minutes. Don't share it.\n\n@${this.appHost} #${code}`,
+    );
     return {};
-  }
-
-  async check(phoneE164: string, code: string): Promise<VerifyCheck> {
-    const res = await this.post('VerificationCheck', { To: phoneE164, Code: code });
-    if (res.status === 404) return 'expired';
-    if (!res.ok) throw new Error(`Verification provider responded ${res.status}`);
-    const body = (await res.json()) as { status?: string };
-    return body.status === 'approved' ? 'ok' : 'wrong';
   }
 }
