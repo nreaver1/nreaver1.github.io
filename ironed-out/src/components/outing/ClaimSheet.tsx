@@ -3,6 +3,7 @@
 import { useEffect, useState, useTransition } from 'react';
 import type { ClaimActionState } from '@/app/t/[token]/actions';
 import { FormError } from '@/components/forms/FormError';
+import { WindFlag } from '@/components/illustrations/WindFlag';
 import { Button, Card, Input, Sheet, Stepper } from '@/components/ui';
 import styles from './claim.module.css';
 
@@ -262,14 +263,7 @@ export function ClaimSheet({
             <path d="M0 96 Q110 70 220 96 L220 120 L0 120Z" fill="#6FA35F" stroke="#2B2A26" strokeWidth="2" />
             <ellipse cx="128" cy="92" rx="16" ry="5" fill="#2B2A26" />
             <line x1="134" y1="92" x2="134" y2="22" stroke="#2B2A26" strokeWidth="3" strokeLinecap="round" />
-            <path
-              className="flag-wave"
-              d="M134 22 L168 32 L134 42Z"
-              fill="#C0392B"
-              stroke="#2B2A26"
-              strokeWidth="2"
-              strokeLinejoin="round"
-            />
+            <WindFlag x={134} top={22} length={34} height={20} />
             <g className={styles.ballDrop}>
               <circle cx="122" cy="84" r="7" fill="#FFFFFF" stroke="#2B2A26" strokeWidth="2" />
             </g>

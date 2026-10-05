@@ -71,31 +71,17 @@ a {
   gap: 18px;
 }
 
-.flag-wave {
-  transform-origin: 0 50%;
-  animation: flag-wave 1.4s ease-in-out infinite;
-}
-
-@keyframes flag-wave {
-  0%,
-  100% {
-    transform: skewY(0);
-  }
-  50% {
-    transform: skewY(-6deg);
-  }
-}
-
-/* SMIL ignores the reduced-motion rule below, so swap in a static ball instead. */
-.ball-rest {
+/* SVG (SMIL) animations ignore the reduced-motion rule below, so each one has a
+   still twin that is swapped in instead. */
+.motion-still {
   display: none;
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .ball-flight {
+  .motion {
     display: none;
   }
-  .ball-rest {
+  .motion-still {
     display: inline;
   }
 

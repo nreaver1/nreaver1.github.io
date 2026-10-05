@@ -1,3 +1,4 @@
+import { WindFlag } from '@/components/illustrations/WindFlag';
 import { firstName, formatPlayDate, formatPrice } from '@/lib/format';
 import type { OutingView } from '@/server/domain/outings';
 import styles from './outing.module.css';
@@ -40,14 +41,7 @@ export function OutingHero({ view }: { view: OutingView }) {
           />
           <ellipse cx="236" cy="64" rx="34" ry="8" fill="#4E8B4A" stroke="#2B2A26" strokeWidth="2" />
           <line x1="240" y1="64" x2="240" y2="18" stroke="#2B2A26" strokeWidth="2.5" strokeLinecap="round" />
-          <path
-            className="flag-wave"
-            d="M240 18 L266 26 L240 34Z"
-            fill="#C0392B"
-            stroke="#2B2A26"
-            strokeWidth="2"
-            strokeLinejoin="round"
-          />
+          <WindFlag x={240} top={18} length={26} height={16} />
         </svg>
         {view.locked && <div className={`display ${styles.stamp}`}>Locked in</div>}
       </div>
