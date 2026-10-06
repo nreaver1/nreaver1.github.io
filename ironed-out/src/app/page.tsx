@@ -42,6 +42,10 @@ export default async function WelcomePage({ searchParams }: { searchParams: Prom
           Privacy
         </Link>
         {' · '}
+        <Link href="/terms" className={styles.legal}>
+          Terms
+        </Link>
+        {' · '}
         <Link href="/developers" className={styles.legal}>
           For booking platforms
         </Link>

@@ -60,7 +60,8 @@ export default function PrivacyPage() {
       <p className={styles.lead}>
         Ironed Out helps a golf organizer fill tee times: they share one link and friends claim spots from it.
         We collect only what that takes. We don’t sell your information, we don’t show ads, and we don’t use
-        tracking or analytics cookies.
+        tracking or analytics cookies. Using Ironed Out is also covered by our{' '}
+        <Link href="/terms">terms of service</Link>.
       </p>
 
       <nav aria-label="On this page" className={styles.toc}>

@@ -150,7 +150,9 @@ items, max 5, newest first) plus `last_event_id`. `POST /outings/:id/seen {last_
 - Compliance: A2P 10DLC registration before launch; consent text shown at claim (§3.9).
   _Privacy policy at `/privacy` (2026-10-06), linked from the welcome page, sign-up, the claim
   sheet and Alerts. Consent copy now reads "Msg frequency varies; msg & data rates may apply.
-  Reply STOP to opt out, HELP for help." The contact address comes from `CONTACT_EMAIL`._
+  Reply STOP to opt out, HELP for help." The contact address comes from `CONTACT_EMAIL`. Terms of
+  service at `/terms` (same day), linked next to the privacy policy; it says we don't book tee
+  times or handle money, caps liability at $50, and has no governing-law clause yet._
 
 ## 6. Security (enterprise baseline)
 

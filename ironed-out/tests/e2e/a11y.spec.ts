@@ -29,7 +29,7 @@ async function scan(page: Page, label: string) {
 }
 
 test('public pages', async ({ page }) => {
-  for (const path of ['/', '/login', '/signup', '/forgot', '/developers', '/privacy']) {
+  for (const path of ['/', '/login', '/signup', '/forgot', '/developers', '/privacy', '/terms']) {
     await page.goto(path);
     await scan(page, path);
   }

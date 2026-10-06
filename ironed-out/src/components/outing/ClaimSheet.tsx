@@ -209,6 +209,10 @@ export function ClaimSheet({
           <p className={styles.fine}>
             By continuing you agree to get texts about this outing. Msg frequency varies; msg &amp; data rates
             may apply. Reply STOP to opt out, HELP for help.{' '}
+            <a href="/terms" target="_blank" rel="noopener">
+              Terms
+            </a>{' '}
+            ·{' '}
             <a href="/privacy" target="_blank" rel="noopener">
               Privacy policy
             </a>

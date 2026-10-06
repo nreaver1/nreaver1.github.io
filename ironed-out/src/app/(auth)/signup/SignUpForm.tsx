@@ -65,6 +65,10 @@ export function SignUpForm({ next }: { next: string }) {
       </p>
       <p className={styles.note}>
         By creating an account you agree to our{' '}
+        <Link href="/terms" target="_blank">
+          terms
+        </Link>{' '}
+        and{' '}
         <Link href="/privacy" target="_blank">
           privacy policy
         </Link>
