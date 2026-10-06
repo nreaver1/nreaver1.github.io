@@ -22,6 +22,7 @@ import { verifyPassword } from '../security/password';
 import { hit } from '../security/rate-limit';
 import { parseInput } from '../validation';
 import type { RequestContext } from './accounts';
+import { enqueueOutingCanceled } from './notifications';
 import { clearSlots, lockOuting, recordEvent } from './outings';
 
 /** Self-serve export and deletion of an account (SPEC §6). */
@@ -146,9 +147,12 @@ export async function deleteAccount(
   await withTenant(deps.db, deps.tenantId, async (tx) => {
     const [player] = await tx.select().from(players).where(eq(players.userId, userId));
     if (player) {
-      await tx
-        .delete(outings)
-        .where(and(eq(outings.organizerPlayerId, player.id), gte(outings.playDate, since)));
+      const organized = and(eq(outings.organizerPlayerId, player.id), gte(outings.playDate, since));
+      // Players in those outings hear it's canceled, same as when the organizer deletes one.
+      for (const o of await tx.select({ id: outings.id }).from(outings).where(organized)) {
+        await enqueueOutingCanceled(tx, o.id, player.id, now);
+      }
+      await tx.delete(outings).where(organized);
 
       const held = await tx
         .select({ outingId: slots.outingId, slotId: slots.id, startsAt: teeTimes.startsAt })

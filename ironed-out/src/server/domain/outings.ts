@@ -7,7 +7,7 @@ import { withTenant } from '../db/tenant';
 import type { Db, Tx } from '../db/types';
 import { DomainError } from '../errors';
 import { isCrewMember } from './crews';
-import { enqueueCrewNewOuting, enqueueForEvent } from './notifications';
+import { enqueueCrewNewOuting, enqueueForEvent, enqueueOutingCanceled } from './notifications';
 import { parseInput } from '../validation';
 import { enqueueWebhooks } from './webhooks';
 
@@ -610,8 +610,9 @@ export async function setLocked(deps: OutingsDeps, actor: Actor, outingId: strin
 }
 
 /**
- * The organizer deletes the whole outing. Tee times, spots, events, links and pending alerts go
- * with it (FK cascades), the same as when an organizer deletes their account; the audit row stays.
+ * The organizer deletes the whole outing. Players holding a spot get an "outing canceled" text or
+ * email (per their alert settings), queued first since those rows don't point at the outing. Tee
+ * times, spots, events, links and other pending alerts go with it (FK cascades); the audit row stays.
  */
 export async function deleteOuting(deps: OutingsDeps, actor: Actor, outingId: string) {
   await withTenant(deps.db, deps.tenantId, async (tx) => {
@@ -620,6 +621,7 @@ export async function deleteOuting(deps: OutingsDeps, actor: Actor, outingId: st
       .select({ n: sql<number>`count(*)::int` })
       .from(slots)
       .where(and(eq(slots.outingId, o.id), or(isNotNull(slots.playerId), isNotNull(slots.guestOfPlayerId))));
+    await enqueueOutingCanceled(tx, o.id, actor.playerId, deps.now?.());
     await tx.delete(outings).where(eq(outings.id, o.id));
     await audit(tx, {
       tenantId: deps.tenantId,

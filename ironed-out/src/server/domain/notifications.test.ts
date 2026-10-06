@@ -17,7 +17,7 @@ import {
   setQuietHours,
   type DispatchDeps,
 } from './notifications';
-import { getOutingView, removePlayer, type OutingsDeps } from './outings';
+import { deleteOuting, getOutingView, removePlayer, type OutingsDeps } from './outings';
 
 let t: TestDb;
 let deps: OutingsDeps;
@@ -141,6 +141,40 @@ describe('fan-out and coalescing', () => {
     expect(sms.sent.find((m) => m.to === '+14105550232')?.body).toMatch(
       /^Ironed Out: Mike took you off the \w{3}, \w{3} \d+ outing at Mount Pleasant\./,
     );
+  });
+});
+
+describe('outing canceled', () => {
+  it('tells players holding a spot by text or email, per their settings, after the outing is gone', async () => {
+    const mike = await texter('Mike Golfer', '+14105550271');
+    const sam = await texter('Sam Bunker', '+14105550272');
+    const jen = await texter('Jen Putts', '+14105550273');
+    await setAlertPref(deps, jen.id, { type: 'canceled', channel: 'sms', on: false });
+    const tony = await makePlayer(t, 'Tony Fairway');
+    const email = `tony-${Date.now()}@example.com`;
+    await withTenant(t.db, t.tenantId, async (tx) => {
+      const { users } = await import('../db/schema');
+      const [u] = await tx
+        .insert(users)
+        .values({ tenantId: t.tenantId, email, name: 'Tony Fairway', passwordHash: 'x' })
+        .returning();
+      await tx.update(players).set({ userId: u!.id }).where(eq(players.id, tony.id));
+    });
+    const id = await makeOuting(t, mike.id);
+    for (const p of [sam, jen, tony]) await claimAsPlayer(deps, id, p.id, { slotId: await firstOpen(id) });
+
+    await deleteOuting(deps, { playerId: mike.id }, id);
+    await runDispatch(dispatchDeps(later(1)));
+
+    expect(sms.sent.find((m) => m.to === '+14105550272')?.body).toMatch(
+      /^Ironed Out: Mike canceled the \w{3}, \w{3} \d+ outing at Mount Pleasant \(7:40 AM\)\./,
+    );
+    expect(sms.sent.find((m) => m.to === '+14105550273')).toBeUndefined();
+    expect(sms.sent.find((m) => m.to === '+14105550271')).toBeUndefined();
+    const sent = mail.messages.find((m) => m.to === email);
+    expect(sent?.subject).toMatch(/^Canceled: the .* outing at Mount Pleasant Golf Course$/);
+    expect(sent?.text).toMatch(/^Mike canceled the/);
+    expect((await pending(sam.id)).find((n) => n.kind === 'canceled')?.status).toBe('sent');
   });
 });
 

@@ -43,7 +43,7 @@ partner API (§7) and course-provider adapters (§8).
    with this crew", "Make a new crew".
 5. **Alerts (settings)** – verified phone; per event type a Text and Email toggle:
    someone grabs a spot, someone drops out, tee times change, day-before reminder, 2-hours-before
-   reminder. Quiet hours (default 10 PM–7 AM local; texts are delayed, not dropped). STOP wording.
+   reminder, outing is canceled. Quiet hours (default 10 PM–7 AM local; texts are delayed, not dropped). STOP wording.
 6. **New outing**
    1. Where: course search box; scope toggle "Within 2 hrs of Baltimore" (default) / "All courses";
       results show name, town, approx drive time; tap to select.
@@ -70,7 +70,8 @@ partner API (§7) and course-provider adapters (§8).
    - Organizer actions: remove a player (they get a text), add/remove an empty spot on a tee time
      (capacity 2–5), delete an empty tee time, add another tee time (last + interval),
      lock/unlock outing (locked = no claims, no drop-outs, no removals), share link again, delete
-     the whole outing (confirm sheet; cascades its tee sheet, links and events; audit row kept).
+     the whole outing (confirm sheet; players holding a spot get an "Outing is canceled" text/email
+     per their alert settings; cascades its tee sheet, links and events; audit row kept).
 9. **Claim sheet** – Step 1: name, mobile number, "Bringing a buddy?" stepper (max = open spots − 1),
    "Text me a code", consent line. Step 2: 6-digit code (autocomplete=one-time-code, 10-min expiry,
    5 attempts, resend with cooldown). Step 3: celebration (ball drops in cup), "You're in for 7:50 AM,
@@ -334,7 +335,7 @@ items, max 5, newest first) plus `last_event_id`. `POST /outings/:id/seen {last_
       webhook deliveries after 30 days, sent notifications after 90 days, outings
       `tenants.retention_months` (default 18, added to §4) after their play date, and phone-only
       players nothing refers to any more. Self-serve account export (JSON) and deletion live at
-      /settings/account (deleting removes upcoming outings they organize, frees their spots with a
+      /settings/account (deleting removes upcoming outings they organize, telling their players it's canceled, frees their spots with a
       normal drop-out event, deletes crews they own, and leaves "Former member" on past sheets).
       Load test: `pnpm load:claim` (200 claims, 40 concurrent, at 6 spots, against a local
       production build on PGlite) gave exactly 6 winners and 194 clean `409 slot_taken`, p95

@@ -21,6 +21,7 @@ const ROWS: { type: AlertType; label: string }[] = [
   { type: 'change', label: 'Tee times change' },
   { type: 'remind_day', label: 'Day-before reminder' },
   { type: 'remind_2h', label: '2 hours before' },
+  { type: 'canceled', label: 'Outing is canceled' },
 ];
 
 export type RecentMessage = {

@@ -83,6 +83,7 @@ describe('message templates', () => {
   const cases = {
     new_outing: compose('new_outing', view, [], link),
     removed: compose('removed', view, [], link),
+    canceled: compose('canceled', view, [], link),
     remind_day: compose('remind_day', view, [], link),
     remind_2h: compose('remind_2h', view, [], link),
     claimed: compose(

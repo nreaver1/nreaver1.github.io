@@ -21,7 +21,7 @@ export function DeleteOuting({ view }: { view: OutingView }) {
       <Sheet open={open} onClose={() => setOpen(false)} title="Delete the outing?">
         <p>
           {others > 0
-            ? `The tee sheet and the invite link go away, and the ${others === 1 ? 'player' : `${others} players`} who signed up lose ${others === 1 ? 'their spot' : 'their spots'}. Let them know in the group chat.`
+            ? `The tee sheet and the invite link go away. We’ll text or email the ${others === 1 ? 'player' : `${others} players`} who signed up that it’s canceled.`
             : 'The tee sheet and the invite link go away. This can’t be undone.'}
         </p>
         {error && (

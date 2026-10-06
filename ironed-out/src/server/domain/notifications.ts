@@ -26,9 +26,9 @@ import { crewMemberPlayerIds } from './crews';
 import { describeEvent } from './feed';
 import { loadOutingView, type OutingView } from './outings';
 
-export type AlertType = 'join' | 'drop' | 'change' | 'remind_day' | 'remind_2h';
+export type AlertType = 'join' | 'drop' | 'change' | 'remind_day' | 'remind_2h' | 'canceled';
 export type Channel = 'sms' | 'email';
-export const ALERT_TYPES: AlertType[] = ['join', 'drop', 'change', 'remind_day', 'remind_2h'];
+export const ALERT_TYPES: AlertType[] = ['join', 'drop', 'change', 'remind_day', 'remind_2h', 'canceled'];
 
 /** Defaults from the design's Alerts screen. */
 export const ALERT_DEFAULTS: Record<AlertType, { sms: boolean; email: boolean }> = {
@@ -37,6 +37,7 @@ export const ALERT_DEFAULTS: Record<AlertType, { sms: boolean; email: boolean }>
   change: { sms: true, email: true },
   remind_day: { sms: false, email: true },
   remind_2h: { sms: true, email: false },
+  canceled: { sms: true, email: true },
 };
 
 /** Bursts of changes on one outing within this window go out as one text (SPEC §5). */
@@ -239,6 +240,62 @@ export async function enqueueCrewNewOuting(
   }
 }
 
+/**
+ * The organizer is deleting the outing: tell everyone holding a spot, per their "Outing is
+ * canceled" settings. Called before the delete, in its transaction. The message is composed now
+ * and stored in `body` with no outing id, so it survives the cascade. Past outings stay quiet.
+ */
+export async function enqueueOutingCanceled(
+  tx: Tx,
+  outingId: string,
+  organizerPlayerId: string,
+  now = new Date(),
+) {
+  const [outing] = await tx.select().from(outings).where(eq(outings.id, outingId));
+  if (!outing) return;
+  const holders = await tx
+    .select({ playerId: slots.playerId })
+    .from(slots)
+    .where(and(eq(slots.outingId, outingId), isNull(slots.guestOfPlayerId)));
+  const ids = [
+    ...new Set(holders.map((h) => h.playerId).filter((x): x is string => !!x && x !== organizerPlayerId)),
+  ];
+  const [upcoming] = await tx
+    .select({ id: teeTimes.id })
+    .from(teeTimes)
+    .where(and(eq(teeTimes.outingId, outingId), gte(teeTimes.startsAt, now)))
+    .limit(1);
+  if (!upcoming) return;
+  const contacts = await contactsFor(tx, ids);
+  for (const id of ids) {
+    const c = contacts.get(id);
+    if (!c) continue;
+    const view = await loadOutingView(tx, outingId, id);
+    if (!view) continue;
+    const msg = composeCanceled(view);
+    if (c.prefs.canceled.sms && canSms(c)) {
+      await tx.insert(notifications).values({
+        tenantId: outing.tenantId,
+        playerId: id,
+        channel: 'sms',
+        kind: 'canceled',
+        body: msg.sms,
+        sendAfter: nextSendTime(now, c.timezone ?? outing.timezone, c.quiet),
+      });
+    }
+    if (c.prefs.canceled.email && c.email) {
+      await tx.insert(notifications).values({
+        tenantId: outing.tenantId,
+        playerId: id,
+        channel: 'email',
+        kind: 'canceled',
+        body: `${msg.subject}\n${msg.email}`,
+        sendAfter: now,
+      });
+    }
+  }
+}
+
 // ---------------------------------------------------------------------------------------------
 // Reminders (scheduled by the dispatcher each run; once per player, outing, channel and kind)
 // ---------------------------------------------------------------------------------------------
@@ -331,6 +388,20 @@ const listNames = (names: string[]) =>
 
 export type Composed = { sms: string; subject: string; email: string };
 
+/** "Outing canceled" for one player. No link: the outing is gone by the time it's sent. */
+export function composeCanceled(view: OutingView): Composed {
+  const org = firstName(view.organizerName);
+  const course = shortCourse(view.course.name);
+  const when = dateLabel(view.playDate);
+  const mine = view.teeTimes.find((t) => t.slots.some((s) => s.isYou || s.isYourGuest));
+  const at = mine ? ` (${timeIn(mine.startsAt, view.timezone)})` : '';
+  return {
+    sms: `Ironed Out: ${org} canceled the ${when} outing at ${course}${at}. Your spot is gone, so no need to show up.`,
+    subject: `Canceled: the ${when} outing at ${view.course.name}`,
+    email: `${org} canceled the ${when} outing at ${view.course.name}${at}. Your spot is gone, so no need to show up.`,
+  };
+}
+
 /** Builds the text/email for one notification. `link` is the outing's short link. */
 export function compose(
   kind: (typeof notifications.$inferSelect)['kind'],
@@ -388,6 +459,8 @@ export function compose(
 Grab a spot: ${link}`,
     };
   }
+
+  if (kind === 'canceled') return composeCanceled(view);
 
   if (kind === 'removed') {
     const org = firstName(view.organizerName);
@@ -493,6 +566,14 @@ async function processOne(
     if (!contact) return skip('no player');
     if (n.channel === 'sms' && !canSms(contact)) return skip(contact.smsOptedOut ? 'opted out' : 'no phone');
     if (n.channel === 'email' && !contact.email) return skip('no email');
+    if (n.kind === 'canceled') {
+      // Composed when the outing was deleted (and already timed around quiet hours).
+      if (!n.body) return skip('nothing to say');
+      // Email bodies are stored as "subject\nbody"; texts are the text itself.
+      const [subject = '', ...rest] = n.body.split('\n');
+      const msg = { sms: n.body, subject, email: rest.join('\n') };
+      return deliver(deps, tx, n, contact, msg, null, now);
+    }
     if (!n.outingId) return skip('no outing');
     const view = await loadOutingView(tx, n.outingId, n.playerId);
     if (!view) return skip('outing gone');
@@ -528,35 +609,47 @@ async function processOne(
     const msg = compose(n.kind, view, events, link);
     if (!msg) return skip('nothing to say');
 
-    try {
-      if (n.channel === 'sms') await deps.sms.send(contact.phone!, msg.sms);
-      else await deps.mailer.send({ to: contact.email!, subject: msg.subject, text: msg.email });
-    } catch (err) {
-      const attempts = n.attempts + 1;
-      await tx
-        .update(notifications)
-        .set({
-          attempts,
-          status: attempts >= MAX_ATTEMPTS ? 'failed' : 'pending',
-          lastError: err instanceof Error ? err.message.slice(0, 200) : 'send failed',
-          sendAfter: new Date(now.getTime() + 2 ** attempts * 60_000),
-        })
-        .where(eq(notifications.id, n.id));
-      return attempts >= MAX_ATTEMPTS ? 'failed' : 'retry';
-    }
+    return deliver(deps, tx, n, contact, msg, link, now);
+  });
+}
+
+/** Sends one message, then marks it sent (or schedules a retry). `link` is masked in the stored body. */
+async function deliver(
+  deps: DispatchDeps,
+  tx: Tx,
+  n: typeof notifications.$inferSelect,
+  contact: Contact,
+  msg: Composed,
+  link: string | null,
+  now: Date,
+): Promise<Outcome> {
+  try {
+    if (n.channel === 'sms') await deps.sms.send(contact.phone!, msg.sms);
+    else await deps.mailer.send({ to: contact.email!, subject: msg.subject, text: msg.email });
+  } catch (err) {
+    const attempts = n.attempts + 1;
     await tx
       .update(notifications)
       .set({
-        status: 'sent',
-        sentAt: now,
-        // Keep the wording but not the link (it carries the invite token).
-        body: (n.channel === 'sms' ? toGsm7(msg.sms) : `${msg.subject}\n${msg.email}`)
-          .split(link)
-          .join('[link]'),
+        attempts,
+        status: attempts >= MAX_ATTEMPTS ? 'failed' : 'pending',
+        lastError: err instanceof Error ? err.message.slice(0, 200) : 'send failed',
+        sendAfter: new Date(now.getTime() + 2 ** attempts * 60_000),
       })
       .where(eq(notifications.id, n.id));
-    return 'sent';
-  });
+    return attempts >= MAX_ATTEMPTS ? 'failed' : 'retry';
+  }
+  const body = n.channel === 'sms' ? toGsm7(msg.sms) : `${msg.subject}\n${msg.email}`;
+  await tx
+    .update(notifications)
+    .set({
+      status: 'sent',
+      sentAt: now,
+      // Keep the wording but not the link (it carries the invite token).
+      body: link ? body.split(link).join('[link]') : body,
+    })
+    .where(eq(notifications.id, n.id));
+  return 'sent';
 }
 
 /** Schedules reminders and sends everything that's due, for every tenant. Safe to run concurrently. */

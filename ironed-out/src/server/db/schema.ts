@@ -378,7 +378,14 @@ const viaPlayer = (table: string) =>
   });
 
 /** The alert types a player can switch on/off per channel (SPEC §3.5). */
-export const alertType = pgEnum('alert_type', ['join', 'drop', 'change', 'remind_day', 'remind_2h']);
+export const alertType = pgEnum('alert_type', [
+  'join',
+  'drop',
+  'change',
+  'remind_day',
+  'remind_2h',
+  'canceled',
+]);
 
 export const notificationPrefs = pgTable(
   'notification_prefs',
@@ -417,6 +424,8 @@ export const notificationKind = pgEnum('notification_kind', [
   'remind_day',
   'remind_2h',
   'new_outing',
+  /** Organizer deleted the outing. Composed up front (body) since the outing row is gone. */
+  'canceled',
 ]);
 export const notificationStatus = pgEnum('notification_status', ['pending', 'sent', 'skipped', 'failed']);
 
