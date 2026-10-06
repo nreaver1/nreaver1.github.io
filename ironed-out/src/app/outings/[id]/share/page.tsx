@@ -7,6 +7,7 @@ import { ensureInviteLink } from '@/server/domain/invites';
 import { getOutingView } from '@/server/domain/outings';
 import { getServices } from '@/web/services';
 import { requireUser } from '@/web/session';
+import { rotateLinkAction } from '../../actions';
 import { ShareClient } from './ShareClient';
 
 export const metadata: Metadata = { title: 'Share the link' };
@@ -24,13 +25,13 @@ export default async function SharePage({ params }: { params: Promise<{ id: stri
     <main className="page page-tight">
       <BackLink href={`/outings/${id}`} label="Back to the outing" />
       <ShareClient
-        outingId={id}
         url={url}
         path={`/t/${link.token}`}
         courseName={view.course.name}
         dateLabel={formatPlayDate(view.playDate)}
         spots={spotsText(view)}
         host={new URL(services.appUrl).host}
+        rotate={rotateLinkAction.bind(null, id)}
       />
     </main>
   );

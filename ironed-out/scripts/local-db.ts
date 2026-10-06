@@ -20,7 +20,7 @@ import { migrate } from 'drizzle-orm/pglite/migrator';
 import { rmSync } from 'node:fs';
 import * as schema from '../src/server/db/schema';
 import { tenants } from '../src/server/db/schema';
-import { seed } from '../src/server/db/seed';
+import { seed, seedWidgetDemo } from '../src/server/db/seed';
 import { createApiClient, SCOPES } from '../src/server/domain/api-clients';
 
 const DATA_DIR = './.pglite';
@@ -40,6 +40,7 @@ async function main() {
   const db = drizzle(pg, { schema });
   await migrate(db, { migrationsFolder: './drizzle' });
   await seed(db);
+  await seedWidgetDemo(db);
   // Playwright: a partner tenant + API client with known credentials ("<client_id>:<secret>").
   const fixture = process.env.LOCAL_DB_API_CLIENT?.split(':');
   if (fixture?.length === 2) {

@@ -148,6 +148,9 @@ items, max 5, newest first) plus `last_event_id`. `POST /outings/:id/seen {last_
   `sms_opted_out_at`.
 - Every SMS starts with "Ironed Out:" and includes the outing short link.
 - Compliance: A2P 10DLC registration before launch; consent text shown at claim (§3.9).
+  _Privacy policy at `/privacy` (2026-10-06), linked from the welcome page, sign-up, the claim
+  sheet and Alerts. Consent copy now reads "Msg frequency varies; msg & data rates may apply.
+  Reply STOP to opt out, HELP for help." The contact address comes from `CONTACT_EMAIL`._
 
 ## 6. Security (enterprise baseline)
 
@@ -200,6 +203,21 @@ items, max 5, newest first) plus `last_event_id`. `POST /outings/:id/seen {last_
   (`Ironed-Signature: t=…,v1=…`), retries with exponential backoff for 24 h, replay protection.
 - Embeddable widget (later milestone): `<script>` that renders an "Invite your group" button on a
   partner's booking confirmation page and calls `POST /outings` with their reservation details.
+  _Done 2026-10-06, built a bit differently: the browser never holds partner credentials. The
+  partner's server sends the booking (same body as `POST /outings`, plus `expires_in` ≤ 24 h) to
+  `POST /widget-tokens` and gets a URL `/w/<token>`; the token is the booking sealed with
+  AES-256-GCM (key from `APP_SECRET`) and bound to the client, so nothing is stored until the
+  golfer taps the button. `/w/<token>` shows the booking; "Make the invite link" creates the
+  outing exactly once (idempotency row `widget:<jti>` for the client, audited with
+  `meta.via = widget`) and then shows the usual "Link's ready" screen. Redemption re-checks
+  expiry, revocation and `outings:write`, and is limited to 20 per IP per hour. The embed
+  (`/widget/v1.js`) upgrades `<a data-ironed-out href=".../w/...">` into a styled button in a
+  shadow root that opens in a new tab: no iframe, so no partner frame-ancestors allow-list is
+  needed and `/w` keeps `frame-ancestors 'none'`. It works under a strict partner CSP
+  (constructed stylesheet, no innerHTML) and re-attaches after React/SPA re-renders. Demo:
+  `/developers/widget` (a made-up booking site, tenant `widget-demo` seeded by `pnpm db:seed`).
+  Open item: the booker isn't recognized as the organizer on the invite page (true of every
+  partner-created outing), so they can share but not manage from the web app._
 
 ## 8. Course data
 

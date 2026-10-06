@@ -69,6 +69,10 @@ pnpm api:client create --tenant acme-golf --tenant-name "Acme Golf" --name "Acme
 which prints the `client_secret` once. Against production, run it with
 `MIGRATION_DATABASE_URL` set to Neon's owner URL. Webhooks go out with the dispatcher run.
 
+Booking sites can embed an "Invite your group" button instead of creating outings up front:
+`POST /api/v1/widget-tokens` → link to `/w/<token>` + `/widget/v1.js`. Live demo on a made-up
+booking site: `/developers/widget` (its tenant is created by `pnpm db:seed`).
+
 ## Deployment
 
 Live at **https://ironed-out-alpha.vercel.app** (sample invite: `/demo`).
@@ -80,7 +84,7 @@ Live at **https://ironed-out-alpha.vercel.app** (sample invite: `/demo`).
   `scripts/seed.ts` first; migrate creates/updates the `ironed_app` login role from
   `APP_DB_PASSWORD`, and the app connects as that role so Row-Level Security applies.
 - Production env: `APP_SECRET`, `APP_DB_PASSWORD`, `APP_URL`, `CRON_SECRET`. Optional:
-  `RESEND_API_KEY` + `EMAIL_FROM` (email), `TWILIO_*` (real SMS; without them the app runs in
+  `RESEND_API_KEY` + `EMAIL_FROM` (email), `CONTACT_EMAIL` (shown on /privacy), `TWILIO_*` (real SMS; without them the app runs in
   SMS demo mode). With Twilio, point the Messaging Service's inbound webhook at
   `/api/webhooks/twilio/sms`.
 - Texts/emails: `/api/internal/dispatch` sends what's due. The repo-root workflow

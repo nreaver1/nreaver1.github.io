@@ -86,6 +86,21 @@ export async function finishIdempotent(
   });
 }
 
+/** The stored response for a finished request, without claiming the key. */
+export async function findIdempotent(
+  deps: IdempotencyDeps,
+  clientId: string,
+  key: string,
+): Promise<Replay | null> {
+  return withTenant(deps.db, deps.tenantId, async (tx) => {
+    const [row] = await tx
+      .select({ response: idempotencyKeys.response })
+      .from(idempotencyKeys)
+      .where(and(eq(idempotencyKeys.clientId, clientId), eq(idempotencyKeys.key, key)));
+    return row?.response ?? null;
+  });
+}
+
 /** Retention: forget keys older than the TTL. */
 export async function pruneIdempotencyKeys(deps: IdempotencyDeps) {
   const cutoff = new Date((deps.now?.() ?? new Date()).getTime() - IDEMPOTENCY_TTL_MS);

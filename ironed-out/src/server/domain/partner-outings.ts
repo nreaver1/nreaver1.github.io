@@ -340,15 +340,17 @@ async function playerFor(tx: Tx, tenantId: string, ref: z.output<typeof PlayerRe
 
 const minutesOf = (hhmm: string) => Number(hhmm.slice(0, 2)) * 60 + Number(hhmm.slice(3, 5));
 
-export async function createPartnerOuting(deps: PartnerDeps, caller: ApiCaller, input: unknown) {
-  const data = parseInput(ApiCreateOutingInput, input);
+export type ApiCreateOuting = z.output<typeof ApiCreateOutingInput>;
+
+/** Checks the request beyond its shape and maps it to the app's outing input. */
+export function toOutingInput(data: ApiCreateOuting) {
   const spots = data.tee_times.count * data.tee_times.players_each;
   if (data.players.length > spots - 1) {
     throw new DomainError('invalid_input', `Only ${spots - 1} spots are left after the organizer.`, {
       fields: { players: 'Too many players for these tee times.' },
     });
   }
-  const outingInput = parseInput(CreateOutingInput, {
+  return parseInput(CreateOutingInput, {
     courseId: data.course_id,
     playDate: data.play_date,
     firstTeeMinutes: minutesOf(data.tee_times.first),
@@ -358,6 +360,16 @@ export async function createPartnerOuting(deps: PartnerDeps, caller: ApiCaller, 
     price: data.price_cents === null ? '' : (data.price_cents / 100).toFixed(2),
     note: data.note,
   });
+}
+
+export async function createPartnerOuting(
+  deps: PartnerDeps,
+  caller: ApiCaller,
+  input: unknown,
+  opts: { via?: 'widget' } = {},
+) {
+  const data = parseInput(ApiCreateOutingInput, input);
+  const outingInput = toOutingInput(data);
   return withTenant(deps.db, deps.tenantId, async (tx) => {
     const organizerId = await playerFor(tx, deps.tenantId, data.organizer);
     const outingId = await insertOuting(
@@ -383,7 +395,7 @@ export async function createPartnerOuting(deps: PartnerDeps, caller: ApiCaller, 
       actor: actorOf(caller),
       action: 'api.outing_created',
       target: `outing:${outingId}`,
-      meta: { players: data.players.length },
+      meta: { players: data.players.length, ...(opts.via ? { via: opts.via } : {}) },
     });
     return (await loadOutingResource(tx, deps, outingId, { includePlayers: includePlayers(caller) }))!;
   });

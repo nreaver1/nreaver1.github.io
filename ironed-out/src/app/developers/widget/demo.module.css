@@ -1,0 +1,117 @@
+.demo {
+  max-width: 720px;
+  gap: 20px;
+}
+
+.notice {
+  font-size: 17px;
+  padding: 10px 14px;
+  background: var(--sand);
+  border: var(--border);
+  border-radius: var(--radius-card);
+}
+
+/* The pretend partner site: plain, square and sans-serif on purpose, so it reads as someone else's page. */
+.site {
+  background: var(--white);
+  border: 1px solid var(--dash);
+  border-radius: 8px;
+  overflow: hidden;
+  font-family:
+    system-ui,
+    -apple-system,
+    'Segoe UI',
+    Roboto,
+    sans-serif;
+  font-size: 16px;
+  color: var(--ink);
+}
+
+.siteBar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 16px;
+  background: var(--chat-bg);
+  border-bottom: 1px solid var(--dash);
+}
+
+.siteLogo {
+  font-weight: 700;
+}
+
+.siteNav {
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.siteBody {
+  padding: 18px 16px 22px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.siteTitle {
+  font-family: inherit;
+  font-size: 26px;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.facts {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 6px 14px;
+  margin: 4px 0 0;
+}
+
+.facts dt {
+  color: var(--muted);
+}
+
+.facts dd {
+  margin: 0;
+}
+
+.cta {
+  margin-top: 8px;
+  padding-top: 14px;
+  border-top: 1px solid var(--dash-faint);
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.ctaText {
+  font-weight: 600;
+}
+
+.how {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.how h2 {
+  font-size: 34px;
+}
+
+.how code,
+.code {
+  font-family: ui-monospace, 'Cascadia Mono', 'SFMono-Regular', Menlo, Consolas, monospace;
+  font-size: 0.82em;
+}
+
+.code {
+  margin: 0;
+  padding: 14px 16px;
+  background: var(--card-warm);
+  border: var(--border);
+  border-radius: var(--radius-card);
+  font-size: 14px;
+  line-height: 1.5;
+  overflow-x: auto;
+  white-space: pre;
+}

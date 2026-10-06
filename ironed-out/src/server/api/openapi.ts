@@ -8,6 +8,7 @@ import {
   ApiUpdateTeeTimeInput,
 } from '../domain/partner-outings';
 import { CreateWebhookInput, UpdateWebhookInput, WEBHOOK_EVENTS } from '../domain/webhooks';
+import { ApiCreateWidgetTokenInput } from '../domain/widget';
 
 /**
  * OpenAPI 3.1 document for /api/v1, generated from the same Zod schemas that validate requests.
@@ -115,6 +116,12 @@ export const DeliverySchema = z.object({
   created_at: z.iso.datetime(),
 });
 
+export const WidgetTokenSchema = z.object({
+  token: z.string().describe('Opaque and encrypted. Treat it like a short-lived secret.'),
+  url: z.url().describe('Put this behind the "Invite your group" button (href of the embed link).'),
+  expires_at: z.iso.datetime(),
+});
+
 export const TokenResponseSchema = z.object({
   access_token: z.string(),
   token_type: z.literal('Bearer'),
@@ -214,6 +221,7 @@ export function buildOpenApi(appUrl: string) {
       { name: 'Spots' },
       { name: 'Invite links' },
       { name: 'Webhooks' },
+      { name: 'Widget' },
     ],
     paths: {
       '/oauth/token': {
@@ -391,6 +399,22 @@ export function buildOpenApi(appUrl: string) {
           errors: [404],
         }),
       },
+      '/widget-tokens': {
+        post: operation({
+          tag: 'Widget',
+          summary: 'Make an "Invite your group" button for a booking',
+          scope: 'outings:write',
+          body: ApiCreateWidgetTokenInput,
+          idempotent: true,
+          ok: {
+            status: 201,
+            schema: 'WidgetToken',
+            description:
+              'A URL for the embed button. Nothing is created until the golfer taps it and confirms; then the outing is created once, as if you had called POST /outings.',
+          },
+          errors: [400, 422],
+        }),
+      },
       '/webhooks': {
         get: operation({
           tag: 'Webhooks',
@@ -508,6 +532,7 @@ export function buildOpenApi(appUrl: string) {
         OutingList: json(OutingListSchema),
         ClaimResult: json(ClaimResultSchema),
         InviteLink: json(InviteLinkSchema),
+        WidgetToken: json(WidgetTokenSchema),
         CourseList: json(z.object({ data: z.array(CourseSchema) })),
         Webhook: json(WebhookSchema),
         WebhookCreated: json(WebhookCreatedSchema),

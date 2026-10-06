@@ -25,6 +25,16 @@ const nextConfig: NextConfig = {
           { key: 'Permissions-Policy', value: 'camera=(), microphone=(), geolocation=(), payment=()' },
         ],
       },
+      {
+        // The partner widget script is loaded from booking sites. Short cache so fixes roll out
+        // within minutes; CORS so partners can use Subresource Integrity (crossorigin="anonymous").
+        source: '/widget/:file*',
+        headers: [
+          { key: 'Cache-Control', value: 'public, max-age=300, stale-while-revalidate=86400' },
+          { key: 'Access-Control-Allow-Origin', value: '*' },
+          { key: 'Cross-Origin-Resource-Policy', value: 'cross-origin' },
+        ],
+      },
     ];
   },
 };

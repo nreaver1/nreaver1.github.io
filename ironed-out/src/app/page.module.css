@@ -25,3 +25,9 @@
   color: var(--muted);
   text-align: center;
 }
+
+.legal {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--touch);
+}

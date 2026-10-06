@@ -137,7 +137,8 @@ export function AlertsClient({
         {error}
       </p>
       <p className="muted" style={{ fontSize: 16 }}>
-        Reply STOP to any text to opt out. Standard message rates may apply.
+        Reply STOP to any text to opt out. Standard message rates may apply.{' '}
+        <a href="/privacy">Privacy policy</a>
       </p>
 
       {recent.length > 0 && (
@@ -217,7 +218,11 @@ function PhoneSheet({ open, onClose, smsDemo }: { open: boolean; onClose: () => 
             {pending ? 'Sending…' : 'Text me a code'}
           </Button>
           <p className="muted" style={{ fontSize: 14 }}>
-            By continuing you agree to get texts about your outings. Reply STOP anytime.
+            By continuing you agree to get texts about your outings. Msg frequency varies; msg &amp; data
+            rates may apply. Reply STOP to opt out, HELP for help.{' '}
+            <a href="/privacy" target="_blank" rel="noopener">
+              Privacy policy
+            </a>
           </p>
         </form>
       ) : (

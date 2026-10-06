@@ -1,4 +1,5 @@
 import { CourseScene } from '@/components/illustrations/CourseScene';
+import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { ButtonLink, buttonClassName } from '@/components/ui';
 import { isSmsDemo, getEnv } from '@/server/env';
@@ -36,6 +37,15 @@ export default async function WelcomePage({ searchParams }: { searchParams: Prom
           See a sample invite
         </a>
       )}
+      <p className={styles.footnote}>
+        <Link href="/privacy" className={styles.legal}>
+          Privacy
+        </Link>
+        {' · '}
+        <Link href="/developers" className={styles.legal}>
+          For booking platforms
+        </Link>
+      </p>
     </main>
   );
 }

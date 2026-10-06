@@ -38,8 +38,9 @@ export function proxy(request: NextRequest) {
 export const config = {
   matcher: [
     {
-      // Pages only: API routes return JSON, and static files don't need a nonce.
-      source: '/((?!api/|_next/static|_next/image|favicon.ico|icon.svg|apple-icon).*)',
+      // Pages only: API routes return JSON, and static files (incl. the partner widget script)
+      // don't need a nonce.
+      source: '/((?!api/|widget/|_next/static|_next/image|favicon.ico|icon.svg|apple-icon).*)',
       missing: [
         { type: 'header', key: 'next-router-prefetch' },
         { type: 'header', key: 'purpose', value: 'prefetch' },

@@ -63,6 +63,13 @@ export function SignUpForm({ next }: { next: string }) {
         </svg>
         Your password is salted and hashed. We never store or see it.
       </p>
+      <p className={styles.note}>
+        By creating an account you agree to our{' '}
+        <Link href="/privacy" target="_blank">
+          privacy policy
+        </Link>
+        .
+      </p>
       <Link
         href={{ pathname: '/login', query: next !== '/home' ? { next } : {} }}
         className={buttonClassName({ variant: 'ghost' })}

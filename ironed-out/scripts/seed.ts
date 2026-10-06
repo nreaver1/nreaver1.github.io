@@ -2,7 +2,7 @@ import 'dotenv/config';
 import { drizzle } from 'drizzle-orm/postgres-js';
 import postgres from 'postgres';
 import * as schema from '../src/server/db/schema';
-import { seed } from '../src/server/db/seed';
+import { seed, seedWidgetDemo } from '../src/server/db/seed';
 
 async function main() {
   const url =
@@ -10,7 +10,9 @@ async function main() {
   if (!url) throw new Error('Set MIGRATION_DATABASE_URL (or DATABASE_URL)');
   const client = postgres(url, { max: 1 });
   try {
-    const { tenantId } = await seed(drizzle(client, { schema }));
+    const db = drizzle(client, { schema });
+    const { tenantId } = await seed(db);
+    await seedWidgetDemo(db);
     console.log(`Seeded tenant ironed-out (${tenantId}).`);
   } finally {
     await client.end();

@@ -207,7 +207,11 @@ export function ClaimSheet({
             {pending ? 'Sending…' : 'Text me a code'}
           </Button>
           <p className={styles.fine}>
-            By continuing you agree to get texts about this outing. Reply STOP anytime.
+            By continuing you agree to get texts about this outing. Msg frequency varies; msg &amp; data rates
+            may apply. Reply STOP to opt out, HELP for help.{' '}
+            <a href="/privacy" target="_blank" rel="noopener">
+              Privacy policy
+            </a>
           </p>
         </form>
       )}

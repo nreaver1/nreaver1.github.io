@@ -1,0 +1,67 @@
+/* A long read: comfortable line length on laptops, still fine at 360px. */
+.policy {
+  max-width: 720px;
+  gap: 22px;
+}
+
+.title {
+  font-size: 52px;
+}
+
+.lead {
+  font-size: 21px;
+}
+
+.toc {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 16px;
+}
+
+.toc a {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--touch);
+}
+
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  scroll-margin-top: 16px;
+}
+
+.section h2 {
+  font-size: 36px;
+}
+
+.section h3 {
+  font-size: 26px;
+  margin-top: 6px;
+}
+
+.section ul {
+  margin: 0;
+  padding-left: 22px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 17px;
+}
+
+.table th,
+.table td {
+  text-align: left;
+  vertical-align: top;
+  padding: 8px 10px 8px 0;
+  border-bottom: 1px dashed var(--dash);
+}
+
+.tableWrap {
+  overflow-x: auto;
+}

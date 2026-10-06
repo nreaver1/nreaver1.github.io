@@ -25,6 +25,8 @@ const EnvSchema = z
     APP_SECRET: z.string().min(32).optional(),
     RESEND_API_KEY: z.string().min(1).optional(),
     EMAIL_FROM: z.string().min(3).default('Ironed Out <noreply@example.com>'),
+    /** Where people send privacy and support requests; shown on /privacy. */
+    CONTACT_EMAIL: z.email().optional(),
     TWILIO_ACCOUNT_SID: z.string().min(1).optional(),
     TWILIO_AUTH_TOKEN: z.string().min(1).optional(),
     TWILIO_MESSAGING_SERVICE_SID: z.string().min(1).optional(),

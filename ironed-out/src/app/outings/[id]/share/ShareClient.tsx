@@ -2,17 +2,18 @@
 
 import { useState, useTransition } from 'react';
 import { Button, ButtonLink } from '@/components/ui';
-import { rotateLinkAction } from '../../actions';
 import styles from './share.module.css';
 
+/** "Link's ready" screen: copy, chat preview, share. Also used by the partner widget (/w). */
 export function ShareClient(props: {
-  outingId: string;
   url: string;
   path: string;
   courseName: string;
   dateLabel: string;
   spots: string;
   host: string;
+  /** Organizer action that replaces the link; left out where there's no signed-in organizer. */
+  rotate?: () => Promise<unknown>;
 }) {
   const [copied, setCopied] = useState(false);
   const [pending, start] = useTransition();
@@ -91,17 +92,19 @@ export function ShareClient(props: {
         Text it to the group
       </Button>
       <ButtonLink href={props.path}>See the invite page</ButtonLink>
-      <Button
-        variant="ghost"
-        disabled={pending}
-        onClick={() =>
-          start(async () => {
-            await rotateLinkAction(props.outingId);
-          })
-        }
-      >
-        Make a new link (the old one stops working)
-      </Button>
+      {props.rotate && (
+        <Button
+          variant="ghost"
+          disabled={pending}
+          onClick={() =>
+            start(async () => {
+              await props.rotate?.();
+            })
+          }
+        >
+          Make a new link (the old one stops working)
+        </Button>
+      )}
     </>
   );
 }

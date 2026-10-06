@@ -88,6 +88,7 @@ export default function DevelopersPage() {
         <a href="#access">Access</a>
         <a href="#auth">Tokens</a>
         <a href="#quickstart">Quickstart</a>
+        <a href="#widget">Widget</a>
         <a href="#conventions">Conventions</a>
         <a href="#endpoints">Endpoints</a>
         <a href="#webhooks">Webhooks</a>
@@ -163,6 +164,55 @@ curl -s ${api}/outings \\
           golfer (“Invite your group”): friends open it, pick a spot and confirm their number by text. No
           account needed.
         </p>
+      </section>
+
+      <section id="widget" className={styles.section}>
+        <h2>“Invite your group” button</h2>
+        <p>
+          Rather than creating every outing up front, put a button on your booking confirmation page. Nothing
+          is created until the golfer taps it: they land on a short Ironed Out page showing their booking, tap{' '}
+          <em>Make the invite link</em>, and get the link to drop in the group chat. The outing is created
+          exactly once, as if you had called <code>POST /outings</code>, so your webhooks fire as usual.{' '}
+          <Link href="/developers/widget">Try the demo</Link>.
+        </p>
+        <p>
+          1. On your server, send the same body as <code>POST /outings</code> (plus an optional{' '}
+          <code>expires_in</code>, up to 24 hours) when you render the confirmation page:
+        </p>
+        <pre className={styles.code} tabIndex={0}>{`curl -s ${api}/widget-tokens \\
+  -H "Authorization: Bearer $TOKEN" \\
+  -H "Content-Type: application/json" \\
+  -H "Idempotency-Key: RES-88231-widget" \\
+  -d '{ "course_id": "…", "play_date": "2026-10-17",
+        "tee_times": { "first": "07:40", "count": 3 },
+        "external_ref": "RES-88231", "organizer": { "name": "Mike Brennan" } }'
+
+{ "token": "v1.…", "url": "${appUrl}/w/v1.…", "expires_at": "…" }`}</pre>
+        <p>2. Put the URL in a link and load the script:</p>
+        <pre
+          className={styles.code}
+          tabIndex={0}
+        >{`<a href="${appUrl}/w/v1.…" data-ironed-out>Invite your group</a>
+<script src="${appUrl}/widget/v1.js" async></script>`}</pre>
+        <ul className={styles.list}>
+          <li>
+            Without the script it’s still a working link. With it, the link becomes a styled button (in a
+            shadow root, so your CSS and ours stay apart) that opens in a new tab.
+          </li>
+          <li>
+            Works under a strict Content Security Policy: allow <code>{new URL(appUrl).host}</code> in{' '}
+            <code>script-src</code>. The script sets no cookies and makes no requests.
+          </li>
+          <li>
+            The token is the booking, encrypted, so names and numbers in it can’t be read from your page. It
+            only works while your client is active and before it expires. Optional{' '}
+            <code>data-ironed-out-subtitle</code> adds a second line under the label.
+          </li>
+          <li>
+            Buttons added or re-rendered later (single-page apps, React hydration) are picked up
+            automatically; <code>window.IronedOut.mount()</code> forces a pass.
+          </li>
+        </ul>
       </section>
 
       <section id="conventions" className={styles.section}>

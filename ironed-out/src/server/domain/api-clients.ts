@@ -136,6 +136,30 @@ export async function issueAccessToken(deps: ApiClientDeps, input: unknown, ip: 
   };
 }
 
+/** An API client that still exists, isn't revoked and whose tenant is active, with all its scopes. */
+export async function findActiveClient(
+  db: Db,
+  tenantId: string,
+  id: string,
+): Promise<(ApiCaller & { tenantName: string }) | null> {
+  return withTenant(db, tenantId, async (tx) => {
+    const [c] = await tx
+      .select({ client: apiClients, tenantStatus: tenants.status, tenantName: tenants.name })
+      .from(apiClients)
+      .innerJoin(tenants, eq(tenants.id, apiClients.tenantId))
+      .where(and(eq(apiClients.id, id), isNull(apiClients.revokedAt)));
+    if (!c || c.tenantStatus !== 'active') return null;
+    return {
+      id: c.client.id,
+      clientId: c.client.clientId,
+      tenantId: c.client.tenantId,
+      name: c.client.name,
+      tenantName: c.tenantName,
+      scopes: c.client.scopes.filter(isScope),
+    };
+  });
+}
+
 /**
  * Bearer token → caller. Checks the signature and expiry, then that the client still exists and
  * isn't revoked (so revoking takes effect immediately, not after the token expires).
@@ -143,21 +167,12 @@ export async function issueAccessToken(deps: ApiClientDeps, input: unknown, ip: 
 export async function authenticateAccessToken(deps: ApiClientDeps, token: string): Promise<ApiCaller | null> {
   const claims = verifyJwt(deps.secret, token, deps.now?.());
   if (!claims) return null;
-  return withTenant(deps.db, claims.tid, async (tx) => {
-    const [c] = await tx
-      .select({ client: apiClients, tenantStatus: tenants.status })
-      .from(apiClients)
-      .innerJoin(tenants, eq(tenants.id, apiClients.tenantId))
-      .where(and(eq(apiClients.id, claims.sub), isNull(apiClients.revokedAt)));
-    if (!c || c.tenantStatus !== 'active') return null;
-    const granted = c.client.scopes.filter(isScope);
-    return {
-      id: c.client.id,
-      clientId: c.client.clientId,
-      tenantId: c.client.tenantId,
-      name: c.client.name,
-      // A token never carries more than the client currently has.
-      scopes: claims.scope.split(' ').filter((s): s is Scope => isScope(s) && granted.includes(s)),
-    };
-  });
+  const client = await findActiveClient(deps.db, claims.tid, claims.sub);
+  if (!client) return null;
+  const { tenantName: _, ...caller } = client;
+  // A token never carries more than the client currently has.
+  return {
+    ...caller,
+    scopes: claims.scope.split(' ').filter((s): s is Scope => client.scopes.includes(s as Scope)),
+  };
 }
