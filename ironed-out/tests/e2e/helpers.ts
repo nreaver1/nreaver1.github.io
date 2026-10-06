@@ -41,6 +41,8 @@ export async function createOuting(page: Page) {
   await page.goto('/outings/new');
   await page.getByLabel('Search courses').fill('Mount Pleasant');
   await page.getByRole('option', { name: /Mount Pleasant Golf Course/ }).click();
+  // The form starts at one tee time.
+  for (let i = 0; i < 2; i++) await page.getByRole('button', { name: 'More tee times' }).click();
   await page.getByLabel('Cost per player (paid at the course)').fill('45');
   await page.getByLabel('Note for the crew').fill('Walking unless it rains.');
   await page.getByRole('button', { name: 'Create & get the link' }).click();

@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { ButtonLink } from '@/components/ui';
 import type { Feed } from '@/server/domain/feed';
 import type { OutingView } from '@/server/domain/outings';
+import { DeleteOuting } from './DeleteOuting';
 import { SinceBanner } from './SinceBanner';
 import { TeeSheet } from './TeeSheet';
 
@@ -44,6 +45,7 @@ export function OrganizerView({
           Share the link again
         </ButtonLink>
       </TeeSheet>
+      <DeleteOuting view={view} />
     </>
   );
 }

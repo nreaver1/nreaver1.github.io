@@ -111,6 +111,15 @@ export const SEED_COURSES: SeedCourse[] = [
     timezone: ET,
   },
   {
+    name: 'Willow Springs Golf Course',
+    address: '12980 Livestock Rd',
+    city: 'West Friendship',
+    region: 'MD',
+    lat: 39.318,
+    lng: -76.968,
+    timezone: ET,
+  },
+  {
     name: 'Mountain Branch Golf Course',
     address: '1827 Mountain Rd',
     city: 'Joppa',

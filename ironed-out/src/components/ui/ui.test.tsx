@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { useState } from 'react';
 import { describe, expect, it, vi } from 'vitest';
@@ -8,6 +8,7 @@ import { Input } from './Input';
 import { Pill, PillGroup } from './Pill';
 import { Sheet } from './Sheet';
 import { Stepper } from './Stepper';
+import { TimeStepper } from './TimeStepper';
 
 describe('Button', () => {
   it('defaults to type="button" so it never submits a form by accident', () => {
@@ -96,6 +97,41 @@ describe('Stepper', () => {
     expect(screen.getByRole('status')).toHaveTextContent('2');
     expect(plus).toBeDisabled();
     expect(minus).toBeEnabled();
+  });
+});
+
+describe('TimeStepper', () => {
+  function FirstTee() {
+    const [value, setValue] = useState(460);
+    return (
+      <TimeStepper
+        label="First tee time"
+        value={value}
+        min={360}
+        max={1080}
+        step={10}
+        onChange={setValue}
+        decrementLabel="Earlier"
+        incrementLabel="Later"
+      />
+    );
+  }
+
+  it('steps with the buttons and takes a picked time, clamped to the bounds', async () => {
+    render(<FirstTee />);
+    const time = screen.getByLabelText('First tee time');
+    expect(time).toHaveValue('07:40');
+    await userEvent.click(screen.getByRole('button', { name: 'Later' }));
+    expect(time).toHaveValue('07:50');
+
+    fireEvent.change(time, { target: { value: '09:05' } });
+    expect(time).toHaveValue('09:05');
+    await userEvent.click(screen.getByRole('button', { name: 'Earlier' }));
+    expect(time).toHaveValue('08:55');
+
+    fireEvent.change(time, { target: { value: '05:00' } });
+    expect(time).toHaveValue('06:00');
+    expect(screen.getByRole('button', { name: 'Earlier' })).toBeDisabled();
   });
 });
 

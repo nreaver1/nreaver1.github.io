@@ -69,7 +69,8 @@ partner API (§7) and course-provider adapters (§8).
      "Add to my calendar" (.ics download + Google Calendar link).
    - Organizer actions: remove a player (they get a text), add/remove an empty spot on a tee time
      (capacity 2–5), delete an empty tee time, add another tee time (last + interval),
-     lock/unlock outing (locked = no claims, no drop-outs, no removals), share link again.
+     lock/unlock outing (locked = no claims, no drop-outs, no removals), share link again, delete
+     the whole outing (confirm sheet; cascades its tee sheet, links and events; audit row kept).
 9. **Claim sheet** – Step 1: name, mobile number, "Bringing a buddy?" stepper (max = open spots − 1),
    "Text me a code", consent line. Step 2: 6-digit code (autocomplete=one-time-code, 10-min expiry,
    5 attempts, resend with cooldown). Step 3: celebration (ball drops in cup), "You're in for 7:50 AM,

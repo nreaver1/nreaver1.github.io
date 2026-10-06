@@ -609,6 +609,29 @@ export async function setLocked(deps: OutingsDeps, actor: Actor, outingId: strin
   });
 }
 
+/**
+ * The organizer deletes the whole outing. Tee times, spots, events, links and pending alerts go
+ * with it (FK cascades), the same as when an organizer deletes their account; the audit row stays.
+ */
+export async function deleteOuting(deps: OutingsDeps, actor: Actor, outingId: string) {
+  await withTenant(deps.db, deps.tenantId, async (tx) => {
+    const o = await lockAsOrganizer(tx, outingId, actor, { allowLocked: true });
+    const [taken] = await tx
+      .select({ n: sql<number>`count(*)::int` })
+      .from(slots)
+      .where(and(eq(slots.outingId, o.id), or(isNotNull(slots.playerId), isNotNull(slots.guestOfPlayerId))));
+    await tx.delete(outings).where(eq(outings.id, o.id));
+    await audit(tx, {
+      tenantId: deps.tenantId,
+      actor: `player:${actor.playerId}`,
+      action: 'outing.deleted',
+      target: `outing:${o.id}`,
+      ip: actor.ip,
+      meta: { playDate: o.playDate, spotsTaken: taken?.n ?? 0 },
+    });
+  });
+}
+
 /** Open slots in claim order: the given tee time first, then the rest by start time. */
 export async function openSlotsInOrder(tx: Tx, outingId: string, preferTeeTimeId: string | null) {
   const rows = await tx

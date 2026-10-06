@@ -11,6 +11,7 @@ import {
   addTeeTime,
   changeCapacity,
   createOuting,
+  deleteOuting,
   deleteTeeTime,
   removePlayer,
   setLocked,
@@ -91,6 +92,13 @@ export async function changeCapacityAction(teeTimeId: string, delta: 1 | -1): Pr
 
 export async function deleteTeeTimeAction(teeTimeId: string): Promise<ActionResult> {
   return organizerAction(async (actor) => deleteTeeTime(await getServices(), actor, teeTimeId));
+}
+
+/** Deletes the whole outing, then sends the organizer back to Home. */
+export async function deleteOutingAction(outingId: string): Promise<ActionResult> {
+  const r = await organizerAction(async (actor) => deleteOuting(await getServices(), actor, outingId));
+  if (r.error) return r;
+  redirect('/home');
 }
 
 export async function removePlayerAction(slotId: string): Promise<ActionResult> {

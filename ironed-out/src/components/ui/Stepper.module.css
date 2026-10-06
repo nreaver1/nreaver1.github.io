@@ -28,3 +28,29 @@
   text-align: center;
   font-size: 21px;
 }
+
+/* Tappable time (native picker). Dashed underline says "you can tap this". */
+.time {
+  width: 128px;
+  min-height: 44px;
+  padding: 0 4px;
+  border: 0;
+  border-bottom: 2px dashed var(--ink);
+  border-radius: 0;
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  font-size: 21px;
+  text-align: center;
+  cursor: pointer;
+}
+
+.time:focus-visible {
+  outline: 3px solid var(--ink);
+  outline-offset: 2px;
+}
+
+.time::-webkit-calendar-picker-indicator {
+  margin-left: 2px;
+  cursor: pointer;
+}

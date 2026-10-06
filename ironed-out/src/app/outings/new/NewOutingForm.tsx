@@ -4,7 +4,7 @@ import { useActionState, useEffect, useState, useTransition } from 'react';
 import { SearchIcon } from '@/components/icons';
 import { FormError } from '@/components/forms/FormError';
 import { SubmitButton } from '@/components/SubmitButton';
-import { Input, PillGroup, Stepper } from '@/components/ui';
+import { Input, PillGroup, Stepper, TimeStepper } from '@/components/ui';
 import { formatDrive, formatMinutes, formatPlayDate } from '@/lib/format';
 import type { CourseResult } from '@/server/domain/courses';
 import { emptyForm } from '@/web/form-state';
@@ -37,7 +37,7 @@ export function NewOutingForm({
   const [course, setCourse] = useState<CourseResult | null>(null);
   const [playDate, setPlayDate] = useState(weekendDates[0] ?? '');
   const [start, setStart] = useState(460);
-  const [count, setCount] = useState(3);
+  const [count, setCount] = useState(1);
   const [per, setPer] = useState(4);
   const [interval, setIntervalMinutes] = useState(10);
 
@@ -133,14 +133,14 @@ export function NewOutingForm({
         <h2 id="tees" className={styles.step}>
           3. Tee times
         </h2>
-        <Stepper
+        <TimeStepper
           label="First tee time"
+          hint="Tap the time to pick one"
           value={start}
           min={360}
           max={1080}
           step={interval}
           onChange={setStart}
-          format={formatMinutes}
           decrementLabel="Earlier"
           incrementLabel="Later"
         />

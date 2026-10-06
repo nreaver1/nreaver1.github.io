@@ -1,15 +1,16 @@
-import { eq } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { formatTime } from '@/lib/format';
 import { createTestDb, type TestDb } from '../../../tests/helpers/db';
 import { courseId, futureSaturday, makeOuting, makePlayer } from '../../../tests/helpers/fixtures';
-import { outingEvents, slots, tenants } from '../db/schema';
+import { auditLog, outingEvents, slots, tenants } from '../db/schema';
 import { withTenant } from '../db/tenant';
 import { SeedProvider } from './courses';
 import {
   addTeeTime,
   changeCapacity,
   createOuting,
+  deleteOuting,
   deleteTeeTime,
   getOutingView,
   listUpcomingOutings,
@@ -251,6 +252,29 @@ describe('organizer controls', () => {
     expect(view.note).toBe('Carts today');
     expect(view.priceCents).toBeNull();
     expect(view.version).toBe(6);
+  });
+});
+
+describe('delete outing', () => {
+  it('only the organizer can delete it, even when locked, and it leaves an audit row', async () => {
+    const id = await makeOuting(t, mike.id);
+    await seat(id, 1, 0);
+    await setLocked(deps, { playerId: mike.id }, id, true);
+    await expect(deleteOuting(deps, { playerId: jen.id }, id)).rejects.toMatchObject({ code: 'forbidden' });
+
+    await deleteOuting(deps, { playerId: mike.id }, id);
+    expect(await getOutingView(deps, id, mike.id)).toBeNull();
+    expect(await events(id)).toEqual([]);
+    expect((await listUpcomingOutings(deps, jen.id)).map((o) => o.id)).not.toContain(id);
+    const [row] = await t.asOwner(() =>
+      t.db
+        .select()
+        .from(auditLog)
+        .where(and(eq(auditLog.target, `outing:${id}`), eq(auditLog.action, 'outing.deleted'))),
+    );
+    expect(row).toMatchObject({ action: 'outing.deleted', meta: { spotsTaken: 2 } });
+
+    await expect(deleteOuting(deps, { playerId: mike.id }, id)).rejects.toMatchObject({ code: 'not_found' });
   });
 });
 
