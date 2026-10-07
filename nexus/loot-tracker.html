@@ -591,7 +591,7 @@ function renderHolderCell(holder, memberMap){
     return `<span style="display:inline-flex;align-items:center;gap:5px;font-size:0.9rem"><span style="font-size:0.85rem">🎒</span>${esc(t('partyInventory'))}</span>`;
   }
   if(m&&m.photo){
-    return `<span style="display:inline-flex;align-items:center;gap:0;font-size:0.9rem"><img src="${m.photo}" style="${avatarStyle}" alt="${esc(holder)}" />${esc(holder)}</span>`;
+    return `<span style="display:inline-flex;align-items:center;gap:0;font-size:0.9rem"><img src="${esc(m.photo)}" style="${avatarStyle}" alt="${esc(holder)}" />${esc(holder)}</span>`;
   }
   if(m){
     const c=m.color||'var(--gold)';
@@ -653,7 +653,7 @@ async function buildHolderDropdown(currentValue){
     dropdown.innerHTML = options.map((opt,i)=>{
       const divider=(i===2&&members.length)?`<div class="holder-opt-divider">Party Members</div>`:'';
       const avatarContent = opt.photo
-        ? `<img src="${opt.photo}" alt="${esc(opt.name)}" />`
+        ? `<img src="${esc(opt.photo)}" alt="${esc(opt.name)}" />`
         : opt.isBlank   ? `<span style="color:var(--text-dim);font-size:0.7rem">—</span>`
         : opt.isSpecial ? `<span style="font-size:0.75rem">🎒</span>`
         : `<span style="color:${opt.color||'var(--gold)'}">${esc(opt.name.charAt(0).toUpperCase())}</span>`;
@@ -704,7 +704,7 @@ function setHolderDisplay(value, optionsList){
 
   if(opt.photo){
     selAvatar.className='holder-sel-avatar';
-    selAvatar.innerHTML=`<img src="${opt.photo}" alt="${esc(opt.name)}" />`;
+    selAvatar.innerHTML=`<img src="${esc(opt.photo)}" alt="${esc(opt.name)}" />`;
   } else if(opt.isBlank){
     selAvatar.className='holder-sel-avatar hidden';
     selAvatar.innerHTML='';
@@ -730,7 +730,7 @@ function selectHolder(value, name, photo, color){
     selAvatar.innerHTML='';
   } else if(photo){
     selAvatar.className='holder-sel-avatar';
-    selAvatar.innerHTML=`<img src="${photo}" alt="${esc(name)}" />`;
+    selAvatar.innerHTML=`<img src="${esc(photo)}" alt="${esc(name)}" />`;
   } else if(value==='Party Inventory'){
     selAvatar.className='holder-sel-avatar';
     selAvatar.innerHTML=`<span style="font-size:0.75rem">🎒</span>`;

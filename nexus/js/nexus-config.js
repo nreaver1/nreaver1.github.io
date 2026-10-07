@@ -16,7 +16,6 @@ const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFz
 // │  ADMIN PASSWORD — single source of truth for the whole site │
 // │  SHA-256 hash of the admin password. Used by admin.html's   │
 // │  own gate AND by requireAdmin()/nexusGate() on every page.  │
-// │  Default password: nexusadmin                               │
 // │  To change: run  await _nexusSha256("yournewpassword")      │
 // │  in the browser console (any page) and paste the result.    │
 // │  admin.html's "Change Password" tool does this for you.     │
@@ -139,6 +138,17 @@ if (SUPABASE_URL.includes('YOUR_PROJECT_REF') || SUPABASE_ANON.includes('YOUR_AN
 //    });
 //    if (!confirmed) return;
 // ══════════════════════════════════════════════════════════════
+// HTML-escapes text for the dialogs below. nexus-config.js loads before
+// nexus-utils.js (and alone on some pages), so it can't rely on esc().
+function _nexusEscape(s) {
+  return String(s ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
 function nexusConfirm({ title, name, message, danger = true, confirmLabel = 'Remove', cancelLabel = 'Cancel', checkboxes = null } = {}) {
   return new Promise(resolve => {
     // Remove any existing dialog
@@ -152,19 +162,19 @@ function nexusConfirm({ title, name, message, danger = true, confirmLabel = 'Rem
       <div class="nxc-dialog" role="alertdialog" aria-modal="true" aria-labelledby="nxcTitle">
         <div class="nxc-header">
           <span class="nxc-icon">${danger ? '⚠' : '?'}</span>
-          <span class="nxc-title" id="nxcTitle">${title || 'Confirm'}</span>
+          <span class="nxc-title" id="nxcTitle">${_nexusEscape(title || 'Confirm')}</span>
         </div>
-        ${name ? `<div class="nxc-name">${name}</div>` : ''}
-        ${message ? `<div class="nxc-message">${message}</div>` : ''}
+        ${name ? `<div class="nxc-name">${_nexusEscape(name)}</div>` : ''}
+        ${message ? `<div class="nxc-message">${_nexusEscape(message)}</div>` : ''}
         ${checkboxes && checkboxes.length ? `<div class="nxc-checkboxes">${checkboxes.map(cb =>
           `<label class="nxc-check-label">
-            <input type="checkbox" class="nxc-checkbox" id="nxcCheck_${cb.id}" ${cb.checked ? 'checked' : ''} onchange="this.closest('.nxc-check-label').classList.remove('nxc-required-warn')" />
-            <span class="nxc-check-text">${cb.label}</span>
+            <input type="checkbox" class="nxc-checkbox" id="nxcCheck_${_nexusEscape(cb.id)}" ${cb.checked ? 'checked' : ''} onchange="this.closest('.nxc-check-label').classList.remove('nxc-required-warn')" />
+            <span class="nxc-check-text">${_nexusEscape(cb.label)}</span>
           </label>`
         ).join('')}</div>` : ''}
         <div class="nxc-actions">
-          <button class="nxc-btn nxc-cancel" id="nxcCancel">${cancelLabel}</button>
-          <button class="nxc-btn ${danger ? 'nxc-danger' : 'nxc-confirm'}" id="nxcConfirm">${confirmLabel}</button>
+          <button class="nxc-btn nxc-cancel" id="nxcCancel">${_nexusEscape(cancelLabel)}</button>
+          <button class="nxc-btn ${danger ? 'nxc-danger' : 'nxc-confirm'}" id="nxcConfirm">${_nexusEscape(confirmLabel)}</button>
         </div>
       </div>`;
 

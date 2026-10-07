@@ -34,6 +34,7 @@ create table if not exists loot_items (
   attunement  text        default 'none',
   description text,
   stat_effects jsonb      default '[]',   -- [{stat, type, value}, ...]
+  quantity    int         default 1,      -- JS field: qty
   created_at  timestamptz default now(),
   updated_at  timestamptz default now()
 );
@@ -59,6 +60,7 @@ create table if not exists treasury_ledger (
   coins       jsonb       default '{}', -- {currency_id: amount, ...}
   note        text,
   ts          bigint,                   -- unix timestamp ms
+  member_name text        default null, -- set when the tx is against a member's vault
   created_at  timestamptz default now()
 );
 

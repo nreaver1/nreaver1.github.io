@@ -200,13 +200,12 @@
         return;
       }
       strip.innerHTML = members.map(m => {
-        const safeName = esc(m.name).replace(/'/g, "\'");
         const color    = m.color || 'var(--cyan)';
         const baseStyle = `cursor:pointer;--avatar-color:${color}`;
         if (m.photo) {
-          return `<div class="party-avatar" title="View ${esc(m.name)}'s holdings" style="${baseStyle}" onclick="openMemberModal('${safeName}')"><img src="${m.photo}" alt="${esc(m.name)}" /></div>`;
+          return `<div class="party-avatar" title="View ${esc(m.name)}'s holdings" style="${baseStyle}" data-member="${esc(m.name)}" onclick="openMemberModal(this.dataset.member)"><img src="${esc(m.photo)}" alt="${esc(m.name)}" /></div>`;
         }
-        return `<div class="party-avatar" title="View ${esc(m.name)}'s holdings" style="${baseStyle}" onclick="openMemberModal('${safeName}')">
+        return `<div class="party-avatar" title="View ${esc(m.name)}'s holdings" style="${baseStyle}" data-member="${esc(m.name)}" onclick="openMemberModal(this.dataset.member)">
           ${esc(m.name.charAt(0).toUpperCase())}
         </div>`;
       }).join('');
@@ -369,7 +368,7 @@
     // ── Portrait ──
     const portraitCol = document.getElementById('idxMmPortrait');
     const avatar = m && m.photo
-      ? `<img src="${m.photo}" alt="${esc(m.name)}" class="mm-portrait-img" />`
+      ? `<img src="${esc(m.photo)}" alt="${esc(m.name)}" class="mm-portrait-img" />`
       : `<div class="mm-portrait-initial" style="color:${m && m.color ? m.color : 'var(--gold)'};border-color:${m && m.color ? m.color + '50' : 'var(--border)'}">
            ${esc(memberName.charAt(0).toUpperCase())}
          </div>`;

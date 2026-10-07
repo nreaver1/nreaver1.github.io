@@ -1022,7 +1022,7 @@ function buildCard(m,idx,_itemsByHolder,_partyItems,_condSnap,_fxSnap){
   const color=m.color||COLORS[idx%COLORS.length];
   const initials=(m.name||'?').split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase();
   const portrait=m.photo
-    ?`<img class="portrait-img" src="${m.photo}" alt="${esc(m.name)}" />`
+    ?`<img class="portrait-img" src="${esc(m.photo)}" alt="${esc(m.name)}" />`
     :`<div class="portrait-initials">${initials}</div>`;
   const statusColor=STATUS_COLORS[m.status]||'var(--text-dim)';
   const prof=m.prof||2;

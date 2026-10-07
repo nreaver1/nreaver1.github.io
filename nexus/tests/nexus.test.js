@@ -7911,16 +7911,17 @@ describe('Component cleanup — no duplicated utility code in HTML pages', () =>
     });
   }
 
-  it('nexus-utils.js esc() escapes all four dangerous characters', () => {
+  it('nexus-utils.js esc() escapes all five dangerous characters', () => {
     const { esc } = require('../js/nexus-utils.js');
     assert.strictEqual(esc('<'),  '&lt;',   'esc must escape <');
     assert.strictEqual(esc('>'),  '&gt;',   'esc must escape >');
     assert.strictEqual(esc('&'),  '&amp;',  'esc must escape &');
     assert.strictEqual(esc('"'),  '&quot;', 'esc must escape "');
+    assert.strictEqual(esc("'"),  '&#39;',  "esc must escape '");
     assert.strictEqual(
       esc('<b>"bold" & \'fine\'</b>'),
-      '&lt;b&gt;&quot;bold&quot; &amp; \'fine\'&lt;/b&gt;',
-      'esc must escape all four characters in a combined string'
+      '&lt;b&gt;&quot;bold&quot; &amp; &#39;fine&#39;&lt;/b&gt;',
+      'esc must escape all five characters in a combined string'
     );
   });
 
@@ -8167,5 +8168,64 @@ describe('CSS health — nexus.css', () => {
     const navSection = css.slice(navStart, navEnd);
     assert.ok(!navSection.includes('#1a2a3a'),
       'sidenav CSS must use var(--border) instead of hardcoded #1a2a3a');
+  });
+});
+
+
+// ══════════════════════════════════════════════════════════════
+//  XSS hardening + public tool gating + schema sync
+// ══════════════════════════════════════════════════════════════
+describe('Security — escaping, gated tools, schema sync', () => {
+
+  const fs   = require('fs'), path = require('path');
+  const read = f => fs.readFileSync(path.join(__dirname, '..', f), 'utf8');
+  const PAGES = ['index.html', 'party-roster.html', 'treasury.html',
+                 'loot-tracker.html', 'session-log.html', 'admin.html'];
+
+  it('nexusConfirm escapes every caller-supplied string', () => {
+    const cfg = read('js/nexus-config.js');
+    for (const field of ['name', 'message', 'cb.label', 'confirmLabel', 'cancelLabel']) {
+      assert.ok(cfg.includes(`_nexusEscape(${field})`), `nexusConfirm must escape ${field}`);
+    }
+    assert.ok(cfg.includes("_nexusEscape(title || 'Confirm')"), 'nexusConfirm must escape title');
+  });
+
+  it("_nexusEscape escapes & < > \" '", () => {
+    const cfg = read('js/nexus-config.js');
+    const src = cfg.slice(cfg.indexOf('function _nexusEscape'), cfg.indexOf('function nexusConfirm'));
+    const _nexusEscape = new Function(src + '; return _nexusEscape;')();
+    assert.strictEqual(_nexusEscape(`<img src=x onerror="a('&')">`),
+      '&lt;img src=x onerror=&quot;a(&#39;&amp;&#39;)&quot;&gt;');
+    assert.strictEqual(_nexusEscape(null), '');
+  });
+
+  for (const file of PAGES) {
+    it(`${file} never interpolates member names into inline JS strings`, () => {
+      const src = read(file);
+      assert.ok(!/on[a-z]+="[^"]*'\$\{(esc\()?(m|member)\.name/.test(src),
+        'use data-member="${esc(m.name)}" + this.dataset.member instead');
+      assert.ok(!src.includes('safeName'), 'the safeName inline-handler pattern must not return');
+    });
+
+    it(`${file} escapes photo URLs in img src`, () => {
+      assert.ok(!/src="\$\{(?:[a-z]+\.)?photo\}"/.test(read(file)),
+        'photo values come from the DB and must go through esc()');
+    });
+  }
+
+  it('seed tool requires the admin password before seeding or wiping', () => {
+    const seed = read('seed-session-log.html');
+    assert.ok(seed.includes('js/nexus-config.js'), 'seed tool must load nexus-config.js');
+    for (const fn of ['runSeed', 'runWipe']) {
+      const body = seed.slice(seed.indexOf(`async function ${fn}()`)).split('\n').slice(0, 3).join('\n');
+      assert.ok(body.includes('await _seedAdminOk()'), `${fn} must check _seedAdminOk() first`);
+    }
+    assert.ok(!seed.includes("SEED_KEY = 'ey"), 'seed tool must reuse SUPABASE_ANON, not a pasted key');
+  });
+
+  it('supabase_setup.sql defines every column the pages write', () => {
+    const sql = read('sql/supabase_setup.sql');
+    assert.match(sql, /loot_items[\s\S]*?\bquantity\s+int/, 'loot_items.quantity missing');
+    assert.match(sql, /treasury_ledger[\s\S]*?\bmember_name\s+text/, 'treasury_ledger.member_name missing');
   });
 });

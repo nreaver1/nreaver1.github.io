@@ -639,7 +639,7 @@ function renderLedger() {
     if (tx.member) {
       const mp = memberMap.get(tx.member);
       const avatar = mp && mp.photo
-        ? `<img src="${mp.photo}" alt="${esc(tx.member)}" class="tx-who-img" />`
+        ? `<img src="${esc(mp.photo)}" alt="${esc(tx.member)}" class="tx-who-img" />`
         : `<div class="tx-who-initial" style="color:${mp && mp.color ? mp.color : 'var(--gold)'};border-color:${mp && mp.color ? mp.color + '50' : 'var(--border)'}">
              ${esc(tx.member.charAt(0).toUpperCase())}
            </div>`;
@@ -1220,7 +1220,7 @@ function buildSplitRecipientCard(recipient, index) {
     : (isNeg ? '−' : '') + Math.abs(wv).toLocaleString(undefined, { maximumFractionDigits: 1 }) + ' ' + base.abbr;
   const wealthClass = wv === null ? 'split-card-wealth-dim' : isNeg ? 'split-card-wealth-neg' : 'split-card-wealth-pos';
   const avatar = m.photo
-    ? `<img src="${m.photo}" alt="${esc(m.name)}" class="split-card-avatar-img" />`
+    ? `<img src="${esc(m.photo)}" alt="${esc(m.name)}" class="split-card-avatar-img" />`
     : `<div class="split-card-avatar split-card-avatar-initial"
          style="color:${m.color || 'var(--gold)'};border-color:${m.color ? m.color + '50' : 'var(--border)'}">
          ${esc(m.name.charAt(0).toUpperCase())}
@@ -1728,7 +1728,7 @@ async function buildTxHolderDropdown(currentValue) {
         ? `<div class="holder-opt-divider">Party Members</div>`
         : '';
       const avatarContent = opt.photo
-        ? `<img src="${opt.photo}" alt="${esc(opt.name)}" />`
+        ? `<img src="${esc(opt.photo)}" alt="${esc(opt.name)}" />`
         : opt.isBlank
           ? `<span style="color:var(--text-dim);font-size:0.7rem">⚙</span>`
           : `<span style="color:${opt.color || 'var(--gold)'}">${esc(opt.name.charAt(0).toUpperCase())}</span>`;
@@ -1779,7 +1779,7 @@ function setTxHolderDisplay(value, optionsList) {
 
   if (opt.photo) {
     avatar.className = 'holder-sel-avatar';
-    avatar.innerHTML = `<img src="${opt.photo}" alt="${esc(opt.name)}" />`;
+    avatar.innerHTML = `<img src="${esc(opt.photo)}" alt="${esc(opt.name)}" />`;
   } else if (opt.isBlank) {
     avatar.className = 'holder-sel-avatar hidden';
     avatar.innerHTML = '';
@@ -1803,7 +1803,7 @@ function selectTxHolder(value, name, photo, color) {
     avatar.innerHTML = '';
   } else if (photo) {
     avatar.className = 'holder-sel-avatar';
-    avatar.innerHTML = `<img src="${photo}" alt="${esc(name)}" />`;
+    avatar.innerHTML = `<img src="${esc(photo)}" alt="${esc(name)}" />`;
   } else {
     avatar.className = 'holder-sel-avatar';
     avatar.style.borderColor = color ? `${color}60` : 'var(--border)';
@@ -1854,7 +1854,7 @@ function openMemberModal(memberName) {
   // ── Portrait ──
   const portraitCol = document.getElementById('mmPortraitCol');
   const avatar = m && m.photo
-    ? `<img src="${m.photo}" alt="${esc(memberName)}" class="mm-portrait-img" />`
+    ? `<img src="${esc(m.photo)}" alt="${esc(memberName)}" class="mm-portrait-img" />`
     : `<div class="mm-portrait-initial" style="color:${m && m.color ? m.color : 'var(--gold)'};border-color:${m && m.color ? m.color + '50' : 'var(--border)'}">
          ${esc(memberName.charAt(0).toUpperCase())}
        </div>`;
@@ -2084,12 +2084,12 @@ async function renderMemberWealth() {
           : '';
 
         const avatar = m.photo
-          ? `<img src="${m.photo}" alt="${esc(m.name)}" class="mw-avatar-img" />`
+          ? `<img src="${esc(m.photo)}" alt="${esc(m.name)}" class="mw-avatar-img" />`
           : `<div class="mw-avatar-initial" style="color:${m.color||'var(--gold)'};border-color:${m.color||'var(--border)'}40;text-shadow:0 0 8px ${m.color||'var(--amber)'}">
                ${esc(m.name.charAt(0).toUpperCase())}
              </div>`;
 
-        return `<div class="mw-card ${medalClass} ${isNegMember ? 'mw-card-neg' : ''}" onclick="openMemberModal('${esc(m.name)}')" style="cursor:pointer;${medalStyle}" title="View ${esc(m.name)}'s holdings">
+        return `<div class="mw-card ${medalClass} ${isNegMember ? 'mw-card-neg' : ''}" data-member="${esc(m.name)}" onclick="openMemberModal(this.dataset.member)" style="cursor:pointer;${medalStyle}" title="View ${esc(m.name)}'s holdings">
           ${medalBadge}
           <div class="mw-avatar">${avatar}</div>
           <div class="mw-info">

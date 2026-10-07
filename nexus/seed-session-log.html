@@ -5,6 +5,10 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>NEXUS // Seed Tool — Session Log</title>
   <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@400;700;900&family=Rajdhani:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <!-- Shared stylesheet + config are loaded only for the admin password dialog;
+       the inline <style> below comes later and keeps this page's own look. -->
+  <link rel="stylesheet" href="css/nexus.css" />
+  <script src="js/nexus-config.js"></script>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -518,10 +522,18 @@ function buildSeedData() {
 //  SEED RUNNER
 // ══════════════════════════════════════════════════════════════
 // ── Supabase credentials (from nexus-config.js) ──────────────
-const SEED_URL = 'https://qlckogwtpfznjsnjpqlx.supabase.co';
-const SEED_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFsY2tvZ3d0cGZ6bmpzbmpwcWx4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI3OTc0OTksImV4cCI6MjA4ODM3MzQ5OX0.fokbNPnEF0fBSj_GYc6XOzd4oXQd10lNuaLdCSKXMmM';
+const SEED_URL = SUPABASE_URL;
+const SEED_KEY = SUPABASE_ANON;
+
+// Seeding and wiping always need the admin password, whether or not the
+// site lock is on. Reuses the shared prompt so one unlock covers the session.
+async function _seedAdminOk() {
+  if (sessionStorage.getItem('nexus_admin') === '1') return true;
+  return (await _nexusPromptForAdminPassword()) !== null;
+}
 
 async function runSeed() {
+  if (!(await _seedAdminOk())) return;
   clearLog();
   setBusy('Seed', true);
   const db = makeDB(SEED_URL, SEED_KEY);
@@ -530,6 +542,7 @@ async function runSeed() {
 }
 
 async function runWipe() {
+  if (!(await _seedAdminOk())) return;
   const confirmed = confirm(
     'WIPE + RE-SEED\n\n' +
     'This will DELETE all existing rows in:\n' +

@@ -1,0 +1,33 @@
+# NEXUS: zero-dependency test suite on Node's built-in runner.
+# Lives at the repo root (GitHub only reads workflows here) and only runs for nexus/ changes.
+name: NEXUS Tests
+
+on:
+  push:
+    branches: [master]
+    paths: ['nexus/**', '.github/workflows/nexus-ci.yml']
+  pull_request:
+    paths: ['nexus/**', '.github/workflows/nexus-ci.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: nexus-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    working-directory: nexus
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: node --test tests/nexus.test.js

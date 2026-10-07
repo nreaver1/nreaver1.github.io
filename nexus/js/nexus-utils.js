@@ -39,7 +39,10 @@ function fmt(n) {
  * esc(s)
  * HTML-escapes a string so it can be safely injected into innerHTML
  * or used inside HTML attribute values without XSS risk.
- * Converts &, <, >, and " to their HTML entities.
+ * Converts &, <, >, " and ' to their HTML entities.
+ * NOT enough for inline JS: the browser decodes entities in onclick="…"
+ * before running it, so f('${esc(name)}') still breaks on an apostrophe.
+ * Put user text in a data-* attribute and read this.dataset.x instead.
  * Example: esc('<b>"bold"</b>') → '&lt;b&gt;&quot;bold&quot;&lt;/b&gt;'
  */
 function esc(s) {
@@ -47,7 +50,8 @@ function esc(s) {
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
 }
 
 
