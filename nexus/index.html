@@ -492,7 +492,7 @@
           : breakdown.map(b => `${sign>0?'+':'−'}${b}`).join(' / ') || '—';
         const date = new Date(tx.ts).toLocaleDateString(undefined, { month:'short', day:'numeric' });
         return `<tr>
-          <td><div class="tx-desc" style="font-size:0.8rem">${esc(tx.desc || '')}</div>${tx.note ? `<div class="tx-note">${esc(tx.note)}</div>` : ''}</td>
+          <td><div class="tx-desc" style="font-size:0.8rem">${esc(tx.description || '')}</div>${tx.note ? `<div class="tx-note">${esc(tx.note)}</div>` : ''}</td>
           <td><span class="tx-type tx-${tx.type}" style="font-size:0.72rem">${tx.type.toUpperCase()}</span></td>
           <td><div class="tx-amount ${sign > 0 ? 'positive' : 'negative'}" style="font-size:0.8rem">${amtDisplay}</div></td>
           <td style="white-space:nowrap;font-size:0.72rem;color:var(--text-dim)">${date}</td>
