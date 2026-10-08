@@ -25,6 +25,8 @@ const CombatEditor = (() => {
   let pickedFrom = null;  // 'srd' | 'campaign' | null (typed by hand) — drives "save to library"
   const $ = id => document.getElementById(id);
 
+  const SEARCH_ALL = ['spells', 'weapons', 'campaign:spell', 'campaign:weapon', 'campaign:feature'];
+
   const ABILITY_OPTS = '<option value="str">STR</option><option value="dex">DEX</option><option value="con">CON</option>' +
     '<option value="int">INT</option><option value="wis">WIS</option><option value="cha">CHA</option>';
 
@@ -158,8 +160,10 @@ const CombatEditor = (() => {
     });
 
     attachSrdSearch($('ce-name'), {
-      // SRD + campaign library for spells/weapons; features only exist in the library
-      kind: () => ({
+      // Adding on the Combat sheet searches everything and the pick sets Kind.
+      // Editing, or adding from the roster Spells tab, searches the current kind:
+      // SRD + campaign library for spells/weapons; features only exist in the library.
+      kind: () => ctx?.searchAll ? SEARCH_ALL : ({
         spell:   ['spells', 'campaign:spell'],
         weapon:  ['weapons', 'campaign:weapon'],
         feature: ['campaign:feature'],
@@ -250,7 +254,8 @@ const CombatEditor = (() => {
     $('ce-addloot-wrap').style.display  = isNewWeapon && !$('ce-item').value ? '' : 'none';
     // SRD content is already searchable; anything typed in can be shared
     $('ce-savelib-wrap').style.display  = pickedFrom === 'srd' || $('ce-name').dataset.srdIndex ? 'none' : '';
-    $('ce-name').placeholder = isSpell || kind === 'weapon' ? 'Start typing to search the SRD…' : 'Breath Weapon, Sneak Attack…';
+    $('ce-name').placeholder = ctx?.searchAll ? 'Search spells, weapons and features…'
+      : isSpell || kind === 'weapon' ? 'Start typing to search the SRD…' : 'Breath Weapon, Sneak Attack…';
     updatePreview();
   }
 
@@ -300,7 +305,9 @@ const CombatEditor = (() => {
 
   // An SRD or campaign-library pick overwrites the form (all still editable)
   function applySrd(detail) {
-    const kind = $('ce-kind').value;
+    // The pick decides the kind (a mixed search can return a spell while Kind says Weapon)
+    const picked = srdPickKind(detail);
+    const kind = ['spell', 'weapon', 'feature'].includes(picked) ? picked : $('ce-kind').value;
     let mapped;
     if (detail.__campaign) {
       mapped = { ...detail.data, kind: detail.data.kind || kind, srd_index: null };
@@ -338,7 +345,7 @@ const CombatEditor = (() => {
   function open({ member, items, option = null, kind = null, onSaved = null }) {
     if (!member) return;
     ensureMarkup();
-    ctx = { member, items: items || [], option, onSaved };
+    ctx = { member, items: items || [], option, onSaved, searchAll: !option && !kind };
     srdLootType = null;
     pickedFrom = option?.srd_index ? 'srd' : null;
     $('ce-name').dataset.srdIndex = '';

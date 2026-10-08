@@ -4094,3 +4094,15 @@ body.page-combat main { max-width: 1150px; }
 .lib-name { font-family: 'Rajdhani', sans-serif; font-weight: 700; color: var(--text); }
 .lib-meta { font-family: 'Share Tech Mono', monospace; font-size: 0.65rem; color: var(--text-dim); margin-left: 0.5rem; }
 .lib-empty { font-family: 'Share Tech Mono', monospace; font-size: 0.7rem; color: var(--text-dim); padding: 0.6rem 0; }
+/* SRD dropdown: result type when one search covers several lists */
+.srd-kind {
+  margin-left: 0.5rem;
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 0.6rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  border: 1px solid var(--border);
+  border-radius: 2px;
+  padding: 0 0.3rem;
+}

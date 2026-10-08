@@ -340,6 +340,27 @@ function libraryWeaponToLoot(data) {
   };
 }
 
+/**
+ * SRD_KIND_LABELS / srdPickKind(detail)
+ * When one search covers several lists, each result is tagged with its
+ * type, and the pick tells the form what kind of thing it is:
+ *   'spell' | 'weapon' | 'item' | 'feature' | null
+ */
+const SRD_KIND_LABELS = {
+  spells: 'Spell', weapons: 'Weapon', 'magic-items': 'Item',
+  'campaign:spell': 'Spell', 'campaign:weapon': 'Weapon', 'campaign:item': 'Item', 'campaign:feature': 'Feature',
+};
+
+function srdPickKind(detail) {
+  if (!detail) return null;
+  if (detail.__campaign) return LIBRARY_KINDS.includes(detail.kind) ? detail.kind : null;
+  const url = String(detail.url || '');
+  if (url.includes('/spells/')) return 'spell';
+  if (url.includes('/magic-items/')) return 'item';
+  if (url.includes('/equipment/')) return 'weapon';
+  return null;
+}
+
 // ──────────────────────────────────────────────────────────────
 //  FETCHING (browser) — lists are cached for the session
 // ──────────────────────────────────────────────────────────────
@@ -434,7 +455,7 @@ function attachSrdSearch(input, { kind, onPick }) {
   const wrap = input.parentElement;
   if (wrap && getComputedStyle(wrap).position === 'static') wrap.style.position = 'relative';
 
-  let results = [], active = -1, timer = null, seq = 0;
+  let results = [], active = -1, timer = null, seq = 0, mixed = false;
   const currentKind = () => (typeof kind === 'function' ? kind() : kind);
   const close = () => { box.classList.remove('open'); box.innerHTML = ''; results = []; active = -1; };
 
@@ -443,6 +464,7 @@ function attachSrdSearch(input, { kind, onPick }) {
     if (!results.length) { close(); return; }
     box.innerHTML = results.map((r, i) =>
       `<div class="srd-opt${i === active ? ' active' : ''}" role="option" data-i="${i}">${esc(r.name)}` +
+      `${mixed && SRD_KIND_LABELS[r.srcKind] ? `<span class="srd-kind">${SRD_KIND_LABELS[r.srcKind]}</span>` : ''}` +
       `${r.campaign ? '<span class="srd-tag">Campaign</span>' : ''}</div>`
     ).join('') + '<div class="srd-msg">SRD 5e + campaign library · not listed? just type it</div>';
     box.classList.add('open');
@@ -473,8 +495,11 @@ function attachSrdSearch(input, { kind, onPick }) {
     if (!kinds.length || q.length < 2) { close(); return; }
     const mine = ++seq;
     try {
-      const list = (await Promise.all(kinds.map(srdList))).flat();
+      // Tag each entry with the list it came from so mixed results can show their type
+      const lists = await Promise.all(kinds.map(async k => (await srdList(k)).map(e => ({ ...e, srcKind: k }))));
+      const list = lists.flat();
       if (mine !== seq) return;
+      mixed = new Set(kinds.map(k => SRD_KIND_LABELS[k])).size > 1;
       results = srdFilter(list, q, 8);
       active = -1;
       draw();
@@ -527,6 +552,8 @@ if (typeof module !== 'undefined') {
     findLibraryMatch,
     librarySearchList,
     libraryWeaponToLoot,
+    SRD_KIND_LABELS,
+    srdPickKind,
     CampaignLibrary,
     srdList,
     srdGet,

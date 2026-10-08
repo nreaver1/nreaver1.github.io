@@ -9712,7 +9712,8 @@ describe('Loot Tracker — SRD item search', () => {
   it('the item name searches SRD magic items and weapons together', () => {
     assert.match(src, /attachSrdSearch\(document\.getElementById\('fieldName'\),\{kind:\['magic-items','weapons','campaign:item','campaign:weapon'\],onPick:applySrdLoot\}\)/);
     assert.match(srd, /const kinds = \[\]\.concat\(currentKind\(\) \|\| \[\]\);/);
-    assert.match(srd, /\(await Promise\.all\(kinds\.map\(srdList\)\)\)\.flat\(\)/);
+    assert.match(srd, /await Promise\.all\(kinds\.map\(async k => \(await srdList\(k\)\)\.map\(e => \(\{ \.\.\.e, srcKind: k \}\)\)\)\)/);
+    assert.match(srd, /const list = lists\.flat\(\);/);
   });
 
   it('magic items map through srdItemToLoot, weapons through srdWeaponToOption', () => {
@@ -9954,5 +9955,67 @@ describe('Campaign library', () => {
       assert.match(admin, /'combat_options',\n\s+'campaign_library',/);
       assert.match(admin, /OPTIONAL_SNAPSHOT_TABLES = new Set\(\['combat_options', 'campaign_library'\]\)/);
     });
+  });
+});
+
+
+// ══════════════════════════════════════════════════════════════
+//  COMBAT — one name search across every type
+//
+//  Adding on the Combat sheet searches spells, weapons and library
+//  features together; each result shows its type and picking one
+//  sets the Kind. The roster's "+ Add Spell" stays spell-only.
+// ══════════════════════════════════════════════════════════════
+
+describe('Combat editor — search across all types', () => {
+  const fs = require('node:fs'), path = require('node:path');
+  const { srdPickKind, SRD_KIND_LABELS, srdFilter } = require('../js/nexus-srd.js');
+  const srd    = fs.readFileSync(path.join(__dirname, '..', 'js', 'nexus-srd.js'), 'utf8');
+  const editor = fs.readFileSync(path.join(__dirname, '..', 'js', 'nexus-combat-editor.js'), 'utf8');
+
+  it('srdPickKind reads the type from the SRD url', () => {
+    assert.strictEqual(srdPickKind({ url: '/api/2014/spells/fireball' }), 'spell');
+    assert.strictEqual(srdPickKind({ url: '/api/2014/equipment/longsword' }), 'weapon');
+    assert.strictEqual(srdPickKind({ url: '/api/2014/magic-items/cloak-of-protection' }), 'item');
+    assert.strictEqual(srdPickKind({ url: '/api/2014/monsters/goblin' }), null);
+  });
+
+  it('srdPickKind uses the library entry kind for campaign picks', () => {
+    for (const k of ['spell', 'weapon', 'item', 'feature']) assert.strictEqual(srdPickKind({ __campaign: true, kind: k }), k);
+    assert.strictEqual(srdPickKind({ __campaign: true, kind: 'monster' }), null);
+    assert.strictEqual(srdPickKind(null), null);
+  });
+
+  it('every search kind has a type label', () => {
+    for (const k of ['spells', 'weapons', 'magic-items', 'campaign:spell', 'campaign:weapon', 'campaign:item', 'campaign:feature']) {
+      assert.ok(SRD_KIND_LABELS[k], `${k} needs a label`);
+    }
+  });
+
+  it('srdFilter keeps the srcKind tag on mixed results', () => {
+    const list = [{ name: 'Fire Bolt', srcKind: 'spells' }, { name: 'Flail', srcKind: 'weapons' }];
+    assert.deepStrictEqual(srdFilter(list, 'f').map(e => e.srcKind), ['spells', 'weapons']);
+  });
+
+  it('the dropdown shows a type tag only when several types are searched', () => {
+    assert.match(srd, /mixed = new Set\(kinds\.map\(k => SRD_KIND_LABELS\[k\]\)\)\.size > 1;/);
+    assert.match(srd, /\$\{mixed && SRD_KIND_LABELS\[r\.srcKind\] \? `<span class="srd-kind">\$\{SRD_KIND_LABELS\[r\.srcKind\]\}<\/span>` : ''\}/);
+  });
+
+  it('adding on the Combat sheet searches every type; edits and the roster stay on one kind', () => {
+    assert.match(editor, /const SEARCH_ALL = \['spells', 'weapons', 'campaign:spell', 'campaign:weapon', 'campaign:feature'\];/);
+    assert.match(editor, /kind: \(\) => ctx\?\.searchAll \? SEARCH_ALL : \(\{/);
+    assert.match(editor, /searchAll: !option && !kind \}/);
+  });
+
+  it('a pick sets the Kind before the form is filled', () => {
+    const body = editor.slice(editor.indexOf('function applySrd('), editor.indexOf('function updatePreview('));
+    assert.match(body, /const picked = srdPickKind\(detail\);\n\s+const kind = \['spell', 'weapon', 'feature'\]\.includes\(picked\) \? picked : \$\('ce-kind'\)\.value;/);
+    assert.ok(body.indexOf('const kind =') < body.indexOf('srdSpellToOption(detail)'), 'kind decided first');
+    assert.match(body, /sync\(\);/);
+  });
+
+  it('the name placeholder says it searches everything', () => {
+    assert.match(editor, /ctx\?\.searchAll \? 'Search spells, weapons and features…'/);
   });
 });
