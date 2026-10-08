@@ -8229,3 +8229,433 @@ describe('Security — escaping, gated tools, schema sync', () => {
     assert.match(sql, /treasury_ledger[\s\S]*?\bmember_name\s+text/, 'treasury_ledger.member_name missing');
   });
 });
+
+
+// ══════════════════════════════════════════════════════════════
+//  COMBAT MATH  (js/nexus-utils.js)
+//
+//  Dice parsing, 2014 5e proficiency / cantrip scaling, hit and
+//  save odds, per-option breakdowns, expected damage and the
+//  "top picks" ranking that drives the Combat reference sheet.
+// ══════════════════════════════════════════════════════════════
+
+describe('Combat math', () => {
+  const {
+    parseDice, diceAvg, formatDice, profFromLevel, cantripTier,
+    hitChance, saveFailChance, effectiveProf, effectiveAbilityMod,
+    isAtWill, combatBreakdown, expectedDamage, rankCombatOptions,
+    COMBAT_ABILITIES,
+  } = require('../js/nexus-utils.js');
+
+  const near = (actual, expected, msg) =>
+    assert.ok(Math.abs(actual - expected) < 1e-9, `${msg || ''} expected ${expected}, got ${actual}`);
+
+  // Level 7 eldritch-knight-ish: STR 18 (+4), DEX 14 (+2), CON 14 (+2).
+  // prof is the stale column default (2); level 7 should give +3.
+  const kael = {
+    name: 'Kael', level: 7, prof: 2,
+    abilities: { str: 18, dex: 14, con: 14, int: 12, wis: 10, cha: 8 },
+    combat: { spellatk: 6, spelldc: 14, attacks: 2 },
+  };
+  const ctx = (over = {}) => ({ member: kael, net: {}, target: { ac: 15, save: 2 }, ...over });
+
+  const longsword  = { name: 'Longsword',     kind: 'weapon', action: 'action', resolve: 'attack', ability: 'str', dice: '1d8', add_mod: true };
+  const shortbow   = { name: 'Shortbow',      kind: 'weapon', action: 'action', resolve: 'attack', ability: 'dex', dice: '1d6', add_mod: true };
+  const fireBolt   = { name: 'Fire Bolt',     kind: 'spell',  action: 'action', resolve: 'attack', ability: 'spell', dice: '1d10', spell_level: 0, scales: true };
+  const fireball   = { name: 'Fireball',      kind: 'spell',  action: 'action', resolve: 'save',   ability: 'spell', dice: '8d6', spell_level: 3, half_on_save: true, aoe: true };
+  const shatter    = { name: 'Shatter',       kind: 'spell',  action: 'action', resolve: 'save',   ability: 'spell', dice: '3d8', spell_level: 2, half_on_save: true };
+  const missile    = { name: 'Magic Missile', kind: 'spell',  action: 'action', resolve: 'auto',   ability: 'spell', dice: '3d4+3', spell_level: 1 };
+  const holdPerson = { name: 'Hold Person',   kind: 'spell',  action: 'action', resolve: 'save',   ability: 'spell', spell_level: 2 };
+
+  describe('parseDice()', () => {
+    it('parses mixed dice and a flat bonus', () => {
+      assert.deepStrictEqual(parseDice('2d6+1d4+3'), { dice: [{ n: 2, s: 6 }, { n: 1, s: 4 }], flat: 3 });
+    });
+    it('treats a bare "d8" as 1d8', () => {
+      assert.deepStrictEqual(parseDice('d8'), { dice: [{ n: 1, s: 8 }], flat: 0 });
+    });
+    it('handles spaces, upper case and a negative flat', () => {
+      assert.deepStrictEqual(parseDice(' 1D8 - 1 '), { dice: [{ n: 1, s: 8 }], flat: -1 });
+    });
+    it('accepts a flat number on its own', () => {
+      assert.deepStrictEqual(parseDice('5'), { dice: [], flat: 5 });
+    });
+    for (const bad of ['', '   ', null, undefined, 'abc', '2d', '1d8+', '-1d4', '1d0', '0d6', '101d6', '1d101', '2d6*2']) {
+      it(`rejects ${JSON.stringify(bad)}`, () => { assert.strictEqual(parseDice(bad), null); });
+    }
+  });
+
+  describe('diceAvg() / formatDice()', () => {
+    it('2d6+3 averages 10', () => { assert.strictEqual(diceAvg(parseDice('2d6+3')), 10); });
+    it('1d8 averages 4.5', () => { assert.strictEqual(diceAvg(parseDice('1d8')), 4.5); });
+    it('8d6 averages 28', () => { assert.strictEqual(diceAvg(parseDice('8d6')), 28); });
+    it('null averages 0', () => { assert.strictEqual(diceAvg(null), 0); });
+    it('round-trips common expressions', () => {
+      for (const s of ['2d6+3', '1d8-1', '5', '2d6+1d4', '1d10']) assert.strictEqual(formatDice(parseDice(s)), s);
+    });
+    it('formats null as an empty string', () => { assert.strictEqual(formatDice(null), ''); });
+  });
+
+  describe('profFromLevel() — PHB table', () => {
+    const table = [[1, 2], [4, 2], [5, 3], [8, 3], [9, 4], [12, 4], [13, 5], [16, 5], [17, 6], [20, 6], [25, 6]];
+    for (const [lvl, prof] of table) it(`level ${lvl} → +${prof}`, () => { assert.strictEqual(profFromLevel(lvl), prof); });
+    it('missing or invalid level → +2', () => {
+      for (const v of [null, undefined, 0, -3, 'abc']) assert.strictEqual(profFromLevel(v), 2);
+    });
+    it('accepts numeric strings', () => { assert.strictEqual(profFromLevel('7'), 3); });
+  });
+
+  describe('cantripTier()', () => {
+    const table = [[1, 1], [4, 1], [5, 2], [10, 2], [11, 3], [16, 3], [17, 4], [20, 4], [null, 1]];
+    for (const [lvl, tier] of table) it(`level ${lvl} → ×${tier}`, () => { assert.strictEqual(cantripTier(lvl), tier); });
+  });
+
+  describe('hitChance()', () => {
+    it('+7 vs AC 15 hits 65%', () => { near(hitChance(7, 15), 0.65); });
+    it('a hopeless attack still hits on a natural 20 (5%)', () => { near(hitChance(0, 30), 0.05); });
+    it('a sure thing still misses on a natural 1 (95%)', () => { near(hitChance(20, 10), 0.95); });
+    it('needing exactly a 20 is 5%', () => { near(hitChance(0, 20), 0.05); });
+    it('needing a 2 is 95%', () => { near(hitChance(5, 7), 0.95); });
+  });
+
+  describe('saveFailChance()', () => {
+    it('DC 15 vs +2 fails 60%', () => { near(saveFailChance(15, 2), 0.6); });
+    it('DC 8 vs +0 fails 35%', () => { near(saveFailChance(8, 0), 0.35); });
+    it('no auto-fail on a natural 1: DC <= bonus+1 never fails', () => { near(saveFailChance(10, 15), 0); near(saveFailChance(3, 2), 0); });
+    it('no auto-success on a natural 20: impossible saves always fail', () => { near(saveFailChance(30, 0), 1); });
+  });
+
+  describe('effectiveProf() / effectiveAbilityMod()', () => {
+    it('uses the level table when the stored prof is stale', () => { assert.strictEqual(effectiveProf(kael, {}), 3); });
+    it('keeps a stored prof that is higher than the table', () => {
+      assert.strictEqual(effectiveProf({ level: 3, prof: 4 }, {}), 4);
+    });
+    it('adds prof_bonus item effects', () => {
+      assert.strictEqual(effectiveProf(kael, { prof_bonus: { bonus: 1, penalty: 0 } }), 4);
+    });
+    it('ability items change the score, not the modifier directly', () => {
+      // STR 18 + 2 = 20 → +5;  STR 18 + 1 = 19 → still +4
+      assert.strictEqual(effectiveAbilityMod(kael, { str: { bonus: 2, penalty: 0 } }, 'str'), 5);
+      assert.strictEqual(effectiveAbilityMod(kael, { str: { bonus: 1, penalty: 0 } }, 'str'), 4);
+    });
+    it('missing ability scores count as 10', () => { assert.strictEqual(effectiveAbilityMod({}, {}, 'wis'), 0); });
+  });
+
+  describe('isAtWill()', () => {
+    it('weapons and cantrips are at-will', () => { assert.ok(isAtWill(longsword)); assert.ok(isAtWill(fireBolt)); });
+    it('leveled spells and features are not', () => {
+      assert.ok(!isAtWill(fireball));
+      assert.ok(!isAtWill({ kind: 'feature', name: 'Breath Weapon' }));
+    });
+  });
+
+  describe('combatBreakdown()', () => {
+    it('weapon to-hit = ability mod + prof, with labelled parts', () => {
+      const b = combatBreakdown(longsword, ctx());
+      assert.strictEqual(b.toHit.total, 7);
+      assert.deepStrictEqual(b.toHit.parts, [{ label: 'STR', value: 4 }, { label: 'Prof', value: 3 }]);
+      assert.strictEqual(b.dc, null);
+    });
+    it('weapon damage adds the ability mod once per hit', () => {
+      const b = combatBreakdown(longsword, ctx());
+      assert.strictEqual(b.damage.perHit, 8.5);
+      assert.strictEqual(b.damage.diceOnly, 4.5);
+      assert.strictEqual(b.damage.diceText, '1d8');
+    });
+    it('add_mod false (off-hand) leaves the mod off damage', () => {
+      assert.strictEqual(combatBreakdown({ ...longsword, add_mod: false }, ctx()).damage.perHit, 4.5);
+    });
+    it('item attack/damage bonuses show up as an "Items" part', () => {
+      const { net } = computeNetEffects('Kael', [{ name: 'Banner', holder: 'Party', statEffects: [
+        { stat: 'attack_rolls', type: 'bonus', value: 1 },
+        { stat: 'damage_rolls', type: 'bonus', value: 2 },
+      ] }]);
+      const b = combatBreakdown(longsword, ctx({ net }));
+      assert.strictEqual(b.toHit.total, 8);
+      assert.deepStrictEqual(b.toHit.parts.at(-1), { label: 'Items', value: 1 });
+      assert.strictEqual(b.damage.perHit, 10.5);
+    });
+    it('spell attacks use the stored Spell Atk plus spell_attack items', () => {
+      const b = combatBreakdown(fireBolt, ctx({ net: { spell_attack: { bonus: 1, penalty: 0 } } }));
+      assert.strictEqual(b.toHit.total, 7);
+      assert.deepStrictEqual(b.toHit.parts[0], { label: 'Spell Atk', value: 6 });
+    });
+    it('spell saves use the stored Spell DC plus spell_dc items', () => {
+      assert.strictEqual(combatBreakdown(fireball, ctx()).dc.total, 14);
+      assert.strictEqual(combatBreakdown(fireball, ctx({ net: { spell_dc: { bonus: 1, penalty: 0 } } })).dc.total, 15);
+    });
+    it('non-spell save DC = 8 + prof + ability mod (e.g. Breath Weapon on CON)', () => {
+      const breath = { name: 'Breath Weapon', kind: 'feature', action: 'action', resolve: 'save', ability: 'con', dice: '2d6', half_on_save: true };
+      assert.strictEqual(combatBreakdown(breath, ctx()).dc.total, 13);
+    });
+    it('spells never add an ability mod and take spell_damage, not damage_rolls', () => {
+      const net = { damage_rolls: { bonus: 5, penalty: 0 }, spell_damage: { bonus: 1, penalty: 0 } };
+      assert.strictEqual(combatBreakdown(fireball, ctx({ net })).damage.perHit, 29);
+    });
+    it('weapon-based spells (Booming Blade on STR) take the mod and damage_rolls', () => {
+      const bb = { name: 'Booming Blade', kind: 'spell', action: 'action', resolve: 'attack', ability: 'str', dice: '1d8', extra_dice: '1d8', spell_level: 0, add_mod: true };
+      const b = combatBreakdown(bb, ctx({ net: { damage_rolls: { bonus: 1, penalty: 0 } } }));
+      assert.strictEqual(b.damage.perHit, 4.5 + 4.5 + 4 + 1);
+      assert.strictEqual(b.damage.diceText, '1d8 + 1d8');
+    });
+    it('scaling cantrips multiply the main dice by tier (level 7 → 2d10)', () => {
+      const b = combatBreakdown(fireBolt, ctx());
+      assert.strictEqual(b.damage.diceText, '2d10');
+      assert.strictEqual(b.damage.perHit, 11);
+    });
+    it('cantrips without scales, and extra dice, are not scaled', () => {
+      assert.strictEqual(combatBreakdown({ ...fireBolt, scales: false }, ctx()).damage.diceText, '1d10');
+      const b = combatBreakdown({ ...fireBolt, extra_dice: '1d6' }, ctx());
+      assert.strictEqual(b.damage.diceText, '2d10 + 1d6');
+    });
+    it('scaling never touches the stored option', () => {
+      const opt = { ...fireBolt };
+      combatBreakdown(opt, ctx());
+      assert.strictEqual(opt.dice, '1d10');
+    });
+    it('dice-only average excludes flat bonuses (they do not double on a crit)', () => {
+      assert.strictEqual(combatBreakdown(missile, ctx()).damage.diceOnly, 7.5);
+    });
+    it('per-hit damage never goes negative', () => {
+      const weak = { ...kael, abilities: { str: 1 } };
+      assert.strictEqual(combatBreakdown({ ...longsword, dice: '1d4' }, ctx({ member: weak })).damage.perHit, 0);
+    });
+    it('no dice → damage is null', () => { assert.strictEqual(combatBreakdown(holdPerson, ctx()).damage, null); });
+    it('Extra Attack applies only to weapons on the Action', () => {
+      assert.strictEqual(combatBreakdown(longsword, ctx()).attacks, 2);
+      assert.strictEqual(combatBreakdown({ ...longsword, action: 'bonus' }, ctx()).attacks, 1);
+      assert.strictEqual(combatBreakdown(fireBolt, ctx()).attacks, 1);
+    });
+    it('missing or zero attacks count as 1', () => {
+      for (const attacks of [undefined, 0, 'x']) {
+        const m = { ...kael, combat: { ...kael.combat, attacks } };
+        assert.strictEqual(combatBreakdown(longsword, ctx({ member: m })).attacks, 1);
+      }
+    });
+    it('tolerates a member with no combat/abilities at all', () => {
+      const b = combatBreakdown(longsword, { member: {}, net: {} });
+      assert.strictEqual(b.toHit.total, 2);
+      assert.strictEqual(b.attacks, 1);
+    });
+    it('COMBAT_ABILITIES lists the six abilities', () => {
+      assert.deepStrictEqual(COMBAT_ABILITIES, ['str', 'dex', 'con', 'int', 'wis', 'cha']);
+    });
+  });
+
+  describe('expectedDamage()', () => {
+    it('longsword x2: (65% * 8.5 + 5% * 4.5) * 2 = 11.5', () => { near(expectedDamage(longsword, ctx()), 11.5); });
+    it('Fire Bolt at level 7: 60% * 11 + 5% * 11 = 7.15', () => { near(expectedDamage(fireBolt, ctx()), 7.15); });
+    it('Fireball: 55% * 28 + 45% * 14 = 21.7', () => { near(expectedDamage(fireball, ctx()), 21.7); });
+    it('save with no half damage gets nothing on a success', () => {
+      near(expectedDamage({ ...fireball, half_on_save: false }, ctx()), 0.55 * 28);
+    });
+    it('auto-hit is just the average', () => { near(expectedDamage(missile, ctx()), 10.5); });
+    it('a higher target AC lowers attack damage', () => {
+      assert.ok(expectedDamage(longsword, ctx({ target: { ac: 20, save: 2 } })) < expectedDamage(longsword, ctx()));
+    });
+    it('an impossible AC still leaves natural-20 crits', () => {
+      near(expectedDamage(longsword, ctx({ target: { ac: 40, save: 2 } })), (0.05 * 8.5 + 0.05 * 4.5) * 2);
+    });
+    it('no damage dice or resolve "none" → 0', () => {
+      assert.strictEqual(expectedDamage(holdPerson, ctx()), 0);
+      assert.strictEqual(expectedDamage({ ...longsword, resolve: 'none' }, ctx()), 0);
+    });
+  });
+
+  describe('rankCombatOptions()', () => {
+    it('ranks by expected damage and takes the top 3', () => {
+      const { ranked, top } = rankCombatOptions([shortbow, fireBolt, holdPerson, longsword, missile, fireball], ctx());
+      assert.deepStrictEqual(ranked.map(r => r.option.name), ['Fireball', 'Longsword', 'Magic Missile', 'Fire Bolt', 'Shortbow']);
+      assert.deepStrictEqual(top.map(r => r.option.name), ['Fireball', 'Longsword', 'Magic Missile']);
+    });
+    it('non-damage options are left out of the ranking', () => {
+      const { ranked } = rankCombatOptions([holdPerson, { ...longsword, resolve: 'none' }], ctx());
+      assert.deepStrictEqual(ranked, []);
+    });
+    it('bestAtWill is null when an at-will option already made the top 3', () => {
+      assert.strictEqual(rankCombatOptions([longsword, fireball, missile], ctx()).bestAtWill, null);
+    });
+    it('bestAtWill surfaces the best weapon/cantrip when the top 3 all cost resources', () => {
+      const { top, bestAtWill } = rankCombatOptions([fireBolt, fireball, missile, shatter], ctx());
+      assert.ok(top.every(r => !isAtWill(r.option)));
+      assert.strictEqual(bestAtWill.option.name, 'Fire Bolt');
+    });
+    it('bestAtWill is null when there are no at-will options at all', () => {
+      assert.strictEqual(rankCombatOptions([fireball, missile, shatter, { ...shatter, name: 'Shatter 2' }], ctx()).bestAtWill, null);
+    });
+    it('the target changes the order (high AC favours save spells)', () => {
+      const lowAc  = rankCombatOptions([longsword, shatter], ctx({ target: { ac: 10, save: 2 } }));
+      const highAc = rankCombatOptions([longsword, shatter], ctx({ target: { ac: 22, save: 2 } }));
+      assert.strictEqual(lowAc.top[0].option.name, 'Longsword');
+      assert.strictEqual(highAc.top[0].option.name, 'Shatter');
+    });
+    it('ties break alphabetically', () => {
+      const { ranked } = rankCombatOptions([{ ...missile, name: 'Zap' }, { ...missile, name: 'Arc' }], ctx());
+      assert.deepStrictEqual(ranked.map(r => r.option.name), ['Arc', 'Zap']);
+    });
+    it('each entry carries its breakdown and expected value', () => {
+      const [r] = rankCombatOptions([longsword], ctx()).ranked;
+      assert.strictEqual(r.breakdown.toHit.total, 7);
+      near(r.expected, 11.5);
+    });
+    it('empty / missing input is safe', () => {
+      assert.deepStrictEqual(rankCombatOptions([], ctx()), { ranked: [], top: [], bestAtWill: null });
+      assert.deepStrictEqual(rankCombatOptions(null, ctx()), { ranked: [], top: [], bestAtWill: null });
+    });
+  });
+});
+
+describe('normalizeCombatTarget()', () => {
+  const { normalizeCombatTarget, COMBAT_TARGET_DEFAULTS } = require('../js/nexus-utils.js');
+
+  it('defaults to AC 15 / save +2', () => {
+    assert.deepStrictEqual(COMBAT_TARGET_DEFAULTS, { ac: 15, save: 2 });
+    assert.deepStrictEqual(normalizeCombatTarget({}), { ac: 15, save: 2 });
+    assert.deepStrictEqual(normalizeCombatTarget(null), { ac: 15, save: 2 });
+  });
+  it('keeps valid values and accepts numeric strings', () => {
+    assert.deepStrictEqual(normalizeCombatTarget({ ac: 18, save: 5 }), { ac: 18, save: 5 });
+    assert.deepStrictEqual(normalizeCombatTarget({ ac: '12', save: '-1' }), { ac: 12, save: -1 });
+  });
+  it('keeps a save bonus of 0 (not treated as missing)', () => {
+    assert.strictEqual(normalizeCombatTarget({ ac: 15, save: 0 }).save, 0);
+  });
+  it('clamps out-of-range values', () => {
+    assert.deepStrictEqual(normalizeCombatTarget({ ac: 99, save: 50 }), { ac: 40, save: 20 });
+    assert.deepStrictEqual(normalizeCombatTarget({ ac: -4, save: -20 }), { ac: 1, save: -5 });
+  });
+  it('drops fractions and junk', () => {
+    assert.deepStrictEqual(normalizeCombatTarget({ ac: 14.7, save: 'abc' }), { ac: 14, save: 2 });
+  });
+  it('returns a fresh object, never the shared defaults', () => {
+    const t = normalizeCombatTarget({});
+    t.ac = 99;
+    assert.strictEqual(COMBAT_TARGET_DEFAULTS.ac, 15);
+  });
+});
+
+describe('isWeaponItem()', () => {
+  const { isWeaponItem } = require('../js/nexus-utils.js');
+  for (const type of ['Melee Weapon', 'Ranged Weapon', 'Thrown Weapon', 'Other Weapon', 'Weapon', 'Ammunition']) {
+    it(`"${type}" is a weapon`, () => { assert.ok(isWeaponItem({ type })); });
+  }
+  for (const type of ['Wondrous', 'Ring', 'Shield', 'Light Armor', 'Potion of Healing', '', undefined]) {
+    it(`${JSON.stringify(type)} is not`, () => { assert.ok(!isWeaponItem({ type })); });
+  }
+  it('handles a missing item', () => { assert.ok(!isWeaponItem(null)); });
+});
+
+// ══════════════════════════════════════════════════════════════
+//  COMBAT — weapon-specific bonuses
+//
+//  A +1 longsword's attack/damage bonus applies to attacks made
+//  with that sword only. Non-weapon items (a Party banner,
+//  Bracers of Archery stored as a wondrous item) still apply to
+//  every attack.
+// ══════════════════════════════════════════════════════════════
+
+describe('Combat — weapon-specific bonuses', () => {
+  const {
+    computeNetEffects, weaponBonus, combatContext, combatBreakdown,
+    rankCombatOptions, WEAPON_SCOPED_STATS,
+  } = require('../js/nexus-utils.js');
+
+  const kael = { name: 'Kael', level: 5, prof: 3, abilities: { str: 16, dex: 14 }, combat: { attacks: 2, spellatk: 5 } };
+  const plusOneSword = { id: 'sw', name: 'Longsword +1', type: 'Melee Weapon', holder: 'Kael', statEffects: [
+    { stat: 'attack_rolls', type: 'bonus', value: 1 },
+    { stat: 'damage_rolls', type: 'bonus', value: 1 },
+    { stat: 'ac', type: 'bonus', value: 1 },
+  ] };
+  const banner = { id: 'bn', name: 'War Banner', type: 'Wondrous', holder: 'Party', statEffects: [
+    { stat: 'attack_rolls', type: 'bonus', value: 1 },
+  ] };
+  const othersBlade = { id: 'ob', name: 'Flame Tongue', type: 'Melee Weapon', holder: 'Mira', statEffects: [
+    { stat: 'damage_rolls', type: 'bonus', value: 7 },
+  ] };
+  const items = [plusOneSword, banner, othersBlade];
+  const target = { ac: 15, save: 2 };
+
+  const sword = { id: 'o1', name: 'Longsword', kind: 'weapon', action: 'action', resolve: 'attack', ability: 'str', dice: '1d8', loot_item_id: 'sw' };
+  const bow   = { id: 'o2', name: 'Shortbow',  kind: 'weapon', action: 'action', resolve: 'attack', ability: 'dex', dice: '1d6' };
+
+  it('WEAPON_SCOPED_STATS is attack and damage rolls', () => {
+    assert.deepStrictEqual(WEAPON_SCOPED_STATS, ['attack_rolls', 'damage_rolls']);
+  });
+
+  it('computeNetEffects is unchanged by default (roster still sees every bonus)', () => {
+    const { net } = computeNetEffects('Kael', items);
+    assert.strictEqual(net.attack_rolls.bonus, 2);
+    assert.strictEqual(net.damage_rolls.bonus, 1);
+  });
+
+  it('excludeWeaponAttackFx drops weapon attack/damage but keeps other weapon effects', () => {
+    const { net, relevant } = computeNetEffects('Kael', items, { excludeWeaponAttackFx: true });
+    assert.strictEqual(net.attack_rolls.bonus, 1, 'banner only');
+    assert.strictEqual(net.damage_rolls, undefined);
+    assert.strictEqual(net.ac.bonus, 1, 'the sword still grants its AC bonus');
+    assert.strictEqual(relevant.length, 2, 'the item list itself is unchanged');
+  });
+
+  it('weaponBonus sums bonus − penalty for attack and damage', () => {
+    assert.deepStrictEqual(weaponBonus(plusOneSword), { name: 'Longsword +1', attack: 1, damage: 1 });
+    const cursed = { name: 'Cursed Axe', statEffects: [
+      { stat: 'attack_rolls', type: 'penalty', value: 2 },
+      { stat: 'damage_rolls', type: 'bonus', value: 3 },
+      { stat: 'attack_rolls', type: 'advantage', value: null },
+    ] };
+    assert.deepStrictEqual(weaponBonus(cursed), { name: 'Cursed Axe', attack: -2, damage: 3 });
+    assert.deepStrictEqual(weaponBonus({}), { name: 'Weapon', attack: 0, damage: 0 });
+  });
+
+  it('the linked sword gets its own +1 (labelled by name) plus the banner', () => {
+    const b = combatBreakdown(sword, combatContext(kael, items, sword, target));
+    assert.strictEqual(b.toHit.total, 3 + 3 + 1 + 1);
+    assert.deepStrictEqual(b.toHit.parts.map(p => p.label), ['STR', 'Prof', 'Longsword +1', 'Items']);
+    assert.strictEqual(b.damage.perHit, 4.5 + 3 + 1);
+  });
+
+  it('the bow no longer picks up the sword bonus', () => {
+    const b = combatBreakdown(bow, combatContext(kael, items, bow, target));
+    assert.strictEqual(b.toHit.total, 2 + 3 + 1, 'DEX + prof + banner only');
+    assert.strictEqual(b.damage.perHit, 3.5 + 2);
+  });
+
+  it('a link to a weapon someone else holds gives no bonus', () => {
+    const borrowed = { ...sword, loot_item_id: 'ob' };
+    const ctx = combatContext(kael, items, borrowed, target);
+    assert.strictEqual(ctx.weapon, null);
+    assert.strictEqual(combatBreakdown(borrowed, ctx).damage.perHit, 4.5 + 3);
+  });
+
+  it('a link to a non-weapon item gives no weapon bonus', () => {
+    assert.strictEqual(combatContext(kael, items, { ...sword, loot_item_id: 'bn' }, target).weapon, null);
+  });
+
+  it('spells cast with the spell ability ignore a linked weapon', () => {
+    const bolt = { id: 'o3', name: 'Fire Bolt', kind: 'spell', resolve: 'attack', ability: 'spell', dice: '1d10', spell_level: 0, loot_item_id: 'sw' };
+    const b = combatBreakdown(bolt, combatContext(kael, items, bolt, target));
+    assert.strictEqual(b.toHit.total, 5);
+    assert.ok(!b.damage.parts.some(p => p.label === 'Longsword +1'));
+  });
+
+  it('weapon-based cantrips linked to the sword get its bonus', () => {
+    const bb = { id: 'o4', name: 'Booming Blade', kind: 'spell', resolve: 'attack', ability: 'str', dice: '1d8', extra_dice: '1d8', spell_level: 0, loot_item_id: 'sw' };
+    const b = combatBreakdown(bb, combatContext(kael, items, bb, target));
+    assert.ok(b.toHit.parts.some(p => p.label === 'Longsword +1'));
+    assert.ok(b.damage.parts.some(p => p.label === 'Longsword +1'));
+  });
+
+  it('rankCombatOptions accepts a per-option context function', () => {
+    const { ranked } = rankCombatOptions([bow, sword], o => combatContext(kael, items, o, target));
+    assert.deepStrictEqual(ranked.map(r => r.option.name), ['Longsword', 'Shortbow']);
+    assert.strictEqual(ranked[0].breakdown.toHit.total, 8);
+    assert.strictEqual(ranked[1].breakdown.toHit.total, 6);
+  });
+
+  it('a member with no items still gets a usable context', () => {
+    const ctx = combatContext(kael, [], bow, target);
+    assert.deepStrictEqual(ctx.net, {});
+    assert.strictEqual(ctx.weapon, null);
+    assert.strictEqual(ctx.target, target);
+  });
+});

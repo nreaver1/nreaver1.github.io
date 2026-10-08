@@ -146,8 +146,13 @@ const DAMAGE_TYPES = [
  * Matching is case-insensitive. Items held by 'Party' apply to all members.
  * The top-level bonus/penalty totals always reflect the grand total so
  * existing code that reads net[stat].bonus continues to work unchanged.
+ *
+ * opts.excludeWeaponAttackFx — skip attack_rolls / damage_rolls effects on
+ *   weapon-type items (isWeaponItem). A +1 longsword's bonus belongs to
+ *   attacks made with that sword, not to the holder's bow; the Combat sheet
+ *   adds it back per option via combatContext(). Default false.
  */
-function computeNetEffects(memberName, items) {
+function computeNetEffects(memberName, items, opts = {}) {
   const relevant = items.filter(it => {
     const h = (it.holder || '').toLowerCase().trim();
     const n = (memberName || '').toLowerCase().trim();
@@ -156,8 +161,10 @@ function computeNetEffects(memberName, items) {
 
   const net = {};
   for (const item of relevant) {
+    const weaponOnly = opts.excludeWeaponAttackFx && isWeaponItem(item);
     for (const fx of (item.statEffects || [])) {
       if (!fx.stat) continue;
+      if (weaponOnly && WEAPON_SCOPED_STATS.includes(fx.stat)) continue;
       if (!net[fx.stat]) net[fx.stat] = { bonus: 0, penalty: 0, advantage: 0, disadvantage: 0, sources: [] };
 
       // ── Top-level totals (unchanged behaviour) ──
@@ -185,6 +192,372 @@ function computeNetEffects(memberName, items) {
     }
   }
   return { net, relevant };
+}
+
+
+// ──────────────────────────────────────────────────────────────
+//  COMBAT MATH  (2014 5e)
+//  Powers the Combat reference sheet: per-option to-hit / DC /
+//  damage, expected damage vs the DM's target, and the ranking.
+// ──────────────────────────────────────────────────────────────
+
+const COMBAT_ABILITIES = ['str', 'dex', 'con', 'int', 'wis', 'cha'];
+
+/**
+ * parseDice(str)
+ * Parses a damage expression like '2d6+1d4+3', 'd8', '1d8 - 1' or '5'.
+ * Returns { dice: [{n, s}], flat } or null for empty/invalid input.
+ * Negative dice, d0 and absurd sizes (>100) are rejected.
+ */
+function parseDice(str) {
+  const s = String(str == null ? '' : str).replace(/\s+/g, '').toLowerCase();
+  if (!s || !/^[+-]?(\d*d\d+|\d+)([+-](\d*d\d+|\d+))*$/.test(s)) return null;
+  const dice = [];
+  let flat = 0;
+  for (const [, sign, term] of s.matchAll(/([+-]?)(\d*d\d+|\d+)/g)) {
+    if (term.includes('d')) {
+      const [nRaw, sRaw] = term.split('d');
+      const n = nRaw === '' ? 1 : parseInt(nRaw, 10);
+      const sides = parseInt(sRaw, 10);
+      if (sign === '-' || n < 1 || n > 100 || sides < 1 || sides > 100) return null;
+      dice.push({ n, s: sides });
+    } else {
+      flat += (sign === '-' ? -1 : 1) * parseInt(term, 10);
+    }
+  }
+  return { dice, flat };
+}
+
+/**
+ * diceAvg(parsed)
+ * Average of a parsed expression: n·(s+1)/2 per die group, plus flat.
+ * Example: diceAvg(parseDice('2d6+3')) → 10
+ */
+function diceAvg(parsed) {
+  if (!parsed) return 0;
+  return parsed.dice.reduce((t, d) => t + d.n * (d.s + 1) / 2, 0) + (parsed.flat || 0);
+}
+
+/**
+ * formatDice(parsed)
+ * Turns a parsed expression back into text: { dice:[{n:2,s:6}], flat:3 } → '2d6+3'.
+ */
+function formatDice(parsed) {
+  if (!parsed) return '';
+  const text = parsed.dice.map(d => `${d.n}d${d.s}`).join('+');
+  const flat = parsed.flat || 0;
+  if (!text) return String(flat);
+  if (!flat) return text;
+  return text + (flat > 0 ? `+${flat}` : String(flat));
+}
+
+/**
+ * profFromLevel(level)
+ * PHB proficiency bonus: +2 at 1–4, +3 at 5–8, +4 at 9–12, +5 at 13–16, +6 at 17+.
+ * Missing/invalid level → +2.
+ */
+function profFromLevel(level) {
+  const lvl = parseInt(level, 10);
+  if (!lvl || lvl < 1) return 2;
+  return Math.min(6, 2 + Math.floor((lvl - 1) / 4));
+}
+
+/**
+ * cantripTier(level)
+ * Cantrip damage-dice multiplier: ×1 below 5, ×2 at 5, ×3 at 11, ×4 at 17.
+ */
+function cantripTier(level) {
+  const lvl = parseInt(level, 10) || 1;
+  if (lvl >= 17) return 4;
+  if (lvl >= 11) return 3;
+  if (lvl >= 5)  return 2;
+  return 1;
+}
+
+/**
+ * hitChance(attackBonus, ac)
+ * Chance that d20 + attackBonus ≥ AC. Clamped to 5–95% because a
+ * natural 1 always misses and a natural 20 always hits.
+ */
+function hitChance(attackBonus, ac) {
+  const p = (21 - ((ac || 0) - (attackBonus || 0))) / 20;
+  return Math.min(0.95, Math.max(0.05, p));
+}
+
+/**
+ * saveFailChance(dc, saveBonus)
+ * Chance that d20 + saveBonus < DC. Clamped to 0–100%: in 2014 rules a
+ * natural 1/20 does NOT auto-fail/succeed a saving throw.
+ */
+function saveFailChance(dc, saveBonus) {
+  const p = ((dc || 0) - 1 - (saveBonus || 0)) / 20;
+  return Math.min(1, Math.max(0, p));
+}
+
+// Net bonus − penalty for one stat key, or 0.
+function _netVal(net, key) {
+  const n = net && net[key];
+  return n ? (n.bonus || 0) - (n.penalty || 0) : 0;
+}
+
+/**
+ * effectiveProf(member, net)
+ * Proficiency bonus used for combat: the higher of the stored `prof`
+ * and the level table (the column defaults to 2 and is often never
+ * updated), plus any prof_bonus item effects.
+ */
+function effectiveProf(member, net) {
+  const base = Math.max(parseInt(member?.prof, 10) || 0, profFromLevel(member?.level));
+  return base + _netVal(net, 'prof_bonus');
+}
+
+/**
+ * effectiveAbilityMod(member, net, ability)
+ * Ability modifier after item bonuses/penalties to the score itself.
+ */
+function effectiveAbilityMod(member, net, ability) {
+  return abilityMod((member?.abilities?.[ability] || 10) + _netVal(net, ability));
+}
+
+/**
+ * isAtWill(option)
+ * Weapons and cantrips can be used every turn; leveled spells and
+ * features are assumed to cost a slot or a use.
+ */
+function isAtWill(option) {
+  return option?.kind === 'weapon' || option?.spell_level === 0;
+}
+
+/**
+ * combatBreakdown(option, ctx)
+ * Works out every number on a combat option, with the parts that make
+ * it up so the UI can explain "+7 = STR +4, Prof +3".
+ *
+ * option — a combat_options row: { kind, action, resolve, ability, dice,
+ *          extra_dice, add_mod, spell_level, scales, half_on_save }
+ * ctx    — { member, net } where net comes from computeNetEffects()
+ *
+ * ability 'spell' uses the member's stored Spell Atk / Spell DC
+ * (combat.spellatk / combat.spelldc) plus spell_attack / spell_dc /
+ * spell_damage item effects. Any other ability uses mod + prof plus
+ * attack_rolls / damage_rolls effects. Spells never add an ability mod
+ * to damage automatically; put the flat bonus in the dice ('1d10+4').
+ *
+ * Returns {
+ *   toHit:  { total, parts:[{label, value}] } | null   (resolve 'attack')
+ *   dc:     { total, parts }                  | null   (resolve 'save')
+ *   damage: { dice, extra, diceText, perHit, diceOnly, parts } | null
+ *   attacks: number   (Extra Attack multiplier; weapons on the Action only)
+ * }
+ */
+function combatBreakdown(option, ctx) {
+  const member = ctx?.member || {};
+  const net    = ctx?.net || {};
+  const weapon = ctx?.weapon || null;   // { name, attack, damage } from the linked loot weapon
+  const prof   = effectiveProf(member, net);
+  const cs     = member.combat || {};
+  const isSpellAbility = option.ability === 'spell';
+  const ab     = COMBAT_ABILITIES.includes(option.ability) ? option.ability : null;
+  const mod    = ab ? effectiveAbilityMod(member, net, ab) : 0;
+  const AB     = ab ? ab.toUpperCase() : '';
+
+  let toHit = null;
+  if (option.resolve === 'attack') {
+    const parts = [];
+    if (isSpellAbility) {
+      parts.push({ label: 'Spell Atk', value: parseInt(cs.spellatk, 10) || 0 });
+      const fx = _netVal(net, 'spell_attack');
+      if (fx) parts.push({ label: 'Items', value: fx });
+    } else {
+      parts.push({ label: AB || 'Ability', value: mod });
+      parts.push({ label: 'Prof', value: prof });
+      if (weapon?.attack) parts.push({ label: weapon.name, value: weapon.attack });
+      const fx = _netVal(net, 'attack_rolls');
+      if (fx) parts.push({ label: 'Items', value: fx });
+    }
+    toHit = { total: parts.reduce((t, p) => t + p.value, 0), parts };
+  }
+
+  let dc = null;
+  if (option.resolve === 'save') {
+    const parts = [];
+    if (isSpellAbility) {
+      parts.push({ label: 'Spell DC', value: parseInt(cs.spelldc, 10) || 0 });
+      const fx = _netVal(net, 'spell_dc');
+      if (fx) parts.push({ label: 'Items', value: fx });
+    } else {
+      parts.push({ label: 'Base', value: 8 });
+      parts.push({ label: 'Prof', value: prof });
+      parts.push({ label: AB || 'Ability', value: mod });
+    }
+    dc = { total: parts.reduce((t, p) => t + p.value, 0), parts };
+  }
+
+  let damage = null;
+  const main = parseDice(option.dice);
+  if (main) {
+    if (option.spell_level === 0 && option.scales) {
+      const tier = cantripTier(member.level);
+      main.dice = main.dice.map(d => ({ n: d.n * tier, s: d.s }));
+    }
+    const extra = parseDice(option.extra_dice);
+    const parts = [{ label: formatDice(main), value: diceAvg(main) }];
+    if (extra) parts.push({ label: formatDice(extra), value: diceAvg(extra) });
+    if (!isSpellAbility && ab && option.add_mod !== false) parts.push({ label: AB, value: mod });
+    if (!isSpellAbility && weapon?.damage) parts.push({ label: weapon.name, value: weapon.damage });
+    // Weapon-based spells (Booming Blade on STR) take weapon damage bonuses.
+    const fx = _netVal(net, isSpellAbility ? 'spell_damage' : 'damage_rolls');
+    if (fx) parts.push({ label: 'Items', value: fx });
+
+    const perHit   = Math.max(0, parts.reduce((t, p) => t + p.value, 0));
+    const diceOnly = diceAvg({ dice: main.dice, flat: 0 }) + (extra ? diceAvg({ dice: extra.dice, flat: 0 }) : 0);
+    const diceText = [formatDice(main), extra ? formatDice(extra) : ''].filter(Boolean).join(' + ');
+    damage = { dice: main, extra, diceText, perHit, diceOnly, parts };
+  }
+
+  const attacks = option.kind === 'weapon' && option.action === 'action'
+    ? Math.max(1, parseInt(cs.attacks, 10) || 1)
+    : 1;
+
+  return { toHit, dc, damage, attacks };
+}
+
+/**
+ * expectedDamage(option, ctx)
+ * Average damage per use against ctx.target = { ac, save }.
+ *   attack: hit% × perHit + 5% crit × dice-only avg (crits double dice)
+ *   save:   fail% × perHit + success% × (half_on_save ? perHit/2 : 0)
+ *   auto:   perHit
+ * Multiplied by the Extra Attack count for weapons on the Action.
+ * Options with no damage or resolve 'none' return 0.
+ */
+function expectedDamage(option, ctx, breakdown) {
+  const b = breakdown || combatBreakdown(option, ctx);
+  if (!b.damage) return 0;
+  const target = ctx?.target || {};
+  const { perHit, diceOnly } = b.damage;
+  let per = 0;
+  if (option.resolve === 'attack' && b.toHit) {
+    per = hitChance(b.toHit.total, target.ac) * perHit + 0.05 * diceOnly;
+  } else if (option.resolve === 'save' && b.dc) {
+    const fail = saveFailChance(b.dc.total, target.save);
+    per = fail * perHit + (1 - fail) * (option.half_on_save ? perHit / 2 : 0);
+  } else if (option.resolve === 'auto') {
+    per = perHit;
+  }
+  return per * b.attacks;
+}
+
+/**
+ * validateCombatOption(row)
+ * Checks a combat_options row before it is saved. Returns an error
+ * message string, or null when the row is fine. Options without dice
+ * are allowed (Hold Person, Shield); they just never rank.
+ */
+const COMBAT_KINDS    = ['weapon', 'spell', 'feature'];
+const COMBAT_ACTIONS  = ['action', 'bonus', 'reaction'];
+const COMBAT_RESOLVES = ['attack', 'save', 'auto', 'none'];
+
+function validateCombatOption(row) {
+  if (!row || !String(row.name || '').trim()) return 'Name is required.';
+  if (String(row.name).length > 80) return 'Name is too long (80 characters max).';
+  if (!COMBAT_KINDS.includes(row.kind)) return 'Pick weapon, spell or feature.';
+  if (!COMBAT_ACTIONS.includes(row.action)) return 'Pick action, bonus action or reaction.';
+  if (!COMBAT_RESOLVES.includes(row.resolve)) return 'Pick how it resolves.';
+  if (row.ability !== 'spell' && !COMBAT_ABILITIES.includes(row.ability)) return 'Pick an ability.';
+  if (row.dice && !parseDice(row.dice)) return `Damage "${row.dice}" isn't a dice expression like 2d6+3.`;
+  if (row.extra_dice && !parseDice(row.extra_dice)) return `Extra damage "${row.extra_dice}" isn't a dice expression like 1d8.`;
+  if (row.extra_dice && !row.dice) return 'Add the main damage dice before extra damage.';
+  if (row.spell_level != null && !(Number.isInteger(row.spell_level) && row.spell_level >= 0 && row.spell_level <= 9)) {
+    return 'Spell level must be cantrip or 1–9.';
+  }
+  return null;
+}
+
+/**
+ * weaponBonus(item)
+ * The attack/damage bonus a weapon item gives to attacks made with it:
+ * { name, attack, damage }, each bonus − penalty over its
+ * attack_rolls / damage_rolls effects.
+ */
+const WEAPON_SCOPED_STATS = ['attack_rolls', 'damage_rolls'];
+
+function weaponBonus(item) {
+  const sum = stat => (item?.statEffects || [])
+    .filter(fx => fx.stat === stat)
+    .reduce((t, fx) => t + (fx.type === 'bonus' ? (fx.value || 0) : fx.type === 'penalty' ? -(fx.value || 0) : 0), 0);
+  return { name: item?.name || 'Weapon', attack: sum('attack_rolls'), damage: sum('damage_rolls') };
+}
+
+/**
+ * combatContext(member, items, option, target)
+ * Everything combatBreakdown / expectedDamage / rankCombatOptions need for
+ * one option: net effects WITHOUT weapon-item attack/damage bonuses, plus
+ * the bonus of the weapon the option is linked to (loot_item_id), but only
+ * while this member or the Party holds it. Items use the computeNetEffects
+ * shape ({ id, name, type, holder, statEffects }).
+ */
+function combatContext(member, items, option, target) {
+  const { net, relevant } = computeNetEffects(member?.name, items || [], { excludeWeaponAttackFx: true });
+  const linked = option?.loot_item_id ? relevant.find(it => it.id === option.loot_item_id) : null;
+  const weapon = linked && isWeaponItem(linked) ? weaponBonus(linked) : null;
+  return { member, net, weapon, target };
+}
+
+/**
+ * isWeaponItem(item)
+ * True for loot items whose type is a weapon ('Melee Weapon',
+ * 'Ranged Weapon', 'Thrown Weapon', 'Other Weapon', legacy 'Weapon')
+ * or 'Ammunition'. Their attack/damage effects belong to the weapon
+ * itself, not to every attack the holder makes.
+ */
+function isWeaponItem(item) {
+  return /weapon|ammunition/i.test(item?.type || '');
+}
+
+/**
+ * COMBAT_TARGET_DEFAULTS / normalizeCombatTarget(target)
+ * The DM's single target (nexus_settings 'combat_target'). Coerces
+ * AC to 1–40 and the save bonus to −5..+20, whole numbers, falling
+ * back to the defaults for anything missing or non-numeric.
+ */
+const COMBAT_TARGET_DEFAULTS = { ac: 15, save: 2 };
+
+function normalizeCombatTarget(target) {
+  const ac   = parseInt(target?.ac, 10);
+  const save = parseInt(target?.save, 10);
+  return {
+    ac:   Number.isFinite(ac)   ? Math.min(40, Math.max(1, ac))    : COMBAT_TARGET_DEFAULTS.ac,
+    save: Number.isFinite(save) ? Math.min(20, Math.max(-5, save)) : COMBAT_TARGET_DEFAULTS.save,
+  };
+}
+
+/**
+ * rankCombatOptions(options, ctx)
+ * Scores every damaging option and sorts best-first (ties by name).
+ * ctx is either one shared context or a function option → context
+ * (so each option can carry its own linked-weapon bonus).
+ * Returns {
+ *   ranked:     [{ option, breakdown, expected }]   damaging options only
+ *   top:        first 3 of ranked
+ *   bestAtWill: best weapon/cantrip, only when none is in top; else null
+ * }
+ */
+function rankCombatOptions(options, ctx) {
+  const ranked = (options || [])
+    .filter(o => o && o.resolve && o.resolve !== 'none')
+    .map(option => {
+      const c = typeof ctx === 'function' ? ctx(option) : ctx;
+      const breakdown = combatBreakdown(option, c);
+      return { option, breakdown, expected: expectedDamage(option, c, breakdown) };
+    })
+    .filter(r => r.breakdown.damage && r.expected > 0)
+    .sort((a, b) => (b.expected - a.expected) || String(a.option.name || '').localeCompare(String(b.option.name || '')));
+  const top = ranked.slice(0, 3);
+  const bestAtWill = top.some(r => isAtWill(r.option))
+    ? null
+    : (ranked.find(r => isAtWill(r.option)) || null);
+  return { ranked, top, bestAtWill };
 }
 
 
@@ -405,6 +778,7 @@ const NAV_LINKS = [
   { href: 'treasury.html',     icon: '💰', label: 'Treasury'     },
   { href: 'loot-tracker.html', icon: '⚔️', label: 'Loot Tracker' },
   { href: 'session-log.html',  icon: '📋', label: 'Session Log'  },
+  { href: 'combat.html',       icon: '🗡️', label: 'Combat'       },
   { href: 'admin.html',        icon: '⚙',  label: 'Admin'        },
 ];
 
@@ -414,6 +788,7 @@ const NAV_MODULE_KEY = {
   'treasury.html':     'treasury',
   'loot-tracker.html': 'lootTracker',
   'session-log.html':  'sessionLog',
+  'combat.html':       'combat',
 };
 
 function buildSidenav(activeHref) {
@@ -486,6 +861,30 @@ if (typeof module !== 'undefined') {
     modStr,
     computeCheck,
     computeNetEffects,
+    COMBAT_ABILITIES,
+    parseDice,
+    diceAvg,
+    formatDice,
+    profFromLevel,
+    cantripTier,
+    hitChance,
+    saveFailChance,
+    effectiveProf,
+    effectiveAbilityMod,
+    isAtWill,
+    combatBreakdown,
+    expectedDamage,
+    rankCombatOptions,
+    COMBAT_KINDS,
+    COMBAT_ACTIONS,
+    COMBAT_RESOLVES,
+    validateCombatOption,
+    isWeaponItem,
+    WEAPON_SCOPED_STATS,
+    weaponBonus,
+    combatContext,
+    COMBAT_TARGET_DEFAULTS,
+    normalizeCombatTarget,
     recalcVaultFromLedger,
     calcSplitShares,
     getMemberNetWorth,
