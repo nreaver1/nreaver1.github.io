@@ -4106,3 +4106,30 @@ body.page-combat main { max-width: 1150px; }
   border-radius: 2px;
   padding: 0 0.3rem;
 }
+
+/* ══════════════════════════════════════════════════════════════
+   KIND COLOUR CODING — weapon (gold) · spell (violet) · feature (green)
+   Combat sheet cards/rows, the shared editor and the name-search dropdown.
+   Each kind class sets --kind; the rules below read it.
+   ══════════════════════════════════════════════════════════════ */
+.cb-k-weapon,  .ce-k-weapon,  .srd-k-weapon  { --kind: var(--gold); }
+.cb-k-spell,   .ce-k-spell,   .srd-k-spell   { --kind: var(--violet); }
+.cb-k-feature, .ce-k-feature, .srd-k-feature { --kind: var(--green); }
+.srd-k-item { --kind: var(--r-rare); }
+
+.cb-pick.cb-k-weapon, .cb-pick.cb-k-spell, .cb-pick.cb-k-feature { border-left: 3px solid var(--kind); }
+.cb-opt.cb-k-weapon, .cb-opt.cb-k-spell, .cb-opt.cb-k-feature { border-left: 3px solid var(--kind); }
+.cb-tag-kind { color: var(--kind); border-color: var(--kind); text-transform: uppercase; letter-spacing: 0.12em; }
+.cb-legend { display: inline-flex; gap: 0.8rem; font-size: 0.65rem; letter-spacing: 0.12em; order: 2; }
+.cb-legend > span { color: var(--kind); display: inline-flex; align-items: center; gap: 0.3rem; }
+.cb-legend > span::before { content: ''; width: 0.55rem; height: 0.55rem; border-radius: 2px; background: var(--kind); }
+
+#ceModal .modal.ce-k-weapon, #ceModal .modal.ce-k-spell, #ceModal .modal.ce-k-feature {
+  border-color: var(--kind);
+  border-top: 4px solid var(--kind);
+}
+#ceModal .ce-k-weapon .modal-title, #ceModal .ce-k-spell .modal-title, #ceModal .ce-k-feature .modal-title { color: var(--kind); text-shadow: none; }
+#ceModal .ce-k-weapon #ce-kind, #ceModal .ce-k-spell #ce-kind, #ceModal .ce-k-feature #ce-kind { border-color: var(--kind); color: var(--kind); font-weight: 700; }
+
+.srd-opt.srd-k-weapon, .srd-opt.srd-k-spell, .srd-opt.srd-k-feature, .srd-opt.srd-k-item { border-left: 3px solid var(--kind); }
+.srd-k-weapon .srd-kind, .srd-k-spell .srd-kind, .srd-k-feature .srd-kind, .srd-k-item .srd-kind { color: var(--kind); border-color: var(--kind); }

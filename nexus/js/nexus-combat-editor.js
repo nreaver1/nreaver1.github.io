@@ -243,6 +243,8 @@ const CombatEditor = (() => {
   // Show only the fields that matter for the current choices
   function sync() {
     const kind = $('ce-kind').value;
+    // Colour the whole window by kind (weapon gold / spell violet / feature green)
+    $('ceModal').querySelector('.modal').className = `modal ce-k-${combatKind({ kind })}`;
     const isSpell = kind === 'spell';
     const isNewWeapon = kind === 'weapon' && !ctx?.option;
     $('ce-spell-box').style.display     = isSpell ? '' : 'none';

@@ -8750,8 +8750,8 @@ describe('Combat page — read view', () => {
   });
 
   it('breakdowns use native <details> so they work without extra JS', () => {
-    assert.match(script, /<details class="cb-pick">/);
-    assert.ok(script.includes(`<details class="cb-opt\${isPrepared(o) ? '' : ' cb-unprepared'}">`));
+    assert.ok(script.includes('<details class="cb-pick cb-k-${combatKind(o)}">'));
+    assert.ok(script.includes(`<details class="cb-opt cb-k-\${combatKind(o)}\${isPrepared(o) ? '' : ' cb-unprepared'}">`));
     assert.match(script, /breakdownHtml\(o, b, r\.expected\)/);
   });
 
@@ -10017,5 +10017,71 @@ describe('Combat editor — search across all types', () => {
 
   it('the name placeholder says it searches everything', () => {
     assert.match(editor, /ctx\?\.searchAll \? 'Search spells, weapons and features…'/);
+  });
+});
+
+
+// ══════════════════════════════════════════════════════════════
+//  KIND COLOUR CODING — weapon gold · spell violet · feature green
+// ══════════════════════════════════════════════════════════════
+
+describe('Kind colour coding', () => {
+  const fs = require('node:fs'), path = require('node:path');
+  const read = f => fs.readFileSync(path.join(__dirname, '..', f), 'utf8');
+  const { combatKind } = require('../js/nexus-utils.js');
+  const css = read('css/nexus.css');
+  const block = css.slice(css.indexOf('KIND COLOUR CODING'));
+
+  it('combatKind passes known kinds and falls back to weapon (safe for class names)', () => {
+    assert.strictEqual(combatKind({ kind: 'spell' }), 'spell');
+    assert.strictEqual(combatKind({ kind: 'feature' }), 'feature');
+    assert.strictEqual(combatKind({ kind: 'weapon' }), 'weapon');
+    assert.strictEqual(combatKind({ kind: '" onmouseover="x' }), 'weapon');
+    assert.strictEqual(combatKind(null), 'weapon');
+  });
+
+  it('each kind maps to its own theme colour', () => {
+    assert.match(block, /\.cb-k-weapon,\s+\.ce-k-weapon,\s+\.srd-k-weapon\s+\{ --kind: var\(--gold\); \}/);
+    assert.match(block, /\.cb-k-spell,\s+\.ce-k-spell,\s+\.srd-k-spell\s+\{ --kind: var\(--violet\); \}/);
+    assert.match(block, /\.cb-k-feature, \.ce-k-feature, \.srd-k-feature \{ --kind: var\(--green\); \}/);
+    assert.ok(!/#[0-9a-fA-F]{3,8}\b/.test(block), 'theme tokens only');
+  });
+
+  it('combat cards and rows carry the kind class and a kind chip; a legend explains it', () => {
+    const page = read('combat.html');
+    assert.ok(page.includes('<details class="cb-pick cb-k-${combatKind(o)}">'));
+    assert.ok(page.includes('<span class="cb-tag cb-tag-kind">${combatKind(o)}</span>'));
+    assert.match(page, /<span class="cb-legend"><span class="cb-k-weapon">weapon<\/span><span class="cb-k-spell">spell<\/span><span class="cb-k-feature">feature<\/span><\/span>/);
+  });
+
+  it('the add/edit window recolours as Kind changes', () => {
+    const editor = read('js/nexus-combat-editor.js');
+    const sync = editor.slice(editor.indexOf('function sync()'), editor.indexOf('function applyKindDefaults('));
+    assert.match(sync, /\$\('ceModal'\)\.querySelector\('\.modal'\)\.className = `modal ce-k-\$\{combatKind\(\{ kind \}\)\}`;/);
+  });
+
+  it('search results are coloured by their source type', () => {
+    assert.match(read('js/nexus-srd.js'), /SRD_KIND_LABELS\[r\.srcKind\] \? ' srd-k-' \+ SRD_KIND_LABELS\[r\.srcKind\]\.toLowerCase\(\) : ''/);
+    assert.match(block, /\.srd-k-item \{ --kind: var\(--r-rare\); \}/);
+  });
+});
+
+describe('SRD weapons list — real weapons only', () => {
+  const { srdListFromResponse } = require('../js/nexus-srd.js');
+  const json = { equipment: [
+    { index: 'longsword', name: 'Longsword', url: '/api/2014/equipment/longsword' },
+    { index: 'flame-tongue', name: 'Flame Tongue', url: '/api/2014/magic-items/flame-tongue' },
+  ] };
+
+  it('drops magic weapons from the weapons list (they have no dice of their own)', () => {
+    assert.deepStrictEqual(srdListFromResponse('weapons', json).map(e => e.name), ['Longsword']);
+  });
+  it('leaves other lists alone', () => {
+    const items = { results: [{ index: 'flame-tongue', name: 'Flame Tongue', url: '/api/2014/magic-items/flame-tongue' }] };
+    assert.strictEqual(srdListFromResponse('magic-items', items).length, 1);
+  });
+  it('handles an empty or odd response', () => {
+    assert.deepStrictEqual(srdListFromResponse('weapons', null), []);
+    assert.deepStrictEqual(srdListFromResponse('spells', {}), []);
   });
 });

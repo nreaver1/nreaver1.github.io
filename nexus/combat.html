@@ -211,12 +211,13 @@ function optionTags(o, b) {
   if (b.attacks > 1) tags.push(`×${b.attacks} attacks`);
   if (o.spell_level === 0) tags.push('cantrip');
   else if (o.spell_level > 0) tags.push(`${ordinal(o.spell_level)} slot`);
-  if (o.kind === 'feature') tags.push('feature');
   if (o.aoe) tags.push('AoE');
   if (o.range) tags.push(esc(o.range));
   if (isAtWill(o)) tags.push('at-will');
   if (!isPrepared(o)) tags.push('not prepared');
-  return tags.map(tag => `<span class="cb-tag${tag === 'at-will' ? ' cb-tag-will' : tag === 'not prepared' ? ' cb-tag-unprep' : ''}">${tag}</span>`).join('');
+  // Kind chip first, in the kind's colour (weapon gold / spell violet / feature green)
+  return `<span class="cb-tag cb-tag-kind">${combatKind(o)}</span>` +
+    tags.map(tag => `<span class="cb-tag${tag === 'at-will' ? ' cb-tag-will' : tag === 'not prepared' ? ' cb-tag-unprep' : ''}">${tag}</span>`).join('');
 }
 
 // The "why is this number what it is" panel shown when an option is expanded
@@ -322,7 +323,9 @@ function renderSheet() {
         ${optionRowHtml(bestAtWill.option, bestAtWill.breakdown, bestAtWill.expected)}
       </div>` : ''}
     ${mine.length ? `
-      <div class="cb-section-label">All options</div>
+      <div class="cb-section-label">All options
+        <span class="cb-legend"><span class="cb-k-weapon">weapon</span><span class="cb-k-spell">spell</span><span class="cb-k-feature">feature</span></span>
+      </div>
       <div class="cb-columns">
         ${ACTION_COLUMNS.map(col => columnHtml(col, mine, ctxFor, scored)).join('')}
       </div>` : ''}
@@ -352,7 +355,7 @@ function summaryHtml(m, net) {
 function pickCardHtml(r, rank) {
   const o = r.option, b = r.breakdown;
   return `
-    <details class="cb-pick">
+    <details class="cb-pick cb-k-${combatKind(o)}">
       <summary>
         <span class="cb-pick-rank">${rank}</span>
         <span class="cb-pick-main">
@@ -368,7 +371,7 @@ function pickCardHtml(r, rank) {
 
 function optionRowHtml(o, b, expected) {
   return `
-    <details class="cb-opt${isPrepared(o) ? '' : ' cb-unprepared'}">
+    <details class="cb-opt cb-k-${combatKind(o)}${isPrepared(o) ? '' : ' cb-unprepared'}">
       <summary>
         <span class="cb-opt-main">
           <span class="cb-opt-name">${esc(o.name)}</span>

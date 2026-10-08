@@ -361,6 +361,20 @@ function srdPickKind(detail) {
   return null;
 }
 
+/**
+ * srdListFromResponse(kind, json)
+ * API list response → [{index, name, url}]. The SRD "weapon" category also
+ * lists ~30 magic weapons (Flame Tongue, Holy Avenger…) that point at
+ * /magic-items/ entries with no damage dice of their own; 'weapons' keeps
+ * only real /equipment/ weapons (magic weapons come from 'magic-items').
+ */
+function srdListFromResponse(kind, json) {
+  const raw = (json && (json.results || json.equipment)) || [];
+  return raw
+    .filter(e => kind !== 'weapons' || String(e.url || '').includes('/equipment/'))
+    .map(e => ({ index: e.index, name: e.name, url: e.url }));
+}
+
 // ──────────────────────────────────────────────────────────────
 //  FETCHING (browser) — lists are cached for the session
 // ──────────────────────────────────────────────────────────────
@@ -371,7 +385,7 @@ async function srdList(kind) {
     return librarySearchList(await CampaignLibrary.load(), kind.slice('campaign:'.length));
   }
   if (_srdMem[kind]) return _srdMem[kind];
-  const key = 'nexus_srd_' + kind;
+  const key = 'nexus_srd2_' + kind;   // v2: weapons list no longer includes magic items
   try {
     const cached = sessionStorage.getItem(key);
     if (cached) return (_srdMem[kind] = JSON.parse(cached));
@@ -379,7 +393,7 @@ async function srdList(kind) {
   const r = await fetch(SRD_API + SRD_LISTS[kind]);
   if (!r.ok) throw new Error(`SRD list ${kind}: ${r.status}`);
   const json = await r.json();
-  const list = (json.results || json.equipment || []).map(e => ({ index: e.index, name: e.name, url: e.url }));
+  const list = srdListFromResponse(kind, json);
   _srdMem[kind] = list;
   try { sessionStorage.setItem(key, JSON.stringify(list)); } catch (e) { /* quota / private mode */ }
   return list;
@@ -463,7 +477,7 @@ function attachSrdSearch(input, { kind, onPick }) {
     if (msg) { box.innerHTML = `<div class="srd-msg">${esc(msg)}</div>`; box.classList.add('open'); return; }
     if (!results.length) { close(); return; }
     box.innerHTML = results.map((r, i) =>
-      `<div class="srd-opt${i === active ? ' active' : ''}" role="option" data-i="${i}">${esc(r.name)}` +
+      `<div class="srd-opt${i === active ? ' active' : ''}${SRD_KIND_LABELS[r.srcKind] ? ' srd-k-' + SRD_KIND_LABELS[r.srcKind].toLowerCase() : ''}" role="option" data-i="${i}">${esc(r.name)}` +
       `${mixed && SRD_KIND_LABELS[r.srcKind] ? `<span class="srd-kind">${SRD_KIND_LABELS[r.srcKind]}</span>` : ''}` +
       `${r.campaign ? '<span class="srd-tag">Campaign</span>' : ''}</div>`
     ).join('') + '<div class="srd-msg">SRD 5e + campaign library · not listed? just type it</div>';
@@ -554,6 +568,7 @@ if (typeof module !== 'undefined') {
     libraryWeaponToLoot,
     SRD_KIND_LABELS,
     srdPickKind,
+    srdListFromResponse,
     CampaignLibrary,
     srdList,
     srdGet,

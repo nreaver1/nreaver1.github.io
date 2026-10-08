@@ -519,6 +519,15 @@ const COMBAT_KINDS    = ['weapon', 'spell', 'feature'];
 const COMBAT_ACTIONS  = ['action', 'bonus', 'reaction'];
 const COMBAT_RESOLVES = ['attack', 'save', 'auto', 'none'];
 
+/**
+ * combatKind(option)
+ * The option's kind if it is a known one, else 'weapon'. Safe to use in a
+ * CSS class name (kind colour coding: weapon / spell / feature).
+ */
+function combatKind(option) {
+  return COMBAT_KINDS.includes(option?.kind) ? option.kind : 'weapon';
+}
+
 function validateCombatOption(row) {
   if (!row || !String(row.name || '').trim()) return 'Name is required.';
   if (String(row.name).length > 80) return 'Name is too long (80 characters max).';
@@ -946,6 +955,7 @@ if (typeof module !== 'undefined') {
     COMBAT_ACTIONS,
     COMBAT_RESOLVES,
     validateCombatOption,
+    combatKind,
     isWeaponItem,
     WEAPON_SCOPED_STATS,
     weaponBonus,
