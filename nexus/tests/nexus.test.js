@@ -2270,7 +2270,7 @@ describe('Rest mechanics — doShortRest and doLongRest', () => {
 // ══════════════════════════════════════════════════════════════
 // Section 31 — Conditions tab DOM structure
 // ══════════════════════════════════════════════════════════════
-describe('Conditions tab — buildCondPanel structure', () => {
+describe('Conditions section (under Stats) — buildCondPanel structure', () => {
   const fs = require('fs'), path = require('path');
   const src = fs.readFileSync(path.join(__dirname,'../party-roster.html'),'utf8');
 
@@ -2278,15 +2278,16 @@ describe('Conditions tab — buildCondPanel structure', () => {
     assert.ok(src.includes('function buildCondPanel('), 'buildCondPanel must be defined');
   });
 
-  it('condTab is built and injected into the card HTML', () => {
-    assert.ok(src.includes('const condTab=buildCondPanel('), 
-      'condTab must be built via buildCondPanel');
-    // The card template must include ${condTab}
-    assert.ok(src.includes('${condTab}'), 'condTab must be injected into card template');
+  it('conditions are built via buildCondPanel and placed inside the Stats tab', () => {
+    assert.ok(src.includes('const condSection=buildCondPanel('),
+      'condSection must be built via buildCondPanel');
+    const stats = src.slice(src.indexOf('const statsTab=`'), src.indexOf('</div>`;', src.indexOf('const statsTab=`')));
+    assert.ok(stats.includes('${condSection}'), 'conditions must render inside the Stats tab');
   });
 
-  it('tab-cond-ID panel is created', () => {
-    assert.ok(src.includes('id="tab-cond-${m.id}"'), 'conditions panel must have id tab-cond-{id}');
+  it('conditions render as a section, not their own tab panel', () => {
+    assert.ok(src.includes('id="cond-sec-${m.id}"'), 'conditions section must have id cond-sec-{id}');
+    assert.ok(!src.includes('id="tab-cond-${m.id}"'), 'there is no separate Conditions tab panel any more');
   });
 
   it('cond-grid renders all 15 chips', () => {
@@ -2307,15 +2308,14 @@ describe('Conditions tab — buildCondPanel structure', () => {
       'chip class must include active when isActive');
   });
 
-  it('switchTab handles "cond" tab (5th tab)', () => {
-    // switchTab must handle 5 tabs: bio, stats, effects, loot, cond
-    assert.ok(src.includes("'bio','stats','effects','loot','cond'"),
-      'switchTab must include cond in its tab list');
+  it('switchTab handles the Spells tab in place of Conditions (5th tab)', () => {
+    assert.ok(src.includes("'bio','stats','effects','loot','spells'"),
+      'switchTab must include spells in its tab list');
   });
 
-  it('Cond tab button exists in card template', () => {
-    assert.ok(src.includes("switchTab('${m.id}','cond',this)"),
-      'Cond tab button must exist in card template');
+  it('Spells tab button replaces the Cond tab button', () => {
+    assert.ok(src.includes("switchTab('${m.id}','spells',this)"), 'Spells tab button must exist');
+    assert.ok(!src.includes("switchTab('${m.id}','cond',this)"), 'Cond tab button must be gone');
   });
 
   it('clearConditions function exists', () => {
@@ -8752,7 +8752,7 @@ describe('Combat page — read view', () => {
 
   it('breakdowns use native <details> so they work without extra JS', () => {
     assert.match(script, /<details class="cb-pick">/);
-    assert.match(script, /<details class="cb-opt">/);
+    assert.ok(script.includes(`<details class="cb-opt\${isPrepared(o) ? '' : ' cb-unprepared'}">`));
     assert.match(script, /breakdownHtml\(o, b, r\.expected\)/);
   });
 
@@ -8823,12 +8823,12 @@ describe('validateCombatOption()', () => {
     assert.match(validateCombatOption({ ...ok, spell_level: -1 }), /Spell level/);
     assert.match(validateCombatOption({ ...ok, spell_level: 1.5 }), /Spell level/);
   });
-  it('the allowed values match the form selects in combat.html', () => {
-    const src = require('node:fs').readFileSync(require('node:path').join(__dirname, '..', 'combat.html'), 'utf8');
+  it('the allowed values match the form selects in the shared editor', () => {
+    const src = require('node:fs').readFileSync(require('node:path').join(__dirname, '..', 'js', 'nexus-combat-editor.js'), 'utf8');
     const values = id => [...src.slice(src.indexOf(`<select id="${id}">`)).split('</select>')[0].matchAll(/value="([^"]*)"/g)].map(m => m[1]);
-    assert.deepStrictEqual(values('opt-kind'), COMBAT_KINDS);
-    assert.deepStrictEqual(values('opt-action'), COMBAT_ACTIONS);
-    assert.deepStrictEqual(values('opt-resolve'), COMBAT_RESOLVES);
+    assert.deepStrictEqual(values('ce-kind'), COMBAT_KINDS);
+    assert.deepStrictEqual(values('ce-action'), COMBAT_ACTIONS);
+    assert.deepStrictEqual(values('ce-resolve'), COMBAT_RESOLVES);
   });
 });
 
@@ -8844,55 +8844,53 @@ describe('isWeaponItem()', () => {
 });
 
 describe('Combat page — option editor', () => {
+  // The add/edit modal lives in js/nexus-combat-editor.js and is shared
+  // by combat.html and the roster's Spells tab.
   const fs   = require('node:fs');
   const path = require('node:path');
-  const src  = fs.readFileSync(path.join(__dirname, '..', 'combat.html'), 'utf8');
-  const script = src.slice(src.indexOf('<script>'));
+  const src  = fs.readFileSync(path.join(__dirname, '..', 'js', 'nexus-combat-editor.js'), 'utf8');
+  const page = fs.readFileSync(path.join(__dirname, '..', 'combat.html'), 'utf8');
   const fnBody = name => {
-    const start = script.search(new RegExp(`(async )?function ${name}\\(`));
+    const start = src.search(new RegExp(`(async )?function ${name}\\(`));
     assert.ok(start >= 0, `${name}() missing`);
-    return script.slice(start, script.indexOf('\n}\n', start));
+    return src.slice(start, src.indexOf('\n  }\n', start));
   };
 
-  for (const fn of ['saveOption', 'deleteOption']) {
+  for (const fn of ['save', 'remove']) {
     it(`${fn}() checks nexusGate before anything else`, () => {
-      assert.match(fnBody(fn), new RegExp(`^async function ${fn}\\([^)]*\\) \\{\\n  if \\(!\\(await nexusGate\\(\\)\\)\\) return;`));
+      assert.match(fnBody(fn), new RegExp(`^async function ${fn}\\([^)]*\\) \\{\\n    if \\(!\\(await nexusGate\\(\\)\\)\\) return;`));
     });
   }
 
-  it('saveOption validates with the shared validator before writing', () => {
-    const body = fnBody('saveOption');
+  it('save validates with the shared validator before writing', () => {
+    const body = fnBody('save');
     assert.ok(body.indexOf('validateCombatOption(row)') < body.indexOf('db.'), 'validate first');
-    assert.match(body, /db\.update\('combat_options', editingId, row\)/);
-    assert.match(body, /db\.insert\('combat_options', full\)/);
-    assert.match(body, /id: uid\(\), member_id: member\.id/);
+    assert.match(body, /db\.update\('combat_options', ctx\.option\.id, row\)/);
+    assert.match(body, /db\.insert\('combat_options', saved\)/);
+    assert.match(body, /id: uid\(\), member_id: ctx\.member\.id/);
     assert.match(body, /setLoading\(btn, true\)/);
   });
 
-  it('saveOption patches the local array after writing (no reload)', () => {
-    const body = fnBody('saveOption');
-    assert.match(body, /options = options\.map\(/);
-    assert.match(body, /options\.push\(full\)/);
-    assert.match(body, /render\(\)/);
+  it('save hands the saved row back so the page patches its arrays (no reload)', () => {
+    assert.match(fnBody('save'), /done && done\(\{ option: saved, isNew, lootItem \}\)/);
+    assert.match(page, /options = isNew \? \[\.\.\.options, saved\] : options\.map\(/);
+    assert.match(page, /if \(lootItem\) items\.push\(lootItem\)/);
   });
 
-  it('deleteOption asks with nexusConfirm (plain text) and deletes by id', () => {
-    const body = fnBody('deleteOption');
+  it('remove asks with nexusConfirm (plain text) and deletes by id', () => {
+    const body = fnBody('remove');
     assert.match(body, /await nexusConfirm\(\{/);
     assert.ok(!/name:\s+esc\(/.test(body), 'nexusConfirm escapes its own fields');
-    assert.match(body, /db\.delete\('combat_options', id\)/);
+    assert.match(body, /db\.delete\('combat_options', option\.id\)/);
   });
 
   it('the form reads every column the table defines', () => {
-    const body = fnBody('readOptionForm');
+    const body = fnBody('read');
     const cols = ['name', 'kind', 'action', 'resolve', 'ability', 'save_ability', 'dice', 'extra_dice',
-      'damage_type', 'add_mod', 'spell_level', 'scales', 'half_on_save', 'aoe', 'range', 'notes', 'loot_item_id'];
-    for (const c of cols) assert.match(body, new RegExp(`\\b${c}[,:]`), `readOptionForm must set ${c}`);
-  });
-
-  it('edit and remove buttons carry the id in data-id, escaped', () => {
-    assert.match(script, /data-action="edit-option" data-id="\$\{esc\(o\.id\)\}"/);
-    assert.match(script, /data-action="delete-option" data-id="\$\{esc\(o\.id\)\}"/);
+      'damage_type', 'add_mod', 'spell_level', 'scales', 'half_on_save', 'aoe', 'range', 'notes', 'loot_item_id',
+      'school', 'components', 'material', 'casting_time', 'duration', 'concentration', 'ritual', 'description',
+      'prepared', 'srd_index'];
+    for (const c of cols) assert.match(body, new RegExp(`\\n\\s+${c}[,:]`), `read() must set ${c}`);
   });
 
   it('only weapons the member (or the party) holds can be linked', () => {
@@ -8902,15 +8900,28 @@ describe('Combat page — option editor', () => {
   });
 
   it('the editor previews the ranking maths live', () => {
-    assert.match(fnBody('updateOptionPreview'), /expectedDamage\(draft, ctx, b\)/);
-    assert.match(script, /\$\('optModal'\)\.addEventListener\('input', updateOptionPreview\)/);
+    assert.match(fnBody('updatePreview'), /expectedDamage\(draft, c, b\)/);
+    assert.match(src, /\$\('ceModal'\)\.addEventListener\('input', updatePreview\)/);
   });
 
   it('damage types come from the shared DAMAGE_TYPES list', () => {
-    assert.match(fnBody('fillDamageTypes'), /DAMAGE_TYPES\.map/);
+    assert.match(src, /DAMAGE_TYPES\.map\(d =>/);
+  });
+
+  it('user text in the modal is escaped', () => {
+    assert.match(src, /\$\{esc\(it\.name\)\}/);
+    assert.match(src, /value="\$\{esc\(it\.id\)\}"/);
+    assert.ok(!/on[a-z]+="/.test(src), 'no inline handlers in the injected markup');
+  });
+
+  it('combat.html loads the SRD and editor scripts after utils and uses CombatEditor', () => {
+    const at = f => page.indexOf(`<script src="js/${f}"></script>`);
+    assert.ok(at('nexus-utils.js') < at('nexus-srd.js') && at('nexus-srd.js') < at('nexus-combat-editor.js'));
+    assert.match(page, /CombatEditor\.open\(\{/);
+    assert.match(page, /CombatEditor\.remove\(o,/);
+    assert.ok(!page.includes('id="optModal"'), 'the old inline modal is gone');
   });
 });
-
 
 // ══════════════════════════════════════════════════════════════
 //  COMBAT — Party Roster integration
@@ -9105,5 +9116,668 @@ describe('Combat — wrap-up', () => {
     assert.match(doc, /\| `combat_options` \|/);
     assert.match(doc, /supabase_combat\.sql/);
     assert.match(doc, /`combat_target`/);
+  });
+});
+
+
+// ══════════════════════════════════════════════════════════════
+//  FLAT STAT ("Set to") ITEM EFFECTS
+//
+//  Gauntlets of Ogre Power: "Your Strength score is 19 while you
+//  wear these gauntlets. They have no effect on you if your
+//  Strength is already 19 or higher." A set effect makes the stat
+//  AT LEAST its value; bonuses apply to the base first.
+// ══════════════════════════════════════════════════════════════
+
+describe('Flat stat (set) effects', () => {
+  const {
+    computeNetEffects, effectiveStat, effectiveAbilityMod, computeCheck,
+    combatBreakdown, SETTABLE_STATS, fxNeedsValue,
+  } = require('../js/nexus-utils.js');
+  const fs = require('node:fs'), path = require('node:path');
+  const read = f => fs.readFileSync(path.join(__dirname, '..', f), 'utf8');
+
+  const gauntlets = { name: 'Gauntlets of Ogre Power', holder: 'Kael', statEffects: [{ stat: 'str', type: 'set', value: 19 }] };
+
+  it('computeNetEffects records the set value', () => {
+    const { net } = computeNetEffects('Kael', [gauntlets]);
+    assert.strictEqual(net.str.set, 19);
+    assert.strictEqual(net.str.bonus, 0);
+    assert.strictEqual(net.str.sources[0].itemName, 'Gauntlets of Ogre Power');
+  });
+
+  it('the highest of several set effects wins', () => {
+    const belt = { name: 'Belt of Hill Giant Strength', holder: 'Party', statEffects: [{ stat: 'str', type: 'set', value: 21 }] };
+    assert.strictEqual(computeNetEffects('Kael', [gauntlets, belt]).net.str.set, 21);
+  });
+
+  it('ignores a set effect with no number', () => {
+    const blank = { name: 'Blank', holder: 'Kael', statEffects: [{ stat: 'str', type: 'set', value: null }] };
+    assert.strictEqual(computeNetEffects('Kael', [blank]).net.str.set, undefined);
+  });
+
+  it('effectiveStat: raises a low score to the set value', () => {
+    assert.strictEqual(effectiveStat(8, { set: 19 }), 19);
+  });
+  it('effectiveStat: does nothing when the score is already higher', () => {
+    assert.strictEqual(effectiveStat(20, { set: 19 }), 20);
+  });
+  it('effectiveStat: bonuses apply to the base before comparing', () => {
+    assert.strictEqual(effectiveStat(16, { bonus: 2, penalty: 0, set: 19 }), 19);
+    assert.strictEqual(effectiveStat(18, { bonus: 2, penalty: 0, set: 19 }), 20);
+  });
+  it('effectiveStat: plain bonus/penalty and missing entries still work', () => {
+    assert.strictEqual(effectiveStat(14, { bonus: 2, penalty: 1 }), 15);
+    assert.strictEqual(effectiveStat(14, undefined), 14);
+  });
+
+  it('ability mod, skill checks and combat to-hit all use the set score', () => {
+    const kael = { name: 'Kael', level: 5, abilities: { str: 8 }, proficiencies: { athletics: true } };
+    const { net } = computeNetEffects('Kael', [gauntlets]);
+    assert.strictEqual(effectiveAbilityMod(kael, net, 'str'), 4);
+    assert.strictEqual(computeCheck('athletics', 'str', kael, net, 3), 7);
+    const axe = { name: 'Greataxe', kind: 'weapon', action: 'action', resolve: 'attack', ability: 'str', dice: '1d12' };
+    assert.strictEqual(combatBreakdown(axe, { member: kael, net }).toHit.total, 4 + 3);
+  });
+
+  it('computeCheck still works with no net effects for the ability', () => {
+    assert.strictEqual(computeCheck('athletics', 'str', { abilities: { str: 14 }, proficiencies: {} }, {}, 2), 2);
+  });
+
+  it('SETTABLE_STATS are the ability scores, AC and speed', () => {
+    assert.deepStrictEqual(SETTABLE_STATS, ['str', 'dex', 'con', 'int', 'wis', 'cha', 'ac', 'speed']);
+  });
+
+  it('fxNeedsValue: bonus, penalty and set carry a number', () => {
+    assert.ok(fxNeedsValue('bonus') && fxNeedsValue('penalty') && fxNeedsValue('set'));
+    assert.ok(!fxNeedsValue('advantage') && !fxNeedsValue('disadvantage'));
+  });
+
+  for (const [file, types, collect] of [
+    ['loot-tracker.html', 'FX_TYPES', 'collectFx'],
+    ['party-roster.html', 'LT_FX_TYPES', 'lt_collectFx'],
+  ]) {
+    it(`${file} offers "=Set to" in the effect type list`, () => {
+      const src = read(file);
+      const list = src.slice(src.indexOf(`const ${types}`), src.indexOf('];', src.indexOf(`const ${types}`)));
+      assert.match(list, /key:\s*'set',\s*label:\s*'=Set to'/);
+    });
+    it(`${file} keeps the value for set effects when saving`, () => {
+      const src = read(file);
+      const body = src.slice(src.indexOf(`function ${collect}(`), src.indexOf(`function ${collect}(`) + 500);
+      assert.match(body, /fxNeedsValue\(f\.type\|\|'bonus'\)\?\(f\.value\|\|0\):null/);
+    });
+    it(`${file} only allows "Set to" on settable stats`, () => {
+      assert.match(read(file), /syncFxSetOption\(/);
+    });
+    it(`${file} shows the value box for set effects`, () => {
+      assert.ok(!/style\.display=\(this\.value==='bonus'\|\|this\.value==='penalty'\)/.test(read(file)),
+        'the value input toggle must use fxNeedsValue so it shows for "set"');
+    });
+  }
+
+  it('loot and roster pills render "STR = 19"', () => {
+    assert.match(read('loot-tracker.html'), /if\(fx\.type==='set'\)\s+return `\$\{statLabel\(fx\.stat\)\} = \$\{fx\.value\}`/);
+    assert.match(read('party-roster.html'), /if\(fx\.type==='set'\)\s+return `\$\{statLabelShort\(fx\.stat\)\} = \$\{fx\.value\}`/);
+    assert.match(read('combat.html'), /fx-pill fx-set">\$\{label\} = \$\{esc\(f\.value\)\}/);
+  });
+
+  it('both roster net-effect copies record set values', () => {
+    const hits = read('party-roster.html').match(/if\(fx\.type==='set'&&Number\.isFinite\(fx\.value\)\) net\[fx\.stat\]\.set=Math\.max/g) || [];
+    assert.strictEqual(hits.length, 2);
+  });
+
+  it('roster ability, AC, speed and initiative use effectiveStat', () => {
+    const src = read('party-roster.html');
+    assert.match(src, /const effectiveScore=effectiveStat\(score,n\);/);
+    assert.match(src, /const acNet=effectiveStat\(cs\.ac\|\|10,net\['ac'\]\)/);
+    assert.match(src, /const spdNet=effectiveStat\(cs\.speed\|\|30,net\['speed'\]\)/);
+    assert.match(src, /const dexMod=abilityMod\(effectiveStat\(abs\['dex'\]\|\|10,net\['dex'\]\)\)/);
+    assert.match(src, /function computeCheck\(key,ability,m,net,prof\)\{\n  let base=abilityMod\(effectiveStat\(/);
+  });
+
+  it('.fx-set pill style exists and uses a theme token', () => {
+    assert.match(read('css/nexus.css'), /^\.fx-set \{ color: var\(--gold\);/m);
+  });
+});
+
+
+// ══════════════════════════════════════════════════════════════
+//  SRD LOOKUP (js/nexus-srd.js)
+//
+//  Fixtures are trimmed copies of real dnd5eapi.co (2014) responses.
+//  Only the pure mapping/search functions are tested here; fetching
+//  and the dropdown run in the browser.
+// ══════════════════════════════════════════════════════════════
+
+describe('SRD lookup — mapping and search', () => {
+  const {
+    srdFilter, srdSpellToOption, srdWeaponToOption, srdItemToLoot, parseSrdItemEffects, SRD_API, SRD_LISTS,
+  } = require('../js/nexus-srd.js');
+  const { validateCombatOption, parseDice } = require('../js/nexus-utils.js');
+
+  const dt = i => ({ index: i, name: i[0].toUpperCase() + i.slice(1) });
+  const FIREBALL = {
+    index: 'fireball', name: 'Fireball', level: 3, school: { name: 'Evocation' },
+    components: ['V', 'S', 'M'], material: 'A tiny ball of bat guano and sulfur.',
+    casting_time: '1 action', range: '150 feet', duration: 'Instantaneous', concentration: false, ritual: false,
+    desc: ['A bright streak flashes...'], higher_level: ['When you cast this spell using a spell slot of 4th level or higher...'],
+    damage: { damage_type: dt('fire'), damage_at_slot_level: { 3: '8d6', 4: '9d6' } },
+    dc: { dc_type: { index: 'dex' }, dc_success: 'half' }, area_of_effect: { type: 'sphere', size: 20 },
+  };
+  const FIRE_BOLT = {
+    index: 'fire-bolt', name: 'Fire Bolt', level: 0, school: { name: 'Evocation' }, components: ['V', 'S'],
+    casting_time: '1 action', range: '120 feet', duration: 'Instantaneous', concentration: false, attack_type: 'ranged',
+    desc: ['You hurl a mote of fire...'],
+    damage: { damage_type: dt('fire'), damage_at_character_level: { 1: '1d10', 5: '2d10', 11: '3d10', 17: '4d10' } },
+  };
+  const MAGIC_MISSILE = {
+    index: 'magic-missile', name: 'Magic Missile', level: 1, casting_time: '1 action', range: '120 feet',
+    components: ['V', 'S'], desc: ['Three glowing darts...'],
+    damage: { damage_type: dt('force'), damage_at_slot_level: { 1: '3d4 + 3', 2: '4d4 + 4' } },
+  };
+  const SPIRITUAL_WEAPON = {
+    index: 'spiritual-weapon', name: 'Spiritual Weapon', level: 2, casting_time: '1 bonus action', attack_type: 'melee',
+    range: '60 feet', components: ['V', 'S'], desc: ['You create a floating...'],
+    damage: { damage_type: dt('force'), damage_at_slot_level: { 2: '1d8 + MOD', 4: '2d8 + MOD' } },
+  };
+  const SHIELD = { index: 'shield', name: 'Shield', level: 1, casting_time: '1 reaction', range: 'Self', components: ['V', 'S'], desc: ['An invisible barrier...'] };
+  const HOLD_PERSON = {
+    index: 'hold-person', name: 'Hold Person', level: 2, casting_time: '1 action', range: '60 feet',
+    components: ['V', 'S', 'M'], concentration: true, duration: 'Up to 1 minute', desc: ['Choose a humanoid...'],
+    dc: { dc_type: { index: 'wis' }, dc_success: 'none' },
+  };
+
+  const LONGSWORD = { index: 'longsword', name: 'Longsword', weapon_range: 'Melee', damage: { damage_dice: '1d8', damage_type: dt('slashing') },
+    range: { normal: 5 }, properties: [{ index: 'versatile', name: 'Versatile' }], two_handed_damage: { damage_dice: '1d10' } };
+  const LONGBOW = { index: 'longbow', name: 'Longbow', weapon_range: 'Ranged', damage: { damage_dice: '1d8', damage_type: dt('piercing') },
+    range: { normal: 150, long: 600 }, properties: [{ index: 'ammunition', name: 'Ammunition' }, { index: 'two-handed', name: 'Two-Handed' }] };
+  const DAGGER = { index: 'dagger', name: 'Dagger', weapon_range: 'Melee', damage: { damage_dice: '1d4', damage_type: dt('piercing') },
+    range: { normal: 5 }, throw_range: { normal: 20, long: 60 },
+    properties: [{ index: 'finesse', name: 'Finesse' }, { index: 'light', name: 'Light' }, { index: 'thrown', name: 'Thrown' }] };
+  const GLAIVE = { index: 'glaive', name: 'Glaive', weapon_range: 'Melee', damage: { damage_dice: '1d10', damage_type: dt('slashing') },
+    range: { normal: 5 }, properties: [{ index: 'reach', name: 'Reach' }] };
+
+  const item = (index, name, cat, rarity, desc) => ({ index, name, equipment_category: { index: cat }, rarity: { name: rarity }, desc });
+  const GAUNTLETS = item('gauntlets-of-ogre-power', 'Gauntlets of Ogre Power', 'wondrous-items', 'Uncommon',
+    ['Wondrous item, uncommon (requires attunement)', 'Your Strength score is 19 while you wear these gauntlets. They have no effect on you if your Strength is already 19 or higher.']);
+  const CLOAK = item('cloak-of-protection', 'Cloak of Protection', 'wondrous-items', 'Uncommon',
+    ['Wondrous item, uncommon (requires attunement)', 'You gain a +1 bonus to AC and saving throws while you wear this cloak.']);
+  const WEAPON1 = item('weapon-1', 'Weapon, +1', 'weapon', 'Uncommon',
+    ['Weapon (any), uncommon', 'You have a +1 bonus to attack and damage rolls made with this magic weapon.']);
+  const WAND = item('wand-of-the-war-mage-1', 'Wand of the War Mage, +1', 'wand', 'Uncommon',
+    ['Wand, uncommon (requires attunement by a spellcaster)', 'While holding this wand, you gain a +1 bonus to spell attack rolls.']);
+  const BELT = item('belt-of-giant-strength-hill', 'Belt of Hill Giant Strength', 'wondrous-items', 'Rare',
+    ['Wondrous item, rare (requires attunement)', 'While wearing this belt, your Strength score changes to a 21.']);
+  const POTION = item('potion-of-healing', 'Potion of Healing', 'potion', 'Varies', ['Potion, varies', 'You regain hit points when you drink this potion.']);
+
+  it('targets the 2014 rules API', () => {
+    assert.strictEqual(SRD_API, 'https://www.dnd5eapi.co');
+    for (const url of Object.values(SRD_LISTS)) assert.match(url, /^\/api\/2014\//);
+  });
+
+  describe('srdFilter()', () => {
+    const list = ['Fire Bolt', 'Fireball', 'Fire Shield', 'Delayed Blast Fireball', 'Wall of Fire', 'Shield', 'Cure Wounds']
+      .map(name => ({ index: name.toLowerCase().replace(/ /g, '-'), name, url: '/x' }));
+    it('ranks prefix matches, then word starts, then substrings', () => {
+      assert.deepStrictEqual(srdFilter(list, 'fire').map(e => e.name),
+        ['Fire Bolt', 'Fire Shield', 'Fireball', 'Delayed Blast Fireball', 'Wall of Fire']);
+      // "Delayed Blast Fireball" and "Wall of Fire" both have a word starting with "fire" → alphabetical
+    });
+    it('ignores case and punctuation', () => {
+      assert.deepStrictEqual(srdFilter([{ name: "Tasha's Hideous Laughter" }], 'TASHAS').map(e => e.name), ["Tasha's Hideous Laughter"]);
+    });
+    it('respects the limit and handles empty input', () => {
+      assert.strictEqual(srdFilter(list, 'i', 2).length, 2);
+      assert.deepStrictEqual(srdFilter(list, '  '), []);
+      assert.deepStrictEqual(srdFilter(null, 'fire'), []);
+    });
+  });
+
+  describe('srdSpellToOption()', () => {
+    it('Fireball: DEX save for half, 8d6 fire, 3rd level, AoE, all spell details', () => {
+      const o = srdSpellToOption(FIREBALL);
+      assert.deepStrictEqual(
+        { kind: o.kind, action: o.action, resolve: o.resolve, ability: o.ability, save: o.save_ability, half: o.half_on_save,
+          dice: o.dice, type: o.damage_type, level: o.spell_level, aoe: o.aoe, range: o.range },
+        { kind: 'spell', action: 'action', resolve: 'save', ability: 'spell', save: 'dex', half: true,
+          dice: '8d6', type: 'fire', level: 3, aoe: true, range: '150 ft (20 ft sphere)' });
+      assert.strictEqual(o.school, 'Evocation');
+      assert.strictEqual(o.components, 'V, S, M');
+      assert.strictEqual(o.material, 'A tiny ball of bat guano and sulfur.');
+      assert.strictEqual(o.casting_time, '1 action');
+      assert.strictEqual(o.duration, 'Instantaneous');
+      assert.strictEqual(o.concentration, false);
+      assert.match(o.description, /bright streak[\s\S]*At higher levels:/);
+      assert.strictEqual(o.srd_index, 'fireball');
+    });
+    it('Fire Bolt: ranged spell attack cantrip that scales', () => {
+      const o = srdSpellToOption(FIRE_BOLT);
+      assert.strictEqual(o.resolve, 'attack');
+      assert.strictEqual(o.dice, '1d10');
+      assert.strictEqual(o.spell_level, 0);
+      assert.strictEqual(o.scales, true);
+    });
+    it('Magic Missile: damage with no attack or save is auto-hit', () => {
+      const o = srdSpellToOption(MAGIC_MISSILE);
+      assert.strictEqual(o.resolve, 'auto');
+      assert.strictEqual(o.dice, '3d4+3');
+    });
+    it('Spiritual Weapon: bonus action, "+ MOD" stripped and noted', () => {
+      const o = srdSpellToOption(SPIRITUAL_WEAPON);
+      assert.strictEqual(o.action, 'bonus');
+      assert.strictEqual(o.dice, '1d8');
+      assert.match(o.notes, /spellcasting modifier/);
+    });
+    it('Shield: reaction with no damage is a utility option', () => {
+      const o = srdSpellToOption(SHIELD);
+      assert.strictEqual(o.action, 'reaction');
+      assert.strictEqual(o.resolve, 'none');
+      assert.strictEqual(o.dice, null);
+    });
+    it('Hold Person: save with no damage, concentration', () => {
+      const o = srdSpellToOption(HOLD_PERSON);
+      assert.strictEqual(o.resolve, 'save');
+      assert.strictEqual(o.save_ability, 'wis');
+      assert.strictEqual(o.half_on_save, false);
+      assert.strictEqual(o.concentration, true);
+    });
+    it('every mapped spell passes validateCombatOption', () => {
+      for (const sp of [FIREBALL, FIRE_BOLT, MAGIC_MISSILE, SPIRITUAL_WEAPON, SHIELD, HOLD_PERSON]) {
+        assert.strictEqual(validateCombatOption(srdSpellToOption(sp)), null, sp.name);
+      }
+    });
+    it('unreadable damage leaves dice empty with a note', () => {
+      const odd = { ...MAGIC_MISSILE, damage: { damage_type: dt('force'), damage_at_slot_level: { 1: 'special' } } };
+      const o = srdSpellToOption(odd);
+      assert.strictEqual(o.dice, null);
+      assert.match(o.notes, /enter the dice by hand/);
+    });
+    it('survives an empty object', () => {
+      const o = srdSpellToOption({});
+      assert.strictEqual(o.kind, 'spell');
+      assert.strictEqual(o.resolve, 'none');
+    });
+  });
+
+  describe('srdWeaponToOption()', () => {
+    const strong = { abilities: { str: 18, dex: 12 } };
+    const nimble = { abilities: { str: 10, dex: 16 } };
+    it('Longsword: STR melee, versatile noted', () => {
+      const o = srdWeaponToOption(LONGSWORD, strong);
+      assert.deepStrictEqual([o.ability, o.dice, o.damage_type, o.range, o.lootType], ['str', '1d8', 'slashing', '5 ft', 'Melee Weapon']);
+      assert.match(o.notes, /two-handed 1d10/);
+      assert.strictEqual(validateCombatOption(o), null);
+    });
+    it('Longbow: DEX, normal/long range, Ranged Weapon', () => {
+      const o = srdWeaponToOption(LONGBOW, strong);
+      assert.deepStrictEqual([o.ability, o.range, o.lootType], ['dex', '150/600 ft', 'Ranged Weapon']);
+    });
+    it('Dagger: finesse picks the better of STR/DEX; thrown range shown', () => {
+      assert.strictEqual(srdWeaponToOption(DAGGER, nimble).ability, 'dex');
+      assert.strictEqual(srdWeaponToOption(DAGGER, strong).ability, 'str');
+      assert.strictEqual(srdWeaponToOption(DAGGER, nimble).range, '5 ft, thrown 20/60 ft');
+    });
+    it('Glaive: reach is 10 ft', () => {
+      assert.strictEqual(srdWeaponToOption(GLAIVE).range, '10 ft');
+    });
+    it('dice are valid dice expressions', () => {
+      for (const w of [LONGSWORD, LONGBOW, DAGGER, GLAIVE]) assert.ok(parseDice(srdWeaponToOption(w).dice), w.name);
+    });
+  });
+
+  describe('parseSrdItemEffects() / srdItemToLoot()', () => {
+    it('Gauntlets of Ogre Power → Gloves, set STR 19, requires attunement', () => {
+      const l = srdItemToLoot(GAUNTLETS);
+      assert.deepStrictEqual([l.type, l.rarity, l.attunement], ['Gloves', 'uncommon', 'required']);
+      assert.deepStrictEqual(l.statEffects, [{ stat: 'str', type: 'set', value: 19 }]);
+      assert.match(l.desc, /^Your Strength score is 19/);
+    });
+    it('Belt of Hill Giant Strength → "changes to a 21" is a set', () => {
+      assert.deepStrictEqual(srdItemToLoot(BELT).statEffects, [{ stat: 'str', type: 'set', value: 21 }]);
+      assert.strictEqual(srdItemToLoot(BELT).type, 'Belt');
+    });
+    it('Cloak of Protection → +1 AC and all six saves', () => {
+      const fx = srdItemToLoot(CLOAK).statEffects;
+      assert.deepStrictEqual(fx[0], { stat: 'ac', type: 'bonus', value: 1 });
+      assert.deepStrictEqual(fx.slice(1).map(f => f.stat), ['save_str', 'save_dex', 'save_con', 'save_int', 'save_wis', 'save_cha']);
+      assert.strictEqual(srdItemToLoot(CLOAK).type, 'Cloak');
+    });
+    it('Weapon, +1 → attack and damage bonus on a weapon-type item', () => {
+      const l = srdItemToLoot(WEAPON1);
+      assert.strictEqual(l.type, 'Other Weapon');
+      assert.deepStrictEqual(l.statEffects, [
+        { stat: 'attack_rolls', type: 'bonus', value: 1 },
+        { stat: 'damage_rolls', type: 'bonus', value: 1 },
+      ]);
+      assert.strictEqual(l.attunement, 'none');
+    });
+    it('Wand of the War Mage → Wand, +1 spell attack', () => {
+      const l = srdItemToLoot(WAND);
+      assert.strictEqual(l.type, 'Wand');
+      assert.deepStrictEqual(l.statEffects, [{ stat: 'spell_attack', type: 'bonus', value: 1 }]);
+    });
+    it('potions keep their exact name as the type; "Varies" rarity is left blank', () => {
+      const l = srdItemToLoot(POTION);
+      assert.strictEqual(l.type, 'Potion of Healing');
+      assert.strictEqual(l.rarity, null);
+      assert.deepStrictEqual(l.statEffects, []);
+    });
+    it('parses "+2 bonus to AC" and "+1 bonus to saving throws" on their own', () => {
+      assert.deepStrictEqual(parseSrdItemEffects('you gain a +2 bonus to AC if you are wearing no armor'), [{ stat: 'ac', type: 'bonus', value: 2 }]);
+      assert.strictEqual(parseSrdItemEffects('a +1 bonus to saving throws').length, 6);
+    });
+    it('never adds the same stat/type twice and ignores unrelated text', () => {
+      const fx = parseSrdItemEffects('+1 bonus to AC. Also a +1 bonus to AC.');
+      assert.strictEqual(fx.length, 1);
+      assert.deepStrictEqual(parseSrdItemEffects('This bag can hold up to 500 pounds.'), []);
+      assert.deepStrictEqual(parseSrdItemEffects(null), []);
+    });
+    it('every type it produces exists in the Loot Tracker type list', () => {
+      const src = require('node:fs').readFileSync(require('node:path').join(__dirname, '..', 'loot-tracker.html'), 'utf8');
+      for (const l of [GAUNTLETS, CLOAK, WEAPON1, WAND, BELT, POTION].map(srdItemToLoot)) {
+        assert.ok(src.includes(`<option value="${l.type}">`), `${l.type} missing from loot types`);
+      }
+      for (const t of ['Melee Weapon', 'Ranged Weapon', 'Other Armor', 'Shield', 'Spell Scroll', 'Staff', 'Rod', 'Ring', 'Boots', 'Helm', 'Amulet', 'Bracers', 'Bag', 'Wondrous Item', 'Ammunition']) {
+        assert.ok(src.includes(`<option value="${t}">`), `${t} missing from loot types`);
+      }
+    });
+  });
+
+  it('nexus-srd.js only uses globals that nexus-utils.js provides', () => {
+    const src = require('node:fs').readFileSync(require('node:path').join(__dirname, '..', 'js', 'nexus-srd.js'), 'utf8');
+    assert.match(src, /typeof parseDice === 'function' \? parseDice : require\('\.\/nexus-utils\.js'\)\.parseDice/);
+    assert.match(src, /\$\{esc\(r\.name\)\}/, 'result names are escaped');
+    assert.match(src, /try \{ sessionStorage\.setItem/, 'session cache is wrapped in try');
+  });
+});
+
+
+// ══════════════════════════════════════════════════════════════
+//  SPELL DETAILS + PREPARED (combat_options)
+// ══════════════════════════════════════════════════════════════
+
+describe('Spell details and prepared spells', () => {
+  const fs = require('node:fs'), path = require('node:path');
+  const read = f => fs.readFileSync(path.join(__dirname, '..', f), 'utf8');
+  const { isPrepared, rankCombatOptions } = require('../js/nexus-utils.js');
+  const SPELL_COLS = ['school', 'components', 'material', 'casting_time', 'duration', 'concentration', 'ritual', 'description', 'prepared', 'srd_index'];
+
+  for (const file of ['sql/supabase_setup.sql', 'sql/supabase_combat.sql']) {
+    it(`${file} creates combat_options with the spell columns`, () => {
+      const sql = read(file);
+      const block = sql.slice(sql.search(/create table if not exists (public\.)?combat_options/));
+      const body = block.slice(0, block.indexOf(');'));
+      for (const c of SPELL_COLS) assert.match(body, new RegExp(`\\n\\s*${c}\\s+\\w+`), `${c} missing`);
+      assert.match(body, /prepared\s+boolean\s+default true/);
+    });
+  }
+
+  it('supabase_combat.sql adds the spell columns to an existing table', () => {
+    const sql = read('sql/supabase_combat.sql');
+    for (const c of SPELL_COLS) {
+      assert.match(sql, new RegExp(`alter table public\\.combat_options add column if not exists ${c}\\s`), `${c} alter missing`);
+    }
+  });
+
+  it('isPrepared: weapons, features and cantrips always count', () => {
+    assert.ok(isPrepared({ kind: 'weapon', prepared: false }));
+    assert.ok(isPrepared({ kind: 'feature' }));
+    assert.ok(isPrepared({ kind: 'spell', spell_level: 0, prepared: false }));
+  });
+  it('isPrepared: leveled spells count unless prepared is false', () => {
+    assert.ok(isPrepared({ kind: 'spell', spell_level: 3 }));
+    assert.ok(isPrepared({ kind: 'spell', spell_level: 3, prepared: true }));
+    assert.ok(!isPrepared({ kind: 'spell', spell_level: 3, prepared: false }));
+  });
+
+  it('rankCombatOptions leaves unprepared spells out of the ranking', () => {
+    const member = { level: 5, combat: { spelldc: 15 } };
+    const fireball = { id: 'f', name: 'Fireball', kind: 'spell', resolve: 'save', ability: 'spell', dice: '8d6', spell_level: 3, half_on_save: true };
+    const ctx = { member, net: {}, target: { ac: 15, save: 2 } };
+    assert.strictEqual(rankCombatOptions([fireball], ctx).ranked.length, 1);
+    assert.strictEqual(rankCombatOptions([{ ...fireball, prepared: false }], ctx).ranked.length, 0);
+  });
+});
+
+
+// ══════════════════════════════════════════════════════════════
+//  SHARED COMBAT EDITOR — SRD fill, loot creation, prepared
+// ══════════════════════════════════════════════════════════════
+
+describe('Shared combat editor — SRD, loot and prepared', () => {
+  const fs = require('node:fs'), path = require('node:path');
+  const src  = fs.readFileSync(path.join(__dirname, '..', 'js', 'nexus-combat-editor.js'), 'utf8');
+  const page = fs.readFileSync(path.join(__dirname, '..', 'combat.html'), 'utf8');
+
+  it('name field searches SRD spells for spells, weapons for weapons, nothing for features', () => {
+    assert.match(src, /attachSrdSearch\(\$\('ce-name'\), \{\n\s+kind: \(\) => \(\{ spell: 'spells', weapon: 'weapons' \}\)\[\$\('ce-kind'\)\.value\] \|\| null,\n\s+onPick: applySrd,/);
+  });
+
+  it('an SRD pick maps through nexus-srd.js and keeps the form editable', () => {
+    const body = src.slice(src.indexOf('function applySrd('), src.indexOf('function updatePreview('));
+    assert.match(body, /srdSpellToOption\(detail\)/);
+    assert.match(body, /srdWeaponToOption\(detail, ctx\.member\)/);
+    assert.match(body, /write\(\{ \.\.\.read\(\), \.\.\.mapped/);
+  });
+
+  it('a new weapon can also be created in the Loot Tracker, held by the character, and linked', () => {
+    const body = src.slice(src.indexOf('async function save('), src.indexOf('async function remove('));
+    const lootAt = body.indexOf("db.insert('loot_items', loot)");
+    const optAt  = body.indexOf("db.insert('combat_options', saved)");
+    assert.ok(lootAt > 0 && lootAt < optAt, 'loot row is written first so the option can link to it');
+    assert.match(body, /row\.loot_item_id = loot\.id/);
+    const rowFn = src.slice(src.indexOf('function lootRowFor('), src.indexOf('async function save('));
+    for (const col of ['id: uid()', 'name: row.name', 'type: lootType', 'holder: ctx.member.name', "attunement: 'none'", 'stat_effects: []', 'quantity: 1']) {
+      assert.ok(rowFn.includes(col), `loot row needs ${col}`);
+    }
+  });
+
+  it('the "add to loot" box only shows for a new weapon with no linked item', () => {
+    assert.match(src, /const isNewWeapon = kind === 'weapon' && !ctx\?\.option;/);
+    assert.match(src, /\$\('ce-addloot-wrap'\)\.style\.display  = isNewWeapon && !\$\('ce-item'\)\.value \? '' : 'none';/);
+  });
+
+  it('spell-only fields are cleared for weapons and features', () => {
+    const body = src.slice(src.indexOf('function read('), src.indexOf('function sync('));
+    for (const f of ['school', 'components', 'casting_time', 'duration', 'description']) {
+      assert.match(body, new RegExp(`${f}:\\s+isSpell \\?`), `${f} only for spells`);
+    }
+    assert.match(body, /prepared:\s+!isSpell \|\| \$\('ce-prepared'\)\.checked/);
+  });
+
+  it('the roster can open the editor preset to a spell', () => {
+    assert.match(src, /const blank = kind === 'spell'\n\s+\? \{ kind: 'spell'/);
+  });
+
+  it('combat sheet: prepared toggle is gated and only for leveled spells', () => {
+    assert.match(page, /async function togglePrepared\(id\) \{\n  if \(!\(await nexusGate\(\)\)\) return;/);
+    assert.match(page, /const canPrep = o\.kind === 'spell' && o\.spell_level > 0;/);
+    assert.match(page, /data-action="toggle-prep" data-id="\$\{esc\(o\.id\)\}"/);
+  });
+
+  it('combat sheet shows spell casting details and escapes them', () => {
+    assert.match(page, /\[o\.casting_time, o\.components, o\.duration, o\.concentration \? 'Concentration' : '', o\.ritual \? 'Ritual' : ''\]\n\s+\.filter\(Boolean\)\.map\(esc\)/);
+    assert.match(page, /\$\{esc\(o\.description\)\}/);
+  });
+});
+
+
+// ══════════════════════════════════════════════════════════════
+//  PARTY ROSTER — SPELLS TAB
+//
+//  Spells are combat_options rows with kind 'spell', edited through
+//  the shared CombatEditor, so the roster and Combat sheet always
+//  show the same list.
+// ══════════════════════════════════════════════════════════════
+
+describe('Party Roster — Spells tab', () => {
+  const fs = require('node:fs'), path = require('node:path');
+  const src = fs.readFileSync(path.join(__dirname, '..', 'party-roster.html'), 'utf8');
+  const fn = name => {
+    const start = src.search(new RegExp(`(async )?function ${name}\\(`));
+    assert.ok(start >= 0, `${name}() missing`);
+    return src.slice(start, src.indexOf('\n}\n', start));
+  };
+
+  it('loads the SRD and shared editor scripts after utils', () => {
+    const at = f => src.indexOf(`<script src="js/${f}"></script>`);
+    assert.ok(at('nexus-utils.js') > 0 && at('nexus-utils.js') < at('nexus-srd.js') && at('nexus-srd.js') < at('nexus-combat-editor.js'));
+  });
+
+  it('loads combat_options at boot and survives a missing table', () => {
+    const body = fn('prefetchSpells');
+    assert.match(body, /db\.select\('combat_options'/);
+    assert.match(body, /catch\(e\)\{[\s\S]*_spellsTableMissing=true;/);
+    assert.match(src, /prefetchSpells\(\),\n\s+loadCombatTarget\(\),\n\]\)\.then/);
+  });
+
+  it('a member\'s spells are their kind=spell options, sorted by level then name', () => {
+    const body = fn('spellsFor');
+    assert.match(body, /o\.member_id===m\.id&&o\.kind==='spell'/);
+    assert.match(body, /\(a\.spell_level\?\?0\)-\(b\.spell_level\?\?0\)/);
+  });
+
+  it('spells are grouped under Cantrips / Nth Level headings', () => {
+    assert.match(src, /const SPELL_LEVEL_LABELS=\['Cantrips','1st Level','2nd Level','3rd Level'/);
+    assert.match(fn('buildSpellsPanel'), /SPELL_LEVEL_LABELS\[g\.lvl\]/);
+  });
+
+  it('every user field in the panel is escaped', () => {
+    const body = fn('buildSpellsPanel') + fn('spellMetaLine') + fn('spellEffectLine');
+    for (const f of ['s.name', 's.description', 's.notes', 's.material', 's.duration', 'o.dice', 'o.damage_type']) {
+      assert.ok(!new RegExp(`\\$\\{${f.replace('.', '\\.')}\\}`).test(body), `${f} must go through esc()`);
+    }
+    assert.match(fn('spellMetaLine'), /\.filter\(Boolean\)\.map\(esc\)/);
+  });
+
+  it('actions use data-* attributes and one delegated listener, not inline handlers', () => {
+    const body = fn('buildSpellsPanel');
+    assert.ok(!/onclick=/.test(body), 'no inline handlers in the spells panel');
+    for (const a of ['prep', 'edit', 'delete']) assert.match(body, new RegExp(`data-spell-action="${a}" data-id="\\$\\{esc\\(s\\.id\\)\\}"`));
+    assert.match(body, /data-spell-action="add" data-member="\$\{esc\(m\.id\)\}"/);
+    assert.match(fn('wireSpellEvents'), /document\.addEventListener\('click'/);
+  });
+
+  it('only leveled spells get a prepared toggle; cantrips are always ready', () => {
+    const body = fn('buildSpellsPanel');
+    assert.match(body, /const canPrep=s\.spell_level>0;/);
+    assert.match(body, /Cantrips are always ready/);
+    assert.match(body, /\$\{prepared\}\/\$\{leveled\.length\} prepared/);
+  });
+
+  it('toggling prepared is gated, writes the DB and keeps the open tab', () => {
+    const body = fn('toggleSpellPrepared');
+    assert.match(body, /^async function toggleSpellPrepared\(id\)\{\n  if\(!\(await nexusGate\(\)\)\) return;/);
+    assert.match(body, /db\.update\('combat_options',id,\{prepared\}\)/);
+    assert.match(body, /_rerenderKeepTabs\(\)/);
+  });
+
+  it('the prepared button does not also open/close the row', () => {
+    assert.match(fn('wireSpellEvents'), /case 'prep':   e\.preventDefault\(\); toggleSpellPrepared\(id\)/);
+  });
+
+  it('add/edit open the shared editor preset to a spell', () => {
+    const body = fn('openSpellEditor');
+    assert.match(body, /CombatEditor\.open\(\{\n\s+member:m, items:getItemEffects\(\), option, kind:'spell',/);
+    assert.match(body, /combatOptions=isNew\?\[\.\.\.combatOptions,saved\]:combatOptions\.map/);
+  });
+
+  it('remove goes through CombatEditor.remove (gated + confirmed there)', () => {
+    assert.match(fn('wireSpellEvents'), /CombatEditor\.remove\(combatOptions\.find\(o=>o\.id===id\)/);
+  });
+
+  it('shows a clear message when the table has not been created yet', () => {
+    assert.match(fn('buildSpellsPanel'), /Run sql\/supabase_combat\.sql in Supabase\./);
+  });
+});
+
+
+// ══════════════════════════════════════════════════════════════
+//  LOOT TRACKER — SRD item search
+// ══════════════════════════════════════════════════════════════
+
+describe('Loot Tracker — SRD item search', () => {
+  const fs = require('node:fs'), path = require('node:path');
+  const src = fs.readFileSync(path.join(__dirname, '..', 'loot-tracker.html'), 'utf8');
+  const srd = fs.readFileSync(path.join(__dirname, '..', 'js', 'nexus-srd.js'), 'utf8');
+  const fill = src.slice(src.indexOf('function applySrdLoot('), src.indexOf('\n}\n', src.indexOf('function applySrdLoot(')));
+
+  it('loads nexus-srd.js after utils', () => {
+    assert.ok(src.indexOf('js/nexus-utils.js') < src.indexOf('js/nexus-srd.js'));
+  });
+
+  it('the item name searches SRD magic items and weapons together', () => {
+    assert.match(src, /attachSrdSearch\(document\.getElementById\('fieldName'\),\{kind:\['magic-items','weapons'\],onPick:applySrdLoot\}\)/);
+    assert.match(srd, /const kinds = \[\]\.concat\(currentKind\(\) \|\| \[\]\);/);
+    assert.match(srd, /\(await Promise\.all\(kinds\.map\(srdList\)\)\)\.flat\(\)/);
+  });
+
+  it('magic items map through srdItemToLoot, weapons through srdWeaponToOption', () => {
+    assert.match(fill, /const isMagic=String\(detail\.url\|\|''\)\.includes\('\/magic-items\/'\);/);
+    assert.match(fill, /srdItemToLoot\(detail\)/);
+    assert.match(fill, /srdWeaponToOption\(detail\)/);
+  });
+
+  it('only sets select values the form actually offers', () => {
+    assert.match(fill, /\[\.\.\.sel\.options\]\.some\(o=>o\.value===val\)/);
+  });
+
+  it('replaces the effect rows with the parsed effects (editable before saving)', () => {
+    assert.match(fill, /pendingFx=\[\];\n\s+document\.getElementById\('fxRows'\)\.innerHTML='';\n\s+\(loot\.statEffects\|\|\[\]\)\.forEach\(fx=>addFxRow\(\{\.\.\.fx\}\)\);/);
+  });
+
+  it('leaves holder and quantity alone', () => {
+    assert.ok(!/fieldHolder|fieldQty/.test(fill));
+  });
+
+  it('the name placeholder says it searches the SRD', () => {
+    assert.match(src, /id="fieldName" placeholder="Type to search the SRD, or name your own…"/);
+  });
+});
+
+
+// ══════════════════════════════════════════════════════════════
+//  SPELL DC / ATTACK NOT SET — shown as a prompt, never as "DC 0"
+// ══════════════════════════════════════════════════════════════
+
+describe('Missing Spell DC / Spell Atk', () => {
+  const { combatBreakdown } = require('../js/nexus-utils.js');
+  const fs = require('node:fs'), path = require('node:path');
+  const read = f => fs.readFileSync(path.join(__dirname, '..', f), 'utf8');
+  const fireball = { kind: 'spell', resolve: 'save', ability: 'spell', dice: '8d6', spell_level: 3 };
+  const bolt = { kind: 'spell', resolve: 'attack', ability: 'spell', dice: '1d10', spell_level: 0 };
+
+  it('flags a spell save when the member has no Spell DC', () => {
+    assert.strictEqual(combatBreakdown(fireball, { member: { combat: {} }, net: {} }).dc.missing, true);
+    assert.strictEqual(combatBreakdown(fireball, { member: { combat: { spelldc: 15 } }, net: {} }).dc.missing, false);
+  });
+  it('flags a spell attack when the member has no Spell Atk (0 counts as set)', () => {
+    assert.strictEqual(combatBreakdown(bolt, { member: { combat: {} }, net: {} }).toHit.missing, true);
+    assert.strictEqual(combatBreakdown(bolt, { member: { combat: { spellatk: 0 } }, net: {} }).toHit.missing, false);
+  });
+  it('never flags weapon or feature rolls', () => {
+    const breath = { kind: 'feature', resolve: 'save', ability: 'con', dice: '2d6' };
+    assert.strictEqual(combatBreakdown(breath, { member: {}, net: {} }).dc.missing, false);
+    const sword = { kind: 'weapon', resolve: 'attack', ability: 'str', dice: '1d8' };
+    assert.strictEqual(combatBreakdown(sword, { member: {}, net: {} }).toHit.missing, false);
+  });
+  it('the combat sheet and editor preview say what to set', () => {
+    assert.match(read('combat.html'), /b\.dc\.missing \? 'Spell DC not set'/);
+    assert.match(read('combat.html'), /b\.toHit\.missing \? 'Spell Atk not set'/);
+    assert.match(read('js/nexus-combat-editor.js'), /set Spell DC on the roster/);
+    assert.match(read('js/nexus-combat-editor.js'), /set Spell Atk on the roster/);
+  });
+});
+
+describe('CLAUDE.md — spells, SRD and flat stats', () => {
+  const doc = require('node:fs').readFileSync(require('node:path').join(__dirname, '..', 'CLAUDE.md'), 'utf8');
+  it('documents the new shared scripts', () => {
+    assert.match(doc, /js\/nexus-srd\.js/);
+    assert.match(doc, /js\/nexus-combat-editor\.js/);
+  });
+  it('documents the set effect type and the spells-in-combat_options design', () => {
+    assert.match(doc, /`set`/);
+    assert.match(doc, /Spells tab/);
   });
 });

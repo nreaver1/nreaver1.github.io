@@ -625,6 +625,7 @@ textarea, textarea.mi { resize: vertical; min-height: 65px; font-family: 'Rajdha
 .fx-neg { color: var(--red);    border: 1px solid rgba(224,60,60,0.4);   background: rgba(224,60,60,0.07); }
 .fx-adv { color: var(--cyan);   border: 1px solid rgba(14,240,208,0.35); background: rgba(14,240,208,0.06); }
 .fx-dis { color: var(--amber);  border: 1px solid rgba(212,134,10,0.4);  background: rgba(212,134,10,0.07); }
+.fx-set { color: var(--gold);   border: 1px solid rgba(240,168,50,0.45); background: rgba(240,168,50,0.08); }
 
 
 /* ═══════════════════════════════════════════
@@ -3989,3 +3990,88 @@ body.page-combat main { max-width: 1150px; }
   #optModal .field-row { flex-wrap: wrap; }
   #optModal .field-row .field { flex: 1 1 140px; }
 }
+
+/* ══════════════════════════════════════════════════════════════
+   SRD SEARCH DROPDOWN (js/nexus-srd.js → attachSrdSearch)
+   ══════════════════════════════════════════════════════════════ */
+.srd-results {
+  display: none;
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 100%;
+  z-index: 1100;
+  margin-top: 2px;
+  background: var(--bg2);
+  border: 1px solid var(--cyan-dim);
+  border-radius: 3px;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.6);
+  max-height: 260px;
+  overflow-y: auto;
+}
+.srd-results.open { display: block; }
+.srd-opt {
+  padding: 0.45rem 0.7rem;
+  font-family: 'Rajdhani', sans-serif;
+  font-size: 0.95rem;
+  color: var(--text);
+  cursor: pointer;
+}
+.srd-opt:hover, .srd-opt.active { background: rgba(14,240,208,0.08); color: var(--cyan); }
+.srd-msg {
+  padding: 0.35rem 0.7rem;
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 0.7rem;
+  letter-spacing: 0.08em;
+  color: var(--text-dim);
+  border-top: 1px solid var(--border);
+}
+
+/* combat: unprepared spells + spell description (shared editor additions) */
+.cb-tag-unprep { color: var(--amber); border-color: rgba(212,134,10,0.4); }
+.cb-unprepared .cb-opt-name, .cb-unprepared .cb-opt-line { opacity: 0.5; }
+.cb-bd-desc { max-height: 9rem; overflow-y: auto; font-size: 0.85rem; }
+#ce-spell-box { display: flex; flex-direction: column; gap: 0.8rem; }
+#ceModal .ce-kind-field { flex: 0 0 140px; }
+
+/* ══════════════════════════════════════════════════════════════
+   ROSTER — SPELLS TAB + CONDITIONS UNDER STATS (party-roster.html)
+   ══════════════════════════════════════════════════════════════ */
+.cond-section .cond-hint { margin-top: 0.2rem; }
+.spell-head { display: flex; align-items: center; justify-content: space-between; gap: 0.6rem; margin-bottom: 0.5rem; }
+.spell-count { font-family: 'Share Tech Mono', monospace; font-size: 0.7rem; letter-spacing: 0.1em; color: var(--text-dim); }
+.spell-add { padding: 0.3rem 0.7rem; font-size: 0.6rem; }
+.spell-level-label {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 0.65rem;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--violet);
+  margin: 0.6rem 0 0.2rem;
+}
+.spell-row { border-bottom: 1px solid var(--border); padding: 0.35rem 0; }
+.spell-row > summary { list-style: none; cursor: pointer; display: flex; gap: 0.5rem; align-items: flex-start; }
+.spell-row > summary::-webkit-details-marker { display: none; }
+.spell-prep {
+  background: none;
+  border: none;
+  color: var(--text-dim);
+  font-size: 0.85rem;
+  line-height: 1.3;
+  cursor: pointer;
+  padding: 0 0.15rem;
+  min-width: 1rem;
+}
+.spell-prep.on { color: var(--green); }
+.spell-prep.always { color: var(--violet); cursor: default; font-size: 0.7rem; }
+.spell-main { display: flex; flex-direction: column; gap: 0.1rem; min-width: 0; flex: 1; }
+.spell-name { font-family: 'Rajdhani', sans-serif; font-weight: 700; font-size: 0.95rem; color: var(--text); }
+.spell-meta, .spell-effect { font-family: 'Share Tech Mono', monospace; font-size: 0.68rem; color: var(--text-dim); }
+.spell-effect { color: var(--gold); }
+.spell-flag { border: 1px solid var(--border); border-radius: 2px; padding: 0 0.25rem; color: var(--cyan-dim); }
+.spell-unprepared .spell-name, .spell-unprepared .spell-meta, .spell-unprepared .spell-effect { opacity: 0.5; }
+.spell-body { padding: 0.4rem 0 0.2rem 1.5rem; display: flex; flex-direction: column; gap: 0.3rem; font-size: 0.85rem; color: var(--text); }
+.spell-k { font-family: 'Share Tech Mono', monospace; font-size: 0.65rem; letter-spacing: 0.1em; text-transform: uppercase; color: var(--cyan-dim); margin-right: 0.3rem; }
+.spell-desc { white-space: pre-wrap; max-height: 10rem; overflow-y: auto; color: var(--text); opacity: 0.85; }
+.spell-actions { display: flex; gap: 0.4rem; }
+.spell-actions .btn { padding: 0.25rem 0.55rem; font-size: 0.55rem; }

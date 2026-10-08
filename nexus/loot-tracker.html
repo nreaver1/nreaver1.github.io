@@ -6,6 +6,7 @@
   <title>LOOT TRACKER // Item Registry</title>
   <script src="js/nexus-config.js"></script>
   <script src="js/nexus-utils.js"></script>
+  <script src="js/nexus-srd.js"></script>
   <link rel="icon" type="image/x-icon" href="assets/favicon.ico" />
   <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@400;700;900&family=Rajdhani:wght@400;500;600;700&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="css/nexus.css" />
@@ -167,7 +168,7 @@
     <div class="modal-body">
       <div class="field">
         <label>Item Name <span class="field-required">(required)</span></label>
-        <input type="text" class="mi" id="fieldName" placeholder="e.g. Plasma Sword, Shadow Cloak…" oninput="(function(){var e=document.getElementById('fieldNameError');if(e&&this.value.trim())e.textContent='';}).call(this)" />
+        <input type="text" class="mi" id="fieldName" placeholder="Type to search the SRD, or name your own…" oninput="(function(){var e=document.getElementById('fieldNameError');if(e&&this.value.trim())e.textContent='';}).call(this)" />
         <div class="tx-desc-error" id="fieldNameError" aria-live="polite"></div>
       </div>
       <div class="field-row">
@@ -362,6 +363,7 @@ const ALL_STATS = [
 const FX_TYPES = [
   { key:'bonus',       label:'+Bonus',       cls:'fx-pos' },
   { key:'penalty',     label:'−Penalty',     cls:'fx-neg' },
+  { key:'set',         label:'=Set to',      cls:'fx-set' },  // flat stat, e.g. Gauntlets of Ogre Power: STR 19
   { key:'advantage',   label:'Advantage',    cls:'fx-adv' },
   { key:'disadvantage',label:'Disadvantage', cls:'fx-dis' },
 ];
@@ -385,6 +387,7 @@ function fxShort(fx){
   if(fx.type==='penalty')      return `−${fx.value} ${statLabel(fx.stat)}${dmgLabel}`;
   if(fx.type==='advantage')    return `Adv: ${statLabel(fx.stat)}`;
   if(fx.type==='disadvantage') return `Dis: ${statLabel(fx.stat)}`;
+  if(fx.type==='set')          return `${statLabel(fx.stat)} = ${fx.value}`;
   return '';
 }
 
@@ -813,11 +816,11 @@ function addFxRow(existing){
   const row=document.createElement('div');
   row.className='fx-row';
   row.id=`fx-row-${idx}`;
-  const needsVal =(t)=>t==='bonus'||t==='penalty';
+  const needsVal =fxNeedsValue;
   const showDmg  =(t,s)=>(t==='bonus'||t==='penalty')&&DAMAGE_STATS.has(s);
   row.innerHTML=`
     <select class="fx-stat-sel" onchange="pendingFx[${idx}].stat=this.value;fxUpdateDmgVis(${idx})">${buildStatSelect()}</select>
-    <select class="fx-type-sel" onchange="pendingFx[${idx}].type=this.value;document.getElementById('fx-val-${idx}').style.display=(this.value==='bonus'||this.value==='penalty')?'block':'none';fxUpdateDmgVis(${idx})">${buildTypeSelect()}</select>
+    <select class="fx-type-sel" onchange="pendingFx[${idx}].type=this.value;document.getElementById('fx-val-${idx}').style.display=fxNeedsValue(this.value)?'block':'none';fxUpdateDmgVis(${idx})">${buildTypeSelect()}</select>
     <div class="fx-val-wrap">
       <input  type="number" class="fx-val-inp" id="fx-val-${idx}" placeholder="±#" style="display:${needsVal(fx.type)?'block':'none'}" onchange="pendingFx[${idx}].value=parseFloat(this.value)||null" />
       <select class="fx-dmg-sel" id="fx-dmg-${idx}" style="display:${showDmg(fx.type,fx.stat)?'block':'none'}" onchange="pendingFx[${idx}].damageType=this.value||null">${buildDmgTypeSelect()}</select>
@@ -829,6 +832,7 @@ function addFxRow(existing){
   row.querySelector('.fx-type-sel').value=fx.type||'bonus';
   if(fx.value!=null) document.getElementById(`fx-val-${idx}`).value=fx.value;
   document.getElementById(`fx-dmg-${idx}`).value=fx.damageType||'';
+  fxUpdateDmgVis(idx);
 }
 
 // Show/hide the damage type select based on current stat + type selections
@@ -837,6 +841,8 @@ function fxUpdateDmgVis(idx){
   const type = pendingFx[idx]?.type || '';
   const sel  = document.getElementById(`fx-dmg-${idx}`);
   if(sel) sel.style.display = (type==='bonus'||type==='penalty') && DAMAGE_STATS.has(stat) ? 'block' : 'none';
+  // "Set to" only applies to ability scores, AC and speed
+  syncFxSetOption(document.querySelector(`#fx-row-${idx} .fx-type-sel`), stat, pendingFx[idx], `fx-val-${idx}`);
 }
 
 function removeFxRow(idx){
@@ -850,7 +856,7 @@ function collectFx(){
     const fx={
       stat:  f.stat,
       type:  f.type||'bonus',
-      value: (f.type==='bonus'||f.type==='penalty')?(f.value||0):null,
+      value: fxNeedsValue(f.type||'bonus')?(f.value||0):null,
     };
     // Only include damageType when it's a damage-relevant stat and a value was chosen
     if(f.damageType && DAMAGE_STATS.has(f.stat) && (f.type==='bonus'||f.type==='penalty')){
@@ -904,8 +910,35 @@ async function openModal(id){
     document.getElementById('fieldAttuneWarn').textContent='';
     await initHolderDisplay('');
   }
+  // Name search over SRD magic items + weapons; picking one fills the form
+  attachSrdSearch(document.getElementById('fieldName'),{kind:['magic-items','weapons'],onPick:applySrdLoot});
   document.getElementById('modalBackdrop').classList.add('open');
   setTimeout(()=>document.getElementById('fieldName').focus(),150);
+}
+
+// Fill the item form from an SRD pick. Everything stays editable; the
+// holder and quantity are left as they are.
+function applySrdLoot(detail){
+  const isMagic=String(detail.url||'').includes('/magic-items/');
+  const loot=isMagic?srdItemToLoot(detail):(()=>{
+    const w=srdWeaponToOption(detail);
+    return {name:w.name,type:w.lootType,rarity:'common',attunement:'none',desc:[w.dice&&`${w.dice} ${w.damage_type||''}`.trim(),w.range,w.notes].filter(Boolean).join(' · '),statEffects:[]};
+  })();
+  const setSel=(id,val)=>{
+    const sel=document.getElementById(id);
+    if(val&&[...sel.options].some(o=>o.value===val)) sel.value=val;
+  };
+  document.getElementById('fieldName').value=loot.name;
+  setSel('fieldType',loot.type);
+  setSel('fieldRarity',loot.rarity);
+  setSel('fieldAttunement',loot.attunement);
+  document.getElementById('fieldDesc').value=loot.desc||'';
+  pendingFx=[];
+  document.getElementById('fxRows').innerHTML='';
+  (loot.statEffects||[]).forEach(fx=>addFxRow({...fx}));
+  checkAttuneWarn();
+  const n=(loot.statEffects||[]).length;
+  showToast(n?`Filled from the SRD with ${n} effect${n>1?'s':''} — check them before saving.`:'Filled from the SRD — add any stat effects by hand.');
 }
 
 function closeModal(){ document.getElementById('modalBackdrop').classList.remove('open'); editingId=null; pendingFx=[]; }

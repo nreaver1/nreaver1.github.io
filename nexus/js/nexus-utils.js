@@ -101,7 +101,8 @@ function modStr(n) {
  *   profBonus — the member's proficiency bonus (e.g. 2 at levels 1–4)
  */
 function computeCheck(key, ability, member, net, profBonus) {
-  let base = abilityMod(member.abilities?.[ability] || 10);
+  // Ability items (+2 STR, Gauntlets of Ogre Power "STR 19") change the score first
+  let base = abilityMod(effectiveStat(member.abilities?.[ability] || 10, net?.[ability]));
   if (member.proficiencies?.[key]) base += profBonus;
   const n = net[key];
   if (n) { base += (n.bonus || 0); base -= (n.penalty || 0); }
@@ -172,6 +173,10 @@ function computeNetEffects(memberName, items, opts = {}) {
       if (fx.type === 'penalty')      net[fx.stat].penalty     += (fx.value || 0);
       if (fx.type === 'advantage')    net[fx.stat].advantage++;
       if (fx.type === 'disadvantage') net[fx.stat].disadvantage++;
+      // "Set to" (flat stat): the highest set value wins
+      if (fx.type === 'set' && Number.isFinite(fx.value)) {
+        net[fx.stat].set = Math.max(net[fx.stat].set ?? -Infinity, fx.value);
+      }
       net[fx.stat].sources.push({ itemName: item.name, itemRarity: item.rarity, fx });
 
       // ── Per-damage-type breakdown (new) ──
@@ -316,7 +321,49 @@ function effectiveProf(member, net) {
  * Ability modifier after item bonuses/penalties to the score itself.
  */
 function effectiveAbilityMod(member, net, ability) {
-  return abilityMod((member?.abilities?.[ability] || 10) + _netVal(net, ability));
+  return abilityMod(effectiveStat(member?.abilities?.[ability] || 10, net?.[ability]));
+}
+
+/**
+ * SETTABLE_STATS / effectiveStat(base, n)
+ * A "set" effect (flat stat, e.g. Gauntlets of Ogre Power: STR 19) makes
+ * the stat AT LEAST that value, as in 5e: it does nothing if the score is
+ * already higher. Bonuses/penalties apply to the base first:
+ *   effectiveStat = max(base + bonus − penalty, set)
+ * n is one entry of the computeNetEffects() map (or undefined).
+ */
+const SETTABLE_STATS = ['str', 'dex', 'con', 'int', 'wis', 'cha', 'ac', 'speed'];
+
+function effectiveStat(base, n) {
+  const withBonus = (base || 0) + (n ? (n.bonus || 0) - (n.penalty || 0) : 0);
+  return n && Number.isFinite(n.set) ? Math.max(withBonus, n.set) : withBonus;
+}
+
+/**
+ * fxNeedsValue(type)
+ * Effect types that carry a number: +bonus, −penalty and "set to".
+ */
+function fxNeedsValue(type) {
+  return type === 'bonus' || type === 'penalty' || type === 'set';
+}
+
+/**
+ * syncFxSetOption(typeSelect, stat, pending, valueInputId)
+ * Item effect editors (Loot Tracker + roster): "Set to" only makes sense
+ * for SETTABLE_STATS. Disables that option for other stats and, if it was
+ * chosen, falls back to +Bonus. DOM helper — no-op without a select.
+ */
+function syncFxSetOption(typeSelect, stat, pending, valueInputId) {
+  if (!typeSelect) return;
+  const opt = typeSelect.querySelector('option[value="set"]');
+  const allowed = SETTABLE_STATS.includes(stat);
+  if (opt) opt.disabled = !allowed;
+  if (!allowed && typeSelect.value === 'set') {
+    typeSelect.value = 'bonus';
+    if (pending) pending.type = 'bonus';
+    const inp = valueInputId && document.getElementById(valueInputId);
+    if (inp) inp.style.display = 'block';
+  }
 }
 
 /**
@@ -326,6 +373,16 @@ function effectiveAbilityMod(member, net, ability) {
  */
 function isAtWill(option) {
   return option?.kind === 'weapon' || option?.spell_level === 0;
+}
+
+/**
+ * isPrepared(option)
+ * Only leveled spells can be unprepared. Weapons, features and cantrips
+ * always count; a leveled spell counts unless prepared is explicitly false.
+ */
+function isPrepared(option) {
+  if (option?.kind !== 'spell' || option.spell_level === 0 || option.spell_level == null) return true;
+  return option.prepared !== false;
 }
 
 /**
@@ -375,7 +432,9 @@ function combatBreakdown(option, ctx) {
       const fx = _netVal(net, 'attack_rolls');
       if (fx) parts.push({ label: 'Items', value: fx });
     }
-    toHit = { total: parts.reduce((t, p) => t + p.value, 0), parts };
+    // missing: a spell attack with no Spell Atk entered on the roster
+    const missing = isSpellAbility && (cs.spellatk == null || cs.spellatk === '');
+    toHit = { total: parts.reduce((t, p) => t + p.value, 0), parts, missing };
   }
 
   let dc = null;
@@ -390,7 +449,9 @@ function combatBreakdown(option, ctx) {
       parts.push({ label: 'Prof', value: prof });
       parts.push({ label: AB || 'Ability', value: mod });
     }
-    dc = { total: parts.reduce((t, p) => t + p.value, 0), parts };
+    // missing: a spell save with no Spell DC entered on the roster
+    const missing = isSpellAbility && !parseInt(cs.spelldc, 10);
+    dc = { total: parts.reduce((t, p) => t + p.value, 0), parts, missing };
   }
 
   let damage = null;
@@ -537,6 +598,7 @@ function normalizeCombatTarget(target) {
  * Scores every damaging option and sorts best-first (ties by name).
  * ctx is either one shared context or a function option → context
  * (so each option can carry its own linked-weapon bonus).
+ * Unprepared leveled spells are left out (isPrepared).
  * Returns {
  *   ranked:     [{ option, breakdown, expected }]   damaging options only
  *   top:        first 3 of ranked
@@ -545,7 +607,7 @@ function normalizeCombatTarget(target) {
  */
 function rankCombatOptions(options, ctx) {
   const ranked = (options || [])
-    .filter(o => o && o.resolve && o.resolve !== 'none')
+    .filter(o => o && o.resolve && o.resolve !== 'none' && isPrepared(o))
     .map(option => {
       const c = typeof ctx === 'function' ? ctx(option) : ctx;
       const breakdown = combatBreakdown(option, c);
@@ -871,7 +933,12 @@ if (typeof module !== 'undefined') {
     saveFailChance,
     effectiveProf,
     effectiveAbilityMod,
+    SETTABLE_STATS,
+    effectiveStat,
+    fxNeedsValue,
+    syncFxSetOption,
     isAtWill,
+    isPrepared,
     combatBreakdown,
     expectedDamage,
     rankCombatOptions,

@@ -193,6 +193,16 @@ create table if not exists combat_options (
   range         text,
   notes         text,
   loot_item_id  text        references loot_items(id) on delete set null,
+  school        text,                           -- spell details (from the SRD or typed in)
+  components    text,                           -- 'V, S, M'
+  material      text,
+  casting_time  text,                           -- '1 action', '1 minute'
+  duration      text,
+  concentration boolean     default false,
+  ritual        boolean     default false,
+  description   text,
+  prepared      boolean     default true,       -- unprepared spells are listed but not ranked
+  srd_index     text,                           -- dnd5eapi.co index when filled from the SRD
   sort_order    int         default 0,
   created_at    timestamptz default now(),
   updated_at    timestamptz default now()

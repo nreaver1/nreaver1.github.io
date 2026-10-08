@@ -6,6 +6,8 @@
   <title>PARTY ROSTER // Crew Registry</title>
   <script src="js/nexus-config.js"></script>
   <script src="js/nexus-utils.js"></script>
+  <script src="js/nexus-srd.js"></script>
+  <script src="js/nexus-combat-editor.js"></script>
   <link rel="icon" type="image/x-icon" href="assets/favicon.ico" />
   <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@400;700;900&family=Rajdhani:wght@400;500;600;700&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="css/nexus.css" />
@@ -436,13 +438,6 @@ function _refreshCondChips(memberId){
     badge.textContent=active.length?`${active.length} condition${active.length>1?'s':''}`:' ';
     badge.style.display=active.length?'':'none';
   }
-
-  // Keep the Cond tab button label in sync
-  card.querySelectorAll('.card-tab').forEach(btn=>{
-    if(btn.textContent.trim().toLowerCase().startsWith('cond')){
-      btn.textContent=active.length?`Cond (${active.length})`:'Cond';
-    }
-  });
 }
 
 // Clear all conditions for a member (e.g. after long rest)
@@ -483,6 +478,8 @@ function fxItemsToggle(memberId){
 
 // uid — defined in js/nexus-utils.js
 let _cachedLootItems=null;
+let combatOptions=[];        // combat_options rows (spells are kind 'spell'); shared with combat.html
+let _spellsTableMissing=false;
 let _cachedVaultSummary=null;
 let _cachedMemberWallet={};
 let _cachedTreasuryCurrencies=[];
@@ -506,6 +503,17 @@ async function prefetchLootItems(){
       statEffects:r.stat_effects||[],
     }));
   }catch(e){console.error('Could not load loot effects:',e);_cachedLootItems=[];}
+}
+
+// Spells live in combat_options so the Combat sheet sees the same records
+async function prefetchSpells(){
+  try{
+    combatOptions=await db.select('combat_options',{order:'spell_level.asc,name.asc'});
+  }catch(e){
+    console.error('Could not load spells:',e);
+    combatOptions=[];
+    _spellsTableMissing=true;
+  }
 }
 
 async function prefetchTreasury(){
@@ -578,6 +586,7 @@ function computeNetEffects(memberName){
       if(fx.type==='penalty')      net[fx.stat].penalty+=(fx.value||0);
       if(fx.type==='advantage')    net[fx.stat].advantage++;
       if(fx.type==='disadvantage') net[fx.stat].disadvantage++;
+      if(fx.type==='set'&&Number.isFinite(fx.value)) net[fx.stat].set=Math.max(net[fx.stat].set??-Infinity,fx.value);
       net[fx.stat].sources.push({itemName:item.name,itemRarity:item.rarity,fx});
       // Track per-damage-type breakdowns for damage stats
       if(fx.type==='bonus'||fx.type==='penalty'){
@@ -605,6 +614,7 @@ function _computeNetEffectsFromMaps(nameLc,_itemsByHolder,_partyItems){
       if(fx.type==='penalty')      net[fx.stat].penalty+=(fx.value||0);
       if(fx.type==='advantage')    net[fx.stat].advantage++;
       if(fx.type==='disadvantage') net[fx.stat].disadvantage++;
+      if(fx.type==='set'&&Number.isFinite(fx.value)) net[fx.stat].set=Math.max(net[fx.stat].set??-Infinity,fx.value);
       net[fx.stat].sources.push({itemName:item.name,itemRarity:item.rarity,fx});
       if(fx.type==='bonus'||fx.type==='penalty'){
         if(!net[fx.stat].byType) net[fx.stat].byType={};
@@ -620,7 +630,7 @@ function _computeNetEffectsFromMaps(nameLc,_itemsByHolder,_partyItems){
 
 
 function computeCheck(key,ability,m,net,prof){
-  let base=abilityMod(m.abilities?.[ability]||10);
+  let base=abilityMod(effectiveStat(m.abilities?.[ability]||10,net[ability]));
   if(m.proficiencies?.[key]) base+=prof;
   const n=net[key];
   if(n){base+=(n.bonus||0);base-=(n.penalty||0);}
@@ -807,7 +817,7 @@ function _updateFilterCount(shown,total){
 
 // Snapshot active tab for every visible card. Called before render() in any
 // operation that should preserve the user's open tab (save, delete, portrait).
-// Returns: { memberId: 'bio'|'stats'|'effects'|'loot'|'cond', … }
+// Returns: { memberId: 'bio'|'stats'|'effects'|'loot'|'spells', … }
 function captureTabState(){
   const state={};
   document.querySelectorAll('.member-card[data-member-id]').forEach(card=>{
@@ -887,13 +897,14 @@ function updateStats(){
 // Module-level const — built once at parse time, not recreated on every call
 const _STAT_LABEL_MAP={str:'STR',dex:'DEX',con:'CON',int:'INT',wis:'WIS',cha:'CHA',ac:'AC',hp:'HP Max',speed:'Speed',initiative:'Initiative',prof_bonus:'Prof Bonus',save_str:'STR Save',save_dex:'DEX Save',save_con:'CON Save',save_int:'INT Save',save_wis:'WIS Save',save_cha:'CHA Save',acrobatics:'Acrobatics',animal_handling:'Animal Handling',arcana:'Arcana',athletics:'Athletics',deception:'Deception',history:'History',insight:'Insight',intimidation:'Intimidation',investigation:'Investigation',medicine:'Medicine',nature:'Nature',perception:'Perception',performance:'Performance',persuasion:'Persuasion',religion:'Religion',sleight_of_hand:'Sleight of Hand',stealth:'Stealth',survival:'Survival',attack_rolls:'Attack Rolls',spell_attack:'Spell Atk',spell_dc:'Spell DC',damage_rolls:'Damage Rolls',spell_damage:'Spell Dmg'};
 function statLabelShort(key){ return _STAT_LABEL_MAP[key]||key; }
-function fxClass(type){return{bonus:'fx-pos',penalty:'fx-neg',advantage:'fx-adv',disadvantage:'fx-dis'}[type]||'fx-pos';}
+function fxClass(type){return{bonus:'fx-pos',penalty:'fx-neg',advantage:'fx-adv',disadvantage:'fx-dis',set:'fx-set'}[type]||'fx-pos';}
 function fxShort(fx){
   const dmgLabel=fx.damageType?` [${fx.damageType}]`:'';
   if(fx.type==='bonus')        return `+${fx.value} ${statLabelShort(fx.stat)}${dmgLabel}`;
   if(fx.type==='penalty')      return `−${fx.value} ${statLabelShort(fx.stat)}${dmgLabel}`;
   if(fx.type==='advantage')    return `Adv: ${statLabelShort(fx.stat)}`;
   if(fx.type==='disadvantage') return `Dis: ${statLabelShort(fx.stat)}`;
+  if(fx.type==='set')          return `${statLabelShort(fx.stat)} = ${fx.value}`;
   return '';
 }
 
@@ -977,7 +988,8 @@ function buildEffectsPanel(m,net,relevant,_fxSnap){
 }
 
 // ── buildCondPanel ────────────────────────────────────────────
-// Builds the Conditions tab — a grid of toggleable condition chips.
+// Builds the Conditions section shown at the bottom of the Stats tab
+// (the card's last tab is Spells) — a grid of toggleable condition chips.
 // Each chip shows the icon + label; active ones glow in their color.
 // Clicking a chip calls toggleCondition(), which does a surgical DOM
 // refresh without re-rendering the whole card.
@@ -1001,7 +1013,8 @@ function buildCondPanel(m,activeConditions,color){
     </div>`:'';
   }).filter(Boolean).join('');
 
-  return `<div class="tab-panel" id="tab-cond-${m.id}">
+  return `<div class="checks-section cond-section" id="cond-sec-${m.id}">
+    <div class="checks-section-label">Conditions</div>
     <div class="cond-hint">Click a condition to toggle it on/off. Active conditions glow.</div>
     <div class="cond-grid">${chips}</div>
     ${activeConditions.length?`
@@ -1070,23 +1083,25 @@ function buildCard(m,idx,_itemsByHolder,_partyItems,_condSnap,_fxSnap){
   const abilityBoxes=ABILITIES.map(a=>{
     const score=abs[a]||10;
     const n=net[a];
-    const netBonus=n?(n.bonus||0)-(n.penalty||0):0;
-    const effectiveScore=score+netBonus;
+    // Bonuses/penalties, or a "set" item (Gauntlets of Ogre Power: STR 19) if that is higher
+    const effectiveScore=effectiveStat(score,n);
+    const netBonus=effectiveScore-score;
     const effectiveMod=abilityMod(effectiveScore);
     const hasEffect=netBonus!==0;
-    return `<div class="ability-box" title="${ABILITY_LABELS[a]}: ${score}${hasEffect?` (${netBonus>=0?'+':''}${netBonus} from items) = ${effectiveScore}`:''}">
+    const setBy=n&&Number.isFinite(n.set)&&n.set>score+(n.bonus||0)-(n.penalty||0);
+    return `<div class="ability-box" title="${ABILITY_LABELS[a]}: ${score}${hasEffect?(setBy?` (set to ${effectiveScore} by an item)`:` (${netBonus>=0?'+':''}${netBonus} from items) = ${effectiveScore}`):''}">
       <div class="ability-abbr">${ABILITY_LABELS[a]}</div>
       <div class="ability-score" style="${hasEffect?`color:${netBonus>0?'var(--green)':'var(--red)'}`:''}'">${effectiveScore}</div>
       <div class="ability-mod" style="${effectiveMod===0?'color:var(--text-dim);opacity:0.55':''}">${modStr(effectiveMod)}</div>
     </div>`;
   }).join('');
 
-  const acNet=net['ac']?(net['ac'].bonus||0)-(net['ac'].penalty||0):0;
-  const spdNet=net['speed']?(net['speed'].bonus||0)-(net['speed'].penalty||0):0;
+  const acNet=effectiveStat(cs.ac||10,net['ac'])-(cs.ac||10);
+  const spdNet=effectiveStat(cs.speed||30,net['speed'])-(cs.speed||30);
   const initNet=net['initiative']?(net['initiative'].bonus||0)-(net['initiative'].penalty||0):0;
   const sdcNet=net['spell_dc']?(net['spell_dc'].bonus||0)-(net['spell_dc'].penalty||0):0;
   const satkNet=net['spell_attack']?(net['spell_attack'].bonus||0)-(net['spell_attack'].penalty||0):0;
-  const dexMod=abilityMod((abs['dex']||10)+(net['dex']?(net['dex'].bonus||0)-(net['dex'].penalty||0):0));
+  const dexMod=abilityMod(effectiveStat(abs['dex']||10,net['dex']));
   const combatBoxes=[
     {label:'AC',     val:(cs.ac||10)+acNet,                           base:(cs.ac||10),          bonus:acNet},
     {label:'HP',     val:`${hpCur}/${hpMax}`,                         base:(cs.hp||0),           bonus:net['hp']?(net['hp'].bonus||0)-(net['hp'].penalty||0):0},
@@ -1124,6 +1139,9 @@ function buildCard(m,idx,_itemsByHolder,_partyItems,_condSnap,_fxSnap){
     </div>`;
   }).join('');
 
+  // Conditions live at the bottom of the Stats tab
+  const condSection=buildCondPanel(m,activeConditions,color);
+
   const statsTab=`
     <div class="tab-panel" id="tab-stats-${m.id}">
       <div class="ability-grid">${abilityBoxes}</div>
@@ -1136,6 +1154,7 @@ function buildCard(m,idx,_itemsByHolder,_partyItems,_condSnap,_fxSnap){
         <div class="checks-section-label">Skills</div>
         <div class="checks-grid">${skillsHtml}</div>
       </div>
+      ${condSection}
     </div>`;
 
   // ── EFFECTS TAB ──────────────────────────────────────────────
@@ -1230,8 +1249,9 @@ function buildCard(m,idx,_itemsByHolder,_partyItems,_condSnap,_fxSnap){
       ${walletBlock}
     </div>`;
 
-  // ── CONDITIONS TAB ───────────────────────────────────────────
-  const condTab=buildCondPanel(m,activeConditions,color);
+  // ── SPELLS TAB ───────────────────────────────────────────────
+  const memberSpells=spellsFor(m);
+  const spellsTab=buildSpellsPanel(m,memberSpells);
 
   // ── ASSEMBLE CARD ────────────────────────────────────────────
   const effectCount=Object.keys(net).length;
@@ -1259,9 +1279,9 @@ function buildCard(m,idx,_itemsByHolder,_partyItems,_condSnap,_fxSnap){
       <button class="card-tab" onclick="switchTab('${m.id}','stats',this)">Stats</button>
       <button class="card-tab" onclick="switchTab('${m.id}','effects',this)">Effects${effectCount?` (${effectCount})`:''}</button>
       <button class="card-tab" onclick="switchTab('${m.id}','loot',this)">Loot${memberItems.length?` (${memberItems.length})`:''}</button>
-      <button class="card-tab" onclick="switchTab('${m.id}','cond',this)">Cond${activeConditions.length?` (${activeConditions.length})`:''}</button>
+      <button class="card-tab" onclick="switchTab('${m.id}','spells',this)">Spells${memberSpells.length?` (${memberSpells.length})`:''}</button>
     </div>
-    ${bioTab}${statsTab}${effectsTab}${lootTab}${condTab}
+    ${bioTab}${statsTab}${effectsTab}${lootTab}${spellsTab}
     <div class="card-footer">
       <div class="member-player">${m.player?`PLAYER: <span>${esc(m.player)}</span>`:''}</div>
       <div class="card-actions">
@@ -1273,14 +1293,142 @@ function buildCard(m,idx,_itemsByHolder,_partyItems,_condSnap,_fxSnap){
   </div>`;
 }
 
-// switchTab now handles all 5 tabs: bio, stats, effects, loot, cond
+// switchTab handles all 5 tabs: bio, stats, effects, loot, spells (conditions sit inside stats)
 function switchTab(memberId,tab,btn){
-  ['bio','stats','effects','loot','cond'].forEach(t=>{
+  ['bio','stats','effects','loot','spells'].forEach(t=>{
     const panel=document.getElementById(`tab-${t}-${memberId}`);
     if(panel) panel.classList.toggle('active',t===tab);
   });
   btn.closest('.card-tabs').querySelectorAll('.card-tab').forEach(b=>b.classList.remove('active'));
   btn.classList.add('active');
+}
+
+// ══════════════════════════════════════════════════════════════
+//  SPELLS TAB
+//  Spells are combat_options rows (kind 'spell'), added/edited with the
+//  shared editor in js/nexus-combat-editor.js, so they appear on the
+//  Combat sheet too. Record ids travel in data-* attributes.
+// ══════════════════════════════════════════════════════════════
+const SPELL_LEVEL_LABELS=['Cantrips','1st Level','2nd Level','3rd Level','4th Level','5th Level','6th Level','7th Level','8th Level','9th Level'];
+
+function spellsFor(m){
+  return combatOptions
+    .filter(o=>o.member_id===m.id&&o.kind==='spell')
+    .sort((a,b)=>((a.spell_level??0)-(b.spell_level??0))||String(a.name).localeCompare(String(b.name)));
+}
+
+function spellMetaLine(o){
+  const bits=[o.school,o.casting_time,o.range,o.components].filter(Boolean).map(esc);
+  if(o.concentration) bits.push('<span class="spell-flag">C</span>');
+  if(o.ritual) bits.push('<span class="spell-flag">R</span>');
+  return bits.join(' · ');
+}
+
+function spellEffectLine(o){
+  const parts=[];
+  if(o.resolve==='save'&&o.save_ability) parts.push(`${esc(o.save_ability.toUpperCase())} save${o.half_on_save?' (half)':''}`);
+  else if(o.resolve==='attack') parts.push('spell attack');
+  else if(o.resolve==='auto') parts.push('auto-hit');
+  if(o.dice) parts.push(`${esc(o.dice)}${o.damage_type?' '+esc(o.damage_type):''}`);
+  return parts.join(' · ');
+}
+
+function buildSpellsPanel(m,spells){
+  if(_spellsTableMissing){
+    return `<div class="tab-panel" id="tab-spells-${m.id}"><div class="fx-empty">Spells need the combat_options table.<br><span style="font-size:0.7rem;opacity:0.7">Run sql/supabase_combat.sql in Supabase.</span></div></div>`;
+  }
+  const leveled=spells.filter(s=>s.spell_level>0);
+  const prepared=leveled.filter(isPrepared).length;
+  const groups=[];
+  for(const s of spells){
+    const lvl=Math.max(0,Math.min(9,s.spell_level??0));
+    if(!groups.length||groups[groups.length-1].lvl!==lvl) groups.push({lvl,list:[]});
+    groups[groups.length-1].list.push(s);
+  }
+  const rows=groups.map(g=>`
+    <div class="spell-level-label">${SPELL_LEVEL_LABELS[g.lvl]}</div>
+    ${g.list.map(s=>{
+      const canPrep=s.spell_level>0;
+      const prep=isPrepared(s);
+      return `<details class="spell-row${prep?'':' spell-unprepared'}">
+        <summary>
+          ${canPrep
+            ?`<button class="spell-prep${prep?' on':''}" data-spell-action="prep" data-id="${esc(s.id)}" title="${prep?'Prepared — click to unprepare':'Not prepared — click to prepare'}">${prep?'●':'○'}</button>`
+            :'<span class="spell-prep always" title="Cantrips are always ready">◆</span>'}
+          <span class="spell-main">
+            <span class="spell-name">${esc(s.name)}</span>
+            <span class="spell-meta">${spellMetaLine(s)}</span>
+            ${spellEffectLine(s)?`<span class="spell-effect">${spellEffectLine(s)}</span>`:''}
+          </span>
+        </summary>
+        <div class="spell-body">
+          ${s.duration?`<div><span class="spell-k">Duration</span> ${esc(s.duration)}</div>`:''}
+          ${s.material?`<div><span class="spell-k">Material</span> ${esc(s.material)}</div>`:''}
+          ${s.description?`<div class="spell-desc">${esc(s.description)}</div>`:''}
+          ${s.notes?`<div class="spell-desc">${esc(s.notes)}</div>`:''}
+          <div class="spell-actions">
+            <button class="btn btn-ghost" data-spell-action="edit" data-id="${esc(s.id)}">✎ Edit</button>
+            <button class="btn btn-ghost" data-spell-action="delete" data-id="${esc(s.id)}">✕ Remove</button>
+          </div>
+        </div>
+      </details>`;
+    }).join('')}`).join('');
+  return `<div class="tab-panel" id="tab-spells-${m.id}">
+    <div class="spell-head">
+      <span class="spell-count">${spells.length?`${spells.length} spell${spells.length>1?'s':''}${leveled.length?` · ${prepared}/${leveled.length} prepared`:''}`:''}</span>
+      <button class="btn btn-cyan spell-add" data-spell-action="add" data-member="${esc(m.id)}">+ Add Spell</button>
+    </div>
+    ${rows||`<div class="fx-empty">No spells yet.<br><span style="font-size:0.7rem;opacity:0.7">Add one — start typing a name to search the SRD.</span></div>`}
+  </div>`;
+}
+
+// Re-render but keep each card on the tab it was showing
+function _rerenderKeepTabs(){
+  const _tabs=captureTabState();render();restoreTabState(_tabs);
+}
+
+function openSpellEditor(memberId,spellId){
+  const m=members.find(x=>x.id===memberId);
+  if(!m) return;
+  const option=spellId?combatOptions.find(o=>o.id===spellId)||null:null;
+  CombatEditor.open({
+    member:m, items:getItemEffects(), option, kind:'spell',
+    onSaved:({option:saved,isNew,lootItem})=>{
+      combatOptions=isNew?[...combatOptions,saved]:combatOptions.map(o=>o.id===saved.id?saved:o);
+      if(lootItem&&_cachedLootItems) _cachedLootItems.push({...lootItem,attunement:'none',desc:''});
+      _rerenderKeepTabs();
+    },
+  });
+}
+
+async function toggleSpellPrepared(id){
+  if(!(await nexusGate())) return;
+  const s=combatOptions.find(o=>o.id===id);
+  if(!s) return;
+  const prepared=!isPrepared(s);
+  try{
+    await db.update('combat_options',id,{prepared});
+    combatOptions=combatOptions.map(o=>o.id===id?{...o,prepared}:o);
+    _rerenderKeepTabs();
+  }catch(e){console.error(e);showToast('Could not update the spell — check Supabase config.');}
+}
+
+function wireSpellEvents(){
+  document.addEventListener('click',e=>{
+    const el=e.target.closest('[data-spell-action]');
+    if(!el) return;
+    const card=el.closest('.member-card');
+    const memberId=el.dataset.member||card?.dataset.memberId;
+    const id=el.dataset.id;
+    switch(el.dataset.spellAction){
+      case 'add':    openSpellEditor(memberId,null); break;
+      case 'edit':   openSpellEditor(memberId,id); break;
+      case 'prep':   e.preventDefault(); toggleSpellPrepared(id); break;  // don't toggle the <details>
+      case 'delete': CombatEditor.remove(combatOptions.find(o=>o.id===id),()=>{
+                       combatOptions=combatOptions.filter(o=>o.id!==id);_rerenderKeepTabs();
+                     }); break;
+    }
+  });
 }
 
 // ══════════════════════════════════════════════════════════════
@@ -1575,7 +1723,7 @@ const LT_ALL_STATS=[
   {key:'attack_rolls',label:'Attack Rolls'},{key:'spell_attack',label:'Spell Attack Rolls'},
   {key:'spell_dc',label:'Spell Save DC'},{key:'damage_rolls',label:'Damage Rolls'},{key:'spell_damage',label:'Spell Damage Rolls'},
 ];
-const LT_FX_TYPES=[{key:'bonus',label:'+Bonus'},{key:'penalty',label:'−Penalty'},{key:'advantage',label:'Advantage'},{key:'disadvantage',label:'Disadvantage'}];
+const LT_FX_TYPES=[{key:'bonus',label:'+Bonus'},{key:'penalty',label:'−Penalty'},{key:'set',label:'=Set to'},{key:'advantage',label:'Advantage'},{key:'disadvantage',label:'Disadvantage'}];
 
 function lt_buildStatSelect(){
   const groups=[
@@ -1603,11 +1751,11 @@ function lt_addFxRow(existing){
   lt_pendingFx.push(fx);
   const row=document.createElement('div');
   row.className='fx-row';row.id=`lt_fx-row-${idx}`;
-  const needsVal=t=>t==='bonus'||t==='penalty';
+  const needsVal=fxNeedsValue;
   const showDmg=(t,s)=>(t==='bonus'||t==='penalty')&&LT_DAMAGE_STATS.has(s);
   row.innerHTML=`
     <select class="fx-stat-sel" onchange="lt_pendingFx[${idx}].stat=this.value;lt_fxUpdateDmgVis(${idx})">${lt_buildStatSelect()}</select>
-    <select class="fx-type-sel" onchange="lt_pendingFx[${idx}].type=this.value;document.getElementById('lt_fx-val-${idx}').style.display=(this.value==='bonus'||this.value==='penalty')?'block':'none';lt_fxUpdateDmgVis(${idx})">${lt_buildTypeSelect()}</select>
+    <select class="fx-type-sel" onchange="lt_pendingFx[${idx}].type=this.value;document.getElementById('lt_fx-val-${idx}').style.display=fxNeedsValue(this.value)?'block':'none';lt_fxUpdateDmgVis(${idx})">${lt_buildTypeSelect()}</select>
     <div class="fx-val-wrap">
       <input type="number" class="fx-val-inp" id="lt_fx-val-${idx}" placeholder="±#" style="display:${needsVal(fx.type)?'block':'none'}" onchange="lt_pendingFx[${idx}].value=parseFloat(this.value)||null" />
       <select class="fx-dmg-sel" id="lt_fx-dmg-${idx}" style="display:${showDmg(fx.type,fx.stat)?'block':'none'}" onchange="lt_pendingFx[${idx}].damageType=this.value||null">${lt_buildDmgTypeSelect()}</select>
@@ -1618,12 +1766,14 @@ function lt_addFxRow(existing){
   row.querySelector('.fx-type-sel').value=fx.type||'bonus';
   if(fx.value!=null) document.getElementById(`lt_fx-val-${idx}`).value=fx.value;
   document.getElementById(`lt_fx-dmg-${idx}`).value=fx.damageType||'';
+  lt_fxUpdateDmgVis(idx);
 }
 function lt_fxUpdateDmgVis(idx){
   const stat=lt_pendingFx[idx]?.stat||'';
   const type=lt_pendingFx[idx]?.type||'';
   const sel=document.getElementById(`lt_fx-dmg-${idx}`);
   if(sel) sel.style.display=(type==='bonus'||type==='penalty')&&LT_DAMAGE_STATS.has(stat)?'block':'none';
+  syncFxSetOption(document.querySelector(`#lt_fx-row-${idx} .fx-type-sel`),stat,lt_pendingFx[idx],`lt_fx-val-${idx}`);
 }
 function lt_removeFxRow(idx){
   lt_pendingFx[idx]=null;
@@ -1632,7 +1782,7 @@ function lt_removeFxRow(idx){
 }
 function lt_collectFx(){
   return lt_pendingFx.filter(f=>f&&f.stat).map(f=>{
-    const fx={stat:f.stat,type:f.type||'bonus',value:(f.type==='bonus'||f.type==='penalty')?(f.value||0):null};
+    const fx={stat:f.stat,type:f.type||'bonus',value:fxNeedsValue(f.type||'bonus')?(f.value||0):null};
     if(f.damageType&&LT_DAMAGE_STATS.has(f.stat)&&(f.type==='bonus'||f.type==='penalty'))fx.damageType=f.damageType;
     return fx;
   });
@@ -1726,6 +1876,8 @@ Promise.all([
   loadData(),
   prefetchLootItems(),
   prefetchTreasury(),
+  prefetchSpells(),
+  loadCombatTarget(),
 ]).then(() => {
   buildSidenav('party-roster.html');
   applyModuleVisibility();
@@ -1733,6 +1885,7 @@ Promise.all([
   if (!enforceModuleGuard('partyRoster')) return;
   showLoading(false);
   loadTerms().catch(() => {});
+  wireSpellEvents();
   render();
 });
 </script>
