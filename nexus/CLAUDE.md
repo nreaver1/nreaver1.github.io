@@ -25,12 +25,13 @@ js/nexus-config.js    Supabase creds, `db` REST wrapper, nexusConfirm, terms (t(
 js/nexus-utils.js     Pure helpers (uid, esc, fmt, 5e math, combat math, treasury math, loot emoji, slugify)
                       + showToast + buildSidenav. Exports via module.exports for tests.
 js/nexus-srd.js       dnd5eapi.co (2014 SRD) client: name search dropdown (attachSrdSearch) + pure mappers
-                      srdSpellToOption / srdWeaponToOption / srdItemToLoot / parseSrdItemEffects (tested)
+                      srdSpellToOption / srdWeaponToOption / srdItemToLoot / parseSrdItemEffects (tested),
+                      plus CampaignLibrary (campaign_library table) and its pure library* helpers
 js/nexus-combat-editor.js  CombatEditor: the one add/edit modal for combat_options, used by combat.html
                       and the roster Spells tab. Load order: config, utils, srd, combat-editor.
 css/nexus.css         One shared stylesheet (~3.8k lines); theme tokens on :root
 sql/                  Hand-run SQL for the Supabase SQL Editor (no migration tool)
-tests/nexus.test.js   ~10k lines, ~1400 tests
+tests/nexus.test.js   ~10k lines, ~1450 tests
 .github/workflows/    Leftover test.yml that never runs. The live CI is ../.github/workflows/nexus-ci.yml at the repo root
 ```
 
@@ -61,6 +62,7 @@ IDs are client-generated text strings from `uid()` (`'_' + 9 base36 chars`).
 | `session_events` | FK to session_log with cascade. Saved by delete-all-then-reinsert for the session (non-atomic). |
 | `npcs` | `slug` is unique. `first_seen` is an FK with set null. |
 | `combat_options` | One attack/spell/feature per row. **Also the spell list**: the roster Spells tab shows `kind='spell'` rows (with `school`, `components`, `material`, `casting_time`, `duration`, `concentration`, `ritual`, `description`, `prepared`, `srd_index`). FK `member_id` → party_members (cascade; keyed by **id**, not name), `loot_item_id` → loot_items (set null). `action` action/bonus/reaction, `resolve` attack/save/auto/none, `ability` str..cha or `spell`, `spell_level` 0 = cantrip. |
+| `campaign_library` | Hand-typed non-SRD content (Tasha's, homebrew) shared by every name search. `kind` spell/weapon/item/feature, `name`, `data` JSONB in the form's shape (combat_options fields, or loot fields for items). Unique on `(kind, lower(name))`; the app updates by name instead of duplicating. |
 | `nexus_settings` | key/value JSONB: `term_mappings`, `module_enabled`, `site_lock`, `combat_target` (`{ac, save}`). |
 
 Member names are the join key between the roster, loot `holder` and ledger `member_name`. Renaming a member doesn't cascade.
@@ -69,7 +71,7 @@ Conditions (party roster) and the collapse state of the effects panel live in **
 
 ### SQL files
 - `sql/supabase_setup.sql`: the full install (all tables + settings + session log).
-- `sql/supabase_session_log.sql`, `supabase_settings_only.sql`, `supabase_tx_member.sql`, `supabase_loot_quantity.sql`, `supabase_combat.sql`: incremental add-ons for older installs. They overlap the setup script. `supabase_combat.sql` creates the table **and** ends with `add column if not exists` lines, so re-running it upgrades an older combat_options.
+- `sql/supabase_session_log.sql`, `supabase_settings_only.sql`, `supabase_tx_member.sql`, `supabase_loot_quantity.sql`, `supabase_combat.sql`: incremental add-ons for older installs. They overlap the setup script. `supabase_combat.sql` creates the table **and** ends with `add column if not exists` lines, so re-running it upgrades an older combat_options. `supabase_library.sql` creates campaign_library.
 - When you add a column, add it to `supabase_setup.sql` **and** ship an `add column if not exists` file. A test checks that the setup script has the columns the pages write.
 
 ## Feature notes
@@ -80,7 +82,7 @@ Conditions (party roster) and the collapse state of the effects panel live in **
 - **5e math:** `abilityMod`, `computeCheck`, `computeNetEffects` (aggregates item effects for a member plus `'Party'` items, with a per-damage-type breakdown). Note party-roster.html still defines its own `computeNetEffects(memberName)` that shadows the utils one on that page.
 - **Combat (2014 5e):** all maths is in utils: `parseDice`, `effectiveProf` (max of stored `prof` and the level table, plus `prof_bonus` items; the roster uses it too), `combatBreakdown` (to-hit/DC/damage with labelled parts), `expectedDamage`, `rankCombatOptions` (top 3 + `bestAtWill`). `combatContext(member, items, option, target)` builds the per-option context: attack/damage effects on weapon-type loot (`isWeaponItem`) only count for options linked to that weapon via `loot_item_id`. Extra Attack is `party_members.combat.attacks`. The DM target is one AC + one save bonus for everyone, edited behind `requireAdmin`. Slots, charges and initiative are deliberately not tracked. Unprepared leveled spells (`isPrepared`) are listed but not ranked; a spell with no Spell DC/Atk on the roster shows "not set" (`breakdown.dc.missing`).
 - **Flat stats:** `effectiveStat(base, net[stat])` = max(base + bonus − penalty, set). The roster ability/AC/speed boxes, `computeCheck` and combat ability mods all use it. party-roster.html's own net-effects copies record `set` too.
-- **SRD lookup:** only SRD 5.1 content exists in the API (no Booming Blade, Xanathar's, etc.); anything else is typed in. Item effects come from regex over the description text, so they're shown in the form to confirm before saving. Roll20 has no API and can't be used.
+- **SRD lookup:** only SRD 5.1 content exists in the API (no Booming Blade, Xanathar's, etc.); anything else is typed in once and saved to the **campaign library** ("Save to the campaign library" checkbox in the shared editor and the Loot modal, on by default for new hand-typed entries, hidden after an SRD pick). Search kinds `campaign:spell|weapon|item|feature` read the library; features search the library only. Admin has a Campaign Library card to remove entries; snapshots include the table. Item effects come from regex over the description text, so they're shown in the form to confirm before saving. Roll20 has no API and can't be used.
 - **Spells tab (roster):** reads `combat_options` at boot; add/edit go through `CombatEditor` with `kind: 'spell'`; Prepared toggles write straight to the row. Adding a weapon from the editor can create the Loot Tracker item (held by the character) and link it.
 - **Admin auth:** an unsalted SHA-256 hash of the password in `NEXUS_ADMIN_HASH`. Success sets `sessionStorage.nexus_admin='1'`. It's a **UI convenience only**: the anon key plus `public_all` RLS policies let anyone read and write every table directly.
 - **Snapshot:** Admin exports all tables to JSON. Restore deletes every row and reinserts per table (not transactional).

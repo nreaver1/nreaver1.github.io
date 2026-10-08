@@ -117,6 +117,17 @@
         </div>
       </div>
 
+      <!-- ── CAMPAIGN LIBRARY ── -->
+      <div class="admin-section-card">
+        <div class="admin-section-head">Campaign Library</div>
+        <div class="admin-section-desc">
+          Spells, weapons, items and features typed in by hand (Tasha's, Xanathar's, homebrew).
+          They show up in every name search next to SRD results, tagged "Campaign". Remove an
+          entry here to stop it appearing in searches — characters and loot that already use it keep their copy.
+        </div>
+        <div id="libraryList"><div class="lib-empty">Loading…</div></div>
+      </div>
+
       <!-- ── CAMPAIGN SNAPSHOT ── -->
       <div class="admin-section-card">
         <div class="admin-section-head">Campaign Snapshot</div>
@@ -129,7 +140,7 @@
         <div class="snapshot-row">
           <div class="snapshot-action">
             <div class="snapshot-action-title">Export Everything</div>
-            <div class="snapshot-action-desc">Downloads a full snapshot of all 8 tables as one JSON file (party, treasury, loot, session log, NPCs, and settings).</div>
+            <div class="snapshot-action-desc">Downloads a full snapshot of every table as one JSON file (party, treasury, loot, session log, NPCs, combat, campaign library and settings).</div>
           </div>
           <button class="btn btn-cyan" id="btnExportSnapshot" onclick="exportSnapshot()">⬇ Export Snapshot</button>
         </div>
@@ -194,6 +205,7 @@
 
   <script src="js/nexus-config.js"></script>
   <script src="js/nexus-utils.js"></script>
+  <script src="js/nexus-srd.js"></script>
 <script>loadModuleSettings().then(() => { buildSidenav('admin.html'); applyModuleVisibility(); });</script>
   <script>
   // ══════════════════════════════════════════════════════════
@@ -425,7 +437,76 @@
     buildModuleToggleGrid();
     buildSiteLockToggle();
     buildDangerZone();
+    buildLibraryList();
   }
+
+  // ══════════════════════════════════════════════════════════
+  //  CAMPAIGN LIBRARY MANAGER
+  //  Entries come from js/nexus-srd.js (CampaignLibrary). Ids travel
+  //  in data-lib-id; one delegated listener handles removal.
+  // ══════════════════════════════════════════════════════════
+  const LIB_GROUPS = [
+    { kind: 'spell',   label: 'Spells' },
+    { kind: 'weapon',  label: 'Weapons' },
+    { kind: 'item',    label: 'Items' },
+    { kind: 'feature', label: 'Features' },
+  ];
+
+  function libMeta(e) {
+    const d = e.data || {};
+    if (e.kind === 'spell') return [d.spell_level === 0 ? 'cantrip' : d.spell_level ? `level ${d.spell_level}` : '', d.school, d.dice].filter(Boolean).join(' · ');
+    if (e.kind === 'item') return [d.type, d.rarity].filter(Boolean).join(' · ');
+    return [d.dice, d.damage_type].filter(Boolean).join(' ');
+  }
+
+  async function buildLibraryList() {
+    const el = document.getElementById('libraryList');
+    if (!el) return;
+    const rows = await CampaignLibrary.load(true);
+    if (CampaignLibrary.missing) {
+      el.innerHTML = '<div class="lib-empty">The campaign_library table does not exist yet — run sql/supabase_library.sql in Supabase.</div>';
+      return;
+    }
+    if (!rows.length) {
+      el.innerHTML = '<div class="lib-empty">Empty. Anything typed in by hand on the Combat sheet, Spells tab or Loot Tracker can be saved here.</div>';
+      return;
+    }
+    el.innerHTML = LIB_GROUPS.map(g => {
+      const list = rows.filter(r => r.kind === g.kind);
+      if (!list.length) return '';
+      return `<div class="lib-group-label">${g.label} (${list.length})</div>` + list.map(e => `
+        <div class="lib-row">
+          <span><span class="lib-name">${esc(e.name)}</span><span class="lib-meta">${esc(libMeta(e))}</span></span>
+          <button class="btn-icon del" data-lib-id="${esc(e.id)}" title="Remove from library">🗑</button>
+        </div>`).join('');
+    }).join('');
+  }
+
+  async function removeLibraryEntry(id) {
+    if (!(await nexusGate())) return;
+    const entry = (await CampaignLibrary.load()).find(r => r.id === id);
+    if (!entry) return;
+    const ok = await nexusConfirm({
+      title:        'Remove from Campaign Library',
+      name:         entry.name,
+      message:      'It will stop appearing in name searches. Characters and loot that already use it are not changed.',
+      confirmLabel: 'Remove',
+    });
+    if (!ok) return;
+    try {
+      await CampaignLibrary.remove(id);
+      showToast(`${entry.name} removed from the library.`);
+      buildLibraryList();
+    } catch (e) {
+      console.error(e);
+      showToast('Remove failed — check Supabase config.');
+    }
+  }
+
+  document.addEventListener('click', e => {
+    const btn = e.target.closest('[data-lib-id]');
+    if (btn) removeLibraryEntry(btn.dataset.libId);
+  });
 
   function buildSiteLockToggle() {
     const cb = document.getElementById('siteLockToggle');
@@ -689,6 +770,7 @@
     'treasury_ledger',
     'loot_items',
     'combat_options',
+    'campaign_library',
     'session_log',
     'session_events',
     'npcs',
@@ -706,7 +788,7 @@
   // Tables added after the first snapshot version. A snapshot taken
   // before they existed simply has no key for them; treat that as
   // "no rows" instead of failing the whole restore.
-  const OPTIONAL_SNAPSHOT_TABLES = new Set(['combat_options']);
+  const OPTIONAL_SNAPSHOT_TABLES = new Set(['combat_options', 'campaign_library']);
   //
   // session_events uses CASCADE delete — restore session_log first,
   // then session_events, so FKs resolve cleanly.

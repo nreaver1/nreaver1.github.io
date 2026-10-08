@@ -4075,3 +4075,22 @@ body.page-combat main { max-width: 1150px; }
 .spell-desc { white-space: pre-wrap; max-height: 10rem; overflow-y: auto; color: var(--text); opacity: 0.85; }
 .spell-actions { display: flex; gap: 0.4rem; }
 .spell-actions .btn { padding: 0.25rem 0.55rem; font-size: 0.55rem; }
+
+/* SRD dropdown: entries from the campaign library */
+.srd-tag {
+  margin-left: 0.5rem;
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 0.6rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--violet);
+  border: 1px solid rgba(167,139,250,0.4);
+  border-radius: 2px;
+  padding: 0 0.3rem;
+}
+/* Admin: campaign library manager */
+.lib-group-label { font-family: 'Share Tech Mono', monospace; font-size: 0.65rem; letter-spacing: 0.2em; text-transform: uppercase; color: var(--violet); margin: 0.8rem 0 0.3rem; }
+.lib-row { display: flex; align-items: center; justify-content: space-between; gap: 0.6rem; padding: 0.35rem 0; border-bottom: 1px solid var(--border); }
+.lib-name { font-family: 'Rajdhani', sans-serif; font-weight: 700; color: var(--text); }
+.lib-meta { font-family: 'Share Tech Mono', monospace; font-size: 0.65rem; color: var(--text-dim); margin-left: 0.5rem; }
+.lib-empty { font-family: 'Share Tech Mono', monospace; font-size: 0.7rem; color: var(--text-dim); padding: 0.6rem 0; }

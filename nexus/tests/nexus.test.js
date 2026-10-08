@@ -2989,12 +2989,12 @@ describe('Campaign Snapshot — logic correctness (pure JS)', () => {
       'exportSnapshot must hide the status div before fetching');
   });
 
-  it('SNAPSHOT_TABLES has exactly 9 entries (session tables + combat_options)', () => {
+  it('SNAPSHOT_TABLES has exactly 10 entries (session tables + combat_options + campaign_library)', () => {
     const match = src.match(/const SNAPSHOT_TABLES\s*=\s*\[([\s\S]*?)\];/);
     assert.ok(match, 'SNAPSHOT_TABLES must be defined');
     const entries = (match[1].match(/'\w+'/g) || []);
-    assert.strictEqual(entries.length, 9,
-      `SNAPSHOT_TABLES must have exactly 9 entries, found ${entries.length}: ${entries.join(', ')}`);
+    assert.strictEqual(entries.length, 10,
+      `SNAPSHOT_TABLES must have exactly 10 entries, found ${entries.length}: ${entries.join(', ')}`);
   });
 
   it('SNAPSHOT_TABLES order: nexus_settings last; session_log before session_events', () => {
@@ -6707,12 +6707,12 @@ describe('Stage 8 — Polish', () => {
     );
   });
 
-  it('admin SNAPSHOT_TABLES now has 9 entries', () => {
+  it('admin SNAPSHOT_TABLES now has 10 entries', () => {
     const match   = admin.match(/const SNAPSHOT_TABLES\s*=\s*\[([\s\S]*?)\];/);
     assert.ok(match, 'SNAPSHOT_TABLES must be defined in admin.html');
     const entries = (match[1].match(/'[^']+'/g) || []);
-    assert.strictEqual(entries.length, 9,
-      `SNAPSHOT_TABLES must have 9 entries (Stage 8 + combat_options), found ${entries.length}`
+    assert.strictEqual(entries.length, 10,
+      `SNAPSHOT_TABLES must have 10 entries (Stage 8 + combat_options + campaign_library), found ${entries.length}`
     );
   });
 
@@ -6754,11 +6754,10 @@ describe('Stage 8 — Polish', () => {
     );
   });
 
-  it('admin snapshot description mentions 8 tables', () => {
-    assert.ok(
-      admin.includes('8 tables') || admin.includes('eight tables'),
-      'admin snapshot description text must be updated to reflect 8 tables'
-    );
+  it('admin snapshot description covers every table without a stale count', () => {
+    assert.ok(admin.includes('full snapshot of every table'), 'snapshot description must say every table');
+    assert.ok(!/all \d+ tables/.test(admin), 'no hard-coded table count that goes stale');
+    assert.ok(admin.includes('combat, campaign library'), 'description lists the combat and library data');
   });
 
   // ── No stale Stage-8 stub text ───────────────────────────────
@@ -8588,7 +8587,7 @@ describe('Combat module — schema and registration', () => {
 
   it('snapshots taken before combat existed still restore cleanly', () => {
     const src = read('admin.html');
-    assert.match(src, /OPTIONAL_SNAPSHOT_TABLES = new Set\(\['combat_options'\]\)/);
+    assert.match(src, /OPTIONAL_SNAPSHOT_TABLES = new Set\(\['combat_options', 'campaign_library'\]\)/);
     // Replica of the back-fill in restoreSnapshot: a missing optional
     // table becomes [] so the loop does not report "not an array".
     const OPTIONAL_SNAPSHOT_TABLES = new Set(['combat_options']);
@@ -9550,8 +9549,11 @@ describe('Shared combat editor — SRD, loot and prepared', () => {
   const src  = fs.readFileSync(path.join(__dirname, '..', 'js', 'nexus-combat-editor.js'), 'utf8');
   const page = fs.readFileSync(path.join(__dirname, '..', 'combat.html'), 'utf8');
 
-  it('name field searches SRD spells for spells, weapons for weapons, nothing for features', () => {
-    assert.match(src, /attachSrdSearch\(\$\('ce-name'\), \{\n\s+kind: \(\) => \(\{ spell: 'spells', weapon: 'weapons' \}\)\[\$\('ce-kind'\)\.value\] \|\| null,\n\s+onPick: applySrd,/);
+  it('name field searches SRD + library spells / weapons, and library-only features', () => {
+    assert.match(src, /spell:   \['spells', 'campaign:spell'\],/);
+    assert.match(src, /weapon:  \['weapons', 'campaign:weapon'\],/);
+    assert.match(src, /feature: \['campaign:feature'\],/);
+    assert.match(src, /onPick: applySrd,/);
   });
 
   it('an SRD pick maps through nexus-srd.js and keeps the form editable', () => {
@@ -9708,7 +9710,7 @@ describe('Loot Tracker — SRD item search', () => {
   });
 
   it('the item name searches SRD magic items and weapons together', () => {
-    assert.match(src, /attachSrdSearch\(document\.getElementById\('fieldName'\),\{kind:\['magic-items','weapons'\],onPick:applySrdLoot\}\)/);
+    assert.match(src, /attachSrdSearch\(document\.getElementById\('fieldName'\),\{kind:\['magic-items','weapons','campaign:item','campaign:weapon'\],onPick:applySrdLoot\}\)/);
     assert.match(srd, /const kinds = \[\]\.concat\(currentKind\(\) \|\| \[\]\);/);
     assert.match(srd, /\(await Promise\.all\(kinds\.map\(srdList\)\)\)\.flat\(\)/);
   });
@@ -9779,5 +9781,178 @@ describe('CLAUDE.md — spells, SRD and flat stats', () => {
   it('documents the set effect type and the spells-in-combat_options design', () => {
     assert.match(doc, /`set`/);
     assert.match(doc, /Spells tab/);
+  });
+});
+
+
+// ══════════════════════════════════════════════════════════════
+//  CAMPAIGN LIBRARY (non-SRD content typed in once, shared)
+// ══════════════════════════════════════════════════════════════
+
+describe('Campaign library', () => {
+  const fs = require('node:fs'), path = require('node:path');
+  const read = f => fs.readFileSync(path.join(__dirname, '..', f), 'utf8');
+  const {
+    LIBRARY_KINDS, LIBRARY_OPTION_FIELDS, libraryEntryFromOption, libraryEntryFromLoot,
+    findLibraryMatch, librarySearchList, libraryWeaponToLoot, srdFilter,
+  } = require('../js/nexus-srd.js');
+  const { validateCombatOption } = require('../js/nexus-utils.js');
+
+  const boomingBlade = {
+    id: '_bb', member_id: '_kael', sort_order: 3, loot_item_id: '_sword', prepared: true, srd_index: null,
+    name: ' Booming Blade ', kind: 'spell', action: 'action', resolve: 'attack', ability: 'str',
+    dice: '1d8', extra_dice: '1d8', damage_type: 'thunder', add_mod: true, spell_level: 0, scales: false,
+    range: 'Self (5 ft)', school: 'Evocation', components: 'S, M', material: 'a melee weapon worth at least 1 sp',
+    casting_time: '1 action', duration: '1 round', concentration: false, ritual: false, description: 'Typed in from the book.',
+  };
+
+  describe('libraryEntryFromOption()', () => {
+    it('keeps the reusable fields and drops ids, owner, loot link and prepared', () => {
+      const e = libraryEntryFromOption(boomingBlade);
+      assert.strictEqual(e.kind, 'spell');
+      assert.strictEqual(e.name, 'Booming Blade');
+      for (const f of ['id', 'member_id', 'sort_order', 'loot_item_id', 'prepared', 'srd_index']) {
+        assert.ok(!(f in e.data), `${f} must not be stored in the library`);
+      }
+      assert.strictEqual(e.data.extra_dice, '1d8');
+      assert.strictEqual(e.data.material, 'a melee weapon worth at least 1 sp');
+    });
+    it('round-trips into a valid combat option', () => {
+      const { data } = libraryEntryFromOption(boomingBlade);
+      assert.strictEqual(validateCombatOption(data), null);
+    });
+    it('weapons remember their Loot Tracker type (given, or guessed from range)', () => {
+      const whip = { name: 'Whip', kind: 'weapon', range: '10 ft', dice: '1d4' };
+      assert.strictEqual(libraryEntryFromOption(whip).data.lootType, 'Melee Weapon');
+      assert.strictEqual(libraryEntryFromOption({ ...whip, range: '30/120 ft' }).data.lootType, 'Ranged Weapon');
+      assert.strictEqual(libraryEntryFromOption(whip, 'Thrown Weapon').data.lootType, 'Thrown Weapon');
+      assert.strictEqual(libraryEntryFromOption(whip).kind, 'weapon');
+    });
+    it('features stay features; spells have no lootType', () => {
+      assert.strictEqual(libraryEntryFromOption({ name: 'Sneak Attack', kind: 'feature' }).kind, 'feature');
+      assert.ok(!('lootType' in libraryEntryFromOption(boomingBlade).data));
+    });
+    it('LIBRARY_OPTION_FIELDS never includes per-character fields', () => {
+      for (const f of ['id', 'member_id', 'loot_item_id', 'prepared', 'sort_order']) assert.ok(!LIBRARY_OPTION_FIELDS.includes(f));
+    });
+  });
+
+  describe('libraryEntryFromLoot()', () => {
+    const cloak = { id: '_c', name: 'Cloak of Many Fashions ', type: 'Cloak', rarity: 'common', holder: 'Kael', qty: 2,
+      attunement: 'none', desc: 'From Xanathar\'s.', statEffects: [{ stat: 'ac', type: 'bonus', value: 0 }] };
+    it('keeps item fields, drops holder, quantity and id', () => {
+      const e = libraryEntryFromLoot(cloak);
+      assert.deepStrictEqual(e, { kind: 'item', name: 'Cloak of Many Fashions', data: {
+        name: 'Cloak of Many Fashions', type: 'Cloak', rarity: 'common', attunement: 'none',
+        desc: 'From Xanathar\'s.', statEffects: [{ stat: 'ac', type: 'bonus', value: 0 }] } });
+    });
+    it('copies the effects so later edits to the item do not leak in', () => {
+      const e = libraryEntryFromLoot(cloak);
+      e.data.statEffects[0].value = 9;
+      assert.strictEqual(cloak.statEffects[0].value, 0);
+    });
+  });
+
+  describe('lookups', () => {
+    const rows = [
+      { id: '1', kind: 'spell', name: 'Booming Blade', data: {} },
+      { id: '2', kind: 'spell', name: 'Mind Sliver', data: {} },
+      { id: '3', kind: 'item', name: 'Booming Blade', data: {} },
+      { id: '4', kind: 'feature', name: 'Sneak Attack', data: {} },
+    ];
+    it('findLibraryMatch matches kind + name ignoring case and spaces', () => {
+      assert.strictEqual(findLibraryMatch(rows, 'spell', '  booming BLADE ').id, '1');
+      assert.strictEqual(findLibraryMatch(rows, 'item', 'Booming Blade').id, '3');
+      assert.strictEqual(findLibraryMatch(rows, 'weapon', 'Booming Blade'), null);
+      assert.strictEqual(findLibraryMatch(null, 'spell', 'x'), null);
+    });
+    it('librarySearchList returns one kind, flagged as campaign entries, searchable with srdFilter', () => {
+      const list = librarySearchList(rows, 'spell');
+      assert.deepStrictEqual(list.map(e => e.name), ['Booming Blade', 'Mind Sliver']);
+      assert.ok(list.every(e => e.campaign && e.entry && e.url === null));
+      assert.deepStrictEqual(srdFilter(list, 'mind').map(e => e.name), ['Mind Sliver']);
+    });
+    it('LIBRARY_KINDS covers spells, weapons, items and features', () => {
+      assert.deepStrictEqual(LIBRARY_KINDS, ['spell', 'weapon', 'item', 'feature']);
+    });
+  });
+
+  it('libraryWeaponToLoot fills the Loot form like an SRD weapon', () => {
+    assert.deepStrictEqual(libraryWeaponToLoot({ name: 'Hand Crossbow', lootType: 'Ranged Weapon', dice: '1d6', damage_type: 'piercing', range: '30/120 ft', notes: 'Light' }),
+      { name: 'Hand Crossbow', type: 'Ranged Weapon', rarity: 'common', attunement: 'none', desc: '1d6 piercing · 30/120 ft · Light', statEffects: [] });
+  });
+
+  describe('wiring', () => {
+    const srd = read('js/nexus-srd.js');
+    const editor = read('js/nexus-combat-editor.js');
+    const loot = read('loot-tracker.html');
+    const admin = read('admin.html');
+
+    it('campaign:* search kinds read the library, not the API', () => {
+      assert.match(srd, /if \(String\(kind\)\.startsWith\('campaign:'\)\) \{\n\s+return librarySearchList\(await CampaignLibrary\.load\(\), kind\.slice\('campaign:'\.length\)\);/);
+    });
+    it('library results are tagged and picked without a fetch', () => {
+      assert.match(srd, /r\.campaign \? '<span class="srd-tag">Campaign<\/span>' : ''/);
+      assert.match(srd, /if \(r\.campaign\) \{[\s\S]*?onPick && onPick\(\{ __campaign: true, kind: r\.entry\.kind, name: r\.entry\.name, data: r\.entry\.data \}\);\n\s+return;/);
+    });
+    it('CampaignLibrary.save updates a same-name entry instead of duplicating it', () => {
+      const body = srd.slice(srd.indexOf('async save(entry)'), srd.indexOf('async remove(id)'));
+      assert.match(body, /findLibraryMatch\(this\._rows, entry\.kind, entry\.name\)/);
+      assert.match(body, /db\.update\('campaign_library', hit\.id/);
+      assert.match(body, /db\.insert\('campaign_library', row\)/);
+    });
+    it('a missing table reads as an empty library', () => {
+      const body = srd.slice(srd.indexOf('async load(force)'), srd.indexOf('async save(entry)'));
+      assert.match(body, /catch \(e\) \{[\s\S]*this\._rows = \[\];\n\s+this\.missing = true;/);
+    });
+    it('editor: hand-typed entries offer "save to library", on by default for new ones', () => {
+      assert.match(editor, /\$\('ce-savelib-wrap'\)\.style\.display  = pickedFrom === 'srd' \|\| \$\('ce-name'\)\.dataset\.srdIndex \? 'none' : '';/);
+      assert.match(editor, /\$\('ce-savelib'\)\.checked = !option;/);
+    });
+    it('editor: library save runs after the option is saved and never undoes it', () => {
+      const body = editor.slice(editor.indexOf('async function save('), editor.indexOf('async function remove('));
+      const optAt = body.indexOf("db.insert('combat_options', saved)");
+      const libAt = body.indexOf('CampaignLibrary.save(libraryEntryFromOption(row, srdLootType))');
+      assert.ok(optAt > 0 && libAt > optAt);
+      assert.match(body, /try \{\n\s+await CampaignLibrary\.save[\s\S]*?\} catch \(e\) \{/);
+    });
+    it('editor: a library pick fills the form from the stored data', () => {
+      assert.match(editor, /if \(detail\.__campaign\) \{\n\s+mapped = \{ \.\.\.detail\.data, kind: detail\.data\.kind \|\| kind, srd_index: null \};/);
+    });
+    it('loot: library items and weapons fill the form; save offers the library', () => {
+      assert.match(loot, /\(detail\.kind==='item'\?\{\.\.\.detail\.data\}:libraryWeaponToLoot\(detail\.data\)\)/);
+      assert.match(loot, /if\(_lootPickedFrom!=='srd'&&document\.getElementById\('fieldSaveLib'\)\.checked\)\{\n\s+try\{ await CampaignLibrary\.save\(libraryEntryFromLoot\(item\)\);/);
+    });
+    it('admin lists library entries (escaped) and removes them gated + confirmed', () => {
+      assert.match(admin, /<script src="js\/nexus-srd\.js"><\/script>/);
+      assert.match(admin, /\$\{esc\(e\.name\)\}/);
+      assert.match(admin, /data-lib-id="\$\{esc\(e\.id\)\}"/);
+      const body = admin.slice(admin.indexOf('async function removeLibraryEntry'), admin.indexOf("document.addEventListener('click', e => {\n    const btn = e.target.closest('[data-lib-id]')"));
+      assert.match(body, /^async function removeLibraryEntry\(id\) \{\n    if \(!\(await nexusGate\(\)\)\) return;/);
+      assert.match(body, /await nexusConfirm\(\{/);
+      assert.match(body, /CampaignLibrary\.remove\(id\)/);
+    });
+  });
+
+  describe('schema', () => {
+    for (const file of ['sql/supabase_setup.sql', 'sql/supabase_library.sql']) {
+      it(`${file} defines campaign_library with a unique kind + name`, () => {
+        const sql = read(file);
+        assert.match(sql, /create table if not exists (public\.)?campaign_library \(/);
+        for (const col of ['id', 'kind', 'name', 'data']) assert.match(sql, new RegExp(`\\n\\s+${col}\\s+\\w+`));
+        assert.match(sql, /create unique index if not exists campaign_library_kind_name on (public\.)?campaign_library \(kind, lower\(name\)\)/);
+        assert.match(sql, /create policy "public_all" on (public\.)?campaign_library/);
+      });
+    }
+    it('supabase_library.sql is safe to run twice', () => {
+      const sql = read('sql/supabase_library.sql');
+      assert.match(sql, /drop policy if exists "public_all" on public\.campaign_library/);
+      assert.match(sql, /drop trigger if exists trg_campaign_library_updated/);
+    });
+    it('snapshots include campaign_library (optional for older snapshot files)', () => {
+      const admin = read('admin.html');
+      assert.match(admin, /'combat_options',\n\s+'campaign_library',/);
+      assert.match(admin, /OPTIONAL_SNAPSHOT_TABLES = new Set\(\['combat_options', 'campaign_library'\]\)/);
+    });
   });
 });

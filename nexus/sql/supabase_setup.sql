@@ -216,3 +216,23 @@ create policy "public_all" on combat_options for all using (true) with check (tr
 create trigger trg_combat_options_updated
   before update on combat_options
   for each row execute function set_updated_at();
+
+-- ── 7. CAMPAIGN LIBRARY ───────────────────────────────────────
+-- Hand-typed non-SRD content shared by every name search.
+create table if not exists campaign_library (
+  id          text        primary key,
+  kind        text        not null,               -- spell | weapon | item | feature
+  name        text        not null,
+  data        jsonb       not null default '{}',
+  created_at  timestamptz default now(),
+  updated_at  timestamptz default now()
+);
+
+create unique index if not exists campaign_library_kind_name on campaign_library (kind, lower(name));
+
+alter table campaign_library enable row level security;
+create policy "public_all" on campaign_library for all using (true) with check (true);
+
+create trigger trg_campaign_library_updated
+  before update on campaign_library
+  for each row execute function set_updated_at();

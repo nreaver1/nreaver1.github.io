@@ -288,6 +288,7 @@
         <label>Description / Notes</label>
         <textarea class="mi" id="fieldDesc" placeholder="Item description, acquisition notes…"></textarea>
       </div>
+      <label class="cb-check" id="fieldSaveLibWrap"><input type="checkbox" id="fieldSaveLib" /> Save to the campaign library (searchable for everyone)</label>
 
       <!-- STAT EFFECTS SECTION -->
       <div class="field">
@@ -398,6 +399,7 @@ let items = [];
 let editingId = null;
 let sortKey = 'name', sortDir = 1;
 let pendingFx = [];   // effects being edited in modal
+let _lootPickedFrom = null;  // 'srd' | 'campaign' | null — SRD items are already searchable
 
 const RARITY_ORDER = { common:0,uncommon:1,rare:2,'very-rare':3,legendary:4,artifact:5 };
 
@@ -888,6 +890,9 @@ async function openModal(id){
   if(fieldNameError)fieldNameError.textContent='';
   pendingFx=[];
   document.getElementById('fxRows').innerHTML='';
+  _lootPickedFrom=null;
+  document.getElementById('fieldSaveLib').checked=!id;   // new hand-typed items are shared by default
+  _syncSaveLib();
   if(id){
     const it=items.find(i=>i.id===id); if(!it) return;
     document.getElementById('fieldName').value=it.name;
@@ -911,7 +916,7 @@ async function openModal(id){
     await initHolderDisplay('');
   }
   // Name search over SRD magic items + weapons; picking one fills the form
-  attachSrdSearch(document.getElementById('fieldName'),{kind:['magic-items','weapons'],onPick:applySrdLoot});
+  attachSrdSearch(document.getElementById('fieldName'),{kind:['magic-items','weapons','campaign:item','campaign:weapon'],onPick:applySrdLoot});
   document.getElementById('modalBackdrop').classList.add('open');
   setTimeout(()=>document.getElementById('fieldName').focus(),150);
 }
@@ -919,8 +924,17 @@ async function openModal(id){
 // Fill the item form from an SRD pick. Everything stays editable; the
 // holder and quantity are left as they are.
 function applySrdLoot(detail){
+  if(detail.__campaign){
+    _lootPickedFrom='campaign';
+    document.getElementById('fieldSaveLib').checked=false;  // tick it to update the library entry
+  }else{
+    _lootPickedFrom='srd';
+  }
+  _syncSaveLib();
   const isMagic=String(detail.url||'').includes('/magic-items/');
-  const loot=isMagic?srdItemToLoot(detail):(()=>{
+  const loot=detail.__campaign
+    ?(detail.kind==='item'?{...detail.data}:libraryWeaponToLoot(detail.data))
+    :isMagic?srdItemToLoot(detail):(()=>{
     const w=srdWeaponToOption(detail);
     return {name:w.name,type:w.lootType,rarity:'common',attunement:'none',desc:[w.dice&&`${w.dice} ${w.damage_type||''}`.trim(),w.range,w.notes].filter(Boolean).join(' · '),statEffects:[]};
   })();
@@ -938,7 +952,13 @@ function applySrdLoot(detail){
   (loot.statEffects||[]).forEach(fx=>addFxRow({...fx}));
   checkAttuneWarn();
   const n=(loot.statEffects||[]).length;
-  showToast(n?`Filled from the SRD with ${n} effect${n>1?'s':''} — check them before saving.`:'Filled from the SRD — add any stat effects by hand.');
+  const src=detail.__campaign?'the campaign library':'the SRD';
+  showToast(n?`Filled from ${src} with ${n} effect${n>1?'s':''} — check them before saving.`:`Filled from ${src} — add any stat effects by hand.`);
+}
+
+// The "save to campaign library" box only shows for hand-typed / library items
+function _syncSaveLib(){
+  document.getElementById('fieldSaveLibWrap').style.display=_lootPickedFrom==='srd'?'none':'';
 }
 
 function closeModal(){ document.getElementById('modalBackdrop').classList.remove('open'); editingId=null; pendingFx=[]; }
@@ -1184,8 +1204,14 @@ async function saveItem(){
   setLoading(btn, true); setModalLoading(modal, true);
   try{
     await saveItemToDB(item);
-    if(editingId){ const idx=items.findIndex(i=>i.id===editingId); if(idx>=0) items[idx]=item; showToast('Item updated.'); }
-    else{ items.push(item); showToast('Item logged to registry.'); }
+    // Share hand-typed items (Tasha's, homebrew…) — a library failure never undoes the save
+    let libNote='';
+    if(_lootPickedFrom!=='srd'&&document.getElementById('fieldSaveLib').checked){
+      try{ await CampaignLibrary.save(libraryEntryFromLoot(item)); libNote=' Saved to the campaign library.'; }
+      catch(e){ console.error(e); libNote=' (Campaign library not saved — run sql/supabase_library.sql.)'; }
+    }
+    if(editingId){ const idx=items.findIndex(i=>i.id===editingId); if(idx>=0) items[idx]=item; showToast('Item updated.'+libNote); }
+    else{ items.push(item); showToast('Item logged to registry.'+libNote); }
     renderTable(); closeModal();
   }catch(e){ console.error(e); showToast('Save failed — check your Supabase config.');
   }finally{ setLoading(btn, false); setModalLoading(modal, false); }

@@ -8,8 +8,15 @@
 //  Load after nexus-utils.js on pages that need it:
 //    <script src="js/nexus-srd.js"></script>
 //
-//  Mapping functions (srd*To*, parseSrdItemEffects, srdFilter) are pure
-//  and exported for the test suite. Fetching + the dropdown are browser-only.
+//  Mapping functions (srd*To*, parseSrdItemEffects, srdFilter, library*)
+//  are pure and exported for the test suite. Fetching, CampaignLibrary and
+//  the dropdown are browser-only.
+//
+//  CAMPAIGN LIBRARY: non-SRD content (Tasha's, Xanathar's, homebrew) that
+//  the DM types in once is saved to the campaign_library table and then
+//  shows up in the same search dropdowns, tagged "Campaign". Search kinds
+//  'campaign:spell' | 'campaign:weapon' | 'campaign:item' | 'campaign:feature'
+//  read from it; the other kinds read the SRD API.
 // ══════════════════════════════════════════════════════════════
 
 // parseDice comes from nexus-utils.js (a global in the browser, required under Node)
@@ -258,11 +265,90 @@ function srdItemToLoot(item) {
 }
 
 // ──────────────────────────────────────────────────────────────
+//  CAMPAIGN LIBRARY — pure helpers
+// ──────────────────────────────────────────────────────────────
+const LIBRARY_KINDS = ['spell', 'weapon', 'item', 'feature'];
+
+// combat_options fields worth reusing for another character (no ids,
+// owner, loot link or per-character prepared state)
+const LIBRARY_OPTION_FIELDS = [
+  'kind', 'action', 'resolve', 'ability', 'save_ability', 'dice', 'extra_dice', 'damage_type',
+  'add_mod', 'spell_level', 'scales', 'half_on_save', 'aoe', 'range', 'notes',
+  'school', 'components', 'material', 'casting_time', 'duration', 'concentration', 'ritual', 'description',
+];
+
+/**
+ * libraryEntryFromOption(row, lootType)
+ * combat_options row → { kind, name, data } for campaign_library.
+ * Weapons remember which Loot Tracker type they are (lootType).
+ */
+function libraryEntryFromOption(row, lootType) {
+  const kind = row.kind === 'spell' ? 'spell' : row.kind === 'feature' ? 'feature' : 'weapon';
+  const data = { name: String(row.name || '').trim() };
+  for (const f of LIBRARY_OPTION_FIELDS) if (row[f] !== undefined) data[f] = row[f];
+  if (kind === 'weapon') data.lootType = lootType || (/\d+\/\d+/.test(row.range || '') ? 'Ranged Weapon' : 'Melee Weapon');
+  return { kind, name: data.name, data };
+}
+
+/**
+ * libraryEntryFromLoot(item)
+ * Loot Tracker item → { kind: 'item', name, data } (no holder / quantity).
+ */
+function libraryEntryFromLoot(item) {
+  const name = String(item.name || '').trim();
+  return {
+    kind: 'item',
+    name,
+    data: {
+      name,
+      type: item.type || null,
+      rarity: item.rarity || null,
+      attunement: item.attunement || 'none',
+      desc: item.desc || '',
+      statEffects: (item.statEffects || []).map(fx => ({ ...fx })),
+    },
+  };
+}
+
+/** Same kind and same name, ignoring case and outer spaces. */
+function findLibraryMatch(entries, kind, name) {
+  const n = String(name || '').trim().toLowerCase();
+  return (entries || []).find(e => e.kind === kind && String(e.name || '').trim().toLowerCase() === n) || null;
+}
+
+/** Library rows of one kind in the {index, name, url} shape srdFilter expects. */
+function librarySearchList(entries, kind) {
+  return (entries || [])
+    .filter(e => e.kind === kind)
+    .map(e => ({ index: e.id, name: e.name, url: null, campaign: true, entry: e }));
+}
+
+/**
+ * libraryWeaponToLoot(data)
+ * A library weapon (option-shaped data) → Loot Tracker fields, the same
+ * way an SRD weapon fills the Loot form.
+ */
+function libraryWeaponToLoot(data) {
+  const d = data || {};
+  return {
+    name: d.name || '',
+    type: d.lootType || 'Melee Weapon',
+    rarity: 'common',
+    attunement: 'none',
+    desc: [d.dice && `${d.dice} ${d.damage_type || ''}`.trim(), d.range, d.notes].filter(Boolean).join(' · '),
+    statEffects: [],
+  };
+}
+
+// ──────────────────────────────────────────────────────────────
 //  FETCHING (browser) — lists are cached for the session
 // ──────────────────────────────────────────────────────────────
 const _srdMem = {};
 
 async function srdList(kind) {
+  if (String(kind).startsWith('campaign:')) {
+    return librarySearchList(await CampaignLibrary.load(), kind.slice('campaign:'.length));
+  }
   if (_srdMem[kind]) return _srdMem[kind];
   const key = 'nexus_srd_' + kind;
   try {
@@ -284,6 +370,49 @@ async function srdGet(url) {
   if (!r.ok) throw new Error(`SRD ${url}: ${r.status}`);
   return (_srdMem[url] = await r.json());
 }
+
+/**
+ * CampaignLibrary — the campaign_library table, loaded once per page.
+ * save() upserts by kind + name. Callers run nexusGate() first.
+ * A missing table (SQL not run yet) just means an empty library.
+ */
+const CampaignLibrary = {
+  _rows: null,
+  missing: false,
+
+  async load(force) {
+    if (this._rows && !force) return this._rows;
+    try {
+      this._rows = await db.select('campaign_library', { order: 'name.asc' });
+      this.missing = false;
+    } catch (e) {
+      console.info('[NEXUS] campaign_library not available:', e.message);
+      this._rows = [];
+      this.missing = true;
+    }
+    return this._rows;
+  },
+
+  async save(entry) {
+    await this.load();
+    if (this.missing) throw new Error('campaign_library table missing — run sql/supabase_library.sql');
+    const hit = findLibraryMatch(this._rows, entry.kind, entry.name);
+    if (hit) {
+      await db.update('campaign_library', hit.id, { name: entry.name, data: entry.data });
+      Object.assign(hit, { name: entry.name, data: entry.data });
+      return hit;
+    }
+    const row = { id: uid(), kind: entry.kind, name: entry.name, data: entry.data };
+    await db.insert('campaign_library', row);
+    this._rows.push(row);
+    return row;
+  },
+
+  async remove(id) {
+    await db.delete('campaign_library', id);
+    if (this._rows) this._rows = this._rows.filter(r => r.id !== id);
+  },
+};
 
 /**
  * attachSrdSearch(input, { kind, onPick })
@@ -313,8 +442,9 @@ function attachSrdSearch(input, { kind, onPick }) {
     if (msg) { box.innerHTML = `<div class="srd-msg">${esc(msg)}</div>`; box.classList.add('open'); return; }
     if (!results.length) { close(); return; }
     box.innerHTML = results.map((r, i) =>
-      `<div class="srd-opt${i === active ? ' active' : ''}" role="option" data-i="${i}">${esc(r.name)}</div>`
-    ).join('') + '<div class="srd-msg">SRD 5e · not listed? just type it</div>';
+      `<div class="srd-opt${i === active ? ' active' : ''}" role="option" data-i="${i}">${esc(r.name)}` +
+      `${r.campaign ? '<span class="srd-tag">Campaign</span>' : ''}</div>`
+    ).join('') + '<div class="srd-msg">SRD 5e + campaign library · not listed? just type it</div>';
     box.classList.add('open');
   };
 
@@ -323,6 +453,11 @@ function attachSrdSearch(input, { kind, onPick }) {
     if (!r) return;
     input.value = r.name;
     close();
+    if (r.campaign) {
+      // Library entries are already in Nexus shape — no fetch
+      onPick && onPick({ __campaign: true, kind: r.entry.kind, name: r.entry.name, data: r.entry.data });
+      return;
+    }
     try {
       const detail = await srdGet(r.url);
       onPick && onPick(detail);
@@ -385,6 +520,14 @@ if (typeof module !== 'undefined') {
     srdWeaponToOption,
     srdItemToLoot,
     parseSrdItemEffects,
+    LIBRARY_KINDS,
+    LIBRARY_OPTION_FIELDS,
+    libraryEntryFromOption,
+    libraryEntryFromLoot,
+    findLibraryMatch,
+    librarySearchList,
+    libraryWeaponToLoot,
+    CampaignLibrary,
     srdList,
     srdGet,
     attachSrdSearch,

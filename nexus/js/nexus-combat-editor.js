@@ -22,6 +22,7 @@
 const CombatEditor = (() => {
   let ctx = null;       // { member, items, option, onSaved }
   let srdLootType = null; // Loot Tracker type guessed from an SRD weapon pick
+  let pickedFrom = null;  // 'srd' | 'campaign' | null (typed by hand) — drives "save to library"
   const $ = id => document.getElementById(id);
 
   const ABILITY_OPTS = '<option value="str">STR</option><option value="dex">DEX</option><option value="con">CON</option>' +
@@ -118,6 +119,7 @@ const CombatEditor = (() => {
       </div>
       <div class="field"><label for="ce-notes">Notes <span class="optional">(optional)</span></label><textarea id="ce-notes" rows="2"></textarea></div>
       <div class="field" id="ce-desc-wrap"><label for="ce-desc">Spell description <span class="optional">(optional)</span></label><textarea id="ce-desc" rows="4"></textarea></div>
+      <label class="cb-check" id="ce-savelib-wrap"><input type="checkbox" id="ce-savelib" /> Save to the campaign library (searchable for every character)</label>
       <div class="cb-preview" id="cePreview"></div>
       <div class="cb-form-error" id="ceError" role="alert"></div>
     </div>
@@ -156,7 +158,12 @@ const CombatEditor = (() => {
     });
 
     attachSrdSearch($('ce-name'), {
-      kind: () => ({ spell: 'spells', weapon: 'weapons' })[$('ce-kind').value] || null,
+      // SRD + campaign library for spells/weapons; features only exist in the library
+      kind: () => ({
+        spell:   ['spells', 'campaign:spell'],
+        weapon:  ['weapons', 'campaign:weapon'],
+        feature: ['campaign:feature'],
+      })[$('ce-kind').value] || null,
       onPick: applySrd,
     });
   }
@@ -241,6 +248,8 @@ const CombatEditor = (() => {
     $('ce-addmod-wrap').style.display   = $('ce-ability').value === 'spell' ? 'none' : '';
     $('ce-scales-wrap').style.display   = $('ce-level').value === '0' ? '' : 'none';
     $('ce-addloot-wrap').style.display  = isNewWeapon && !$('ce-item').value ? '' : 'none';
+    // SRD content is already searchable; anything typed in can be shared
+    $('ce-savelib-wrap').style.display  = pickedFrom === 'srd' || $('ce-name').dataset.srdIndex ? 'none' : '';
     $('ce-name').placeholder = isSpell || kind === 'weapon' ? 'Start typing to search the SRD…' : 'Breath Weapon, Sneak Attack…';
     updatePreview();
   }
@@ -289,11 +298,20 @@ const CombatEditor = (() => {
     $('ce-addmod').checked = true;
   }
 
-  // An SRD pick overwrites the form with the SRD values (all still editable)
+  // An SRD or campaign-library pick overwrites the form (all still editable)
   function applySrd(detail) {
     const kind = $('ce-kind').value;
-    const mapped = kind === 'spell' ? srdSpellToOption(detail) : srdWeaponToOption(detail, ctx.member);
+    let mapped;
+    if (detail.__campaign) {
+      mapped = { ...detail.data, kind: detail.data.kind || kind, srd_index: null };
+      pickedFrom = 'campaign';
+      $('ce-savelib').checked = false;   // only re-save if they choose to update the library entry
+    } else {
+      mapped = kind === 'spell' ? srdSpellToOption(detail) : srdWeaponToOption(detail, ctx.member);
+      pickedFrom = 'srd';
+    }
     srdLootType = mapped.lootType || null;
+    delete mapped.lootType;
     write({ ...read(), ...mapped, loot_item_id: $('ce-item').value || null, prepared: $('ce-prepared').checked });
     $('ce-name').dataset.srdIndex = mapped.srd_index || '';
     if (kind === 'weapon' && !ctx.option && !$('ce-item').value) $('ce-addloot').checked = true;
@@ -322,6 +340,7 @@ const CombatEditor = (() => {
     ensureMarkup();
     ctx = { member, items: items || [], option, onSaved };
     srdLootType = null;
+    pickedFrom = option?.srd_index ? 'srd' : null;
     $('ce-name').dataset.srdIndex = '';
     const noun = option ? (option.kind === 'spell' ? 'SPELL' : 'OPTION') : (kind === 'spell' ? 'SPELL' : 'OPTION');
     $('ceTitle').textContent = `${option ? '✎ EDIT' : '⚔ ADD'} ${noun} — ${String(member.name || '').toUpperCase()}`;
@@ -331,6 +350,7 @@ const CombatEditor = (() => {
       : { kind: 'weapon', action: 'action', resolve: 'attack', ability: 'str', add_mod: true };
     write(option || blank);
     $('ce-addloot').checked = false;
+    $('ce-savelib').checked = !option;   // new hand-typed entries are shared by default
     $('ceError').textContent = '';
     sync();
     $('ceModal').classList.add('open');
@@ -379,8 +399,20 @@ const CombatEditor = (() => {
         await db.update('combat_options', ctx.option.id, row);
         saved = { ...ctx.option, ...row };
       }
+      // Share hand-typed content (Tasha's, homebrew…) through the campaign library.
+      // A library failure never undoes the save itself.
+      let libNote = '';
+      if ($('ce-savelib-wrap').style.display !== 'none' && $('ce-savelib').checked) {
+        try {
+          await CampaignLibrary.save(libraryEntryFromOption(row, srdLootType));
+          libNote = ' · saved to the campaign library';
+        } catch (e) {
+          console.error(e);
+          libNote = ' · campaign library not saved (run sql/supabase_library.sql)';
+        }
+      }
       const done = ctx.onSaved;
-      showToast(`${row.name} ${isNew ? 'added' : 'updated'}${lootItem ? ' (and added to the Loot Tracker)' : ''}`);
+      showToast(`${row.name} ${isNew ? 'added' : 'updated'}${lootItem ? ' (and added to the Loot Tracker)' : ''}${libNote}`);
       close();
       done && done({ option: saved, isNew, lootItem });
     } catch (e) {
