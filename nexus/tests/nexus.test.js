@@ -2989,12 +2989,12 @@ describe('Campaign Snapshot — logic correctness (pure JS)', () => {
       'exportSnapshot must hide the status div before fetching');
   });
 
-  it('SNAPSHOT_TABLES has exactly 8 entries (Stage 8: session tables added)', () => {
+  it('SNAPSHOT_TABLES has exactly 9 entries (session tables + combat_options)', () => {
     const match = src.match(/const SNAPSHOT_TABLES\s*=\s*\[([\s\S]*?)\];/);
     assert.ok(match, 'SNAPSHOT_TABLES must be defined');
     const entries = (match[1].match(/'\w+'/g) || []);
-    assert.strictEqual(entries.length, 8,
-      `SNAPSHOT_TABLES must have exactly 8 entries, found ${entries.length}: ${entries.join(', ')}`);
+    assert.strictEqual(entries.length, 9,
+      `SNAPSHOT_TABLES must have exactly 9 entries, found ${entries.length}: ${entries.join(', ')}`);
   });
 
   it('SNAPSHOT_TABLES order: nexus_settings last; session_log before session_events', () => {
@@ -6707,12 +6707,12 @@ describe('Stage 8 — Polish', () => {
     );
   });
 
-  it('admin SNAPSHOT_TABLES now has 8 entries', () => {
+  it('admin SNAPSHOT_TABLES now has 9 entries', () => {
     const match   = admin.match(/const SNAPSHOT_TABLES\s*=\s*\[([\s\S]*?)\];/);
     assert.ok(match, 'SNAPSHOT_TABLES must be defined in admin.html');
     const entries = (match[1].match(/'[^']+'/g) || []);
-    assert.strictEqual(entries.length, 8,
-      `SNAPSHOT_TABLES must have 8 entries after Stage 8, found ${entries.length}`
+    assert.strictEqual(entries.length, 9,
+      `SNAPSHOT_TABLES must have 9 entries (Stage 8 + combat_options), found ${entries.length}`
     );
   });
 
@@ -7100,6 +7100,7 @@ describe('Nav — Session Log present in every sidenav', () => {
     'loot-tracker.html',
     'admin.html',
     'session-log.html',
+    'combat.html',
   ];
 
   it('NAV_LINKS in nexus-utils.js contains session-log.html for all pages', () => {
@@ -7850,6 +7851,7 @@ describe('Component cleanup — no duplicated utility code in HTML pages', () =>
   const ALL_PAGES = [
     'index.html', 'party-roster.html', 'treasury.html',
     'loot-tracker.html', 'session-log.html', 'admin.html',
+    'combat.html',
   ];
 
   // ── showToast ──────────────────────────────────────────────────
@@ -8018,11 +8020,11 @@ describe('Component cleanup — no duplicated utility code in HTML pages', () =>
       'danger-row divs must only be emitted by buildDangerZone(), not hardcoded in HTML');
   });
 
-  it('admin.html DANGER_ROWS contains exactly 5 entries', () => {
+  it('admin.html DANGER_ROWS contains exactly 6 entries', () => {
     const src  = fs.readFileSync(path.join(base, 'admin.html'), 'utf8');
     const rows = (src.match(/id:\s*'btn/g) || []).length;
-    assert.strictEqual(rows, 5,
-      'DANGER_ROWS must have exactly 5 entries (members, treasury, loot, sessions, npcs)');
+    assert.strictEqual(rows, 6,
+      'DANGER_ROWS must have exactly 6 entries (members, treasury, loot, sessions, npcs, combat)');
   });
 });
 
@@ -8121,7 +8123,7 @@ describe('CSS health — nexus.css', () => {
   });
 
   // ── Loading overlay HTML uses classes not inline styles ────────
-  const MODULE_PAGES = ['party-roster.html', 'treasury.html', 'loot-tracker.html', 'session-log.html'];
+  const MODULE_PAGES = ['party-roster.html', 'treasury.html', 'loot-tracker.html', 'session-log.html', 'combat.html'];
   for (const page of MODULE_PAGES) {
     it(`${page} loading overlay has no inline styles (uses CSS classes)`, () => {
       const src = fs.readFileSync(path.join(base, page), 'utf8');
@@ -8180,7 +8182,7 @@ describe('Security — escaping, gated tools, schema sync', () => {
   const fs   = require('fs'), path = require('path');
   const read = f => fs.readFileSync(path.join(__dirname, '..', f), 'utf8');
   const PAGES = ['index.html', 'party-roster.html', 'treasury.html',
-                 'loot-tracker.html', 'session-log.html', 'admin.html'];
+                 'loot-tracker.html', 'session-log.html', 'admin.html', 'combat.html'];
 
   it('nexusConfirm escapes every caller-supplied string', () => {
     const cfg = read('js/nexus-config.js');
@@ -8505,6 +8507,137 @@ describe('Combat math', () => {
   });
 });
 
+// ══════════════════════════════════════════════════════════════
+//  COMBAT MODULE — schema, registration, target setting
+//
+//  The combat_options table must exist in both the full setup
+//  script and the re-runnable add-on; the module must be wired
+//  into every place a module is registered (config, nav, admin,
+//  dashboard); and snapshots must carry the new table.
+// ══════════════════════════════════════════════════════════════
+
+describe('Combat module — schema and registration', () => {
+  const fs   = require('node:fs');
+  const path = require('node:path');
+  const base = path.join(__dirname, '..');
+  const read = f => fs.readFileSync(path.join(base, f), 'utf8');
+  const utils = require('../js/nexus-utils.js');
+
+  const COLUMNS = [
+    'member_id', 'kind', 'name', 'action', 'resolve', 'ability', 'save_ability',
+    'dice', 'extra_dice', 'damage_type', 'add_mod', 'spell_level', 'scales',
+    'half_on_save', 'aoe', 'range', 'notes', 'loot_item_id', 'sort_order',
+  ];
+
+  for (const file of ['sql/supabase_setup.sql', 'sql/supabase_combat.sql']) {
+    it(`${file} defines combat_options with every column`, () => {
+      const sql   = read(file);
+      const block = sql.slice(sql.search(/create table if not exists (public\.)?combat_options/));
+      const body  = block.slice(0, block.indexOf(');'));
+      assert.ok(body.length > 0, 'combat_options table missing');
+      for (const col of COLUMNS) assert.match(body, new RegExp(`\\n\\s*${col}\\s+\\w+`), `column ${col} missing`);
+    });
+
+    it(`${file} cascades member deletes and nulls deleted loot links`, () => {
+      const sql = read(file);
+      assert.match(sql, /member_id\s+text\s+not null references (public\.)?party_members\(id\) on delete cascade/);
+      assert.match(sql, /loot_item_id\s+text\s+references (public\.)?loot_items\(id\) on delete set null/);
+    });
+
+    it(`${file} enables RLS with the public_all policy`, () => {
+      const sql = read(file);
+      assert.match(sql, /alter table (public\.)?combat_options\s+enable row level security/);
+      assert.match(sql, /create policy "public_all" on (public\.)?combat_options/);
+    });
+  }
+
+  it('supabase_combat.sql is safe to run twice', () => {
+    const sql = read('sql/supabase_combat.sql');
+    assert.match(sql, /drop policy if exists "public_all" on public\.combat_options/);
+    assert.match(sql, /drop trigger if exists trg_combat_options_updated/);
+    assert.match(sql, /create index if not exists/);
+  });
+
+  it('config registers the module and the term', () => {
+    const cfg = read('js/nexus-config.js');
+    assert.match(cfg, /\{ key: 'combat',\s+label: 'Combat',\s+href: 'combat\.html'/);
+    assert.match(cfg, /MODULE_ENABLED_DEFAULTS = \{[\s\S]*?combat:\s+true/);
+    assert.match(cfg, /TERM_DEFAULTS = \{[\s\S]*?combat:\s+'Combat'/);
+  });
+
+  it('nav links to combat.html and maps it to the combat module key', () => {
+    assert.ok(utils.NAV_LINKS.some(l => l.href === 'combat.html'));
+    assert.strictEqual(utils.NAV_MODULE_KEY['combat.html'], 'combat');
+    const hrefs = utils.NAV_LINKS.map(l => l.href);
+    assert.strictEqual(hrefs.at(-1), 'admin.html', 'Admin stays last in the nav');
+  });
+
+  it('admin TERM_DEFS includes combat', () => {
+    assert.match(read('admin.html'), /\{ key: 'combat',\s+label: 'Combat'/);
+  });
+
+  it('snapshot restores combat_options after party_members and loot_items', () => {
+    const src = read('admin.html');
+    const list = src.match(/const SNAPSHOT_TABLES\s*=\s*\[([\s\S]*?)\];/)[1].match(/'\w+'/g).map(s => s.slice(1, -1));
+    const at = n => list.indexOf(n);
+    assert.ok(at('combat_options') > at('party_members'), 'needs members first (FK)');
+    assert.ok(at('combat_options') > at('loot_items'), 'needs loot first (FK)');
+    assert.ok(at('combat_options') < at('nexus_settings'), 'nexus_settings stays last');
+  });
+
+  it('snapshots taken before combat existed still restore cleanly', () => {
+    const src = read('admin.html');
+    assert.match(src, /OPTIONAL_SNAPSHOT_TABLES = new Set\(\['combat_options'\]\)/);
+    // Replica of the back-fill in restoreSnapshot: a missing optional
+    // table becomes [] so the loop does not report "not an array".
+    const OPTIONAL_SNAPSHOT_TABLES = new Set(['combat_options']);
+    const snapshot = { tables: { party_members: [] } };
+    for (const tbl of OPTIONAL_SNAPSHOT_TABLES) {
+      if (!(tbl in snapshot.tables)) snapshot.tables[tbl] = [];
+    }
+    assert.deepStrictEqual(snapshot.tables.combat_options, []);
+    const restore = src.slice(src.indexOf('async function restoreSnapshot'));
+    assert.ok(restore.indexOf('OPTIONAL_SNAPSHOT_TABLES') < restore.indexOf('const counts'),
+      'back-fill must run before the summary and the restore loop');
+  });
+
+  it('danger zone can clear combat options', () => {
+    const src = read('admin.html');
+    assert.match(src, /id:\s*'btnClearCombat'/);
+    assert.match(src, /async function clearAllCombat\(\)[\s\S]*?dangerConfirm\([\s\S]*?db\.deleteWhere\('combat_options', 'id=gt\.'\)/);
+  });
+
+  it('dashboard has a combat card, term mapping and stats loader', () => {
+    const src = read('index.html');
+    assert.match(src, /href="combat\.html" data-module="combat"/);
+    assert.match(src, /'COMBAT':\s+t\('combat'\)/);
+    assert.match(src, /loadCombatStats\(\);/);
+    assert.ok(!/combat\.html[^>]*--card-accent:#/.test(src), 'combat card uses a CSS variable accent');
+  });
+
+  it('combat.html follows the page boot conventions', () => {
+    const src = read('combat.html');
+    assert.ok(src.indexOf('js/nexus-config.js') < src.indexOf('js/nexus-utils.js'), 'config loads before utils');
+    assert.match(src, /<div id="nexus-nav-root"><\/div>/);
+    assert.match(src, /buildSidenav\('combat\.html'\)/);
+    assert.match(src, /applyModuleVisibility\(\)/);
+    assert.match(src, /applyReadOnlyBanner\(\)/);
+    assert.match(src, /enforceModuleGuard\('combat'\)/);
+    assert.match(src, /loadCombatTarget\(\)/);
+  });
+
+  it('combat.html survives a missing combat_options table', () => {
+    assert.match(read('combat.html'), /db\.select\('combat_options'[^)]*\)\.catch\(/);
+  });
+
+  it('config loads and saves the target through normalizeCombatTarget', () => {
+    const cfg = read('js/nexus-config.js');
+    assert.match(cfg, /async function loadCombatTarget\(\)[\s\S]*?key=eq\.combat_target[\s\S]*?normalizeCombatTarget\(saved\)/);
+    assert.match(cfg, /async function saveCombatTarget\(target\)[\s\S]*?normalizeCombatTarget\(target\)[\s\S]*?key: 'combat_target'/);
+    assert.ok(!/^const COMBAT_TARGET_DEFAULTS/m.test(cfg), 'defaults live in nexus-utils.js only');
+  });
+});
+
 describe('normalizeCombatTarget()', () => {
   const { normalizeCombatTarget, COMBAT_TARGET_DEFAULTS } = require('../js/nexus-utils.js');
 
@@ -8534,6 +8667,168 @@ describe('normalizeCombatTarget()', () => {
   });
 });
 
+// ══════════════════════════════════════════════════════════════
+//  COMBAT PAGE — read view (combat.html)
+//
+//  Shape tests for the sheet: it ranks with the shared utils
+//  (no copied math), escapes user text, keeps record ids out of
+//  inline JS, gates the DM target behind the admin password and
+//  styles itself with theme tokens only.
+// ══════════════════════════════════════════════════════════════
+
+describe('Combat page — read view', () => {
+  const fs   = require('node:fs');
+  const path = require('node:path');
+  const src  = fs.readFileSync(path.join(__dirname, '..', 'combat.html'), 'utf8');
+  const css  = fs.readFileSync(path.join(__dirname, '..', 'css', 'nexus.css'), 'utf8');
+  const script = src.slice(src.indexOf('<script>'));
+  const fnBody = name => {
+    const start = script.search(new RegExp(`(async )?function ${name}\\(`));
+    assert.ok(start >= 0, `${name}() missing`);
+    return script.slice(start, script.indexOf('\n}\n', start));
+  };
+
+  it('ranks with the shared utils, not a local copy of the math', () => {
+    assert.match(script, /rankCombatOptions\(mine, ctxFor\)/);
+    assert.match(script, /combatContext\(member, items, option, COMBAT_TARGET\)/);
+    for (const fn of ['parseDice', 'hitChance', 'saveFailChance', 'combatBreakdown', 'expectedDamage', 'rankCombatOptions', 'computeNetEffects', 'effectiveProf']) {
+      assert.ok(!new RegExp(`function ${fn}\\(`).test(script), `${fn} must come from nexus-utils.js`);
+    }
+  });
+
+  it('maps loot rows to statEffects before computing net effects', () => {
+    assert.match(script, /statEffects: r\.stat_effects \|\| \[\]/);
+    assert.match(script, /computeNetEffects\(member\.name, items\)/);
+  });
+
+  it('opens on ?member=<id>, then the last viewed sheet, then the first member', () => {
+    const body = fnBody('pickInitialMember');
+    assert.match(body, /URLSearchParams\(location\.search\)\.get\('member'\)/);
+    assert.match(body, /\[fromUrl, fromStore\]/);
+    assert.match(body, /members\[0\]\?\.id/);
+  });
+
+  it('localStorage access is wrapped in try/catch', () => {
+    const uses = script.match(/localStorage\.\w+\(/g) || [];
+    const wrapped = script.match(/try \{ [^}]*localStorage\.\w+\([^}]*\} catch/g) || [];
+    assert.ok(uses.length > 0);
+    assert.strictEqual(wrapped.length, uses.length, 'every localStorage call must be inside try/catch');
+  });
+
+  it('never puts record ids or names into inline handlers', () => {
+    assert.ok(!/on[a-z]+="[^"]*\$\{/.test(src), 'no ${...} inside on*="" attributes');
+    assert.match(script, /data-action="select-member" data-id="\$\{esc\(m\.id\)\}"/);
+    assert.match(script, /document\.addEventListener\('click'/);
+  });
+
+  it('escapes every user-entered field it renders', () => {
+    // showToast() and .textContent take plain text, so escaping there would be wrong
+    const html = script
+      .replace(/showToast\(`[^`]*`\)/g, '')
+      .replace(/\.textContent = [^;]*;/g, '');
+    for (const field of ['m.name', 'o.name', 'o.notes', 'o.damage_type', 'o.range', 'it.name', 'm.class', 'row.name', 'member.name']) {
+      const raw = new RegExp(`\\$\\{${field.replace('.', '\\.')}\\}`);
+      assert.ok(!raw.test(html), `${field} must go through esc()`);
+    }
+    assert.match(script, /esc\(o\.save_ability\.toUpperCase\(\)\)/);
+  });
+
+  it('the DM target editor is admin-only and the save is gated', () => {
+    assert.match(script, /const openTargetModal = requireAdmin\(/);
+    assert.match(fnBody('saveTarget'), /^async function saveTarget\(\) \{\n  if \(!\(await nexusGate\(\)\)\) return;/);
+    assert.match(fnBody('saveTarget'), /saveCombatTarget\(/);
+    assert.match(fnBody('saveTarget'), /setLoading\(btn, true\)/);
+  });
+
+  it('shows top picks, a best-at-will fallback, action columns and buffs', () => {
+    assert.match(script, /top\.map\(\(r, i\) => pickCardHtml\(r, i \+ 1\)\)/);
+    assert.match(script, /bestAtWill \?/);
+    assert.match(script, /ACTION_COLUMNS\.map\(col => columnHtml/);
+    for (const key of ['action', 'bonus', 'reaction']) assert.match(script, new RegExp(`key: '${key}'`));
+    assert.match(script, /buffsHtml\(relevant\)/);
+  });
+
+  it('breakdowns use native <details> so they work without extra JS', () => {
+    assert.match(script, /<details class="cb-pick">/);
+    assert.match(script, /<details class="cb-opt">/);
+    assert.match(script, /breakdownHtml\(o, b, r\.expected\)/);
+  });
+
+  it('has empty states for no members and for an empty sheet', () => {
+    assert.match(script, /add characters in the \$\{esc\(t\('partyRoster'\)\)\}/);
+    assert.match(script, /No attacks or spells on this sheet yet/);
+  });
+
+  it('does not use confirm() or alert()', () => {
+    assert.ok(!/[^.\w]confirm\(/.test(script), 'use nexusConfirm');
+    assert.ok(!/\balert\(/.test(script));
+  });
+
+  it('combat CSS uses theme tokens, no hard-coded hex colours', () => {
+    const block = css.slice(css.indexOf('COMBAT MODULE (combat.html)'));
+    assert.ok(block.length > 100, 'combat CSS section missing');
+    assert.ok(!/#[0-9a-fA-F]{3,8}\b/.test(block), 'use var(--…) instead of hex');
+    assert.ok(!/style="[^"]*#[0-9a-fA-F]{3,8}/.test(src), 'no hex in inline styles either');
+  });
+
+  it('cb- classes are defined once at the top level', () => {
+    const counts = {};
+    for (const m of css.matchAll(/^(\.cb-[a-z-]+)\s*\{/gm)) counts[m[1]] = (counts[m[1]] || 0) + 1;
+    const dupes = Object.entries(counts).filter(([, n]) => n > 1);
+    assert.deepStrictEqual(dupes, []);
+  });
+});
+
+// ══════════════════════════════════════════════════════════════
+//  COMBAT — option editor (validation, weapon detection, page)
+// ══════════════════════════════════════════════════════════════
+
+describe('validateCombatOption()', () => {
+  const { validateCombatOption, COMBAT_KINDS, COMBAT_ACTIONS, COMBAT_RESOLVES } = require('../js/nexus-utils.js');
+  const ok = { name: 'Longsword', kind: 'weapon', action: 'action', resolve: 'attack', ability: 'str', dice: '1d8', spell_level: null };
+
+  it('accepts a normal weapon', () => { assert.strictEqual(validateCombatOption(ok), null); });
+  it('accepts a utility spell with no dice', () => {
+    assert.strictEqual(validateCombatOption({ ...ok, name: 'Hold Person', kind: 'spell', resolve: 'save', ability: 'spell', dice: null, spell_level: 2 }), null);
+  });
+  it('accepts cantrips (level 0) and 9th-level spells', () => {
+    assert.strictEqual(validateCombatOption({ ...ok, kind: 'spell', ability: 'spell', spell_level: 0 }), null);
+    assert.strictEqual(validateCombatOption({ ...ok, kind: 'spell', ability: 'spell', spell_level: 9 }), null);
+  });
+  it('requires a name', () => {
+    assert.match(validateCombatOption({ ...ok, name: '   ' }), /Name is required/);
+    assert.match(validateCombatOption(null), /Name is required/);
+  });
+  it('caps the name at 80 characters', () => {
+    assert.match(validateCombatOption({ ...ok, name: 'x'.repeat(81) }), /too long/);
+  });
+  it('rejects unknown kind / action / resolve / ability', () => {
+    assert.match(validateCombatOption({ ...ok, kind: 'trap' }), /weapon, spell or feature/);
+    assert.match(validateCombatOption({ ...ok, action: 'free' }), /action, bonus action or reaction/);
+    assert.match(validateCombatOption({ ...ok, resolve: 'maybe' }), /how it resolves/);
+    assert.match(validateCombatOption({ ...ok, ability: 'luck' }), /ability/);
+  });
+  it('rejects bad dice and names the bad text', () => {
+    assert.match(validateCombatOption({ ...ok, dice: '2d' }), /Damage "2d"/);
+    assert.match(validateCombatOption({ ...ok, extra_dice: 'lots' }), /Extra damage "lots"/);
+  });
+  it('requires main dice before extra dice', () => {
+    assert.match(validateCombatOption({ ...ok, dice: null, extra_dice: '1d8' }), /main damage dice/);
+  });
+  it('rejects spell levels outside 0–9', () => {
+    assert.match(validateCombatOption({ ...ok, spell_level: 10 }), /Spell level/);
+    assert.match(validateCombatOption({ ...ok, spell_level: -1 }), /Spell level/);
+    assert.match(validateCombatOption({ ...ok, spell_level: 1.5 }), /Spell level/);
+  });
+  it('the allowed values match the form selects in combat.html', () => {
+    const src = require('node:fs').readFileSync(require('node:path').join(__dirname, '..', 'combat.html'), 'utf8');
+    const values = id => [...src.slice(src.indexOf(`<select id="${id}">`)).split('</select>')[0].matchAll(/value="([^"]*)"/g)].map(m => m[1]);
+    assert.deepStrictEqual(values('opt-kind'), COMBAT_KINDS);
+    assert.deepStrictEqual(values('opt-action'), COMBAT_ACTIONS);
+    assert.deepStrictEqual(values('opt-resolve'), COMBAT_RESOLVES);
+  });
+});
+
 describe('isWeaponItem()', () => {
   const { isWeaponItem } = require('../js/nexus-utils.js');
   for (const type of ['Melee Weapon', 'Ranged Weapon', 'Thrown Weapon', 'Other Weapon', 'Weapon', 'Ammunition']) {
@@ -8543,6 +8838,74 @@ describe('isWeaponItem()', () => {
     it(`${JSON.stringify(type)} is not`, () => { assert.ok(!isWeaponItem({ type })); });
   }
   it('handles a missing item', () => { assert.ok(!isWeaponItem(null)); });
+});
+
+describe('Combat page — option editor', () => {
+  const fs   = require('node:fs');
+  const path = require('node:path');
+  const src  = fs.readFileSync(path.join(__dirname, '..', 'combat.html'), 'utf8');
+  const script = src.slice(src.indexOf('<script>'));
+  const fnBody = name => {
+    const start = script.search(new RegExp(`(async )?function ${name}\\(`));
+    assert.ok(start >= 0, `${name}() missing`);
+    return script.slice(start, script.indexOf('\n}\n', start));
+  };
+
+  for (const fn of ['saveOption', 'deleteOption']) {
+    it(`${fn}() checks nexusGate before anything else`, () => {
+      assert.match(fnBody(fn), new RegExp(`^async function ${fn}\\([^)]*\\) \\{\\n  if \\(!\\(await nexusGate\\(\\)\\)\\) return;`));
+    });
+  }
+
+  it('saveOption validates with the shared validator before writing', () => {
+    const body = fnBody('saveOption');
+    assert.ok(body.indexOf('validateCombatOption(row)') < body.indexOf('db.'), 'validate first');
+    assert.match(body, /db\.update\('combat_options', editingId, row\)/);
+    assert.match(body, /db\.insert\('combat_options', full\)/);
+    assert.match(body, /id: uid\(\), member_id: member\.id/);
+    assert.match(body, /setLoading\(btn, true\)/);
+  });
+
+  it('saveOption patches the local array after writing (no reload)', () => {
+    const body = fnBody('saveOption');
+    assert.match(body, /options = options\.map\(/);
+    assert.match(body, /options\.push\(full\)/);
+    assert.match(body, /render\(\)/);
+  });
+
+  it('deleteOption asks with nexusConfirm (plain text) and deletes by id', () => {
+    const body = fnBody('deleteOption');
+    assert.match(body, /await nexusConfirm\(\{/);
+    assert.ok(!/name:\s+esc\(/.test(body), 'nexusConfirm escapes its own fields');
+    assert.match(body, /db\.delete\('combat_options', id\)/);
+  });
+
+  it('the form reads every column the table defines', () => {
+    const body = fnBody('readOptionForm');
+    const cols = ['name', 'kind', 'action', 'resolve', 'ability', 'save_ability', 'dice', 'extra_dice',
+      'damage_type', 'add_mod', 'spell_level', 'scales', 'half_on_save', 'aoe', 'range', 'notes', 'loot_item_id'];
+    for (const c of cols) assert.match(body, new RegExp(`\\b${c}[,:]`), `readOptionForm must set ${c}`);
+  });
+
+  it('edit and remove buttons carry the id in data-id, escaped', () => {
+    assert.match(script, /data-action="edit-option" data-id="\$\{esc\(o\.id\)\}"/);
+    assert.match(script, /data-action="delete-option" data-id="\$\{esc\(o\.id\)\}"/);
+  });
+
+  it('only weapons the member (or the party) holds can be linked', () => {
+    const body = fnBody('linkableWeapons');
+    assert.match(body, /isWeaponItem\(it\)/);
+    assert.match(body, /h === name \|\| h === 'party'/);
+  });
+
+  it('the editor previews the ranking maths live', () => {
+    assert.match(fnBody('updateOptionPreview'), /expectedDamage\(draft, ctx, b\)/);
+    assert.match(script, /\$\('optModal'\)\.addEventListener\('input', updateOptionPreview\)/);
+  });
+
+  it('damage types come from the shared DAMAGE_TYPES list', () => {
+    assert.match(fnBody('fillDamageTypes'), /DAMAGE_TYPES\.map/);
+  });
 });
 
 // ══════════════════════════════════════════════════════════════

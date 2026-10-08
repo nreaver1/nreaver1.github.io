@@ -106,6 +106,25 @@
       <span class="card-arrow">OPEN →</span>
     </a>
 
+    <!-- Combat -->
+    <a class="module-card active-module" href="combat.html" data-module="combat"
+       style="--card-accent:var(--red); --card-glow:rgba(224,60,60,0.1)">
+      <div class="card-head">
+        <div class="card-icon">🗡️</div>
+        <span class="card-status status-live">LIVE</span>
+      </div>
+      <div>
+        <div class="card-title">COMBAT</div>
+        <div class="card-desc">Every character's attacks and spells, ranked against the DM's target.</div>
+      </div>
+      <div class="card-stats">
+        <div class="cstat"><span class="cstat-val" id="statCombatOptions">—</span><span class="cstat-label">Options</span></div>
+        <div class="cstat"><span class="cstat-val" id="statCombatReady">—</span><span class="cstat-label">Characters</span></div>
+        <div class="cstat"><span class="cstat-val" id="statCombatAc">—</span><span class="cstat-label">Target AC</span></div>
+      </div>
+      <span class="card-arrow">OPEN →</span>
+    </a>
+
   </div>
 
   <div class="grid-label">coming soon</div>
@@ -150,6 +169,7 @@
     <div class="status-item"><span class="status-dot dot-green"></span>Treasury</div>
     <div class="status-item"><span class="status-dot dot-green"></span>Loot Tracker</div>
     <div class="status-item"><span class="status-dot dot-amber"></span>Session Log</div>
+    <div class="status-item"><span class="status-dot dot-amber"></span>Combat</div>
     <div class="status-item"><span class="status-dot dot-dim"></span>3 Planned</div>
   </div>
   <div class="status-version">nexus // v1.0.0 // no-db edition</div>
@@ -162,6 +182,7 @@
       'TREASURY':     t('treasury').toUpperCase(),
       'LOOT TRACKER': t('lootTracker').toUpperCase(),
       'SESSION LOG':  t('sessionLog').toUpperCase(),
+      'COMBAT':       t('combat').toUpperCase(),
       'WORLD MAP':    t('worldMap').toUpperCase(),
       'BESTIARY':     t('bestiary').toUpperCase(),
       'DICE ROLLER':  t('diceRoller').toUpperCase(),
@@ -182,6 +203,7 @@
       if (txt === 'Treasury')     el.innerHTML = el.innerHTML.replace('Treasury',     t('treasury'));
       if (txt === 'Loot Tracker') el.innerHTML = el.innerHTML.replace('Loot Tracker', t('lootTracker'));
       if (txt === 'Session Log')  el.innerHTML = el.innerHTML.replace('Session Log',  t('sessionLog'));
+      if (txt === 'Combat')       el.innerHTML = el.innerHTML.replace('Combat',       t('combat'));
     });
   }
 
@@ -327,6 +349,20 @@
     }
   }
 
+  async function loadCombatStats() {
+    // The target lives in nexus_settings, so show it even before the table exists
+    loadCombatTarget().then(target => {
+      document.getElementById('statCombatAc').textContent = target.ac;
+    });
+    try {
+      const options = await db.select('combat_options');
+      document.getElementById('statCombatOptions').textContent = options.length;
+      document.getElementById('statCombatReady').textContent   = new Set(options.map(o => o.member_id)).size;
+    } catch(e) {
+      // combat_options may not exist until sql/supabase_combat.sql has been run
+      console.info('[NEXUS] Combat stats not loaded:', e.message);
+    }
+  }
 
   // ── Member Holdings Modal ──
   // Data caches populated when modal first opens
@@ -516,6 +552,7 @@
   loadTreasuryStats();
   loadLootStats();
   loadSessionStats();
+  loadCombatStats();
 </script>
 
 

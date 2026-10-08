@@ -1,0 +1,782 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>NEXUS // Combat</title>
+  <script src="js/nexus-config.js"></script>
+  <script src="js/nexus-utils.js"></script>
+  <link rel="icon" type="image/x-icon" href="assets/favicon.ico" />
+  <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@400;700;900&family=Rajdhani:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/nexus.css" />
+</head>
+<body class="has-sidenav page-combat">
+
+<div id="loadingOverlay">
+  <div class="loading-text">LOADING…</div>
+</div>
+
+<div id="nexus-nav-root"></div>
+
+<header>
+  <div class="brand">
+    <div class="brand-top">⚙ nexus // tactical reference</div>
+    <div class="brand-name" id="combatTitle">COMBAT</div>
+    <div class="brand-sub">attacks &amp; spells, ranked</div>
+  </div>
+  <div class="header-actions">
+    <button class="btn btn-primary" id="btnAddOption" data-action="add-option">+ Add Option</button>
+  </div>
+</header>
+
+<div class="hline"></div>
+
+<main>
+  <div class="cb-tabs" id="cbTabs" role="tablist"></div>
+
+  <div class="cb-target" id="cbTarget"></div>
+
+  <div id="cbSheet"></div>
+</main>
+
+<!-- DM TARGET MODAL -->
+<div class="modal-backdrop" id="targetModal">
+  <div class="modal" style="max-width:380px">
+    <div class="modal-header">
+      <span class="modal-title">🎯 DM TARGET</span>
+      <button class="btn-icon" data-action="close-target">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="hint-text">Every character's sheet ranks against this one target. Use the AC and a typical save bonus of what the party is fighting.</div>
+      <div class="field-row">
+        <div class="field"><label for="tgtAc">Target AC</label><input type="number" id="tgtAc" min="1" max="40" /></div>
+        <div class="field"><label for="tgtSave">Save Bonus</label><input type="number" id="tgtSave" min="-5" max="20" /></div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" data-action="close-target">Cancel</button>
+      <button class="btn btn-primary" id="btnSaveTarget" data-action="save-target">Save Target</button>
+    </div>
+  </div>
+</div>
+
+<!-- ADD / EDIT OPTION MODAL -->
+<div class="modal-backdrop" id="optModal">
+  <div class="modal">
+    <div class="modal-header">
+      <span class="modal-title" id="optModalTitle">⚔ ADD OPTION</span>
+      <button class="btn-icon" data-action="close-option">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="field-row">
+        <div class="field"><label for="opt-name">Name<span class="field-required">*</span></label><input type="text" id="opt-name" maxlength="80" placeholder="Longsword, Fireball…" /></div>
+        <div class="field"><label for="opt-kind">Kind</label>
+          <select id="opt-kind">
+            <option value="weapon">Weapon</option>
+            <option value="spell">Spell</option>
+            <option value="feature">Feature</option>
+          </select>
+        </div>
+      </div>
+      <div class="field" id="opt-item-wrap">
+        <label for="opt-item">Linked weapon <span class="optional">(loot)</span></label>
+        <select id="opt-item"></select>
+      </div>
+      <div class="field-row">
+        <div class="field"><label for="opt-action">Uses</label>
+          <select id="opt-action">
+            <option value="action">Action</option>
+            <option value="bonus">Bonus Action</option>
+            <option value="reaction">Reaction</option>
+          </select>
+        </div>
+        <div class="field"><label for="opt-resolve">Resolves by</label>
+          <select id="opt-resolve">
+            <option value="attack">Attack roll</option>
+            <option value="save">Saving throw</option>
+            <option value="auto">Auto-hit</option>
+            <option value="none">No roll (utility)</option>
+          </select>
+        </div>
+        <div class="field"><label for="opt-ability">Ability</label>
+          <select id="opt-ability">
+            <option value="str">STR</option><option value="dex">DEX</option><option value="con">CON</option>
+            <option value="int">INT</option><option value="wis">WIS</option><option value="cha">CHA</option>
+            <option value="spell">Spellcasting</option>
+          </select>
+        </div>
+      </div>
+      <div class="field-row" id="opt-save-row">
+        <div class="field"><label for="opt-save">Target saves with</label>
+          <select id="opt-save">
+            <option value="">—</option>
+            <option value="str">STR</option><option value="dex">DEX</option><option value="con">CON</option>
+            <option value="int">INT</option><option value="wis">WIS</option><option value="cha">CHA</option>
+          </select>
+        </div>
+        <label class="cb-check"><input type="checkbox" id="opt-half" /> Half damage on a save</label>
+      </div>
+      <div class="field-row">
+        <div class="field"><label for="opt-dice">Damage dice</label><input type="text" id="opt-dice" placeholder="1d8, 8d6, 3d4+3" /></div>
+        <div class="field"><label for="opt-extra">Extra damage <span class="optional">(rider)</span></label><input type="text" id="opt-extra" placeholder="1d8" /></div>
+        <div class="field"><label for="opt-dtype">Damage type</label><select id="opt-dtype"></select></div>
+      </div>
+      <div class="field-row">
+        <div class="field"><label for="opt-level">Spell level</label>
+          <select id="opt-level">
+            <option value="">Not a spell</option>
+            <option value="0">Cantrip</option>
+            <option value="1">1st</option><option value="2">2nd</option><option value="3">3rd</option>
+            <option value="4">4th</option><option value="5">5th</option><option value="6">6th</option>
+            <option value="7">7th</option><option value="8">8th</option><option value="9">9th</option>
+          </select>
+        </div>
+        <div class="field"><label for="opt-range">Range <span class="optional">(optional)</span></label><input type="text" id="opt-range" placeholder="5 ft, 120 ft, 20 ft radius" /></div>
+      </div>
+      <div class="cb-checks">
+        <label class="cb-check" id="opt-addmod-wrap"><input type="checkbox" id="opt-addmod" /> Add ability mod to damage</label>
+        <label class="cb-check" id="opt-scales-wrap"><input type="checkbox" id="opt-scales" /> Cantrip dice scale at 5 / 11 / 17</label>
+        <label class="cb-check"><input type="checkbox" id="opt-aoe" /> Area of effect</label>
+      </div>
+      <div class="field"><label for="opt-notes">Notes <span class="optional">(optional)</span></label><textarea id="opt-notes" rows="2" placeholder="Pushes 10 ft on a hit, needs a free hand…"></textarea></div>
+      <div class="cb-preview" id="optPreview"></div>
+      <div class="cb-form-error" id="optError" role="alert"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" data-action="close-option">Cancel</button>
+      <button class="btn btn-primary" id="btnSaveOption" data-action="save-option">Save</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ══════════════════════════════════════════════════════════════
+//  STATE
+// ══════════════════════════════════════════════════════════════
+let members    = [];
+let items      = [];   // loot rows mapped to { statEffects } for computeNetEffects
+let options    = [];   // combat_options rows
+let selectedId = null; // member id whose sheet is showing
+let editingId  = null; // combat_options id open in the editor, null when adding
+
+const CB_LAST_KEY = 'nexus_combat_member';
+
+// Stats that matter on a combat sheet, for the "buffs in play" list
+const CB_STAT_LABELS = {
+  str: 'STR', dex: 'DEX', con: 'CON', int: 'INT', wis: 'WIS', cha: 'CHA',
+  prof_bonus: 'Prof Bonus', attack_rolls: 'Attack Rolls', damage_rolls: 'Damage Rolls',
+  spell_attack: 'Spell Atk', spell_dc: 'Spell DC', spell_damage: 'Spell Dmg',
+};
+
+const ACTION_COLUMNS = [
+  { key: 'action',   label: 'Action' },
+  { key: 'bonus',    label: 'Bonus Action' },
+  { key: 'reaction', label: 'Reaction' },
+];
+
+function showLoading(on) {
+  const el = document.getElementById('loadingOverlay');
+  if (el) el.style.display = on ? 'flex' : 'none';
+}
+
+// ══════════════════════════════════════════════════════════════
+//  BOOT
+// ══════════════════════════════════════════════════════════════
+async function boot() {
+  showLoading(true);
+  let guarded = false;
+  try {
+    const [, , memberRows, itemRows, optionRows] = await Promise.all([
+      loadModuleSettings(),
+      loadTerms().catch(() => {}),
+      db.select('party_members',  { order: 'created_at.asc' }),
+      db.select('loot_items'),
+      // Fails until sql/supabase_combat.sql has been run; keep the page usable
+      db.select('combat_options', { order: 'sort_order.asc,created_at.asc' }).catch(e => {
+        console.error(e);
+        showToast('combat_options table missing — run sql/supabase_combat.sql in Supabase.');
+        return [];
+      }),
+      loadCombatTarget(),
+    ]);
+    buildSidenav('combat.html');
+    applyModuleVisibility();
+    applyReadOnlyBanner();
+    if (!enforceModuleGuard('combat')) { guarded = true; return; }
+    document.getElementById('combatTitle').textContent = t('combat').toUpperCase();
+    members = memberRows;
+    items   = itemRows.map(r => ({
+      id: r.id, name: r.name, type: r.type, rarity: r.rarity, holder: r.holder,
+      statEffects: r.stat_effects || [],
+    }));
+    options = optionRows;
+    selectedId = pickInitialMember();
+  } catch(e) {
+    console.error(e);
+    showToast('Could not load combat data — check your Supabase config.');
+  } finally {
+    if (!guarded) showLoading(false);
+  }
+  wireEvents();
+  render();
+}
+
+// ?member=<id> wins, then this browser's last-viewed sheet, then the first member
+function pickInitialMember() {
+  const fromUrl = new URLSearchParams(location.search).get('member');
+  let fromStore = null;
+  try { fromStore = localStorage.getItem(CB_LAST_KEY); } catch(e) {}
+  for (const id of [fromUrl, fromStore]) {
+    if (id && members.some(m => m.id === id)) return id;
+  }
+  return members[0]?.id || null;
+}
+
+function selectMember(id) {
+  if (!members.some(m => m.id === id)) return;
+  selectedId = id;
+  try { localStorage.setItem(CB_LAST_KEY, id); } catch(e) {}
+  const url = new URL(location.href);
+  url.searchParams.set('member', id);
+  history.replaceState(null, '', url);
+  render();
+}
+
+// ══════════════════════════════════════════════════════════════
+//  MATH CONTEXT
+// ══════════════════════════════════════════════════════════════
+// All of a member's item effects, for the summary line and the buffs list
+function memberNet(member) {
+  return computeNetEffects(member.name, items);
+}
+
+// Per-option maths context: weapon attack/damage bonuses only count for
+// the option linked to that weapon (see combatContext in nexus-utils.js)
+function contextFor(member) {
+  return option => combatContext(member, items, option, COMBAT_TARGET);
+}
+
+function memberOptions(member) {
+  return options.filter(o => o.member_id === member.id);
+}
+
+// ══════════════════════════════════════════════════════════════
+//  FORMATTERS
+// ══════════════════════════════════════════════════════════════
+function fmtNum(x) {
+  return (Math.round(x * 10) / 10).toFixed(1).replace(/\.0$/, '');
+}
+
+function ordinal(n) {
+  const s = ['th', 'st', 'nd', 'rd'], v = n % 100;
+  return n + (s[(v - 20) % 10] || s[v] || s[0]);
+}
+
+// "STR +4", but "Longsword +1 (+1)" when the label itself ends in a number
+function partText(p) {
+  return /\d$/.test(p.label) ? `${esc(p.label)} (${modStr(p.value)})` : `${esc(p.label)} ${modStr(p.value)}`;
+}
+
+function partsText(parts) {
+  return parts.map(partText).join(' · ');
+}
+
+function resolveText(o, b) {
+  if (o.resolve === 'attack' && b.toHit) return modStr(b.toHit.total) + ' to hit';
+  if (o.resolve === 'save' && b.dc)      return `DC ${b.dc.total}${o.save_ability ? ' ' + esc(o.save_ability.toUpperCase()) : ''}`;
+  if (o.resolve === 'auto')              return 'auto-hit';
+  return 'utility';
+}
+
+function damageText(o, b) {
+  if (!b.damage) return '';
+  const type = o.damage_type ? ' ' + esc(o.damage_type) : '';
+  return `${esc(b.damage.diceText)}${type} · ${fmtNum(b.damage.perHit)} avg`;
+}
+
+function optionTags(o, b) {
+  const tags = [];
+  if (b.attacks > 1) tags.push(`×${b.attacks} attacks`);
+  if (o.spell_level === 0) tags.push('cantrip');
+  else if (o.spell_level > 0) tags.push(`${ordinal(o.spell_level)} slot`);
+  if (o.kind === 'feature') tags.push('feature');
+  if (o.aoe) tags.push('AoE');
+  if (o.range) tags.push(esc(o.range));
+  if (isAtWill(o)) tags.push('at-will');
+  return tags.map(tag => `<span class="cb-tag${tag === 'at-will' ? ' cb-tag-will' : ''}">${tag}</span>`).join('');
+}
+
+// The "why is this number what it is" panel shown when an option is expanded
+function breakdownHtml(o, b, expected) {
+  const rows = [];
+  if (b.toHit) {
+    const pct = Math.round(hitChance(b.toHit.total, COMBAT_TARGET.ac) * 100);
+    rows.push(`<div><span class="cb-bd-k">To hit</span> ${modStr(b.toHit.total)} = ${partsText(b.toHit.parts)} <span class="cb-bd-odds">${pct}% vs AC ${COMBAT_TARGET.ac}</span></div>`);
+  }
+  if (b.dc) {
+    const pct = Math.round(saveFailChance(b.dc.total, COMBAT_TARGET.save) * 100);
+    const parts = b.dc.parts.map(p => `${esc(p.label)} ${p.label === 'Base' || p.label === 'Spell DC' ? p.value : modStr(p.value)}`).join(' · ');
+    rows.push(`<div><span class="cb-bd-k">Save DC</span> ${b.dc.total} = ${parts} <span class="cb-bd-odds">${pct}% fail vs ${modStr(COMBAT_TARGET.save)}${o.half_on_save ? ', half on save' : ''}</span></div>`);
+  }
+  if (b.damage) {
+    const parts = b.damage.parts.map((p, i) => i === 0 || (b.damage.extra && i === 1)
+      ? `${esc(p.label)} (${fmtNum(p.value)})`
+      : partText(p)).join(' · ');
+    rows.push(`<div><span class="cb-bd-k">Damage</span> ${fmtNum(b.damage.perHit)} avg = ${parts}</div>`);
+  }
+  if (expected > 0) {
+    const per = b.attacks > 1 ? ` (${fmtNum(expected / b.attacks)} × ${b.attacks})` : '';
+    rows.push(`<div><span class="cb-bd-k">Expected</span> ~${fmtNum(expected)} per turn${per}</div>`);
+  }
+  if (o.loot_item_id) {
+    const it = items.find(i => i.id === o.loot_item_id);
+    if (it) rows.push(`<div><span class="cb-bd-k">Item</span> ${esc(it.name)}</div>`);
+  }
+  if (o.notes) rows.push(`<div class="cb-bd-notes">${esc(o.notes)}</div>`);
+  rows.push(`<div class="cb-bd-actions">
+    <button class="btn btn-ghost" data-action="edit-option" data-id="${esc(o.id)}">✎ Edit</button>
+    <button class="btn btn-ghost cb-del" data-action="delete-option" data-id="${esc(o.id)}">✕ Remove</button>
+  </div>`);
+  return `<div class="cb-breakdown">${rows.join('')}</div>`;
+}
+
+// ══════════════════════════════════════════════════════════════
+//  RENDER
+// ══════════════════════════════════════════════════════════════
+function render() {
+  renderTabs();
+  renderTarget();
+  renderSheet();
+}
+
+function renderTabs() {
+  const el = document.getElementById('cbTabs');
+  el.innerHTML = members.map(m => {
+    const count = options.filter(o => o.member_id === m.id).length;
+    const active = m.id === selectedId;
+    return `<button class="cb-tab${active ? ' active' : ''}" role="tab" aria-selected="${active}"
+              data-action="select-member" data-id="${esc(m.id)}">
+              ${esc(m.name)}<span class="cb-tab-count">${count}</span>
+            </button>`;
+  }).join('');
+}
+
+function renderTarget() {
+  document.getElementById('cbTarget').innerHTML = `
+    <span class="cb-target-label">🎯 DM target</span>
+    <span class="cb-target-val">AC ${COMBAT_TARGET.ac}</span>
+    <span class="cb-target-val">Save ${modStr(COMBAT_TARGET.save)}</span>
+    <button class="btn btn-ghost cb-target-btn" data-action="edit-target">Set</button>`;
+}
+
+function renderSheet() {
+  const root = document.getElementById('cbSheet');
+  const member = members.find(m => m.id === selectedId);
+  document.getElementById('btnAddOption').style.display = member ? '' : 'none';
+  if (!member) {
+    root.innerHTML = `<div class="empty-state"><span class="ei">🗡️</span>
+      <p>No ${esc(t('members').toLowerCase())} yet — add characters in the ${esc(t('partyRoster'))}</p></div>`;
+    return;
+  }
+
+  const { net, relevant } = memberNet(member);
+  const ctxFor = contextFor(member);
+  const mine = memberOptions(member);
+  const { ranked, top, bestAtWill } = rankCombatOptions(mine, ctxFor);
+  const scored = new Map(ranked.map(r => [r.option.id, r]));
+
+  root.innerHTML = `
+    ${summaryHtml(member, net)}
+    ${mine.length ? '' : `<div class="empty-state cb-empty"><span class="ei">⚔</span>
+      <p>No attacks or spells on this sheet yet</p>
+      <button class="btn btn-cyan cb-empty-btn" data-action="add-option">+ Add the first one</button></div>`}
+    ${top.length ? `
+      <div class="cb-section-label">Top picks</div>
+      <div class="cb-top">
+        ${top.map((r, i) => pickCardHtml(r, i + 1)).join('')}
+      </div>` : ''}
+    ${bestAtWill ? `
+      <div class="cb-atwill">
+        <span class="cb-atwill-label">Best at-will</span>
+        ${optionRowHtml(bestAtWill.option, bestAtWill.breakdown, bestAtWill.expected)}
+      </div>` : ''}
+    ${mine.length ? `
+      <div class="cb-section-label">All options</div>
+      <div class="cb-columns">
+        ${ACTION_COLUMNS.map(col => columnHtml(col, mine, ctxFor, scored)).join('')}
+      </div>` : ''}
+    ${buffsHtml(relevant)}`;
+}
+
+function summaryHtml(m, net) {
+  const cs = m.combat || {};
+  const prof = effectiveProf(m, net);
+  const bits = [];
+  if (m.level) bits.push(`LVL ${esc(m.level)}`);
+  if (m.class) bits.push(esc(m.class));
+  bits.push(`Prof ${modStr(prof)}`);
+  const attacks = Math.max(1, parseInt(cs.attacks, 10) || 1);
+  if (attacks > 1) bits.push(`Attacks ×${attacks}`);
+  if (cs.spellatk != null && cs.spellatk !== '') {
+    const fx = (net.spell_attack?.bonus || 0) - (net.spell_attack?.penalty || 0);
+    bits.push(`Spell Atk ${modStr((parseInt(cs.spellatk, 10) || 0) + fx)}`);
+  }
+  if (cs.spelldc) {
+    const fx = (net.spell_dc?.bonus || 0) - (net.spell_dc?.penalty || 0);
+    bits.push(`Spell DC ${(parseInt(cs.spelldc, 10) || 0) + fx}`);
+  }
+  return `<div class="cb-summary">${bits.map(b => `<span>${b}</span>`).join('')}</div>`;
+}
+
+function pickCardHtml(r, rank) {
+  const o = r.option, b = r.breakdown;
+  return `
+    <details class="cb-pick">
+      <summary>
+        <span class="cb-pick-rank">${rank}</span>
+        <span class="cb-pick-main">
+          <span class="cb-pick-name">${esc(o.name)}</span>
+          <span class="cb-pick-line">${resolveText(o, b)} · ${damageText(o, b)}</span>
+          <span class="cb-tags">${optionTags(o, b)}</span>
+        </span>
+        <span class="cb-pick-exp" title="Expected damage per turn vs the DM target">~${fmtNum(r.expected)}</span>
+      </summary>
+      ${breakdownHtml(o, b, r.expected)}
+    </details>`;
+}
+
+function optionRowHtml(o, b, expected) {
+  return `
+    <details class="cb-opt">
+      <summary>
+        <span class="cb-opt-main">
+          <span class="cb-opt-name">${esc(o.name)}</span>
+          <span class="cb-opt-line">${resolveText(o, b)}${b.damage ? ' · ' + damageText(o, b) : ''}</span>
+        </span>
+        ${expected > 0 ? `<span class="cb-opt-exp">~${fmtNum(expected)}</span>` : ''}
+      </summary>
+      <div class="cb-tags">${optionTags(o, b)}</div>
+      ${breakdownHtml(o, b, expected)}
+    </details>`;
+}
+
+function columnHtml(col, mine, ctxFor, scored) {
+  const list = mine
+    .filter(o => (o.action || 'action') === col.key)
+    .map(o => scored.get(o.id) || { option: o, breakdown: combatBreakdown(o, ctxFor(o)), expected: 0 })
+    .sort((a, b) => (b.expected - a.expected) || String(a.option.name).localeCompare(String(b.option.name)));
+  return `
+    <div class="cb-col">
+      <div class="cb-col-head">${col.label}<span class="cb-col-count">${list.length}</span></div>
+      ${list.length
+        ? list.map(r => optionRowHtml(r.option, r.breakdown, r.expected)).join('')
+        : '<div class="cb-col-empty">—</div>'}
+    </div>`;
+}
+
+function buffsHtml(relevant) {
+  const rows = [];
+  for (const it of relevant) {
+    const fx = (it.statEffects || []).filter(f => CB_STAT_LABELS[f.stat]);
+    if (!fx.length) continue;
+    const weaponOnly = isWeaponItem(it);
+    const pills = fx.map(f => {
+      const scoped = weaponOnly && WEAPON_SCOPED_STATS.includes(f.stat) ? ' (this weapon)' : '';
+      const label = CB_STAT_LABELS[f.stat] + (f.damageType ? ` (${esc(f.damageType)})` : '') + scoped;
+      if (f.type === 'bonus')        return `<span class="fx-pill fx-pos">+${esc(f.value)} ${label}</span>`;
+      if (f.type === 'penalty')      return `<span class="fx-pill fx-neg">−${esc(f.value)} ${label}</span>`;
+      if (f.type === 'advantage')    return `<span class="fx-pill fx-adv">Adv: ${label}</span>`;
+      if (f.type === 'disadvantage') return `<span class="fx-pill fx-dis">Dis: ${label}</span>`;
+      return '';
+    }).join('');
+    const who = (it.holder || '').toLowerCase().trim() === 'party' ? ` <span class="cb-buff-who">${esc(t('partyInventory'))}</span>` : '';
+    rows.push(`<div class="cb-buff"><span class="cb-buff-name">${esc(it.name)}${who}</span><span class="cb-buff-fx">${pills}</span></div>`);
+  }
+  if (!rows.length) return '';
+  return `<div class="cb-section-label">Buffs in play</div><div class="cb-buffs">${rows.join('')}</div>`;
+}
+
+// ══════════════════════════════════════════════════════════════
+//  DM TARGET
+// ══════════════════════════════════════════════════════════════
+const openTargetModal = requireAdmin(async () => {
+  document.getElementById('tgtAc').value   = COMBAT_TARGET.ac;
+  document.getElementById('tgtSave').value = COMBAT_TARGET.save;
+  document.getElementById('targetModal').classList.add('open');
+  document.getElementById('tgtAc').focus();
+});
+
+function closeTargetModal() {
+  document.getElementById('targetModal').classList.remove('open');
+}
+
+async function saveTarget() {
+  if (!(await nexusGate())) return;
+  const btn = document.getElementById('btnSaveTarget');
+  setLoading(btn, true);
+  try {
+    await saveCombatTarget({
+      ac:   document.getElementById('tgtAc').value,
+      save: document.getElementById('tgtSave').value,
+    });
+    closeTargetModal();
+    render();
+    showToast(`Target set: AC ${COMBAT_TARGET.ac}, save ${modStr(COMBAT_TARGET.save)}`);
+  } catch(e) {
+    console.error(e);
+    showToast('Could not save the target — check Supabase config.');
+  } finally {
+    setLoading(btn, false);
+  }
+}
+
+// ══════════════════════════════════════════════════════════════
+//  OPTION EDITOR
+// ══════════════════════════════════════════════════════════════
+const $ = id => document.getElementById(id);
+
+function selectedMember() {
+  return members.find(m => m.id === selectedId) || null;
+}
+
+// Weapons this member can link: their own plus the party's
+function linkableWeapons(member) {
+  const name = (member?.name || '').toLowerCase().trim();
+  return items.filter(it => {
+    const h = (it.holder || '').toLowerCase().trim();
+    return isWeaponItem(it) && (h === name || h === 'party');
+  });
+}
+
+function fillItemSelect(member, currentId) {
+  const list = linkableWeapons(member);
+  // Keep a link to a weapon that has since changed hands, so editing doesn't silently drop it
+  const current = currentId && !list.some(it => it.id === currentId) ? items.find(it => it.id === currentId) : null;
+  const opts = [...list, ...(current ? [current] : [])];
+  $('opt-item').innerHTML = '<option value="">— none —</option>' +
+    opts.map(it => `<option value="${esc(it.id)}">${esc(it.name)}${it === current ? ' (not held)' : ''}</option>`).join('');
+  $('opt-item').value = currentId || '';
+  $('opt-item-wrap').style.display = opts.length ? '' : 'none';
+}
+
+function fillDamageTypes() {
+  $('opt-dtype').innerHTML = '<option value="">—</option>' +
+    DAMAGE_TYPES.map(d => `<option value="${d}">${d[0].toUpperCase() + d.slice(1)}</option>`).join('');
+}
+
+function writeOptionForm(o) {
+  $('opt-name').value     = o.name || '';
+  $('opt-kind').value     = o.kind || 'weapon';
+  $('opt-action').value   = o.action || 'action';
+  $('opt-resolve').value  = o.resolve || 'attack';
+  $('opt-ability').value  = o.ability || 'str';
+  $('opt-save').value     = o.save_ability || '';
+  $('opt-half').checked   = !!o.half_on_save;
+  $('opt-dice').value     = o.dice || '';
+  $('opt-extra').value    = o.extra_dice || '';
+  $('opt-dtype').value    = o.damage_type || '';
+  $('opt-level').value    = o.spell_level == null ? '' : String(o.spell_level);
+  $('opt-range').value    = o.range || '';
+  $('opt-addmod').checked = o.add_mod !== false;
+  $('opt-scales').checked = !!o.scales;
+  $('opt-aoe').checked    = !!o.aoe;
+  $('opt-notes').value    = o.notes || '';
+}
+
+// Form -> combat_options row (without id / member_id / sort_order)
+function readOptionForm() {
+  const resolve = $('opt-resolve').value;
+  const ability = $('opt-ability').value;
+  const level   = $('opt-level').value;
+  const text    = id => $(id).value.trim() || null;
+  return {
+    name:         $('opt-name').value.trim(),
+    kind:         $('opt-kind').value,
+    action:       $('opt-action').value,
+    resolve,
+    ability,
+    save_ability: resolve === 'save' ? ($('opt-save').value || null) : null,
+    dice:         text('opt-dice'),
+    extra_dice:   text('opt-extra'),
+    damage_type:  $('opt-dtype').value || null,
+    add_mod:      ability !== 'spell' && $('opt-addmod').checked,
+    spell_level:  level === '' ? null : parseInt(level, 10),
+    scales:       level === '0' && $('opt-scales').checked,
+    half_on_save: resolve === 'save' && $('opt-half').checked,
+    aoe:          $('opt-aoe').checked,
+    range:        text('opt-range'),
+    notes:        text('opt-notes'),
+    loot_item_id: $('opt-item').value || null,
+  };
+}
+
+// Show only the fields that matter for the current choices
+function syncOptionForm() {
+  $('opt-save-row').style.display    = $('opt-resolve').value === 'save' ? '' : 'none';
+  $('opt-addmod-wrap').style.display = $('opt-ability').value === 'spell' ? 'none' : '';
+  $('opt-scales-wrap').style.display = $('opt-level').value === '0' ? '' : 'none';
+  updateOptionPreview();
+}
+
+// Sensible defaults when the kind changes on a new option
+function applyKindDefaults(kind) {
+  if (kind === 'weapon') {
+    $('opt-ability').value = 'str'; $('opt-resolve').value = 'attack';
+    $('opt-level').value = ''; $('opt-addmod').checked = true;
+  } else if (kind === 'spell') {
+    $('opt-ability').value = 'spell'; $('opt-addmod').checked = false;
+    if ($('opt-level').value === '') { $('opt-level').value = '0'; $('opt-scales').checked = true; }
+  } else {
+    $('opt-level').value = '';
+  }
+}
+
+// Picking a weapon from loot fills in what we can guess from it
+function applyLinkedItem() {
+  const it = items.find(i => i.id === $('opt-item').value);
+  if (!it) return;
+  if (!$('opt-name').value.trim()) $('opt-name').value = it.name;
+  $('opt-kind').value     = 'weapon';
+  $('opt-resolve').value  = 'attack';
+  $('opt-level').value    = '';
+  $('opt-ability').value  = /ranged/i.test(it.type || '') ? 'dex' : 'str';
+  $('opt-addmod').checked = true;
+}
+
+function updateOptionPreview() {
+  const member = selectedMember();
+  const el = $('optPreview');
+  if (!member) { el.innerHTML = ''; return; }
+  const draft = { id: editingId || '_draft', ...readOptionForm() };
+  if (draft.dice && !parseDice(draft.dice)) { el.innerHTML = ''; return; }
+  const ctx = combatContext(member, items, draft, COMBAT_TARGET);
+  const b = combatBreakdown(draft, ctx);
+  const exp = expectedDamage(draft, ctx, b);
+  el.innerHTML = `<span class="cb-preview-k">Preview</span> ${resolveText(draft, b)}` +
+    (b.damage ? ` · ${damageText(draft, b)}` : '') +
+    (exp > 0 ? ` · <strong>~${fmtNum(exp)}</strong> vs AC ${COMBAT_TARGET.ac}` : '');
+}
+
+function openOptionModal(id) {
+  const member = selectedMember();
+  if (!member) return;
+  const existing = id ? options.find(o => o.id === id) : null;
+  editingId = existing ? existing.id : null;
+  $('optModalTitle').textContent = existing ? '⚔ EDIT OPTION' : `⚔ ADD OPTION — ${member.name.toUpperCase()}`;
+  fillDamageTypes();
+  fillItemSelect(member, existing?.loot_item_id || null);
+  writeOptionForm(existing || { kind: 'weapon', action: 'action', resolve: 'attack', ability: 'str', add_mod: true });
+  $('optError').textContent = '';
+  syncOptionForm();
+  $('optModal').classList.add('open');
+  $('opt-name').focus();
+}
+
+function closeOptionModal() {
+  $('optModal').classList.remove('open');
+  editingId = null;
+}
+
+async function saveOption() {
+  if (!(await nexusGate())) return;
+  const member = selectedMember();
+  if (!member) return;
+  const row = readOptionForm();
+  const err = validateCombatOption(row);
+  $('optError').textContent = err || '';
+  if (err) return;
+
+  const btn = $('btnSaveOption');
+  setLoading(btn, true);
+  try {
+    if (editingId) {
+      await db.update('combat_options', editingId, row);
+      options = options.map(o => o.id === editingId ? { ...o, ...row } : o);
+      showToast(`${row.name} updated`);
+    } else {
+      const full = {
+        id: uid(), member_id: member.id,
+        sort_order: options.filter(o => o.member_id === member.id).length,
+        ...row,
+      };
+      await db.insert('combat_options', full);
+      options.push(full);
+      showToast(`${row.name} added to ${member.name}`);
+    }
+    closeOptionModal();
+    render();
+  } catch(e) {
+    console.error(e);
+    $('optError').textContent = 'Save failed — has sql/supabase_combat.sql been run?';
+  } finally {
+    setLoading(btn, false);
+  }
+}
+
+async function deleteOption(id) {
+  if (!(await nexusGate())) return;
+  const o = options.find(x => x.id === id);
+  if (!o) return;
+  const ok = await nexusConfirm({
+    title:        'Remove Combat Option',
+    name:         o.name,
+    message:      'This removes it from the combat sheet. Linked loot items are not affected.',
+    confirmLabel: 'Remove',
+  });
+  if (!ok) return;
+  try {
+    await db.delete('combat_options', id);
+    options = options.filter(x => x.id !== id);
+    render();
+    showToast(`${o.name} removed`);
+  } catch(e) {
+    console.error(e);
+    showToast('Delete failed — check Supabase config.');
+  }
+}
+
+// ══════════════════════════════════════════════════════════════
+//  EVENTS — one delegated listener; record ids travel in data-*
+//  attributes, never interpolated into inline handlers.
+// ══════════════════════════════════════════════════════════════
+function wireEvents() {
+  document.addEventListener('click', e => {
+    const el = e.target.closest('[data-action]');
+    if (!el) return;
+    const id = el.dataset.id;
+    switch (el.dataset.action) {
+      case 'select-member': selectMember(id); break;
+      case 'edit-target':   openTargetModal(); break;
+      case 'close-target':  closeTargetModal(); break;
+      case 'save-target':   saveTarget(); break;
+      case 'add-option':    openOptionModal(null); break;
+      case 'edit-option':   openOptionModal(id); break;
+      case 'delete-option': deleteOption(id); break;
+      case 'close-option':  closeOptionModal(); break;
+      case 'save-option':   saveOption(); break;
+    }
+  });
+  $('optModal').addEventListener('click', e => {
+    if (e.target.id === 'optModal') closeOptionModal();
+  });
+  $('opt-kind').addEventListener('change', e => {
+    if (!editingId) applyKindDefaults(e.target.value);
+    syncOptionForm();
+  });
+  $('opt-item').addEventListener('change', () => { applyLinkedItem(); syncOptionForm(); });
+  for (const id of ['opt-resolve', 'opt-ability', 'opt-level']) $(id).addEventListener('change', syncOptionForm);
+  $('optModal').addEventListener('input', updateOptionPreview);
+  document.getElementById('targetModal').addEventListener('click', e => {
+    if (e.target.id === 'targetModal') closeTargetModal();
+  });
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape') { closeTargetModal(); closeOptionModal(); }
+    if (e.key === 'Enter' && document.getElementById('targetModal').classList.contains('open')) saveTarget();
+  });
+}
+
+boot();
+</script>
+
+</body>
+</html>

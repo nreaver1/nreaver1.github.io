@@ -242,6 +242,7 @@ const TERM_DEFAULTS = {
   treasury:       'Treasury',
   lootTracker:    'Loot Tracker',
   sessionLog:     'Session Log',
+  combat:         'Combat',
   worldMap:       'World Map',
   bestiary:       'Bestiary',
   diceRoller:     'Dice Roller',
@@ -309,6 +310,7 @@ const MODULE_DEFS = [
   { key: 'treasury',    label: 'Treasury',       href: 'treasury.html',      icon: '💰' },
   { key: 'lootTracker', label: 'Loot Tracker',   href: 'loot-tracker.html',  icon: '⚔️' },
   { key: 'sessionLog',  label: 'Session Log',    href: 'session-log.html',   icon: '📋' },
+  { key: 'combat',      label: 'Combat',         href: 'combat.html',        icon: '🗡️' },
 ];
 
 // Defaults — all enabled
@@ -317,6 +319,7 @@ const MODULE_ENABLED_DEFAULTS = {
   treasury:    true,
   lootTracker: true,
   sessionLog:  true,
+  combat:      true,
 };
 
 // Mutable working copy
@@ -375,6 +378,37 @@ async function saveSiteLock(enabled) {
     key:   'site_lock',
     value: JSON.stringify(SITE_LOCK),
   });
+}
+
+// ══════════════════════════════════════════════════════════════
+//  COMBAT TARGET
+//  Stored in nexus_settings under key 'combat_target'. One AC and
+//  one save bonus, set by the DM, that every character's Combat
+//  sheet ranks its options against.
+//  Defaults + validation live in nexus-utils.js (normalizeCombatTarget),
+//  which loads after this file, so only call these at runtime.
+// ══════════════════════════════════════════════════════════════
+let COMBAT_TARGET = null;
+
+async function loadCombatTarget() {
+  let saved = {};
+  try {
+    const rows = await db.select('nexus_settings', { filter: 'key=eq.combat_target' });
+    if (rows && rows.length && rows[0].value) {
+      saved = typeof rows[0].value === 'string' ? JSON.parse(rows[0].value) : rows[0].value;
+    }
+  } catch(e) {
+    console.info('[NEXUS] Combat target not loaded, using defaults:', e.message);
+  }
+  COMBAT_TARGET = normalizeCombatTarget(saved);
+  return COMBAT_TARGET;
+}
+
+async function saveCombatTarget(target) {
+  const next = normalizeCombatTarget(target);
+  await db.upsert('nexus_settings', { key: 'combat_target', value: JSON.stringify(next) });
+  COMBAT_TARGET = next;
+  return next;
 }
 
 // Persist to Supabase

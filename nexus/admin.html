@@ -268,6 +268,7 @@
         { key: 'treasury',     label: 'Treasury',       hint: 'Nav link, page title, dashboard card' },
         { key: 'lootTracker',  label: 'Loot Tracker',   hint: 'Nav link, page title, dashboard card' },
         { key: 'sessionLog',   label: 'Session Log',    hint: 'Dashboard card (planned)' },
+        { key: 'combat',       label: 'Combat',         hint: 'Nav link, page title, dashboard card' },
         { key: 'worldMap',     label: 'World Map',      hint: 'Dashboard card (planned)' },
         { key: 'bestiary',     label: 'Bestiary',       hint: 'Dashboard card (planned)' },
         { key: 'diceRoller',   label: 'Dice Roller',    hint: 'Dashboard card (planned)' },
@@ -362,7 +363,7 @@
     {
       id:    'btnClearMembers',
       title: 'Clear All Party Members',
-      desc:  'Removes every member from the Party Roster. Treasury ledger entries and loot item holders are not affected.',
+      desc:  'Removes every member from the Party Roster, along with their Combat sheets. Treasury ledger entries and loot item holders are not affected.',
       label: '🗑 Clear Members',
       fn:    'clearAllMembers()',
     },
@@ -393,6 +394,13 @@
       desc:  'Removes every NPC from the index. Session records and logged moments are not affected, but any ^slug citations in them will become unresolved.',
       label: '🗑 Clear NPCs',
       fn:    'clearAllNpcs()',
+    },
+    {
+      id:    'btnClearCombat',
+      title: 'Clear All Combat Options',
+      desc:  'Removes every attack, spell and feature from every Combat sheet. Party members and loot are not affected.',
+      label: '🗑 Clear Combat',
+      fn:    'clearAllCombat()',
     },
   ];
 
@@ -531,7 +539,7 @@
     const confirmed = await dangerConfirm(
       'Clear All Party Members',
       'Every member in the Party Roster',
-      'All party member records will be permanently deleted. ' +
+      'All party member records and their Combat sheets will be permanently deleted. ' +
       'Treasury ledger entries tagged to members and loot item holders will not be changed.'
     );
     if (!confirmed) return;
@@ -648,6 +656,29 @@
     }
   }
 
+  async function clearAllCombat() {
+    const confirmed = await dangerConfirm(
+      'Clear All Combat Options',
+      'Every attack, spell and feature on every Combat sheet',
+      'All combat options will be permanently deleted. ' +
+      'Party members, their stats and loot items are not affected.'
+    );
+    if (!confirmed) return;
+
+    const btn = document.getElementById('btnClearCombat');
+    setLoading(btn, true); btn.dataset.loadingText = 'Deleting…';
+    try {
+      // id=gt. matches all rows with a non-empty text PK
+      await db.deleteWhere('combat_options', 'id=gt.');
+      showToast('All combat options deleted.');
+    } catch(e) {
+      console.error(e);
+      showToast('Delete failed — check Supabase config.');
+    } finally {
+      setLoading(btn, false);
+    }
+  }
+
   // ══════════════════════════════════════════════════════════
   //  CAMPAIGN SNAPSHOT — EXPORT / RESTORE
   // ══════════════════════════════════════════════════════════
@@ -657,6 +688,7 @@
     'treasury_currencies',
     'treasury_ledger',
     'loot_items',
+    'combat_options',
     'session_log',
     'session_events',
     'npcs',
@@ -666,7 +698,15 @@
   // Tables that must be restored in dependency order:
   //   session_log before session_events (FK: session_events.session_id → session_log.id)
   //   session_log before npcs (FK: npcs.first_seen → session_log.id)
+  //   party_members + loot_items before combat_options
+  //     (FK: combat_options.member_id → party_members.id,
+  //          combat_options.loot_item_id → loot_items.id)
   // SNAPSHOT_TABLES is already ordered correctly for this.
+  //
+  // Tables added after the first snapshot version. A snapshot taken
+  // before they existed simply has no key for them; treat that as
+  // "no rows" instead of failing the whole restore.
+  const OPTIONAL_SNAPSHOT_TABLES = new Set(['combat_options']);
   //
   // session_events uses CASCADE delete — restore session_log first,
   // then session_events, so FKs resolve cleanly.
@@ -748,6 +788,10 @@
     }
 
     // ── Build summary for confirm dialog ──
+    for (const tbl of OPTIONAL_SNAPSHOT_TABLES) {
+      if (!(tbl in snapshot.tables)) snapshot.tables[tbl] = [];
+    }
+
     const counts = SNAPSHOT_TABLES.map(tbl => {
       const rows = snapshot.tables[tbl];
       const n    = Array.isArray(rows) ? rows.length : 0;
