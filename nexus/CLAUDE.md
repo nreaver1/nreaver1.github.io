@@ -1,6 +1,6 @@
 # NEXUS — D&D Campaign Tracker
 
-Static multi-page web app for tracking a tabletop campaign: party roster, treasury, loot, and session log with an NPC index. It's served by GitHub Pages at https://nreaver1.github.io/nexus/ from the `nexus/` folder of the `nreaver1.github.io` monorepo. There's no build step, no framework and no package.json.
+Static multi-page web app for tracking a tabletop campaign: party roster, treasury, loot, session log with an NPC index, and a combat reference sheet. It's served by GitHub Pages at https://nreaver1.github.io/nexus/ from the `nexus/` folder of the `nreaver1.github.io` monorepo. There's no build step, no framework and no package.json.
 
 ## Stack
 
@@ -17,15 +17,16 @@ party-roster.html     Characters, abilities, skills/saves, HP, conditions, rests
 treasury.html         Custom currencies, gain/spend ledger, splits, per-member vaults, net worth
 loot-tracker.html     Items, rarity, holder, attunement (max 3), quantity, stat effects, import/transfer
 session-log.html      Sessions, "moments" (events), quests, NPC index, ^slug citations
+combat.html           Per-character combat sheet: attacks/spells ranked by expected damage vs the DM's target
 admin.html            Password gate, term renaming, module toggles, site lock, snapshot export/restore, danger zone
 seed-session-log.html Dev tool that seeds or wipes session-log demo data (own CSS + DB wrapper; admin-password gated)
 js/nexus-config.js    Supabase creds, `db` REST wrapper, nexusConfirm, terms (t()), module toggles,
                       site lock, setLoading, admin password prompt, requireAdmin, nexusGate
-js/nexus-utils.js     Pure helpers (uid, esc, fmt, 5e math, treasury math, loot emoji, slugify)
+js/nexus-utils.js     Pure helpers (uid, esc, fmt, 5e math, combat math, treasury math, loot emoji, slugify)
                       + showToast + buildSidenav. Exports via module.exports for tests.
 css/nexus.css         One shared stylesheet (~3.8k lines); theme tokens on :root
 sql/                  Hand-run SQL for the Supabase SQL Editor (no migration tool)
-tests/nexus.test.js   ~8k lines, ~1100 tests
+tests/nexus.test.js   ~9k lines, ~1300 tests
 .github/workflows/    Leftover test.yml that never runs. The live CI is ../.github/workflows/nexus-ci.yml at the repo root
 ```
 
@@ -55,7 +56,8 @@ IDs are client-generated text strings from `uid()` (`'_' + 9 base36 chars`).
 | `session_log` | `quests` and `session_npcs` are inline JSONB arrays. |
 | `session_events` | FK to session_log with cascade. Saved by delete-all-then-reinsert for the session (non-atomic). |
 | `npcs` | `slug` is unique. `first_seen` is an FK with set null. |
-| `nexus_settings` | key/value JSONB: `term_mappings`, `module_enabled`, `site_lock`. |
+| `combat_options` | One attack/spell/feature per row. FK `member_id` → party_members (cascade; keyed by **id**, not name), `loot_item_id` → loot_items (set null). `action` action/bonus/reaction, `resolve` attack/save/auto/none, `ability` str..cha or `spell`, `spell_level` 0 = cantrip. |
+| `nexus_settings` | key/value JSONB: `term_mappings`, `module_enabled`, `site_lock`, `combat_target` (`{ac, save}`). |
 
 Member names are the join key between the roster, loot `holder` and ledger `member_name`. Renaming a member doesn't cascade.
 
@@ -63,7 +65,7 @@ Conditions (party roster) and the collapse state of the effects panel live in **
 
 ### SQL files
 - `sql/supabase_setup.sql`: the full install (all tables + settings + session log).
-- `sql/supabase_session_log.sql`, `supabase_settings_only.sql`, `supabase_tx_member.sql`, `supabase_loot_quantity.sql`: incremental add-ons for older installs. They overlap the setup script.
+- `sql/supabase_session_log.sql`, `supabase_settings_only.sql`, `supabase_tx_member.sql`, `supabase_loot_quantity.sql`, `supabase_combat.sql`: incremental add-ons for older installs. They overlap the setup script.
 - When you add a column, add it to `supabase_setup.sql` **and** ship an `add column if not exists` file. A test checks that the setup script has the columns the pages write.
 
 ## Feature notes
@@ -71,7 +73,8 @@ Conditions (party roster) and the collapse state of the effects panel live in **
 - **Terms:** `t('partyRoster')` returns the display label, which admins can rename from Admin. These change display text only; DB values (e.g. `'Party'`, `'Party Vault'`) stay canonical. `TERM_DEFAULTS` (config) and `TERM_DEFS` (admin.html) must stay in sync, and a test checks this.
 - **Module toggles:** `MODULE_DEFS` / `MODULE_ENABLED` in config, plus `NAV_LINKS` / `NAV_MODULE_KEY` in utils. Adding a module means updating all four, plus `index.html` cards and admin.
 - **Citations:** `^npc-slug` in session summaries and moments. `renderWithCitations()` in session-log.html renders the chips, and there's autocomplete on `^`.
-- **5e math:** `abilityMod`, `computeCheck`, `computeNetEffects` (aggregates item effects for a member plus `'Party'` items, with a per-damage-type breakdown).
+- **5e math:** `abilityMod`, `computeCheck`, `computeNetEffects` (aggregates item effects for a member plus `'Party'` items, with a per-damage-type breakdown). Note party-roster.html still defines its own `computeNetEffects(memberName)` that shadows the utils one on that page.
+- **Combat (2014 5e):** all maths is in utils: `parseDice`, `effectiveProf` (max of stored `prof` and the level table, plus `prof_bonus` items; the roster uses it too), `combatBreakdown` (to-hit/DC/damage with labelled parts), `expectedDamage`, `rankCombatOptions` (top 3 + `bestAtWill`). `combatContext(member, items, option, target)` builds the per-option context: attack/damage effects on weapon-type loot (`isWeaponItem`) only count for options linked to that weapon via `loot_item_id`. Extra Attack is `party_members.combat.attacks`. The DM target is one AC + one save bonus for everyone, edited behind `requireAdmin`. Slots, charges and initiative are deliberately not tracked.
 - **Admin auth:** an unsalted SHA-256 hash of the password in `NEXUS_ADMIN_HASH`. Success sets `sessionStorage.nexus_admin='1'`. It's a **UI convenience only**: the anon key plus `public_all` RLS policies let anyone read and write every table directly.
 - **Snapshot:** Admin exports all tables to JSON. Restore deletes every row and reinserts per table (not transactional).
 

@@ -147,6 +147,7 @@
         <div class="combat-inp-wrap"><label>Spell Save DC</label><input type="number" id="f-spelldc" min="0" placeholder="—" /></div>
         <div class="combat-inp-wrap"><label>Spell Atk Bonus</label><input type="number" id="f-spellatk" placeholder="—" /></div>
         <div class="combat-inp-wrap"><label>Passive Perc</label><input type="number" id="f-passperc" placeholder="10" /></div>
+        <div class="combat-inp-wrap" title="Extra Attack: how many weapon attacks one Attack action makes (Combat sheet)"><label>Attacks / Action</label><input type="number" id="f-attacks" min="1" max="4" placeholder="1" /></div>
       </div>
 
       <!-- PROFICIENCIES -->
@@ -1025,13 +1026,14 @@ function buildCard(m,idx,_itemsByHolder,_partyItems,_condSnap,_fxSnap){
     ?`<img class="portrait-img" src="${esc(m.photo)}" alt="${esc(m.name)}" />`
     :`<div class="portrait-initials">${initials}</div>`;
   const statusColor=STATUS_COLORS[m.status]||'var(--text-dim)';
-  const prof=m.prof||2;
 
   // Use pre-grouped item maps when available (from render()), fall back for surgical calls
   const nameLc=(m.name||'').toLowerCase().trim();
   const {net,relevant}=_itemsByHolder
     ? _computeNetEffectsFromMaps(nameLc,_itemsByHolder,_partyItems)
     : computeNetEffects(m.name);
+  // Higher of the stored bonus and the level table, plus prof_bonus items (matches the Combat sheet)
+  const prof=effectiveProf(m,net);
 
   // ── Conditions (read from pre-loaded snapshot when available) ──
   const activeConditions=_condSnap ? (_condSnap[m.id]||[]) : getConditions(m.id);
@@ -1082,14 +1084,16 @@ function buildCard(m,idx,_itemsByHolder,_partyItems,_condSnap,_fxSnap){
   const acNet=net['ac']?(net['ac'].bonus||0)-(net['ac'].penalty||0):0;
   const spdNet=net['speed']?(net['speed'].bonus||0)-(net['speed'].penalty||0):0;
   const initNet=net['initiative']?(net['initiative'].bonus||0)-(net['initiative'].penalty||0):0;
+  const sdcNet=net['spell_dc']?(net['spell_dc'].bonus||0)-(net['spell_dc'].penalty||0):0;
+  const satkNet=net['spell_attack']?(net['spell_attack'].bonus||0)-(net['spell_attack'].penalty||0):0;
   const dexMod=abilityMod((abs['dex']||10)+(net['dex']?(net['dex'].bonus||0)-(net['dex'].penalty||0):0));
   const combatBoxes=[
     {label:'AC',     val:(cs.ac||10)+acNet,                           base:(cs.ac||10),          bonus:acNet},
     {label:'HP',     val:`${hpCur}/${hpMax}`,                         base:(cs.hp||0),           bonus:net['hp']?(net['hp'].bonus||0)-(net['hp'].penalty||0):0},
     {label:'Speed',  val:`${(cs.speed||30)+spdNet}ft`,                base:(cs.speed||30),       bonus:spdNet},
     {label:'Init.',  val:modStr(dexMod+(cs.init||0)+initNet),         base:modStr(dexMod+(cs.init||0)),bonus:initNet},
-    ...(cs.spelldc?[{label:'Spell DC',   val:cs.spelldc,              base:cs.spelldc,  bonus:0}]:[]),
-    ...(cs.spellatk!=null?[{label:'Spell Atk',val:modStr(cs.spellatk),base:modStr(cs.spellatk),bonus:0}]:[]),
+    ...(cs.spelldc?[{label:'Spell DC',   val:cs.spelldc+sdcNet,       base:cs.spelldc,  bonus:sdcNet}]:[]),
+    ...(cs.spellatk!=null?[{label:'Spell Atk',val:modStr(cs.spellatk+satkNet),base:modStr(cs.spellatk),bonus:satkNet}]:[]),
     ...(cs.passperc?[{label:'Passive Perc',val:cs.passperc,           base:cs.passperc, bonus:0}]:[]),
   ].map(b=>{
     const hasEffect=b.bonus!==0;
@@ -1261,6 +1265,7 @@ function buildCard(m,idx,_itemsByHolder,_partyItems,_condSnap,_fxSnap){
     <div class="card-footer">
       <div class="member-player">${m.player?`PLAYER: <span>${esc(m.player)}</span>`:''}</div>
       <div class="card-actions">
+        ${isModuleEnabled('combat')?`<a class="btn-icon" href="combat.html?member=${esc(encodeURIComponent(m.id))}" title="${esc(t('combat'))} sheet">⚔</a>`:''}
         <button class="btn-icon" onclick="openModal('${m.id}')" title="Edit">✎</button>
         <button class="btn-icon del" onclick="deleteMember('${m.id}')" title="Remove">🗑</button>
       </div>
@@ -1352,7 +1357,7 @@ function openModal(id){
     const abs=m.abilities||{};
     ABILITIES.forEach(a=>document.getElementById(`f-${a}`).value=abs[a]||'');
     const cs=m.combat||{};
-    ['ac','hp','hpcur','speed','init','spelldc','spellatk','passperc'].forEach(k=>document.getElementById(`f-${k}`).value=cs[k]||'');
+    ['ac','hp','hpcur','speed','init','spelldc','spellatk','passperc','attacks'].forEach(k=>document.getElementById(`f-${k}`).value=cs[k]||'');
     buildProfGrid(m.proficiencies||{});
     currentColor=m.color||COLORS[0];
     currentPhoto=m.photo||null;
@@ -1362,7 +1367,7 @@ function openModal(id){
   }else{
     ['f-name','f-player','f-class','f-race','f-level','f-bio','f-tags'].forEach(i=>{const el=document.getElementById(i);if(el)el.value='';});
     ABILITIES.forEach(a=>document.getElementById(`f-${a}`).value=10);
-    ['ac','hp','hpcur','speed','init','spelldc','spellatk','passperc'].forEach(k=>document.getElementById(`f-${k}`).value='');
+    ['ac','hp','hpcur','speed','init','spelldc','spellatk','passperc','attacks'].forEach(k=>document.getElementById(`f-${k}`).value='');
     document.getElementById('f-ac').value=10;
     document.getElementById('f-speed').value=30;
     document.getElementById('f-status').value='active';
@@ -1398,7 +1403,7 @@ async function saveMember(){
   const abs={};
   ABILITIES.forEach(a=>{const v=parseInt(document.getElementById(`f-${a}`).value);abs[a]=isNaN(v)?10:v;});
   const cs={};
-  [['ac',10],['hp',20],['hpcur',null],['speed',30],['init',null],['spelldc',null],['spellatk',null],['passperc',null]].forEach(([k,def])=>{
+  [['ac',10],['hp',20],['hpcur',null],['speed',30],['init',null],['spelldc',null],['spellatk',null],['passperc',null],['attacks',null]].forEach(([k,def])=>{
     const v=document.getElementById(`f-${k}`).value;
     cs[k]=v!==''?parseInt(v):(def!==null?def:undefined);
     if(cs[k]===undefined)delete cs[k];

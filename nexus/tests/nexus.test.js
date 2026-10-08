@@ -8507,6 +8507,7 @@ describe('Combat math', () => {
   });
 });
 
+
 // ══════════════════════════════════════════════════════════════
 //  COMBAT MODULE — schema, registration, target setting
 //
@@ -8667,6 +8668,7 @@ describe('normalizeCombatTarget()', () => {
   });
 });
 
+
 // ══════════════════════════════════════════════════════════════
 //  COMBAT PAGE — read view (combat.html)
 //
@@ -8778,6 +8780,7 @@ describe('Combat page — read view', () => {
     assert.deepStrictEqual(dupes, []);
   });
 });
+
 
 // ══════════════════════════════════════════════════════════════
 //  COMBAT — option editor (validation, weapon detection, page)
@@ -8908,6 +8911,44 @@ describe('Combat page — option editor', () => {
   });
 });
 
+
+// ══════════════════════════════════════════════════════════════
+//  COMBAT — Party Roster integration
+// ══════════════════════════════════════════════════════════════
+
+describe('Party Roster — Combat integration', () => {
+  const fs   = require('node:fs');
+  const path = require('node:path');
+  const src  = fs.readFileSync(path.join(__dirname, '..', 'party-roster.html'), 'utf8');
+
+  it('each card links to that member\'s Combat sheet by id', () => {
+    assert.match(src, /href="combat\.html\?member=\$\{esc\(encodeURIComponent\(m\.id\)\)\}"/);
+  });
+
+  it('the link hides when the Combat module is disabled', () => {
+    assert.match(src, /\$\{isModuleEnabled\('combat'\)\?`<a class="btn-icon" href="combat\.html/);
+  });
+
+  it('the member form has an Attacks / Action field', () => {
+    assert.match(src, /<label>Attacks \/ Action<\/label><input type="number" id="f-attacks" min="1" max="4"/);
+  });
+
+  it('attacks is loaded, reset and saved with the other combat stats', () => {
+    const lists = src.match(/\['ac','hp','hpcur','speed','init','spelldc','spellatk','passperc','attacks'\]/g) || [];
+    assert.strictEqual(lists.length, 2, 'load + reset lists must include attacks');
+    assert.match(src, /\['passperc',null\],\['attacks',null\]\]\.forEach/);
+  });
+
+  it('card proficiency uses effectiveProf (level table + items), computed after net effects', () => {
+    const body = src.slice(src.indexOf('function buildCard('));
+    const netAt  = body.indexOf('const {net,relevant}=');
+    const profAt = body.indexOf('const prof=effectiveProf(m,net);');
+    assert.ok(profAt > netAt && netAt > 0, 'prof must be computed from net');
+    assert.ok(!body.slice(0, 4000).includes('const prof=m.prof||2;'), 'old stored-only prof must be gone');
+  });
+});
+
+
 // ══════════════════════════════════════════════════════════════
 //  COMBAT — weapon-specific bonuses
 //
@@ -9020,5 +9061,49 @@ describe('Combat — weapon-specific bonuses', () => {
     assert.deepStrictEqual(ctx.net, {});
     assert.strictEqual(ctx.weapon, null);
     assert.strictEqual(ctx.target, target);
+  });
+});
+
+describe('Party Roster — spell DC / attack include item effects', () => {
+  const src = require('node:fs').readFileSync(require('node:path').join(__dirname, '..', 'party-roster.html'), 'utf8');
+
+  it('Spell DC box adds spell_dc item effects', () => {
+    assert.match(src, /const sdcNet=net\['spell_dc'\]/);
+    assert.match(src, /label:'Spell DC',\s+val:cs\.spelldc\+sdcNet,\s+base:cs\.spelldc,\s+bonus:sdcNet/);
+  });
+
+  it('Spell Atk box adds spell_attack item effects', () => {
+    assert.match(src, /const satkNet=net\['spell_attack'\]/);
+    assert.match(src, /label:'Spell Atk',val:modStr\(cs\.spellatk\+satkNet\),base:modStr\(cs\.spellatk\),bonus:satkNet/);
+  });
+});
+
+
+// ══════════════════════════════════════════════════════════════
+//  COMBAT — wrap-up checks
+// ══════════════════════════════════════════════════════════════
+
+describe('Combat — wrap-up', () => {
+  const fs   = require('node:fs');
+  const path = require('node:path');
+  const read = f => fs.readFileSync(path.join(__dirname, '..', f), 'utf8');
+
+  it('dashboard shows the target AC even when combat_options is missing', () => {
+    const body = read('index.html').slice(read('index.html').indexOf('async function loadCombatStats'));
+    const targetAt = body.indexOf('loadCombatTarget().then(');
+    const tryAt    = body.indexOf('try {');
+    assert.ok(targetAt > 0 && targetAt < tryAt, 'target loads outside the try that selects combat_options');
+  });
+
+  it('breakdown labels ending in a number get the value in parentheses', () => {
+    assert.match(read('combat.html'), /\/\\d\$\/\.test\(p\.label\) \? `\$\{esc\(p\.label\)\} \(\$\{modStr\(p\.value\)\}\)`/);
+  });
+
+  it('CLAUDE.md documents the combat module, table and SQL file', () => {
+    const doc = read('CLAUDE.md');
+    assert.match(doc, /combat\.html\s+Per-character combat sheet/);
+    assert.match(doc, /\| `combat_options` \|/);
+    assert.match(doc, /supabase_combat\.sql/);
+    assert.match(doc, /`combat_target`/);
   });
 });
