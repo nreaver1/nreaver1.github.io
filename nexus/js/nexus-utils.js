@@ -56,6 +56,49 @@ function esc(s) {
 
 
 // ──────────────────────────────────────────────────────────────
+//  MEMBER IDENTITY — the colour, portrait and status a character
+//  shows on the roster cards, reused by the combat sheet
+// ──────────────────────────────────────────────────────────────
+
+/** Fallback colours for members without one, by roster position. */
+const MEMBER_COLORS = ['#0ef0d0','#f0a832','#3ce08a','#c07de8','#6a9fe8','#e03c3c','#ff7a50','#f0e050',
+                       '#e050a0','#80b0ff','#60e890','#e8a050','#d4d4ff','#ff9060','#40d0c0'];
+
+/** party_members.status → badge label + colour. */
+const MEMBER_STATUS = {
+  active:   { label: 'Active',  color: 'var(--green)' },
+  retired:  { label: 'Retired', color: 'var(--amber)' },
+  deceased: { label: 'KIA',     color: 'var(--red)' },
+  missing:  { label: 'MIA',     color: 'var(--cyan)' },
+};
+
+/**
+ * memberColor(member, idx)
+ * The member's chosen colour, else the palette colour for their position
+ * in the roster (members ordered by created_at, as the roster lists them).
+ */
+function memberColor(member, idx) {
+  return (member && member.color) || MEMBER_COLORS[(idx || 0) % MEMBER_COLORS.length];
+}
+
+/** Up to two initials: 'Dr. Wurst' → 'DW', '' → '?'. */
+function memberInitials(name) {
+  return String(name || '?').split(/\s+/).filter(Boolean).map(w => w[0]).join('').slice(0, 2).toUpperCase() || '?';
+}
+
+/**
+ * memberPortraitHtml(member)
+ * Inner HTML for a .portrait-ring: the photo, or initials in the member's
+ * colour (via the ring's --member-color).
+ */
+function memberPortraitHtml(member) {
+  return member && member.photo
+    ? `<img class="portrait-img" src="${esc(member.photo)}" alt="${esc(member.name)}" />`
+    : `<div class="portrait-initials">${esc(memberInitials(member && member.name))}</div>`;
+}
+
+
+// ──────────────────────────────────────────────────────────────
 //  D&D 5E MATH
 // ──────────────────────────────────────────────────────────────
 
@@ -970,5 +1013,10 @@ if (typeof module !== 'undefined') {
     DAMAGE_TYPES,
     lootTypeEmoji,
     slugify,
+    MEMBER_COLORS,
+    MEMBER_STATUS,
+    memberColor,
+    memberInitials,
+    memberPortraitHtml,
   };
 }

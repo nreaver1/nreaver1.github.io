@@ -299,7 +299,7 @@
 // ══════════════════════════════════════════════════════════════
 //  CONSTANTS
 // ══════════════════════════════════════════════════════════════
-const COLORS=['#0ef0d0','#f0a832','#3ce08a','#c07de8','#6a9fe8','#e03c3c','#ff7a50','#f0e050','#e050a0','#80b0ff','#60e890','#e8a050','#d4d4ff','#ff9060','#40d0c0'];
+const COLORS=MEMBER_COLORS;  // js/nexus-utils.js
 
 const ABILITIES=['str','dex','con','int','wis','cha'];
 const ABILITY_LABELS={str:'STR',dex:'DEX',con:'CON',int:'INT',wis:'WIS',cha:'CHA'};
@@ -336,8 +336,8 @@ const SKILLS=[
 
 const ALL_PROFICIENCY_CHECKS=[...SAVING_THROWS,...SKILLS];
 
-const STATUS_COLORS={active:'var(--green)',retired:'var(--amber)',deceased:'var(--red)',missing:'var(--cyan)'};
-const STATUS_LABELS={active:'Active',retired:'Retired',deceased:'KIA',missing:'MIA'};
+const STATUS_COLORS=Object.fromEntries(Object.entries(MEMBER_STATUS).map(([k,v])=>[k,v.color]));
+const STATUS_LABELS=Object.fromEntries(Object.entries(MEMBER_STATUS).map(([k,v])=>[k,v.label]));
 
 // ── Official D&D 5e conditions (PHB Appendix A) ─────────────────────────────
 // Each entry: key (stored in localStorage per member), icon (emoji),

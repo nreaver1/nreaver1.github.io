@@ -275,12 +275,14 @@ function render() {
 
 function renderTabs() {
   const el = document.getElementById('cbTabs');
-  el.innerHTML = members.map(m => {
+  el.innerHTML = members.map((m, idx) => {
     const count = options.filter(o => o.member_id === m.id).length;
     const active = m.id === selectedId;
+    // Same colour + portrait as the character's roster card
     return `<button class="cb-tab${active ? ' active' : ''}" role="tab" aria-selected="${active}"
-              data-action="select-member" data-id="${esc(m.id)}">
-              ${esc(m.name)}<span class="cb-tab-count">${count}</span>
+              data-action="select-member" data-id="${esc(m.id)}" style="--member-color:${esc(memberColor(m, idx))}">
+              <span class="portrait-ring cb-tab-avatar">${memberPortraitHtml(m)}</span>
+              <span class="cb-tab-name">${esc(m.name)}</span><span class="cb-tab-count">${count}</span>
             </button>`;
   }).join('');
 }
@@ -334,24 +336,40 @@ function renderSheet() {
     ${buffsHtml(relevant)}`;
 }
 
+// Character header: the roster card's identity block (portrait ring, name,
+// class in their colour, race, level + status) plus this sheet's numbers.
 function summaryHtml(m, net) {
   const cs = m.combat || {};
   const prof = effectiveProf(m, net);
-  const bits = [];
-  if (m.level) bits.push(`LVL ${esc(m.level)}`);
-  if (m.class) bits.push(esc(m.class));
-  bits.push(`Prof ${modStr(prof)}`);
+  const color = memberColor(m, members.indexOf(m));
+  const status = MEMBER_STATUS[m.status] || MEMBER_STATUS.active;
+  const stats = [['Prof', modStr(prof)]];
   const attacks = Math.max(1, parseInt(cs.attacks, 10) || 1);
-  if (attacks > 1) bits.push(`Attacks ×${attacks}`);
+  if (attacks > 1) stats.push(['Attacks', `×${attacks}`]);
   if (cs.spellatk != null && cs.spellatk !== '') {
     const fx = (net.spell_attack?.bonus || 0) - (net.spell_attack?.penalty || 0);
-    bits.push(`Spell Atk ${modStr((parseInt(cs.spellatk, 10) || 0) + fx)}`);
+    stats.push(['Spell Atk', modStr((parseInt(cs.spellatk, 10) || 0) + fx)]);
   }
   if (cs.spelldc) {
     const fx = (net.spell_dc?.bonus || 0) - (net.spell_dc?.penalty || 0);
-    bits.push(`Spell DC ${(parseInt(cs.spelldc, 10) || 0) + fx}`);
+    stats.push(['Spell DC', String((parseInt(cs.spelldc, 10) || 0) + fx)]);
   }
-  return `<div class="cb-summary">${bits.map(b => `<span>${b}</span>`).join('')}</div>`;
+  return `
+    <div class="cb-member-card" style="--member-color:${esc(color)}">
+      <div class="portrait-ring">${memberPortraitHtml(m)}</div>
+      <div class="cb-member-id">
+        <div class="member-name">${esc(m.name)}</div>
+        ${m.class ? `<div class="member-class">${esc(m.class)}</div>` : ''}
+        ${m.race ? `<div class="member-race">${esc(m.race)}</div>` : ''}
+        <div class="card-badges">
+          ${m.level ? `<span class="member-level">LVL ${esc(m.level)}</span>` : ''}
+          <span class="status-tag" style="color:${status.color}">${status.label}</span>
+        </div>
+      </div>
+      <div class="cb-member-stats">
+        ${stats.map(([label, val]) => `<div class="cb-stat"><span class="cb-stat-val">${val}</span><span class="cb-stat-label">${label}</span></div>`).join('')}
+      </div>
+    </div>`;
 }
 
 function pickCardHtml(r, rank) {

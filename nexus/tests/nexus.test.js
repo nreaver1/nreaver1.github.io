@@ -10549,3 +10549,56 @@ describe('Sign-in', () => {
     });
   });
 });
+
+
+// ══════════════════════════════════════════════════════════════
+//  MEMBER IDENTITY — shared by the roster cards and combat sheet
+// ══════════════════════════════════════════════════════════════
+describe('Member identity (colour, portrait, status)', () => {
+  const fs = require('fs'), path = require('path');
+  const read = f => fs.readFileSync(path.join(__dirname, '..', f), 'utf8');
+  const { MEMBER_COLORS, MEMBER_STATUS, memberColor, memberInitials, memberPortraitHtml } = require('../js/nexus-utils.js');
+
+  it('memberColor uses the chosen colour, else the palette by roster position', () => {
+    assert.strictEqual(memberColor({ color: '#3ce08a' }, 4), '#3ce08a');
+    assert.strictEqual(memberColor({}, 1), MEMBER_COLORS[1]);
+    assert.strictEqual(memberColor({}, MEMBER_COLORS.length + 2), MEMBER_COLORS[2]);
+    assert.strictEqual(memberColor(null), MEMBER_COLORS[0]);
+  });
+
+  it('memberInitials takes up to two initials', () => {
+    assert.strictEqual(memberInitials('Dr. Wurst'), 'DW');
+    assert.strictEqual(memberInitials('Glibnub'), 'G');
+    assert.strictEqual(memberInitials('  pirate   guy the third '), 'PG');
+    assert.strictEqual(memberInitials(''), '?');
+  });
+
+  it('memberPortraitHtml shows the photo or initials, escaped', () => {
+    assert.match(memberPortraitHtml({ name: 'A', photo: 'demo/img/a.jpg' }), /<img class="portrait-img" src="demo\/img\/a\.jpg" alt="A" \/>/);
+    assert.strictEqual(memberPortraitHtml({ name: 'Zed Q' }), '<div class="portrait-initials">ZQ</div>');
+    assert.ok(!memberPortraitHtml({ name: 'x', photo: '" onerror="alert(1)' }).includes('" onerror="'));
+  });
+
+  it('status labels match the roster badges', () => {
+    assert.deepStrictEqual(Object.fromEntries(Object.entries(MEMBER_STATUS).map(([k, v]) => [k, v.label])),
+      { active: 'Active', retired: 'Retired', deceased: 'KIA', missing: 'MIA' });
+  });
+
+  it('the roster takes its palette and status from nexus-utils.js', () => {
+    const roster = read('party-roster.html');
+    assert.ok(roster.includes('const COLORS=MEMBER_COLORS;'));
+    assert.ok(roster.includes('const STATUS_COLORS=Object.fromEntries(Object.entries(MEMBER_STATUS)'));
+    assert.ok(roster.includes('const STATUS_LABELS=Object.fromEntries(Object.entries(MEMBER_STATUS)'));
+  });
+
+  it('combat tabs and header use each member\'s colour and portrait', () => {
+    const combat = read('combat.html');
+    assert.ok(combat.includes('style="--member-color:${esc(memberColor(m, idx))}"'), 'tab colour');
+    assert.ok(combat.includes('<span class="portrait-ring cb-tab-avatar">${memberPortraitHtml(m)}</span>'), 'tab portrait');
+    assert.ok(combat.includes('<div class="cb-member-card" style="--member-color:${esc(color)}">'), 'header card colour');
+    assert.ok(combat.includes('const color = memberColor(m, members.indexOf(m));'), 'same fallback colour as the roster');
+    for (const cls of ['member-name', 'member-class', 'member-race', 'member-level', 'status-tag']) {
+      assert.ok(combat.includes(`class="${cls}"`), `header reuses .${cls} from the roster card`);
+    }
+  });
+});
