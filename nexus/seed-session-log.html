@@ -8,6 +8,7 @@
   <!-- Shared stylesheet + config are loaded only for the admin password dialog;
        the inline <style> below comes later and keeps this page's own look. -->
   <link rel="stylesheet" href="css/nexus.css" />
+  <script src="js/nexus-demo.js"></script>
   <script src="js/nexus-config.js"></script>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -525,10 +526,15 @@ function buildSeedData() {
 const SEED_URL = SUPABASE_URL;
 const SEED_KEY = SUPABASE_ANON;
 
+// In demo mode, seed into this tab's demo copy instead of Supabase.
+function seedDB() {
+  return NEXUS_DEMO ? db : makeDB(SEED_URL, SEED_KEY);
+}
+
 // Seeding and wiping always need the admin password, whether or not the
 // site lock is on. Reuses the shared prompt so one unlock covers the session.
 async function _seedAdminOk() {
-  if (sessionStorage.getItem('nexus_admin') === '1') return true;
+  if (NEXUS_DEMO || sessionStorage.getItem('nexus_admin') === '1') return true;
   return (await _nexusPromptForAdminPassword()) !== null;
 }
 
@@ -536,7 +542,7 @@ async function runSeed() {
   if (!(await _seedAdminOk())) return;
   clearLog();
   setBusy('Seed', true);
-  const db = makeDB(SEED_URL, SEED_KEY);
+  const db = seedDB();
   await _doSeed(db);
   setBusy('Seed', false);
 }
@@ -553,7 +559,7 @@ async function runWipe() {
 
   clearLog();
   setBusy('Wipe', true);
-  const db = makeDB(SEED_URL, SEED_KEY);
+  const db = seedDB();
 
   log('── Wiping existing data ──────────────────────', 'head');
   try {

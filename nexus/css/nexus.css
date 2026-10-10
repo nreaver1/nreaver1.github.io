@@ -3780,6 +3780,34 @@ oot-vault-total {
   letter-spacing: 0.04em;
 }
 
+/* Demo mode banner (js/nexus-demo.js) — same slot, violet accent */
+.nexus-demo-banner {
+  position: sticky;
+  top: 0;
+  z-index: 500;
+  width: 100%;
+  box-sizing: border-box;
+  padding: 0.45rem 1rem;
+  text-align: center;
+  background: rgba(167,139,250,0.12);
+  border-bottom: 1px solid var(--violet);
+  color: var(--violet);
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 0.75rem;
+  letter-spacing: 0.04em;
+}
+.nexus-demo-reset {
+  margin-left: 0.6rem;
+  padding: 0.15rem 0.6rem;
+  background: transparent;
+  border: 1px solid var(--violet);
+  border-radius: 3px;
+  color: var(--violet);
+  font: inherit;
+  cursor: pointer;
+}
+.nexus-demo-reset:hover { background: rgba(167,139,250,0.15); }
+
 /* ══════════════════════════════════════════════════════════════
    COMBAT MODULE (combat.html)
    Accent is --red; every colour comes from the theme tokens.

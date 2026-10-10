@@ -16,7 +16,7 @@ Built with Next.js, TypeScript, PostgreSQL (Row-Level Security, PostGIS, trigram
 
 ---
 
-### [Nexus](https://nreaver1.github.io/nexus)
+### [Nexus](https://nreaver1.github.io/nexus/?demo)
 A session tracker for Dungeons & Dragons campaigns. Nexus helps dungeon masters and players keep a structured record of sessions, party members, treasury, loot, and story milestones across a campaign.
 
 **→ Repo:** [github.com/nreaver1/nreaver1.github.io/tree/master/nexus](https://github.com/nreaver1/nreaver1.github.io/tree/master/nexus)

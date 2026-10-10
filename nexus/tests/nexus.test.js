@@ -10085,3 +10085,293 @@ describe('SRD weapons list — real weapons only', () => {
     assert.deepStrictEqual(srdListFromResponse('spells', {}), []);
   });
 });
+
+
+// ══════════════════════════════════════════════════════════════
+//  DEMO MODE — js/nexus-demo.js + demo/demo-data.json
+//  The fixture checks below are what keep the demo current: a new
+//  table, a renamed column or a new query shape fails CI until
+//  demo/demo-data.json is updated (see CLAUDE.md → Demo mode).
+// ══════════════════════════════════════════════════════════════
+describe('Demo mode', () => {
+
+  const fs   = require('fs'), path = require('path');
+  const base = path.join(__dirname, '..');
+  const read = f => fs.readFileSync(path.join(base, f), 'utf8');
+  const { parseDemoSchema, parseDemoFilter, sortDemoRows, DemoStore, DEMO_NOW } = require('../js/nexus-demo.js');
+
+  const sql     = read('sql/supabase_setup.sql');
+  const schema  = parseDemoSchema(sql);
+  const fixture = JSON.parse(read('demo/demo-data.json'));
+  const PAGES   = fs.readdirSync(base).filter(f => f.endsWith('.html'));
+  const SOURCES = [...PAGES, ...fs.readdirSync(path.join(base, 'js')).map(f => 'js/' + f)];
+
+  describe('parseDemoSchema (supabase_setup.sql)', () => {
+    it('finds every create table block', () => {
+      const declared = [...sql.matchAll(/create\s+table\s+if\s+not\s+exists\s+(?:public\.)?(\w+)/gi)].map(m => m[1]);
+      assert.deepStrictEqual(Object.keys(schema).sort(), [...new Set(declared)].sort());
+    });
+
+    it('gives every table a primary key (nexus_settings uses key)', () => {
+      for (const [t, def] of Object.entries(schema)) assert.ok(def.pk, `${t} has no primary key`);
+      assert.strictEqual(schema.nexus_settings.pk, 'key');
+      assert.strictEqual(schema.party_members.pk, 'id');
+    });
+
+    it('reads every FK and its on-delete rule', () => {
+      const refs = (sql.match(/\breferences\s+\w+\s*\(/gi) || []).length;
+      const fks = Object.values(schema).flatMap(d => d.fks);
+      assert.strictEqual(fks.length, refs);
+      const find = (t, c) => schema[t].fks.find(f => f.column === c);
+      assert.deepStrictEqual(find('session_events', 'session_id'), { column: 'session_id', table: 'session_log', onDelete: 'cascade' });
+      assert.deepStrictEqual(find('npcs', 'first_seen'), { column: 'first_seen', table: 'session_log', onDelete: 'set null' });
+      assert.strictEqual(find('combat_options', 'member_id').onDelete, 'cascade');
+      assert.strictEqual(find('combat_options', 'loot_item_id').onDelete, 'set null');
+    });
+
+    it('parses column defaults (strings, numbers, booleans, jsonb, now())', () => {
+      assert.strictEqual(schema.party_members.columns.status.def, 'active');
+      assert.strictEqual(schema.party_members.columns.prof.def, 2);
+      assert.deepStrictEqual(schema.party_members.columns.tags.def, []);
+      assert.deepStrictEqual(schema.party_members.columns.abilities.def, {});
+      assert.strictEqual(schema.combat_options.columns.prepared.def, true);
+      assert.strictEqual(schema.combat_options.columns.concentration.def, false);
+      assert.strictEqual(schema.party_members.columns.created_at.def, DEMO_NOW);
+      assert.strictEqual(schema.party_members.columns.bio.def, undefined);
+    });
+  });
+
+  describe('filters and ordering', () => {
+    it('parses eq / in / gt filters joined with &', () => {
+      assert.deepStrictEqual(parseDemoFilter('key=in.(module_enabled,site_lock)&id=gt.'), [
+        { column: 'key', op: 'in', value: ['module_enabled', 'site_lock'] },
+        { column: 'id', op: 'gt', value: '' },
+      ]);
+      assert.deepStrictEqual(parseDemoFilter('session_id=eq.' + encodeURIComponent('_a b')),
+        [{ column: 'session_id', op: 'eq', value: '_a b' }]);
+    });
+
+    it('sorts by several keys, numbers numerically, nulls last on asc', () => {
+      const rows = [{ a: 10, b: 'x' }, { a: 9, b: 'z' }, { a: null, b: 'a' }, { a: 9, b: 'y' }];
+      assert.deepStrictEqual(sortDemoRows(rows, 'a.asc,b.desc').map(r => r.b), ['z', 'y', 'x', 'a']);
+      assert.deepStrictEqual(sortDemoRows(rows, 'a.desc').map(r => r.a), [null, 10, 9, 9]);
+    });
+  });
+
+  describe('DemoStore', () => {
+    const now = () => '2026-01-01T00:00:00.000Z';
+    const fresh = () => new DemoStore(schema, fixture.tables, now);
+
+    it('fills column defaults and timestamps on insert', () => {
+      const s = fresh();
+      const [row] = s.insert('party_members', { id: '_t1', name: 'Test' });
+      assert.strictEqual(row.status, 'active');
+      assert.strictEqual(row.prof, 2);
+      assert.deepStrictEqual(row.tags, []);
+      assert.strictEqual(row.created_at, now());
+      assert.strictEqual(row.bio, null);
+    });
+
+    it('rejects unknown columns and tables like PostgREST does', () => {
+      const s = fresh();
+      assert.throws(() => s.insert('loot_items', { id: '_t', name: 'x', qty: 1 }), /column "qty" does not exist/);
+      assert.throws(() => s.update('loot_items', '_lootaxe01', { nope: 1 }), /column "nope"/);
+      assert.throws(() => s.select('no_such_table'), /does not exist/);
+    });
+
+    it('rejects duplicate primary keys on insert, merges them on upsert', () => {
+      const s = fresh();
+      assert.throws(() => s.insert('loot_items', { id: '_lootaxe01', name: 'Dup' }), /duplicate key/);
+      const [row] = s.upsert('loot_items', { id: '_lootaxe01', name: 'Renamed Axe' });
+      assert.strictEqual(row.name, 'Renamed Axe');
+      assert.strictEqual(row.holder, 'Glibnub', 'upsert keeps columns it was not given');
+      assert.strictEqual(s.select('loot_items', { filter: 'id=eq._lootaxe01' }).length, 1);
+    });
+
+    it('upserts nexus_settings by key', () => {
+      const s = fresh();
+      s.upsert('nexus_settings', { key: 'site_lock', value: '{"enabled":false}' });
+      const rows = s.select('nexus_settings', { filter: 'key=eq.site_lock' });
+      assert.strictEqual(rows.length, 1);
+      assert.strictEqual(rows[0].value, '{"enabled":false}');
+    });
+
+    it('update touches updated_at', () => {
+      const s = fresh();
+      const [row] = s.update('npcs', s.select('npcs')[0].id, { notes: 'changed' });
+      assert.strictEqual(row.notes, 'changed');
+      assert.strictEqual(row.updated_at, now());
+    });
+
+    it('deleting a session cascades its events and nulls npcs.first_seen', () => {
+      const s = fresh();
+      const sess = s.select('npcs').find(n => n.first_seen).first_seen;
+      s.delete('session_log', sess);
+      assert.strictEqual(s.select('session_events', { filter: `session_id=eq.${sess}` }).length, 0);
+      assert.ok(s.select('npcs').every(n => n.first_seen !== sess));
+    });
+
+    it('deleting a member cascades their combat options; deleting loot unlinks it', () => {
+      const s = fresh();
+      const glib = s.select('party_members').find(m => m.name === 'Glibnub');
+      s.delete('loot_items', '_lootaxe01');
+      assert.strictEqual(s.select('combat_options', { filter: 'id=eq._cbtaxe001' })[0].loot_item_id, null);
+      s.delete('party_members', glib.id);
+      assert.strictEqual(s.select('combat_options', { filter: `member_id=eq.${glib.id}` }).length, 0);
+    });
+
+    it("deleteWhere('id=gt.') clears a table, as the Admin danger zone uses it", () => {
+      const s = fresh();
+      s.deleteWhere('npcs', 'id=gt.');
+      assert.strictEqual(s.select('npcs').length, 0);
+    });
+
+    it('never mutates the fixture it was built from', () => {
+      const before = JSON.stringify(fixture.tables);
+      const s = fresh();
+      s.deleteWhere('party_members', 'id=gt.');
+      s.update('session_log', fixture.tables.session_log[0].id, { title: 'x' });
+      assert.strictEqual(JSON.stringify(fixture.tables), before);
+    });
+
+    it('runs every literal db.select() / deleteWhere() the pages make', () => {
+      const s = fresh();
+      let n = 0;
+      for (const f of SOURCES) {
+        const src = read(f);
+        for (const m of src.matchAll(/db\.select\(\s*'(\w+)'\s*(?:,\s*\{([^}]*)\})?\s*\)/g)) {
+          const opts = {};
+          const o = (m[2] || '').match(/order\s*:\s*'([^']+)'/);
+          const fl = (m[2] || '').match(/filter\s*:\s*'([^']+)'/);
+          if (o) opts.order = o[1];
+          if (fl) opts.filter = fl[1];
+          assert.doesNotThrow(() => s.select(m[1], opts), `${f}: db.select('${m[1]}', ${JSON.stringify(opts)})`);
+          n++;
+        }
+        for (const m of src.matchAll(/db\.deleteWhere\(\s*'(\w+)'\s*,\s*'([^']+)'\s*\)/g)) {
+          assert.doesNotThrow(() => new DemoStore(schema, fixture.tables).deleteWhere(m[1], m[2]), `${f}: deleteWhere ${m[1]}`);
+          n++;
+        }
+      }
+      assert.ok(n > 20, `expected to find the pages' queries (found ${n})`);
+    });
+  });
+
+  describe('demo/demo-data.json — keep it in step with the schema', () => {
+    const tables = fixture.tables;
+
+    it('is an Admin snapshot (version + exported_at + tables)', () => {
+      assert.strictEqual(fixture.version, 1);
+      assert.ok(Number.isFinite(fixture.exported_at), 'exported_at doubles as the demo version');
+      assert.strictEqual(typeof tables, 'object');
+    });
+
+    it('has sample rows for every table in supabase_setup.sql', () => {
+      for (const t of Object.keys(schema)) {
+        assert.ok(Array.isArray(tables[t]) && tables[t].length > 0,
+          `demo/demo-data.json has no "${t}" rows: add demo data for it (CLAUDE.md → Demo mode)`);
+      }
+    });
+
+    it('covers every table the Admin snapshot exports, and nothing else', () => {
+      const adm = read('admin.html');
+      const start = adm.indexOf('const SNAPSHOT_TABLES');
+      const block = adm.slice(start, adm.indexOf('];', start));
+      const snap = [...block.matchAll(/'(\w+)'/g)].map(m => m[1]).sort();
+      assert.deepStrictEqual(Object.keys(tables).sort(), snap);
+      assert.deepStrictEqual(Object.keys(schema).sort(), snap, 'SNAPSHOT_TABLES and supabase_setup.sql disagree');
+    });
+
+    it('uses only real columns, with unique non-null primary keys', () => {
+      for (const [t, rows] of Object.entries(tables)) {
+        const def = schema[t];
+        const seen = new Set();
+        for (const row of rows) {
+          for (const c of Object.keys(row)) assert.ok(def.columns[c], `${t}.${c} is not in supabase_setup.sql`);
+          assert.ok(row[def.pk] != null, `${t} row without ${def.pk}`);
+          assert.ok(!seen.has(row[def.pk]), `${t} duplicate ${def.pk} ${row[def.pk]}`);
+          seen.add(row[def.pk]);
+        }
+      }
+    });
+
+    it('loads into DemoStore without errors', () => {
+      const s = new DemoStore(schema, tables);
+      for (const t of Object.keys(schema)) assert.strictEqual(s.select(t).length, tables[t].length);
+    });
+
+    it('has no dangling foreign keys', () => {
+      for (const [t, def] of Object.entries(schema)) {
+        for (const fk of def.fks) {
+          const ids = new Set(tables[fk.table].map(r => r[schema[fk.table].pk]));
+          for (const row of tables[t]) {
+            if (row[fk.column] != null) assert.ok(ids.has(row[fk.column]), `${t}.${fk.column} → missing ${fk.table} ${row[fk.column]}`);
+          }
+        }
+      }
+    });
+
+    // Moment tags aren't checked: the original demo sessions (from the seed
+    // tool) tag Zyx / Mira / Theron, who aren't on the demo roster.
+    it('name joins resolve: loot holders, ledger members', () => {
+      const names = new Set(tables.party_members.map(m => m.name));
+      for (const it of tables.loot_items) {
+        assert.ok(!it.holder || names.has(it.holder) || ['Party', 'Party Vault'].includes(it.holder), `loot holder "${it.holder}"`);
+      }
+      for (const tx of tables.treasury_ledger) {
+        assert.ok(tx.member_name == null || names.has(tx.member_name), `ledger member "${tx.member_name}"`);
+      }
+    });
+
+    it('keeps portraits as files in demo/img, not inline data URLs', () => {
+      for (const m of tables.party_members) {
+        if (!m.photo) continue;
+        assert.ok(!m.photo.startsWith('data:'), `${m.name}: move the inline photo to demo/img/`);
+        assert.ok(fs.existsSync(path.join(base, m.photo)), `${m.name}: ${m.photo} is missing`);
+      }
+    });
+
+    it('stays small enough for sessionStorage (< 400 KB)', () => {
+      assert.ok(fs.statSync(path.join(base, 'demo/demo-data.json')).size < 400 * 1024);
+    });
+  });
+
+  describe('wiring', () => {
+    it('every page that loads nexus-config.js loads nexus-demo.js right before it', () => {
+      for (const p of PAGES) {
+        const src = read(p);
+        if (!src.includes('js/nexus-config.js')) continue;
+        assert.match(src, /<script src="js\/nexus-demo\.js"><\/script>\s*<script src="js\/nexus-config\.js"><\/script>/, p);
+      }
+    });
+
+    it('config swaps db for the demo store and skips the lock and password in demo', () => {
+      const cfg = read('js/nexus-config.js');
+      assert.ok(cfg.includes('const db = NEXUS_DEMO ? createDemoDb() : _supabaseDb;'));
+      assert.ok(cfg.includes('return !NEXUS_DEMO && SITE_LOCK.enabled === true;'));
+      assert.ok(cfg.includes("if (NEXUS_DEMO || sessionStorage.getItem('nexus_admin') === '1') return fn(...args);"));
+      assert.ok(read('admin.html').includes("let adminUnlocked = NEXUS_DEMO || sessionStorage.getItem('nexus_admin') === '1';"));
+    });
+
+    it('demo mode never sets the real admin flag', () => {
+      assert.ok(!/sessionStorage\.setItem\(\s*'nexus_admin'/.test(read('js/nexus-demo.js')));
+    });
+
+    it('nexus-demo.js has no Supabase access of its own', () => {
+      assert.ok(!/SUPABASE_|supabase\.co/.test(read('js/nexus-demo.js')));
+    });
+
+    it('the seed tool writes to the demo copy in demo mode', () => {
+      const seed = read('seed-session-log.html');
+      assert.ok(seed.includes('return NEXUS_DEMO ? db : makeDB(SEED_URL, SEED_KEY);'));
+      assert.ok(!seed.includes('const db = makeDB('), 'runSeed/runWipe must go through seedDB()');
+    });
+
+    it("the portfolio's Live demo links open demo mode", () => {
+      const home = fs.readFileSync(path.join(base, '..', 'index.html'), 'utf8');
+      const links = [...home.matchAll(/href="(https:\/\/nreaver1\.github\.io\/nexus\/[^"]*)"/g)].map(m => m[1]);
+      assert.ok(links.length >= 2);
+      for (const l of links) assert.strictEqual(l, 'https://nreaver1.github.io/nexus/?demo');
+    });
+  });
+});

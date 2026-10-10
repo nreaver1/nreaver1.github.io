@@ -1,0 +1,1239 @@
+{
+  "version": 1,
+  "exported_at": 1791590649227,
+  "campaign": "NEXUS",
+  "tables": {
+    "party_members": [
+      {
+        "id": "_nunrlv6ua",
+        "name": "Pirate guy",
+        "player": "Jack",
+        "class": "I forgot",
+        "race": "Skallywag",
+        "level": 6,
+        "status": "missing",
+        "prof": 2,
+        "bio": "Divine connection with all known dice gods",
+        "tags": [],
+        "color": "#805700",
+        "photo": "demo/img/_nunrlv6ua.jpg",
+        "abilities": {
+          "cha": 11,
+          "con": 10,
+          "dex": 10,
+          "int": 10,
+          "str": 10,
+          "wis": 10
+        },
+        "combat": {
+          "ac": 10,
+          "hp": 20,
+          "speed": 30
+        },
+        "proficiencies": {
+          "save_cha": true,
+          "save_con": true,
+          "save_dex": true,
+          "save_int": true,
+          "save_str": true,
+          "save_wis": true,
+          "athletics": true
+        },
+        "created_at": "2026-03-09T21:10:50.986011+00:00",
+        "updated_at": "2026-03-09T21:16:17.06998+00:00"
+      },
+      {
+        "id": "_ww26n6ld7",
+        "name": "Glibnub",
+        "player": null,
+        "class": "Barbarian",
+        "race": "Goblin Idiot",
+        "level": 5,
+        "status": "active",
+        "prof": 2,
+        "bio": "Was beaten and trapped in a cage for literal centuries, but has the best attitude in the party",
+        "tags": [],
+        "color": "#e03c3c",
+        "photo": "demo/img/_ww26n6ld7.jpg",
+        "abilities": {
+          "cha": 10,
+          "con": 10,
+          "dex": 10,
+          "int": 10,
+          "str": 10,
+          "wis": 10
+        },
+        "combat": {
+          "ac": 10,
+          "hp": 20,
+          "hpcur": 20,
+          "speed": 30,
+          "attacks": 2
+        },
+        "proficiencies": {},
+        "created_at": "2026-03-06T23:28:16.259852+00:00",
+        "updated_at": "2026-03-11T00:37:09.5753+00:00"
+      },
+      {
+        "id": "_ye11uuykm",
+        "name": "Dr. Wurst",
+        "player": "Nick",
+        "class": "Artificer",
+        "race": "Human / Xalleck",
+        "level": 9,
+        "status": "active",
+        "prof": 4,
+        "bio": null,
+        "tags": [],
+        "color": "#3ce08a",
+        "photo": "demo/img/_ye11uuykm.jpg",
+        "abilities": {
+          "cha": 10,
+          "con": 10,
+          "dex": 10,
+          "int": 15,
+          "str": 10,
+          "wis": 10
+        },
+        "combat": {
+          "ac": 14,
+          "hp": 69,
+          "hpcur": 69,
+          "speed": 30,
+          "spelldc": 14,
+          "spellatk": 6
+        },
+        "proficiencies": {
+          "medicine": true,
+          "investigation": true
+        },
+        "created_at": "2026-03-06T15:42:50.605529+00:00",
+        "updated_at": "2026-03-13T16:32:04.45285+00:00"
+      }
+    ],
+    "treasury_currencies": [
+      {
+        "id": "cr",
+        "name": "Credits",
+        "abbr": "CR",
+        "symbol": "₵",
+        "color": "#f0a832",
+        "rate": 1,
+        "sort_order": 0,
+        "created_at": "2026-04-15T20:54:54.553119+00:00"
+      }
+    ],
+    "treasury_ledger": [
+      {
+        "id": "_fe4txcrm2",
+        "type": "gain",
+        "description": "Murdered a guy in the alley",
+        "coins": {
+          "cr": 40
+        },
+        "note": null,
+        "ts": 1776290238661,
+        "created_at": "2026-04-15T21:57:19.245023+00:00",
+        "member_name": "Dr. Wurst"
+      },
+      {
+        "id": "_922epw700",
+        "type": "gain",
+        "description": "Loot share — split 5 ways",
+        "coins": {
+          "cr": 2000
+        },
+        "note": "Auto-logged from split calculator",
+        "ts": 1776290275403,
+        "created_at": "2026-04-15T21:57:55.636416+00:00",
+        "member_name": null
+      },
+      {
+        "id": "_ca0n4zmbj",
+        "type": "gain",
+        "description": "Loot share — split 5 ways",
+        "coins": {
+          "cr": 2000
+        },
+        "note": "Auto-logged from split calculator",
+        "ts": 1776290275403,
+        "created_at": "2026-04-15T21:57:55.657461+00:00",
+        "member_name": "Glibnub"
+      },
+      {
+        "id": "_wiy5265n3",
+        "type": "gain",
+        "description": "Loot share — split 5 ways",
+        "coins": {
+          "cr": 2000
+        },
+        "note": "Auto-logged from split calculator",
+        "ts": 1776290275403,
+        "created_at": "2026-04-15T21:57:55.657495+00:00",
+        "member_name": null
+      },
+      {
+        "id": "_lfpvlo8mp",
+        "type": "gain",
+        "description": "Loot share — split 5 ways",
+        "coins": {
+          "cr": 2000
+        },
+        "note": "Auto-logged from split calculator",
+        "ts": 1776290275403,
+        "created_at": "2026-04-15T21:57:55.672987+00:00",
+        "member_name": "Dr. Wurst"
+      },
+      {
+        "id": "_wcsjt8507",
+        "type": "gain",
+        "description": "Loot share — split 5 ways",
+        "coins": {
+          "cr": 2000
+        },
+        "note": "Auto-logged from split calculator",
+        "ts": 1776290275403,
+        "created_at": "2026-04-15T21:57:55.694483+00:00",
+        "member_name": null
+      }
+    ],
+    "loot_items": [
+      {
+        "id": "_lootaxe01",
+        "name": "Rusty Greataxe",
+        "type": "Melee Weapon",
+        "rarity": "common",
+        "holder": "Glibnub",
+        "attunement": "none",
+        "description": "Chipped, heavy, and somehow still sharp. Glibnub refuses to clean it.",
+        "stat_effects": [],
+        "quantity": 1,
+        "created_at": "2026-04-15T21:01:00.000Z",
+        "updated_at": "2026-04-15T21:01:00.000Z"
+      },
+      {
+        "id": "_lootcut01",
+        "name": "Cutlass of the Drowned Captain",
+        "type": "Melee Weapon",
+        "rarity": "uncommon",
+        "holder": "Pirate guy",
+        "attunement": "none",
+        "description": "+1 to attack and damage rolls. Smells faintly of brine.",
+        "stat_effects": [
+          {
+            "stat": "attack_rolls",
+            "type": "bonus",
+            "value": 1
+          },
+          {
+            "stat": "damage_rolls",
+            "type": "bonus",
+            "value": 1
+          }
+        ],
+        "quantity": 1,
+        "created_at": "2026-04-15T21:02:00.000Z",
+        "updated_at": "2026-04-15T21:02:00.000Z"
+      },
+      {
+        "id": "_lootpis01",
+        "name": "Flintlock Pistol",
+        "type": "Ranged Weapon",
+        "rarity": "common",
+        "holder": "Pirate guy",
+        "attunement": "none",
+        "description": "Loud, smoky, and only mostly reliable.",
+        "stat_effects": [],
+        "quantity": 1,
+        "created_at": "2026-04-15T21:03:00.000Z",
+        "updated_at": "2026-04-15T21:03:00.000Z"
+      },
+      {
+        "id": "_lootclk01",
+        "name": "Cloak of Protection",
+        "type": "Cloak",
+        "rarity": "uncommon",
+        "holder": "Dr. Wurst",
+        "attunement": "attuned",
+        "description": "+1 bonus to AC and saving throws while you wear this cloak.",
+        "stat_effects": [
+          {
+            "stat": "ac",
+            "type": "bonus",
+            "value": 1
+          },
+          {
+            "stat": "save_str",
+            "type": "bonus",
+            "value": 1
+          },
+          {
+            "stat": "save_dex",
+            "type": "bonus",
+            "value": 1
+          },
+          {
+            "stat": "save_con",
+            "type": "bonus",
+            "value": 1
+          },
+          {
+            "stat": "save_int",
+            "type": "bonus",
+            "value": 1
+          },
+          {
+            "stat": "save_wis",
+            "type": "bonus",
+            "value": 1
+          },
+          {
+            "stat": "save_cha",
+            "type": "bonus",
+            "value": 1
+          }
+        ],
+        "quantity": 1,
+        "created_at": "2026-04-15T21:04:00.000Z",
+        "updated_at": "2026-04-15T21:04:00.000Z"
+      },
+      {
+        "id": "_lootgnt01",
+        "name": "Gauntlets of Ogre Power",
+        "type": "Gloves",
+        "rarity": "uncommon",
+        "holder": "Glibnub",
+        "attunement": "attuned",
+        "description": "Your Strength score is 19 while you wear these gauntlets.",
+        "stat_effects": [
+          {
+            "stat": "str",
+            "type": "set",
+            "value": 19
+          }
+        ],
+        "quantity": 1,
+        "created_at": "2026-04-15T21:05:00.000Z",
+        "updated_at": "2026-04-15T21:05:00.000Z"
+      },
+      {
+        "id": "_lootpot01",
+        "name": "Potion of Healing",
+        "type": "Potion of Healing",
+        "rarity": "common",
+        "holder": "Party Vault",
+        "attunement": "none",
+        "description": "Regain 2d4 + 2 hit points.",
+        "stat_effects": [],
+        "quantity": 3,
+        "created_at": "2026-04-15T21:06:00.000Z",
+        "updated_at": "2026-04-15T21:06:00.000Z"
+      },
+      {
+        "id": "_lootlan01",
+        "name": "Gloom-Lantern of Ashfall",
+        "type": "Wondrous Item",
+        "rarity": "rare",
+        "holder": "Party",
+        "attunement": "none",
+        "description": "Homebrew. Its grey light reveals invisible creatures within 30 ft. Recovered from the Customs House.",
+        "stat_effects": [
+          {
+            "stat": "perception",
+            "type": "advantage",
+            "value": null
+          }
+        ],
+        "quantity": 1,
+        "created_at": "2026-04-15T21:07:00.000Z",
+        "updated_at": "2026-04-15T21:07:00.000Z"
+      }
+    ],
+    "combat_options": [
+      {
+        "kind": "weapon",
+        "action": "action",
+        "resolve": "attack",
+        "ability": "str",
+        "save_ability": null,
+        "dice": "1d12",
+        "extra_dice": null,
+        "damage_type": "slashing",
+        "add_mod": true,
+        "spell_level": null,
+        "scales": false,
+        "half_on_save": false,
+        "aoe": false,
+        "range": "Melee",
+        "notes": "Heavy, two-handed.",
+        "loot_item_id": "_lootaxe01",
+        "school": null,
+        "components": null,
+        "material": null,
+        "casting_time": null,
+        "duration": null,
+        "concentration": false,
+        "ritual": false,
+        "description": null,
+        "prepared": true,
+        "srd_index": null,
+        "name": "Greataxe",
+        "id": "_cbtaxe001",
+        "member_id": "_ww26n6ld7",
+        "sort_order": 0,
+        "created_at": "2026-04-15T21:21:00.000Z",
+        "updated_at": "2026-04-15T21:21:00.000Z"
+      },
+      {
+        "kind": "feature",
+        "action": "bonus",
+        "resolve": "none",
+        "ability": "str",
+        "save_ability": null,
+        "dice": null,
+        "extra_dice": null,
+        "damage_type": null,
+        "add_mod": false,
+        "spell_level": null,
+        "scales": false,
+        "half_on_save": false,
+        "aoe": false,
+        "range": null,
+        "notes": "Advantage on STR checks and saves, +2 melee damage, resistance to bludgeoning, piercing and slashing. 3 per long rest.",
+        "loot_item_id": null,
+        "school": null,
+        "components": null,
+        "material": null,
+        "casting_time": null,
+        "duration": null,
+        "concentration": false,
+        "ritual": false,
+        "description": null,
+        "prepared": true,
+        "srd_index": null,
+        "name": "Rage",
+        "id": "_cbtrage01",
+        "member_id": "_ww26n6ld7",
+        "sort_order": 1,
+        "created_at": "2026-04-15T21:22:00.000Z",
+        "updated_at": "2026-04-15T21:22:00.000Z"
+      },
+      {
+        "kind": "weapon",
+        "action": "action",
+        "resolve": "attack",
+        "ability": "dex",
+        "save_ability": null,
+        "dice": "1d6",
+        "extra_dice": null,
+        "damage_type": "slashing",
+        "add_mod": true,
+        "spell_level": null,
+        "scales": false,
+        "half_on_save": false,
+        "aoe": false,
+        "range": "Melee",
+        "notes": "Finesse, light.",
+        "loot_item_id": "_lootcut01",
+        "school": null,
+        "components": null,
+        "material": null,
+        "casting_time": null,
+        "duration": null,
+        "concentration": false,
+        "ritual": false,
+        "description": null,
+        "prepared": true,
+        "srd_index": null,
+        "name": "Cutlass of the Drowned Captain",
+        "id": "_cbtcut001",
+        "member_id": "_nunrlv6ua",
+        "sort_order": 2,
+        "created_at": "2026-04-15T21:23:00.000Z",
+        "updated_at": "2026-04-15T21:23:00.000Z"
+      },
+      {
+        "kind": "weapon",
+        "action": "action",
+        "resolve": "attack",
+        "ability": "dex",
+        "save_ability": null,
+        "dice": "1d10",
+        "extra_dice": null,
+        "damage_type": "piercing",
+        "add_mod": true,
+        "spell_level": null,
+        "scales": false,
+        "half_on_save": false,
+        "aoe": false,
+        "range": "30/90",
+        "notes": "Loading.",
+        "loot_item_id": "_lootpis01",
+        "school": null,
+        "components": null,
+        "material": null,
+        "casting_time": null,
+        "duration": null,
+        "concentration": false,
+        "ritual": false,
+        "description": null,
+        "prepared": true,
+        "srd_index": null,
+        "name": "Flintlock Pistol",
+        "id": "_cbtpis001",
+        "member_id": "_nunrlv6ua",
+        "sort_order": 3,
+        "created_at": "2026-04-15T21:24:00.000Z",
+        "updated_at": "2026-04-15T21:24:00.000Z"
+      },
+      {
+        "kind": "spell",
+        "action": "action",
+        "resolve": "attack",
+        "ability": "spell",
+        "save_ability": null,
+        "dice": "1d10",
+        "extra_dice": null,
+        "damage_type": "fire",
+        "add_mod": false,
+        "spell_level": 0,
+        "scales": true,
+        "half_on_save": false,
+        "aoe": false,
+        "range": "120 feet",
+        "notes": null,
+        "loot_item_id": null,
+        "school": "Evocation",
+        "components": "V, S",
+        "material": null,
+        "casting_time": "1 action",
+        "duration": "Instantaneous",
+        "concentration": false,
+        "ritual": false,
+        "description": "You hurl a mote of fire at a creature or object within range. On a hit, the target takes 1d10 fire damage.",
+        "prepared": true,
+        "srd_index": "fire-bolt",
+        "name": "Fire Bolt",
+        "id": "_cbtfire01",
+        "member_id": "_ye11uuykm",
+        "sort_order": 4,
+        "created_at": "2026-04-15T21:25:00.000Z",
+        "updated_at": "2026-04-15T21:25:00.000Z"
+      },
+      {
+        "kind": "spell",
+        "action": "action",
+        "resolve": "attack",
+        "ability": "int",
+        "save_ability": null,
+        "dice": "1d6",
+        "extra_dice": "1d8",
+        "damage_type": "thunder",
+        "add_mod": true,
+        "spell_level": 0,
+        "scales": true,
+        "half_on_save": false,
+        "aoe": false,
+        "range": "Self (5-foot radius)",
+        "notes": "Melee weapon attack. If the target moves before your next turn it takes 2d8 more thunder damage.",
+        "loot_item_id": null,
+        "school": "Evocation",
+        "components": "S, M",
+        "material": "a melee weapon worth at least 1 sp",
+        "casting_time": "1 action",
+        "duration": "1 round",
+        "concentration": false,
+        "ritual": false,
+        "description": "Not in the SRD: typed in once and saved to the campaign library (Tasha's).",
+        "prepared": true,
+        "srd_index": null,
+        "name": "Booming Blade",
+        "id": "_cbtboom01",
+        "member_id": "_ye11uuykm",
+        "sort_order": 5,
+        "created_at": "2026-04-15T21:26:00.000Z",
+        "updated_at": "2026-04-15T21:26:00.000Z"
+      },
+      {
+        "kind": "spell",
+        "action": "action",
+        "resolve": "save",
+        "ability": "spell",
+        "save_ability": "con",
+        "dice": "2d8",
+        "extra_dice": null,
+        "damage_type": "thunder",
+        "add_mod": false,
+        "spell_level": 1,
+        "scales": false,
+        "half_on_save": true,
+        "aoe": true,
+        "range": "Self (15-foot cube)",
+        "notes": null,
+        "loot_item_id": null,
+        "school": "Evocation",
+        "components": "V, S",
+        "material": null,
+        "casting_time": "1 action",
+        "duration": "Instantaneous",
+        "concentration": false,
+        "ritual": false,
+        "description": "A wave of thunderous force sweeps out from you. Creatures that fail a CON save take 2d8 thunder damage and are pushed 10 feet.",
+        "prepared": true,
+        "srd_index": "thunderwave",
+        "name": "Thunderwave",
+        "id": "_cbtthun01",
+        "member_id": "_ye11uuykm",
+        "sort_order": 6,
+        "created_at": "2026-04-15T21:27:00.000Z",
+        "updated_at": "2026-04-15T21:27:00.000Z"
+      },
+      {
+        "kind": "spell",
+        "action": "action",
+        "resolve": "save",
+        "ability": "spell",
+        "save_ability": "con",
+        "dice": "3d8",
+        "extra_dice": null,
+        "damage_type": "thunder",
+        "add_mod": false,
+        "spell_level": 2,
+        "scales": false,
+        "half_on_save": true,
+        "aoe": true,
+        "range": "60 feet",
+        "notes": null,
+        "loot_item_id": null,
+        "school": "Evocation",
+        "components": "V, S, M",
+        "material": "a chip of mica",
+        "casting_time": "1 action",
+        "duration": "Instantaneous",
+        "concentration": false,
+        "ritual": false,
+        "description": "A sudden loud ringing noise erupts from a point of your choice within range. Each creature in a 10-foot sphere makes a CON save, taking 3d8 thunder damage on a failure.",
+        "prepared": true,
+        "srd_index": "shatter",
+        "name": "Shatter",
+        "id": "_cbtshat01",
+        "member_id": "_ye11uuykm",
+        "sort_order": 7,
+        "created_at": "2026-04-15T21:28:00.000Z",
+        "updated_at": "2026-04-15T21:28:00.000Z"
+      },
+      {
+        "kind": "spell",
+        "action": "action",
+        "resolve": "none",
+        "ability": "spell",
+        "save_ability": null,
+        "dice": "1d8",
+        "extra_dice": null,
+        "damage_type": null,
+        "add_mod": true,
+        "spell_level": 1,
+        "scales": false,
+        "half_on_save": false,
+        "aoe": false,
+        "range": "Touch",
+        "notes": null,
+        "loot_item_id": null,
+        "school": "Evocation",
+        "components": "V, S",
+        "material": null,
+        "casting_time": "1 action",
+        "duration": "Instantaneous",
+        "concentration": false,
+        "ritual": false,
+        "description": "A creature you touch regains a number of hit points equal to 1d8 + your spellcasting ability modifier.",
+        "prepared": true,
+        "srd_index": "cure-wounds",
+        "name": "Cure Wounds",
+        "id": "_cbtcure01",
+        "member_id": "_ye11uuykm",
+        "sort_order": 8,
+        "created_at": "2026-04-15T21:29:00.000Z",
+        "updated_at": "2026-04-15T21:29:00.000Z"
+      },
+      {
+        "kind": "spell",
+        "action": "action",
+        "resolve": "none",
+        "ability": "spell",
+        "save_ability": "dex",
+        "dice": null,
+        "extra_dice": null,
+        "damage_type": null,
+        "add_mod": false,
+        "spell_level": 2,
+        "scales": false,
+        "half_on_save": false,
+        "aoe": true,
+        "range": "60 feet",
+        "notes": null,
+        "loot_item_id": null,
+        "school": "Conjuration",
+        "components": "V, S, M",
+        "material": "a bit of spiderweb",
+        "casting_time": "1 action",
+        "duration": "Concentration, up to 1 hour",
+        "concentration": true,
+        "ritual": false,
+        "description": "You conjure a mass of thick, sticky webbing. Not prepared today, so it is listed but not ranked.",
+        "prepared": false,
+        "srd_index": "web",
+        "name": "Web",
+        "id": "_cbtweb001",
+        "member_id": "_ye11uuykm",
+        "sort_order": 9,
+        "created_at": "2026-04-15T21:30:00.000Z",
+        "updated_at": "2026-04-15T21:30:00.000Z"
+      }
+    ],
+    "campaign_library": [
+      {
+        "id": "_libboom01",
+        "kind": "spell",
+        "name": "Booming Blade",
+        "data": {
+          "name": "Booming Blade",
+          "kind": "spell",
+          "action": "action",
+          "resolve": "attack",
+          "ability": "int",
+          "save_ability": null,
+          "dice": "1d6",
+          "extra_dice": "1d8",
+          "damage_type": "thunder",
+          "add_mod": true,
+          "spell_level": 0,
+          "scales": true,
+          "half_on_save": false,
+          "aoe": false,
+          "range": "Self (5-foot radius)",
+          "notes": "Melee weapon attack. If the target moves before your next turn it takes 2d8 more thunder damage.",
+          "school": "Evocation",
+          "components": "S, M",
+          "material": "a melee weapon worth at least 1 sp",
+          "casting_time": "1 action",
+          "duration": "1 round",
+          "concentration": false,
+          "ritual": false,
+          "description": "Not in the SRD: typed in once and saved to the campaign library (Tasha's)."
+        },
+        "created_at": "2026-04-15T21:41:00.000Z",
+        "updated_at": "2026-04-15T21:41:00.000Z"
+      },
+      {
+        "id": "_librage01",
+        "kind": "feature",
+        "name": "Rage",
+        "data": {
+          "name": "Rage",
+          "kind": "feature",
+          "action": "bonus",
+          "resolve": "none",
+          "ability": "str",
+          "save_ability": null,
+          "dice": null,
+          "extra_dice": null,
+          "damage_type": null,
+          "add_mod": false,
+          "spell_level": null,
+          "scales": false,
+          "half_on_save": false,
+          "aoe": false,
+          "range": null,
+          "notes": "Advantage on STR checks and saves, +2 melee damage, resistance to bludgeoning, piercing and slashing. 3 per long rest.",
+          "school": null,
+          "components": null,
+          "material": null,
+          "casting_time": null,
+          "duration": null,
+          "concentration": false,
+          "ritual": false,
+          "description": null
+        },
+        "created_at": "2026-04-15T21:42:00.000Z",
+        "updated_at": "2026-04-15T21:42:00.000Z"
+      },
+      {
+        "id": "_liblant01",
+        "kind": "item",
+        "name": "Gloom-Lantern of Ashfall",
+        "created_at": "2026-04-15T21:43:00.000Z",
+        "updated_at": "2026-04-15T21:43:00.000Z",
+        "data": {
+          "name": "Gloom-Lantern of Ashfall",
+          "type": "Wondrous Item",
+          "rarity": "rare",
+          "attunement": "none",
+          "desc": "Homebrew. Its grey light reveals invisible creatures within 30 ft. Recovered from the Customs House.",
+          "statEffects": [
+            {
+              "stat": "perception",
+              "type": "advantage",
+              "value": null
+            }
+          ]
+        }
+      }
+    ],
+    "session_log": [
+      {
+        "id": "_22jk9q9fj",
+        "number": 2,
+        "title": "The Body at the Crossroads",
+        "real_date": "2026-05-08",
+        "world_date": "7th of Ashfall, Year 412",
+        "summary": "A corpse was found at the crossroads outside the East Gate — a Compact courier, throat cut, signet ring missing. ^commander-varek-stoneholm arrived before the party could examine the body properly and confiscated what little evidence remained. ^sister-maela tended to the body and slipped the party a detail the Watch missed: a second set of boot prints, child-sized, leading toward the market. Following the trail, the party located ^pip, who had witnessed the murder from a drainpipe. Pip described the killer as \"a man with no face\" — the first confirmed sighting of ^the-hollow-man. The missing signet ring matches one Varek wears.",
+        "status": "complete",
+        "quests": [
+          {
+            "_key": "_cujigxkvt",
+            "text": "Identify the brass cylinder recovered from the warehouse",
+            "status": "active"
+          },
+          {
+            "_key": "_vw3bjdguo",
+            "text": "Discover who killed the Compact courier and why",
+            "status": "active"
+          },
+          {
+            "_key": "_1anmw74eu",
+            "text": "Learn more about the Hollow Man",
+            "status": "active"
+          }
+        ],
+        "session_npcs": [
+          "_8qgrzzenw",
+          "_1p8m5u3r2",
+          "_1d225p2r9",
+          "_zkrz8879r"
+        ],
+        "created_at": "2026-05-29T17:11:26.875927+00:00",
+        "updated_at": "2026-05-29T17:11:26.875927+00:00"
+      },
+      {
+        "id": "_i6gi3d7zl",
+        "number": 1,
+        "title": "Rats in the Warehouse",
+        "real_date": "2026-05-01",
+        "world_date": "3rd of Ashfall, Year 412",
+        "summary": "The party arrived in Ashenveil following a tip about a shipment of stolen artefacts passing through the docks. They tracked the delivery to a warehouse in the Dockside Quarter, where they found crates stamped with the Merchant's Compact seal. ^drav-the-fence gave them the initial lead in exchange for clearing a debt with a local tanner. The warehouse was guarded by men working for ^commander-varek-stoneholm — the party slipped past them using a combination of distraction and a well-placed sleep spell. They recovered one artefact (a brass cylinder covered in Primordial script) before the alarm was raised and they were forced to flee across the rooftops.",
+        "status": "complete",
+        "quests": [
+          {
+            "_key": "_70xgqf2qs",
+            "text": "Identify the brass cylinder recovered from the warehouse",
+            "status": "active"
+          },
+          {
+            "_key": "_najqbhvuw",
+            "text": "Find out who owns the Compact warehouse on Salter's Row",
+            "status": "completed"
+          }
+        ],
+        "session_npcs": [
+          "_8qgrzzenw",
+          "_zc2j5kobl"
+        ],
+        "created_at": "2026-05-29T17:11:26.875927+00:00",
+        "updated_at": "2026-05-29T17:11:26.875927+00:00"
+      },
+      {
+        "id": "_wob4htma3",
+        "number": 3,
+        "title": "Fire at the Pale Flame",
+        "real_date": "2026-05-15",
+        "world_date": "12th of Ashfall, Year 412",
+        "summary": "The Temple of the Pale Flame was set alight in the early hours. ^sister-maela sent a runner to warn the party twenty minutes before it happened — she had intercepted a Compact note. The party reached the temple as the fire was spreading. They evacuated three acolytes and a collection of irreplaceable texts before the east wing collapsed. ^the-hollow-man was observed watching the fire from across the street but disappeared before the party could confront him. ^pip appeared uninvited in the middle of the evacuation and nearly got herself killed retrieving a small silver box that Maela had specifically asked her to protect. The box was delivered safely. Maela has not explained its contents.",
+        "status": "complete",
+        "quests": [
+          {
+            "_key": "_h0q2f9asl",
+            "text": "Find out what is inside the silver box Pip retrieved from the Temple",
+            "status": "active"
+          },
+          {
+            "_key": "_gycvcuaa0",
+            "text": "Discover who killed the Compact courier and why",
+            "status": "active"
+          },
+          {
+            "_key": "_1si3i00zn",
+            "text": "Learn more about the Hollow Man",
+            "status": "active"
+          },
+          {
+            "_key": "_jn19j5gir",
+            "text": "Identify the brass cylinder recovered from the warehouse",
+            "status": "completed"
+          }
+        ],
+        "session_npcs": [
+          "_1p8m5u3r2",
+          "_1d225p2r9",
+          "_zkrz8879r"
+        ],
+        "created_at": "2026-05-29T17:11:26.875927+00:00",
+        "updated_at": "2026-05-29T17:11:26.875927+00:00"
+      },
+      {
+        "id": "_ani8i45r7",
+        "number": 4,
+        "title": "Ledgers and Lies",
+        "real_date": "2026-05-22",
+        "world_date": "18th of Ashfall, Year 412",
+        "summary": "Acting on a suggestion from ^lord-aldric-thane, the party visited the Hall of Records and enlisted the help of archivist ^wren-ashford. Cross-referencing Compact property filings with tax exemptions Thane remembered approving, Wren identified three properties registered under shell names that all trace back to a single solicitor — one known to work exclusively for ^magistrix-orvenne-lhast. One of the properties is a decommissioned customs house on the north wharf. ^drav-the-fence confirmed that the customs house had been \"very busy\" for the past six months. ^commander-varek-stoneholm issued a warrant for Theron's arrest on a charge of \"arson and civil disruption\" — almost certainly connected to the warehouse job from Session 1.",
+        "status": "complete",
+        "quests": [
+          {
+            "_key": "_xasi34ev8",
+            "text": "Investigate the decommissioned customs house on the north wharf",
+            "status": "active"
+          },
+          {
+            "_key": "_vs9yklxjq",
+            "text": "Find out what is inside the silver box Pip retrieved from the Temple",
+            "status": "active"
+          },
+          {
+            "_key": "_bk5wed6zz",
+            "text": "Discover who killed the Compact courier and why",
+            "status": "completed"
+          },
+          {
+            "_key": "_q7b7oomkl",
+            "text": "Expose the Merchant's Compact's role in the artefact smuggling network",
+            "status": "active"
+          }
+        ],
+        "session_npcs": [
+          "_8qgrzzenw",
+          "_zc2j5kobl",
+          "_rnd4s4rvj",
+          "_mh14q5mwp",
+          "_873zlebcd"
+        ],
+        "created_at": "2026-05-29T17:11:26.875927+00:00",
+        "updated_at": "2026-05-29T17:11:26.875927+00:00"
+      },
+      {
+        "id": "_hhez4qlcm",
+        "number": 5,
+        "title": "The Customs House",
+        "real_date": "2026-05-29",
+        "world_date": "22nd of Ashfall, Year 412",
+        "summary": "The party conducted a reconnaissance of the north wharf customs house before committing to entry. ^pip had already scouted the exterior and identified two guard rotations and a light in the upper floor that never goes out. The plan: enter through the collapsed sea-gate, reach the upper floor, and find proof linking ^magistrix-orvenne-lhast directly to the artefact network. ^wren-ashford provided forged dock-worker credentials as a fallback cover. ^the-hollow-man was sighted on the roof as the party entered — this time he appeared to step aside deliberately rather than raise the alarm. Unclear whose side he is on.",
+        "status": "draft",
+        "quests": [
+          {
+            "_key": "_m1xr0z8w3",
+            "text": "Investigate the decommissioned customs house on the north wharf",
+            "status": "active"
+          },
+          {
+            "_key": "_bpph0vocu",
+            "text": "Find out what is inside the silver box Pip retrieved from the Temple",
+            "status": "active"
+          },
+          {
+            "_key": "_ykypumvhl",
+            "text": "Expose the Merchant's Compact's role in the artefact smuggling network",
+            "status": "active"
+          },
+          {
+            "_key": "_hi8leoue3",
+            "text": "Determine the Hollow Man's true allegiance",
+            "status": "active"
+          }
+        ],
+        "session_npcs": [
+          "_rnd4s4rvj",
+          "_1d225p2r9",
+          "_zkrz8879r",
+          "_873zlebcd"
+        ],
+        "created_at": "2026-05-29T17:11:26.875927+00:00",
+        "updated_at": "2026-05-29T17:11:26.875927+00:00"
+      }
+    ],
+    "session_events": [
+      {
+        "id": "_icajr78eb",
+        "session_id": "_i6gi3d7zl",
+        "text": "Zyx rolled a natural 20 to fast-talk the gate guard — improvised a story about a lost cat",
+        "members": [
+          "Zyx"
+        ],
+        "sort_order": 0,
+        "created_at": "2026-05-29T17:11:27.000812+00:00"
+      },
+      {
+        "id": "_qfm4fa0s4",
+        "session_id": "_i6gi3d7zl",
+        "text": "Mira's sleep spell dropped three guards simultaneously; the party had 4 minutes before the next patrol",
+        "members": [
+          "Mira"
+        ],
+        "sort_order": 1,
+        "created_at": "2026-05-29T17:11:27.000812+00:00"
+      },
+      {
+        "id": "_ddwoam0mb",
+        "session_id": "_i6gi3d7zl",
+        "text": "Brass cylinder recovered — it hums faintly and makes compass needles spin",
+        "members": [],
+        "sort_order": 2,
+        "created_at": "2026-05-29T17:11:27.000812+00:00"
+      },
+      {
+        "id": "_14vbih9a1",
+        "session_id": "_i6gi3d7zl",
+        "text": "Varek's men spotted Theron on the rooftop; he is now a wanted face in the Dockside",
+        "members": [
+          "Theron"
+        ],
+        "sort_order": 3,
+        "created_at": "2026-05-29T17:11:27.000812+00:00"
+      },
+      {
+        "id": "_yjr2gpurm",
+        "session_id": "_22jk9q9fj",
+        "text": "Varek confiscated the body before the party could perform a proper examination — very deliberate",
+        "members": [],
+        "sort_order": 0,
+        "created_at": "2026-05-29T17:11:27.000812+00:00"
+      },
+      {
+        "id": "_dru6h6sqt",
+        "session_id": "_22jk9q9fj",
+        "text": "Sister Maela noted a faint Pale Flame glyph burned into the courier's palm — not the cause of death",
+        "members": [
+          "Mira"
+        ],
+        "sort_order": 1,
+        "created_at": "2026-05-29T17:11:27.000812+00:00"
+      },
+      {
+        "id": "_esacmpkm5",
+        "session_id": "_22jk9q9fj",
+        "text": "Pip confirmed the killer left in a closed carriage bearing no markings",
+        "members": [],
+        "sort_order": 2,
+        "created_at": "2026-05-29T17:11:27.000812+00:00"
+      },
+      {
+        "id": "_k1d7qxyya",
+        "session_id": "_22jk9q9fj",
+        "text": "The signet ring match to Varek's ring — either he was there or someone stole his identity",
+        "members": [
+          "Zyx",
+          "Theron"
+        ],
+        "sort_order": 3,
+        "created_at": "2026-05-29T17:11:27.000812+00:00"
+      },
+      {
+        "id": "_egm4mm6sm",
+        "session_id": "_wob4htma3",
+        "text": "Theron entered a collapsing corridor to recover the last acolyte — DC 14 Athletics, rolled 17",
+        "members": [
+          "Theron"
+        ],
+        "sort_order": 0,
+        "created_at": "2026-05-29T17:11:27.000812+00:00"
+      },
+      {
+        "id": "_vgfihwpr8",
+        "session_id": "_wob4htma3",
+        "text": "Pip appeared in the burning library — \"Maela said this box was important\" — nearly died",
+        "members": [],
+        "sort_order": 1,
+        "created_at": "2026-05-29T17:11:27.000812+00:00"
+      },
+      {
+        "id": "_p1m1da53t",
+        "session_id": "_wob4htma3",
+        "text": "The Hollow Man was seen watching from the alley opposite. Did not intervene in either direction.",
+        "members": [],
+        "sort_order": 2,
+        "created_at": "2026-05-29T17:11:27.000812+00:00"
+      },
+      {
+        "id": "_gsyxi8pwy",
+        "session_id": "_ani8i45r7",
+        "text": "Wren found the shell company chain in under an hour — \"this is not subtle, whoever filed this was arrogant\"",
+        "members": [],
+        "sort_order": 0,
+        "created_at": "2026-05-29T17:11:27.000812+00:00"
+      },
+      {
+        "id": "_rr96nq0zb",
+        "session_id": "_ani8i45r7",
+        "text": "Thane identified his own signature on one of the fraudulent exemptions — he was framed three years ago",
+        "members": [],
+        "sort_order": 1,
+        "created_at": "2026-05-29T17:11:27.000812+00:00"
+      },
+      {
+        "id": "_bm4gdxod8",
+        "session_id": "_ani8i45r7",
+        "text": "Varek's arrest warrant for Theron is nailed to the door of the Sunken Hearth by morning",
+        "members": [
+          "Theron"
+        ],
+        "sort_order": 2,
+        "created_at": "2026-05-29T17:11:27.000812+00:00"
+      },
+      {
+        "id": "_cb57awdyu",
+        "session_id": "_ani8i45r7",
+        "text": "Drav raised his price — \"warrants are bad for business and you're becoming a liability\"",
+        "members": [],
+        "sort_order": 3,
+        "created_at": "2026-05-29T17:11:27.000812+00:00"
+      },
+      {
+        "id": "_tfz01v753",
+        "session_id": "_hhez4qlcm",
+        "text": "Pip's scouting report was impeccably detailed — she drew a floor plan from memory",
+        "members": [],
+        "sort_order": 0,
+        "created_at": "2026-05-29T17:11:27.000812+00:00"
+      },
+      {
+        "id": "_wsn131s2l",
+        "session_id": "_hhez4qlcm",
+        "text": "The Hollow Man stepped aside at the sea-gate. Made eye contact with Zyx before disappearing.",
+        "members": [
+          "Zyx"
+        ],
+        "sort_order": 1,
+        "created_at": "2026-05-29T17:11:27.000812+00:00"
+      },
+      {
+        "id": "_hvh05ulkk",
+        "session_id": "_hhez4qlcm",
+        "text": "Session ended mid-infiltration — party is inside the customs house, second floor, guards unaware",
+        "members": [],
+        "sort_order": 2,
+        "created_at": "2026-05-29T17:11:27.000812+00:00"
+      }
+    ],
+    "npcs": [
+      {
+        "id": "_8qgrzzenw",
+        "slug": "commander-varek-stoneholm",
+        "name": "Commander Varek Stoneholm",
+        "role": "City Watch Commander, Ashenveil Gate",
+        "disposition": "hostile",
+        "notes": "Broad-shouldered, perpetually scowling. Has been paid off by the Merchant's Compact to look the other way. Deeply suspicious of the party after the warehouse incident. Carries a signet ring that matches one found on a body in Session 2.",
+        "first_seen": "_i6gi3d7zl",
+        "created_at": "2026-05-29T17:11:26.736552+00:00",
+        "updated_at": "2026-05-29T17:11:27.085955+00:00"
+      },
+      {
+        "id": "_zc2j5kobl",
+        "slug": "drav-the-fence",
+        "name": "Drav the Fence",
+        "role": "Black-market broker, Dockside Quarter",
+        "disposition": "neutral",
+        "notes": "Short, quick-eyed halfling. Operates out of a chandlery as cover. Will sell anything to anyone but refuses to deal in \"cursed goods\" — he lost a brother that way. Owes the party a favour since Session 1. Can be flipped with enough coin.",
+        "first_seen": "_i6gi3d7zl",
+        "created_at": "2026-05-29T17:11:26.736552+00:00",
+        "updated_at": "2026-05-29T17:11:27.085955+00:00"
+      },
+      {
+        "id": "_1p8m5u3r2",
+        "slug": "sister-maela",
+        "name": "Sister Maela",
+        "role": "Healer, Temple of the Pale Flame",
+        "disposition": "allied",
+        "notes": "Young, earnest, dangerous idealist. She believes the Pale Flame will \"cleanse\" the corruption in Ashenveil — her definition of cleanse worries the party. Has stitched the party back together three times now. Knows more about the Compact than she lets on.",
+        "first_seen": "_22jk9q9fj",
+        "created_at": "2026-05-29T17:11:26.736552+00:00",
+        "updated_at": "2026-05-29T17:11:27.085955+00:00"
+      },
+      {
+        "id": "_1d225p2r9",
+        "slug": "pip",
+        "name": "Pip",
+        "role": "Street informant, urchin network",
+        "disposition": "friendly",
+        "notes": "Twelve years old, wildly overconfident. Runs a network of child informants across the market district. Will trade information for food, coin, or a good story. Called in a warning that saved the party in Session 3. Should not be in danger but keeps ending up there.",
+        "first_seen": "_22jk9q9fj",
+        "created_at": "2026-05-29T17:11:26.736552+00:00",
+        "updated_at": "2026-05-29T17:11:27.085955+00:00"
+      },
+      {
+        "id": "_zkrz8879r",
+        "slug": "the-hollow-man",
+        "name": "The Hollow Man",
+        "role": "Compact enforcer, identity unknown",
+        "disposition": "hostile",
+        "notes": "Always masked. Never speaks — communicates via written notes. Has appeared at the scene of every Compact operation the party has disrupted. The party believes he is magically compelled to serve, not a willing agent. No one has seen his face.",
+        "first_seen": "_22jk9q9fj",
+        "created_at": "2026-05-29T17:11:26.736552+00:00",
+        "updated_at": "2026-05-29T17:11:27.085955+00:00"
+      },
+      {
+        "id": "_rnd4s4rvj",
+        "slug": "magistrix-orvenne-lhast",
+        "name": "Magistrix Orvenne Lhast",
+        "role": "Head of the Merchant's Compact, Ashenveil",
+        "disposition": "hostile",
+        "notes": "Cold, methodical, never raises her voice. Runs the Compact like a ledger — everything has a price. Has hired at least two separate groups to follow the party. The party has never met her face-to-face; they know her only by reputation and the calling cards she leaves at crime scenes.",
+        "first_seen": "_ani8i45r7",
+        "created_at": "2026-05-29T17:11:26.736552+00:00",
+        "updated_at": "2026-05-29T17:11:27.085955+00:00"
+      },
+      {
+        "id": "_mh14q5mwp",
+        "slug": "lord-aldric-thane",
+        "name": "Lord Aldric Thane",
+        "role": "Disgraced noble, exile at the Sunken Hearth inn",
+        "disposition": "neutral",
+        "notes": "Former city councillor removed under suspicious circumstances three years ago. Drinks heavily and claims the Compact framed him. Some of what he says checks out. Knows the layout of the Compact's headquarters from his time on the council.",
+        "first_seen": "_ani8i45r7",
+        "created_at": "2026-05-29T17:11:26.736552+00:00",
+        "updated_at": "2026-05-29T17:11:27.085955+00:00"
+      },
+      {
+        "id": "_873zlebcd",
+        "slug": "wren-ashford",
+        "name": "Wren Ashford",
+        "role": "Archivist, Hall of Records",
+        "disposition": "friendly",
+        "notes": "Meticulous, anxious, brilliant. Has access to land deeds, tax records, and guild charters going back 200 years. Helped the party trace Compact property holdings in Session 4. Terrified of the Compact finding out she helped. Keeps detailed notes in a cipher the party can't read.",
+        "first_seen": "_ani8i45r7",
+        "created_at": "2026-05-29T17:11:26.736552+00:00",
+        "updated_at": "2026-05-29T17:11:27.085955+00:00"
+      }
+    ],
+    "nexus_settings": [
+      {
+        "key": "term_mappings",
+        "value": {},
+        "updated_at": "2026-03-06T15:24:58.235023+00:00"
+      },
+      {
+        "key": "module_enabled",
+        "value": "{\"partyRoster\":true,\"treasury\":true,\"lootTracker\":true,\"sessionLog\":true}",
+        "updated_at": "2026-03-11T17:03:31.956001+00:00"
+      },
+      {
+        "key": "site_lock",
+        "value": "{\"enabled\":true}",
+        "updated_at": "2026-09-02T21:47:10.336354+00:00"
+      },
+      {
+        "key": "combat_target",
+        "value": "{\"ac\":14,\"save\":2}",
+        "updated_at": "2026-04-15T21:50:00.000Z"
+      }
+    ]
+  }
+}

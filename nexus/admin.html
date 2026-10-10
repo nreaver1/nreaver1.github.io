@@ -203,6 +203,7 @@
     </div><!-- /admin-main -->
   </div><!-- /adminContent -->
 
+  <script src="js/nexus-demo.js"></script>
   <script src="js/nexus-config.js"></script>
   <script src="js/nexus-utils.js"></script>
   <script src="js/nexus-srd.js"></script>
@@ -218,8 +219,10 @@
   // ══════════════════════════════════════════════════════════
   let _runtimeAdminHash = window.NEXUS_ADMIN_HASH || '';
 
-  // Session flag — stays unlocked while the tab is open
-  let adminUnlocked = sessionStorage.getItem('nexus_admin') === '1';
+  // Session flag — stays unlocked while the tab is open. Demo mode is a
+  // sandbox, so it skips the password without setting the flag (which
+  // would carry over if this tab left demo mode).
+  let adminUnlocked = NEXUS_DEMO || sessionStorage.getItem('nexus_admin') === '1';
 
   async function sha256(str) {
     const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(str));

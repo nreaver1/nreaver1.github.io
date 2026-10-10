@@ -26,8 +26,9 @@ window.NEXUS_ADMIN_HASH = NEXUS_ADMIN_HASH;
 // ══════════════════════════════════════════════════════════════
 //  Low-level fetch wrapper — talks directly to Supabase REST API
 //  No SDK needed; works from plain HTML files.
+//  Pages use `db` (below), which is this object unless demo mode is on.
 // ══════════════════════════════════════════════════════════════
-const db = {
+const _supabaseDb = {
   _headers() {
     return {
       'Content-Type':  'application/json',
@@ -113,6 +114,12 @@ const db = {
     return r.json();
   },
 };
+
+// Demo mode (?demo, see js/nexus-demo.js) swaps in the sample campaign held
+// in this browser tab. It never talks to Supabase, and the site lock and
+// admin password don't apply to it.
+const NEXUS_DEMO = typeof isNexusDemo === 'function' && isNexusDemo();
+const db = NEXUS_DEMO ? createDemoDb() : _supabaseDb;
 
 // ══════════════════════════════════════════════════════════════
 //  Config check — warns in console if credentials not set
@@ -368,7 +375,7 @@ async function loadModuleSettings() {
 
 // Returns true if site-wide read-only mode is currently on
 function isSiteLocked() {
-  return SITE_LOCK.enabled === true;
+  return !NEXUS_DEMO && SITE_LOCK.enabled === true;
 }
 
 // Persist to Supabase
@@ -647,8 +654,8 @@ function _nexusPromptForAdminPassword() {
 
 function requireAdmin(fn) {
   return async function (...args) {
-    // Skip prompt if already authenticated this session
-    if (sessionStorage.getItem('nexus_admin') === '1') return fn(...args);
+    // Skip prompt in demo mode or if already authenticated this session
+    if (NEXUS_DEMO || sessionStorage.getItem('nexus_admin') === '1') return fn(...args);
     const pw = await _nexusPromptForAdminPassword();
     if (pw === null) return;   // user cancelled — action aborted
     return fn(...args);

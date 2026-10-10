@@ -28,10 +28,13 @@ js/nexus-srd.js       dnd5eapi.co (2014 SRD) client: name search dropdown (attac
                       srdSpellToOption / srdWeaponToOption / srdItemToLoot / parseSrdItemEffects (tested),
                       plus CampaignLibrary (campaign_library table) and its pure library* helpers
 js/nexus-combat-editor.js  CombatEditor: the one add/edit modal for combat_options, used by combat.html
-                      and the roster Spells tab. Load order: config, utils, srd, combat-editor.
+                      and the roster Spells tab. Load order: demo, config, utils, srd, combat-editor.
+js/nexus-demo.js      Demo mode (?demo): in-browser DemoStore with the same API as `db`, schema read from
+                      sql/supabase_setup.sql at runtime. Loaded right BEFORE nexus-config.js on every page.
+demo/demo-data.json   The demo campaign (an Admin snapshot). demo/img/ holds its portraits.
 css/nexus.css         One shared stylesheet (~3.8k lines); theme tokens on :root
 sql/                  Hand-run SQL for the Supabase SQL Editor (no migration tool)
-tests/nexus.test.js   ~10k lines, ~1450 tests
+tests/nexus.test.js   ~10k lines, ~1480 tests
 .github/workflows/    Leftover test.yml that never runs. The live CI is ../.github/workflows/nexus-ci.yml at the repo root
 ```
 
@@ -39,7 +42,7 @@ tests/nexus.test.js   ~10k lines, ~1450 tests
 
 Each module page follows the same pattern:
 
-1. `<script src="js/nexus-config.js">` and then `js/nexus-utils.js` (order matters, because utils call `isModuleEnabled` from config).
+1. `<script src="js/nexus-demo.js">`, `js/nexus-config.js`, then `js/nexus-utils.js` (order matters: config picks the demo store, and utils call `isModuleEnabled` from config).
 2. `<div id="nexus-nav-root">`, filled by `buildSidenav('<this-page>.html')`.
 3. An async `boot()`/`init()` that runs `Promise.all([loadModuleSettings(), loadTerms(), db.select(...)])`, then `buildSidenav`, `applyModuleVisibility()`, `applyReadOnlyBanner()` and `if (!enforceModuleGuard('<moduleKey>')) return;`, and then renders.
 4. State lives in page-level globals (`members`, `items`, `sessions`, `events`, `npcs`, `ledger`, ...). Every mutation writes to Supabase and then patches the local array and re-renders. There's no realtime sync, so other tabs/users only see changes after a reload.
@@ -101,12 +104,31 @@ When you change page code, run the suite: shape tests break on renames and refac
 
 ## Running locally
 
-Any static server from the `nexus/` folder, e.g. `npx serve .` or `python -m http.server`. Opening via `file://` mostly works but isn't recommended. Everything talks to the live Supabase project, so **local runs write to production data**.
+Any static server from the `nexus/` folder, e.g. `npx serve .` or `py -m http.server`. Don't open pages via `file://`: demo mode has to fetch its data files. Without `?demo`, everything talks to the live Supabase project, which holds the **real campaign**, so local runs write to production data. Use `?demo` for development.
+
+## Demo mode
+
+The public "Live demo" links (portfolio `../index.html`, `../README.md`) open `https://nreaver1.github.io/nexus/?demo`. The plain `/nexus/` URL is the real campaign on Supabase.
+
+- `?demo` on any page turns demo mode on for that browser tab (sessionStorage `nexus_demo`), so plain sidenav links stay in demo. `?demo=off` turns it off. A violet banner shows while it's on.
+- `nexus-config.js` sets `NEXUS_DEMO` and `const db = NEXUS_DEMO ? createDemoDb() : _supabaseDb`. No page code knows the difference. The demo store never contacts Supabase.
+- `DemoStore` loads `demo/demo-data.json` plus the table definitions parsed from `sql/supabase_setup.sql` (primary keys, column defaults, FK cascade/set null). It rejects unknown columns and tables the way PostgREST does, so schema drift shows up in the demo too.
+- Visitors' edits live in sessionStorage (`nexus_demo_db`) for that tab only. "Reset demo" in the banner drops them. When `demo-data.json` is republished (new `exported_at`), stale tab copies reset themselves.
+- In demo mode the site lock is off, and `requireAdmin` and the Admin page skip the password. They never set the real `nexus_admin` flag. The seed tool writes to the demo copy.
+
+**Updating the demo when a module changes** (CI enforces this):
+1. Add the column/table to `sql/supabase_setup.sql` as usual (the demo picks it up automatically), and add new tables to `SNAPSHOT_TABLES` in admin.html.
+2. Serve the site locally and open `/nexus/?demo`, then add sample data for the new feature through the normal UI.
+3. Admin → Export Snapshot, and save the file over `nexus/demo/demo-data.json`. New portraits come out as `data:` URLs: save them as small JPEGs in `demo/img/` and point `photo` at `demo/img/<file>.jpg`.
+4. Run the tests. The "Demo mode" suite fails if any table in the setup script has no demo rows, a row uses a column that doesn't exist, an FK or holder/ledger name dangles, a photo is inline, the file passes 400 KB, or a page's `db.select`/`deleteWhere` uses a query shape DemoStore doesn't support.
+
+Hand-editing `demo-data.json` is fine too: it's a plain snapshot. Keep `exported_at` a new number whenever the content changes, so open demo tabs pick it up.
 
 ## Known issues / guardrails
 
 - Security is client-side only. The site lock and admin password don't stop direct REST writes, and `site_lock` itself lives in the publicly writable `nexus_settings`.
-- `seed-session-log.html` is still deployed publicly. Its buttons require the admin password, but like everything else that's UI-only.
+- `seed-session-log.html` is still deployed publicly. Its buttons require the admin password, but like everything else that's UI-only. In demo mode it seeds the demo copy.
+- The demo sessions' moments tag Zyx, Mira and Theron (from the old seed tool), who aren't on the demo roster. That's left as-is.
 - `nexusConfirm` escapes all of its text fields itself, so pass plain text, never HTML.
 - Record ids (`m.id`, `s.id`, ...) and `m.color` are still interpolated into inline handlers and `style` attributes unescaped. They're safe only while every row comes from the UI; a row written straight to the API could inject. Moving to `data-*` + `addEventListener` would close it.
 - `nexus/.github/workflows/test.yml` is a dead leftover and can be deleted.
