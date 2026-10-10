@@ -142,6 +142,29 @@ if (SUPABASE_URL.includes('YOUR_PROJECT_REF') || SUPABASE_ANON.includes('YOUR_AN
 }
 
 // ══════════════════════════════════════════════════════════════
+//  BACKDROP DRAG GUARD  — shared across all modals
+//  A click on a modal's backdrop closes it, but pressing inside the
+//  modal (e.g. selecting text in a field) and releasing outside also
+//  fires a click on the backdrop. This blocks that click unless the
+//  press AND the release were both on the backdrop itself.
+//  Covers every .modal-backdrop, the .nxc-overlay dialogs below, and
+//  anything marked data-backdrop, so new modals get it for free:
+//  just close on `e.target === backdrop` as usual.
+// ══════════════════════════════════════════════════════════════
+const NEXUS_BACKDROP_SELECTOR = '.modal-backdrop, .nxc-overlay, [data-backdrop]';
+let _nexusPressTarget = null, _nexusReleaseTarget = null;
+window.addEventListener('pointerdown', e => { _nexusPressTarget = e.target; _nexusReleaseTarget = null; }, true);
+window.addEventListener('pointerup',   e => { _nexusReleaseTarget = e.target; }, true);
+window.addEventListener('click', e => {
+  const t = e.target;
+  if (!t || !t.matches || !t.matches(NEXUS_BACKDROP_SELECTOR)) return;
+  if (e.detail === 0) return;   // keyboard/programmatic click, not a drag
+  if (_nexusPressTarget === t && _nexusReleaseTarget === t) return;
+  e.stopImmediatePropagation(); // capture phase on window: no handler below sees it
+  e.preventDefault();
+}, true);
+
+// ══════════════════════════════════════════════════════════════
 //  NEXUS CONFIRM DIALOG  — shared across all modules
 //  Usage:
 //    const confirmed = await nexusConfirm({

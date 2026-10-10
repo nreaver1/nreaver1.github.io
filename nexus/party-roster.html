@@ -8,6 +8,7 @@
   <script src="js/nexus-auth.js"></script>
   <script src="js/nexus-config.js"></script>
   <script src="js/nexus-utils.js"></script>
+  <script src="js/nexus-cite.js"></script>
   <script src="js/nexus-srd.js"></script>
   <script src="js/nexus-combat-editor.js"></script>
   <link rel="icon" type="image/x-icon" href="assets/favicon.ico" />
@@ -161,7 +162,7 @@
 
       <!-- BIO -->
       <div class="modal-section">Bio & Tags</div>
-      <div class="field"><label>Bio / Notes</label><textarea id="f-bio" placeholder="Background, personality, key info…"></textarea></div>
+      <div class="field"><label>Bio / Notes</label><textarea id="f-bio" data-cite placeholder="Background, personality, key info… (type ^ to cite an NPC)"></textarea></div>
       <div class="field"><label>Tags <span class="optional">(comma-separated)</span></label><input type="text" id="f-tags" placeholder="e.g. Tank, Healer, Stealth" /></div>
     </div>
     <div class="modal-footer">
@@ -276,7 +277,7 @@
       </div>
       <div class="field">
         <label>Description / Notes</label>
-        <textarea class="mi" id="lt_fieldDesc" placeholder="Item description, acquisition notes…"></textarea>
+        <textarea class="mi" id="lt_fieldDesc" data-cite placeholder="Item description, acquisition notes… (type ^ to cite an NPC)"></textarea>
       </div>
       <div class="field">
         <div class="fx-section-label">
@@ -1075,7 +1076,7 @@ function buildCard(m,idx,_itemsByHolder,_partyItems,_condSnap,_fxSnap){
   // ── BIO TAB ──────────────────────────────────────────────────
   const bioTab=`
     <div class="tab-panel active" id="tab-bio-${m.id}">
-      ${m.bio?`<div class="member-bio">"${esc(m.bio)}"</div>`:''}
+      ${m.bio?`<div class="member-bio">"${renderWithCitations(m.bio)}"</div>`:''}
       ${(m.tags||[]).length?`<div class="card-tags">${m.tags.map(t=>`<span class="tag">${esc(t)}</span>`).join('')}</div>`:''}
       ${!m.bio&&!(m.tags||[]).length?`<div style="font-family:'Share Tech Mono',monospace;font-size:0.53rem;color:var(--text-dim);letter-spacing:0.1em;padding:0.3rem 0;">No bio recorded.</div>`:''}
     </div>`;
@@ -1366,8 +1367,8 @@ function buildSpellsPanel(m,spells){
         <div class="spell-body">
           ${s.duration?`<div><span class="spell-k">Duration</span> ${esc(s.duration)}</div>`:''}
           ${s.material?`<div><span class="spell-k">Material</span> ${esc(s.material)}</div>`:''}
-          ${s.description?`<div class="spell-desc">${esc(s.description)}</div>`:''}
-          ${s.notes?`<div class="spell-desc">${esc(s.notes)}</div>`:''}
+          ${s.description?`<div class="spell-desc">${renderWithCitations(s.description)}</div>`:''}
+          ${s.notes?`<div class="spell-desc">${renderWithCitations(s.notes)}</div>`:''}
           <div class="spell-actions">
             <button class="btn btn-ghost" data-spell-action="edit" data-id="${esc(s.id)}">✎ Edit</button>
             <button class="btn btn-ghost" data-spell-action="delete" data-id="${esc(s.id)}">✕ Remove</button>
@@ -1533,7 +1534,7 @@ function openModal(id){
 }
 
 function closeModal(){document.getElementById('memberModal').classList.remove('open');editId=null;}
-function backdropClose(e){if(e.target===document.getElementById('memberModal')&&document.getElementById('memberModal')._mousedownOnBackdrop)closeModal();}
+function backdropClose(e){if(e.target===document.getElementById('memberModal'))closeModal();}
 function updateModalPreview(){const n=document.getElementById('f-name').value;if(!currentPhoto)document.getElementById('photoPreview').innerHTML=`<span class="photo-initials">${n?n.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase():'?'}</span>`;}
 
 async function saveMember(){
@@ -1647,14 +1648,6 @@ document.addEventListener('keydown',e=>{
   if(e.key==='Enter'&&document.getElementById('memberModal').classList.contains('open')&&document.activeElement.tagName!=='TEXTAREA'&&document.activeElement.tagName!=='SELECT') saveMember();
 });
 
-// Track whether a drag started on the backdrop itself (not inside the modal content).
-// Prevents closing the modal when the user clicks inside and drags outside.
-document.getElementById('memberModal').addEventListener('mousedown', function(e){
-  this._mousedownOnBackdrop = e.target === this;
-});
-document.getElementById('lt_modalBackdrop').addEventListener('mousedown', function(e){
-  this._mousedownOnBackdrop = e.target === this;
-});
 
 // ══════════════════════════════════════════════════════════════
 //  LOOT ITEM EDIT MODAL  (lt_ namespace)
@@ -1826,7 +1819,7 @@ function lt_openModal(id){
 }
 
 function lt_closeModal(){document.getElementById('lt_modalBackdrop').classList.remove('open');lt_editingId=null;lt_pendingFx=[];}
-function lt_backdropClose(e){if(e.target===document.getElementById('lt_modalBackdrop')&&document.getElementById('lt_modalBackdrop')._mousedownOnBackdrop)lt_closeModal();}
+function lt_backdropClose(e){if(e.target===document.getElementById('lt_modalBackdrop'))lt_closeModal();}
 
 async function lt_saveItem(){
   if(!(await nexusGate()))return;
@@ -1880,6 +1873,7 @@ Promise.all([
   prefetchTreasury(),
   prefetchSpells(),
   loadCombatTarget(),
+  loadCiteNpcs(),
 ]).then(() => {
   buildSidenav('party-roster.html');
   applyModuleVisibility();

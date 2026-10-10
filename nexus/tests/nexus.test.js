@@ -5755,7 +5755,9 @@ describe('Stage 5 — NPCs', () => {
 // ══════════════════════════════════════════════════════════════
 describe('Stage 6 — Citations', () => {
   const fs   = require('fs'), path = require('path');
-  const src  = fs.readFileSync(path.join(__dirname, '../session-log.html'), 'utf8');
+  // The citation renderer/autocomplete moved to js/nexus-cite.js + nexus-utils.js
+  const src  = ['../session-log.html', '../js/nexus-cite.js', '../js/nexus-utils.js']
+    .map(f => fs.readFileSync(path.join(__dirname, f), 'utf8')).join('\n');
   const css  = fs.readFileSync(path.join(__dirname, '../css/nexus.css'), 'utf8');
   const util = require('../js/nexus-utils.js');
 
@@ -6032,20 +6034,16 @@ describe('Stage 6 — Citations', () => {
     );
   });
 
-  it('autocomplete filters npcs by both slug and name', () => {
-    assert.ok(
-      src.includes('n.slug.includes(term)') || src.includes('slug.includes'),
-      'autocomplete input handler must filter by slug'
-    );
-    assert.ok(
-      src.includes('n.name.toLowerCase().includes(term)') ||
-      src.includes('name.toLowerCase().includes'),
-      'autocomplete input handler must filter by name'
-    );
+  it('autocomplete filters npcs by both slug and name (citeMatches)', () => {
+    const list = [{ slug: 'mira', name: 'Sister Mira' }, { slug: 'kael', name: 'Kael Voss' }];
+    assert.deepEqual(util.citeMatches(list, 'mir').map(n => n.slug), ['mira']);
+    assert.deepEqual(util.citeMatches(list, 'voss').map(n => n.slug), ['kael']);
+    assert.ok(src.includes('citeMatches(_citeNpcs, ctx.token)'), 'the input handler uses citeMatches');
   });
 
   it('autocomplete limits results to 8 entries', () => {
-    assert.ok(src.includes('.slice(0, 8)'), 'autocomplete must limit suggestions to 8');
+    const many = Array.from({ length: 12 }, (_, i) => ({ slug: 'npc-' + i, name: 'NPC ' + i }));
+    assert.equal(util.citeMatches(many, 'npc').length, 8);
   });
 
   // ── Wire-up verification ─────────────────────────────────────
@@ -6774,7 +6772,9 @@ describe('Stage 8 — Polish', () => {
 // ══════════════════════════════════════════════════════════════
 describe('Stage 9 — Integration & Completeness', () => {
   const fs    = require('fs'), path = require('path');
-  const sl    = fs.readFileSync(path.join(__dirname, '../session-log.html'), 'utf8');
+  // Includes the shared citation code (js/nexus-cite.js + nexus-utils.js)
+  const sl    = ['../session-log.html', '../js/nexus-cite.js', '../js/nexus-utils.js']
+    .map(f => fs.readFileSync(path.join(__dirname, f), 'utf8')).join('\n');
   const idx   = fs.readFileSync(path.join(__dirname, '../index.html'),        'utf8');
 
   // ── Disposition-coloured citation chips ──────────────────────
@@ -6823,7 +6823,7 @@ describe('Stage 9 — Integration & Completeness', () => {
   });
 
   it('renderWithCitations applies disposition colour as inline style', () => {
-    const fn   = sl.slice(sl.indexOf('function renderWithCitations('));
+    const fn   = sl.slice(sl.indexOf('function renderCitations('));
     const end  = fn.indexOf('\nfunction ', 10);
     const body = fn.slice(0, end > 0 ? end : 700);
     assert.ok(
@@ -6833,7 +6833,7 @@ describe('Stage 9 — Integration & Completeness', () => {
   });
 
   it('renderWithCitations chip inline style sets color, border-color and background', () => {
-    const fn   = sl.slice(sl.indexOf('function renderWithCitations('));
+    const fn   = sl.slice(sl.indexOf('function renderCitations('));
     const end  = fn.indexOf('\nfunction ', 10);
     const body = fn.slice(0, end > 0 ? end : 700);
     assert.ok(body.includes('border-color:'), 'chip must set border-color inline');
@@ -6841,7 +6841,7 @@ describe('Stage 9 — Integration & Completeness', () => {
   });
 
   it('renderWithCitations chip title includes the NPC disposition', () => {
-    const fn   = sl.slice(sl.indexOf('function renderWithCitations('));
+    const fn   = sl.slice(sl.indexOf('function renderCitations('));
     const end  = fn.indexOf('\nfunction ', 10);
     const body = fn.slice(0, end > 0 ? end : 700);
     assert.ok(
@@ -9600,7 +9600,7 @@ describe('Shared combat editor — SRD, loot and prepared', () => {
 
   it('combat sheet shows spell casting details and escapes them', () => {
     assert.match(page, /\[o\.casting_time, o\.components, o\.duration, o\.concentration \? 'Concentration' : '', o\.ritual \? 'Ritual' : ''\]\n\s+\.filter\(Boolean\)\.map\(esc\)/);
-    assert.match(page, /\$\{esc\(o\.description\)\}/);
+    assert.match(page, /\$\{renderWithCitations\(o\.description\)\}/);
   });
 });
 
@@ -9631,7 +9631,7 @@ describe('Party Roster — Spells tab', () => {
     const body = fn('prefetchSpells');
     assert.match(body, /db\.select\('combat_options'/);
     assert.match(body, /catch\(e\)\{[\s\S]*_spellsTableMissing=true;/);
-    assert.match(src, /prefetchSpells\(\),\n\s+loadCombatTarget\(\),\n\]\)\.then/);
+    assert.match(src, /prefetchSpells\(\),\n\s+loadCombatTarget\(\),\n\s+loadCiteNpcs\(\),\n\]\)\.then/);
   });
 
   it('a member\'s spells are their kind=spell options, sorted by level then name', () => {
@@ -10600,5 +10600,167 @@ describe('Member identity (colour, portrait, status)', () => {
     for (const cls of ['member-name', 'member-class', 'member-race', 'member-level', 'status-tag']) {
       assert.ok(combat.includes(`class="${cls}"`), `header reuses .${cls} from the roster card`);
     }
+  });
+});
+
+
+// ══════════════════════════════════════════════════════════════
+//  CITATIONS EVERYWHERE
+//
+//  ^npc-slug works in every notes box, not just the session log:
+//  renderCitations/citeTokenAt/citeMatches in nexus-utils.js, and
+//  js/nexus-cite.js (NPC loading, ^ autocomplete on [data-cite]).
+// ══════════════════════════════════════════════════════════════
+
+describe('Citations everywhere', () => {
+  const fs = require('node:fs'), path = require('node:path');
+  const util = require('../js/nexus-utils.js');
+  const read = f => fs.readFileSync(path.join(__dirname, '..', f), 'utf8');
+  const cite = read('js/nexus-cite.js');
+  const npcs = new Map([
+    ['mira', { id: '_m', slug: 'mira', name: 'Sister Mira', role: 'Healer', disposition: 'friendly' }],
+    ['vex',  { id: '_v', slug: 'vex',  name: 'Vex "<b>"',   role: '',       disposition: 'weird' }],
+  ]);
+
+  it('renderCitations escapes text and links known slugs to the session log', () => {
+    const html = util.renderCitations('<i>hi</i> ^mira!', npcs);
+    assert.ok(html.startsWith('&lt;i&gt;hi&lt;/i&gt; '));
+    assert.match(html, /<a class="npc-chip" href="session-log\.html\?npc=mira" data-npc-slug="mira"/);
+    assert.match(html, /title="Sister Mira — Healer \[friendly\]"/);
+    assert.ok(html.includes(util.DISP_CHIP_COLOR.friendly));
+    assert.ok(html.endsWith('>^mira</a>!'));
+  });
+
+  it('renderCitations escapes NPC names in the title and falls back to the unknown colour', () => {
+    const html = util.renderCitations('^vex', npcs);
+    assert.ok(html.includes('title="Vex &quot;&lt;b&gt;&quot; [weird]"'));
+    assert.ok(html.includes(util.DISP_CHIP_COLOR.unknown));
+  });
+
+  it('renderCitations marks unknown slugs unresolved and handles empty input', () => {
+    assert.equal(util.renderCitations('^nobody', npcs),
+      '<span class="npc-chip-unresolved" title="Unknown NPC: ^nobody">^nobody</span>');
+    assert.equal(util.renderCitations('', npcs), '');
+    assert.equal(util.renderCitations(null), '');
+    assert.equal(util.renderCitations('plain ^x'), 'plain <span class="npc-chip-unresolved" title="Unknown NPC: ^x">^x</span>');
+  });
+
+  it('citedSlugs lists every ^slug in order', () => {
+    assert.deepEqual(util.citedSlugs('met ^mira and ^kael-x, then ^mira'), ['mira', 'kael-x', 'mira']);
+    assert.deepEqual(util.citedSlugs(null), []);
+  });
+
+  it('citeTokenAt finds the partial ^token at the cursor', () => {
+    assert.deepEqual(util.citeTokenAt('hi ^mi', 6), { token: 'mi', start: 3 });
+    assert.deepEqual(util.citeTokenAt('^', 1), { token: '', start: 0 });
+    assert.equal(util.citeTokenAt('hi mi', 5), null);
+    assert.equal(util.citeTokenAt('^mira done', 10), null);
+  });
+
+  it('nexus-cite.js auto-attaches the autocomplete to [data-cite] fields on focus', () => {
+    assert.match(cite, /addEventListener\('focusin'/);
+    assert.ok(cite.includes("matches('textarea[data-cite], input[data-cite]')"));
+    assert.ok(cite.includes('initCitationAutocomplete(el)'));
+  });
+
+  it('loadCiteNpcs never rejects, so a missing npcs table cannot break a page boot', () => {
+    const body = cite.slice(cite.indexOf('async function loadCiteNpcs'), cite.indexOf('function renderWithCitations'));
+    assert.match(body, /try \{[\s\S]*db\.select\('npcs', \{ order: 'name\.asc' \}\)[\s\S]*\} catch/);
+  });
+
+  it('chip clicks jump in place on the session log, and the log opens ?npc=<slug>', () => {
+    assert.ok(cite.includes("typeof jumpToNpc !== 'function'"));
+    const sl = read('session-log.html');
+    assert.ok(sl.includes("new URLSearchParams(location.search).get('npc')"));
+    assert.ok(sl.includes('setCiteNpcs(npcs)'), 'buildNpcMap feeds the shared citation list');
+    assert.ok(!sl.includes('function renderWithCitations('), 'session log uses the shared renderer');
+  });
+
+  const PAGES = ['index.html', 'party-roster.html', 'treasury.html', 'loot-tracker.html', 'combat.html', 'session-log.html'];
+  for (const page of PAGES) {
+    it(`${page} loads nexus-cite.js right after nexus-utils.js`, () => {
+      assert.ok(read(page).includes('<script src="js/nexus-utils.js"></script>\n  <script src="js/nexus-cite.js"></script>'));
+    });
+  }
+
+  for (const page of ['index.html', 'party-roster.html', 'treasury.html', 'loot-tracker.html', 'combat.html']) {
+    it(`${page} loads the NPC index for citations at boot`, () => {
+      assert.ok(read(page).includes('loadCiteNpcs()'));
+    });
+  }
+
+  const FIELDS = [
+    ['treasury.html', 'txNote'], ['treasury.html', 'txDesc'],
+    ['loot-tracker.html', 'fieldDesc'],
+    ['party-roster.html', 'f-bio'], ['party-roster.html', 'lt_fieldDesc'],
+    ['js/nexus-combat-editor.js', 'ce-notes'], ['js/nexus-combat-editor.js', 'ce-desc'],
+    ['session-log.html', 'inNpcNotes'],
+  ];
+  for (const [file, id] of FIELDS) {
+    it(`${file} #${id} accepts ^ citations (data-cite)`, () => {
+      assert.match(read(file), new RegExp(`id="${id}"[^>]*\\sdata-cite[\\s>]`));
+    });
+  }
+
+  const RENDERS = [
+    ['treasury.html',     'renderWithCitations(tx.note)'],
+    ['treasury.html',     'renderWithCitations(tx.desc)'],
+    ['index.html',        'renderWithCitations(tx.note)'],
+    ['loot-tracker.html', 'renderWithCitations(it.desc)'],
+    ['party-roster.html', 'renderWithCitations(m.bio)'],
+    ['party-roster.html', 'renderWithCitations(s.notes)'],
+    ['party-roster.html', 'renderWithCitations(s.description)'],
+    ['combat.html',       'renderWithCitations(o.notes)'],
+    ['combat.html',       'renderWithCitations(o.description)'],
+  ];
+  for (const [file, call] of RENDERS) {
+    it(`${file} renders ${call.slice(20, -1)} with citation chips`, () => {
+      assert.ok(read(file).includes(call));
+    });
+  }
+});
+
+
+// ══════════════════════════════════════════════════════════════
+//  MODAL BACKDROP DRAG GUARD
+//
+//  One guard in nexus-config.js (loaded on every page) stops a modal
+//  closing when a press starts inside it and is released on the
+//  backdrop. Pages must not roll their own.
+// ══════════════════════════════════════════════════════════════
+
+describe('Modal backdrop drag guard', () => {
+  const fs = require('node:fs'), path = require('node:path');
+  const read = f => fs.readFileSync(path.join(__dirname, '..', f), 'utf8');
+  const cfg = read('js/nexus-config.js');
+
+  it('nexus-config.js blocks backdrop clicks unless press and release were both on the backdrop', () => {
+    assert.ok(cfg.includes("const NEXUS_BACKDROP_SELECTOR = '.modal-backdrop, .nxc-overlay, [data-backdrop]'"));
+    assert.match(cfg, /window\.addEventListener\('pointerdown', [^\n]*, true\);/);
+    assert.match(cfg, /window\.addEventListener\('pointerup', [^\n]*, true\);/);
+    const guard = cfg.slice(cfg.indexOf("window.addEventListener('click'"));
+    assert.match(guard, /_nexusPressTarget === t && _nexusReleaseTarget === t\) return;/);
+    assert.match(guard, /e\.stopImmediatePropagation\(\);/);
+    assert.match(guard, /\}, true\);/, 'must run in the capture phase, before any page handler');
+  });
+
+  const FILES = ['index.html', 'party-roster.html', 'treasury.html', 'loot-tracker.html', 'combat.html',
+    'session-log.html', 'admin.html', 'js/nexus-combat-editor.js', 'js/nexus-cite.js', 'js/nexus-srd.js'];
+
+  for (const f of FILES) {
+    it(`${f} has no per-page drag tracking (the shared guard covers it)`, () => {
+      assert.ok(!read(f).includes('_mousedownOnBackdrop'));
+    });
+  }
+
+  for (const f of FILES.filter(f => f.endsWith('.html'))) {
+    it(`${f} loads nexus-config.js, which installs the guard`, () => {
+      assert.ok(read(f).includes('<script src="js/nexus-config.js"></script>'));
+    });
+  }
+
+  it('the combat editor and DM target modals are .modal-backdrop elements', () => {
+    assert.ok(read('js/nexus-combat-editor.js').includes('<div class="modal-backdrop" id="ceModal">'));
+    assert.ok(read('combat.html').includes('<div class="modal-backdrop" id="targetModal">'));
   });
 });

@@ -3321,6 +3321,7 @@ oot-vault-total {
       white-space: nowrap;
       vertical-align: baseline;
       line-height: 1.5;
+      text-decoration: none;
     }
     .npc-chip:hover {
       background: rgba(167,139,250,0.22);

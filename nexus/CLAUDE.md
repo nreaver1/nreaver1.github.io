@@ -29,6 +29,8 @@ js/nexus-srd.js       dnd5eapi.co (2014 SRD) client: name search dropdown (attac
                       plus CampaignLibrary (campaign_library table) and its pure library* helpers
 js/nexus-combat-editor.js  CombatEditor: the one add/edit modal for combat_options, used by combat.html
                       and the roster Spells tab. Load order: demo, auth, config, utils, srd, combat-editor.
+js/nexus-cite.js      ^npc-slug citations on every page: loadCiteNpcs/setCiteNpcs, renderWithCitations,
+                      the ^ autocomplete (auto-attached to any [data-cite] field). Loaded right after utils.
 js/nexus-auth.js      Sign-in: Supabase Auth emailed links, session in localStorage, token refresh, role
                       lookup in campaign_members, and nexusAccess() (who may edit). Loaded between demo and config.
 js/nexus-demo.js      Demo mode (?demo): in-browser DemoStore with the same API as `db`, schema read from
@@ -50,8 +52,9 @@ Each module page follows the same pattern:
 4. State lives in page-level globals (`members`, `items`, `sessions`, `events`, `npcs`, `ledger`, ...). Every mutation writes to Supabase and then patches the local array and re-renders. There's no realtime sync, so other tabs/users only see changes after a reload.
 5. Every function that writes to the DB starts with `if (!(await nexusGate())) return;`. GM-only actions (settings, danger zone, snapshots, DM target) are wrapped in `requireAdmin(fn)`. Both decide via `nexusAccessNow()`; the database enforces the same rules, so these are UX, not security.
 6. Rendering is template-string `innerHTML`. **All user text must go through `esc()`**, including attribute values like `src`, `title` and `style`. Never interpolate user strings into inline JS such as `onclick="f('${esc(x)}')"`: the browser decodes entities before running the handler, so escaping doesn't help there. Use `data-member="${esc(m.name)}" onclick="f(this.dataset.member)"` instead (tests enforce this for member names).
-7. Confirmations use `await nexusConfirm({...})`, never `confirm()` (a test enforces this in some modules). Toasts use `showToast()`. Buttons use `setLoading(btn, true/false)`.
-8. Use CSS variables (`var(--cyan)`, `var(--border)`, ...), not hex values. The tests check for hard-coded colors in places.
+7. Modals: give the backdrop `class="modal-backdrop"` (or `data-backdrop`) and close on `e.target === backdrop`. The drag guard in nexus-config.js stops a press inside the modal released on the backdrop from closing it, for every modal; don't add per-page mousedown tracking.
+8. Confirmations use `await nexusConfirm({...})`, never `confirm()` (a test enforces this in some modules). Toasts use `showToast()`. Buttons use `setLoading(btn, true/false)`.
+9. Use CSS variables (`var(--cyan)`, `var(--border)`, ...), not hex values. The tests check for hard-coded colors in places.
 
 ## Data model (Supabase)
 
@@ -85,7 +88,7 @@ Conditions (party roster) and the collapse state of the effects panel live in **
 
 - **Terms:** `t('partyRoster')` returns the display label, which admins can rename from Admin. These change display text only; DB values (e.g. `'Party'`, `'Party Vault'`) stay canonical. `TERM_DEFAULTS` (config) and `TERM_DEFS` (admin.html) must stay in sync, and a test checks this.
 - **Module toggles:** `MODULE_DEFS` / `MODULE_ENABLED` in config, plus `NAV_LINKS` / `NAV_MODULE_KEY` in utils. Adding a module means updating all four, plus `index.html` cards and admin.
-- **Citations:** `^npc-slug` in session summaries and moments. `renderWithCitations()` in session-log.html renders the chips, and there's autocomplete on `^`.
+- **Citations:** `^npc-slug` works in every notes box: session summaries/moments/quests, NPC notes, Treasury description + notes, Loot descriptions, roster bio + loot desc, combat editor notes/description. Pure parts are in utils (`renderCitations`, `citeTokenAt`, `citeMatches`, `citedSlugs`, `DISP_CHIP_COLOR`); `js/nexus-cite.js` holds the NPC list and the autocomplete. To add a box: give the field `data-cite`, render the saved text with `renderWithCitations(text)` instead of `esc(text)`, and make sure the page's boot calls `loadCiteNpcs()` (the session log calls `setCiteNpcs(npcs)` from `buildNpcMap` instead). Chips link to `session-log.html?npc=<slug>`, which opens that NPC; on the session log itself they jump in place.
 - **5e math:** `abilityMod`, `computeCheck`, `computeNetEffects` (aggregates item effects for a member plus `'Party'` items, with a per-damage-type breakdown). Note party-roster.html still defines its own `computeNetEffects(memberName)` that shadows the utils one on that page.
 - **Combat (2014 5e):** all maths is in utils: `parseDice`, `effectiveProf` (max of stored `prof` and the level table, plus `prof_bonus` items; the roster uses it too), `combatBreakdown` (to-hit/DC/damage with labelled parts), `expectedDamage`, `rankCombatOptions` (top 3 + `bestAtWill`). `combatContext(member, items, option, target)` builds the per-option context: attack/damage effects on weapon-type loot (`isWeaponItem`) only count for options linked to that weapon via `loot_item_id`. Extra Attack is `party_members.combat.attacks`. The DM target is one AC + one save bonus for everyone, edited behind `requireAdmin`. Slots, charges and initiative are deliberately not tracked. Unprepared leveled spells (`isPrepared`) are listed but not ranked; a spell with no Spell DC/Atk on the roster shows "not set" (`breakdown.dc.missing`).
 - **Flat stats:** `effectiveStat(base, net[stat])` = max(base + bonus − penalty, set). The roster ability/AC/speed boxes, `computeCheck` and combat ability mods all use it. party-roster.html's own net-effects copies record `set` too.

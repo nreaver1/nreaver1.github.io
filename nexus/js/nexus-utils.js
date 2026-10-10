@@ -841,6 +841,75 @@ function slugify(name) {
     .replace(/^-+|-+$/g, '');
 }
 
+// ──────────────────────────────────────────────────────────────
+//  CITATIONS  (^npc-slug in any notes box, on every page)
+//  The DOM side (NPC loading, ^ autocomplete) is js/nexus-cite.js.
+// ──────────────────────────────────────────────────────────────
+
+// Disposition → chip accent colour (matches the session log's disp badges)
+const DISP_CHIP_COLOR = {
+  allied:   'rgba(14,240,208,0.85)',   // cyan
+  friendly: 'rgba(60,224,138,0.85)',   // green
+  neutral:  'rgba(212,134,10,0.85)',   // amber
+  hostile:  'rgba(239,68,68,0.85)',    // red
+  unknown:  'rgba(140,148,158,0.7)',   // dim gray
+};
+
+/**
+ * citedSlugs(text) → every ^slug in the text, in order (duplicates kept).
+ *   citedSlugs('met ^mira and ^kael-x') → ['mira', 'kael-x']
+ */
+function citedSlugs(text) {
+  return [...String(text || '').matchAll(/\^([a-z0-9][a-z0-9-]*)/g)].map(m => m[1]);
+}
+
+/**
+ * renderCitations(text, npcMap) → HTML. Plain text is escaped; each ^slug
+ * becomes a chip. Known slugs link to the NPC in the session log
+ * (session-log.html?npc=slug), coloured by disposition. Unknown slugs get a
+ * dimmed .npc-chip-unresolved. npcMap is a Map of slug → npc row.
+ */
+function renderCitations(text, npcMap) {
+  if (!text) return '';
+  const map = npcMap || new Map();
+  // Split on ^slug tokens; the capture group keeps them in the output
+  const parts = String(text).split(/(\^[a-z0-9][a-z0-9-]*)/g);
+  return parts.map(part => {
+    if (!part.startsWith('^')) return esc(part);
+    const slug = part.slice(1);
+    const npc  = map.get(slug);
+    if (!npc) {
+      return `<span class="npc-chip-unresolved" title="Unknown NPC: ^${esc(slug)}">^${esc(slug)}</span>`;
+    }
+    const color = DISP_CHIP_COLOR[npc.disposition] || DISP_CHIP_COLOR.unknown;
+    const title = `${npc.name}${npc.role ? ' — ' + npc.role : ''} [${npc.disposition || 'unknown'}]`;
+    return `<a class="npc-chip" href="session-log.html?npc=${encodeURIComponent(slug)}" data-npc-slug="${esc(slug)}"`
+      + ` title="${esc(title)}" style="color:${color};border-color:${color.replace('0.85','0.3')};background:${color.replace('0.85','0.08')}">^${esc(slug)}</a>`;
+  }).join('');
+}
+
+/**
+ * citeTokenAt(value, pos) → the partial ^token the cursor sits in, or null.
+ * { token, start } where start is the index of the ^ and token is the text
+ * between the ^ and the cursor.
+ *   citeTokenAt('hi ^mi', 6) → { token: 'mi', start: 3 }
+ */
+function citeTokenAt(value, pos) {
+  const val = String(value || '');
+  let i = pos - 1;
+  while (i >= 0 && /[a-z0-9-]/.test(val[i])) i--;
+  if (i < 0 || val[i] !== '^') return null;
+  return { token: val.slice(i + 1, pos), start: i };
+}
+
+/** citeMatches(npcs, term, limit = 8) → NPCs whose slug or name contains term. */
+function citeMatches(npcs, term, limit = 8) {
+  const q = String(term || '').toLowerCase();
+  return (npcs || [])
+    .filter(n => (n.slug || '').includes(q) || (n.name || '').toLowerCase().includes(q))
+    .slice(0, limit);
+}
+
 
 // ──────────────────────────────────────────────────────────────
 //  MODULE EXPORT (Node / test runner only)
@@ -1013,6 +1082,11 @@ if (typeof module !== 'undefined') {
     DAMAGE_TYPES,
     lootTypeEmoji,
     slugify,
+    DISP_CHIP_COLOR,
+    citedSlugs,
+    renderCitations,
+    citeTokenAt,
+    citeMatches,
     MEMBER_COLORS,
     MEMBER_STATUS,
     memberColor,

@@ -119,8 +119,8 @@ const CombatEditor = (() => {
         <label class="cb-check" id="ce-scales-wrap"><input type="checkbox" id="ce-scales" /> Cantrip dice scale at 5 / 11 / 17</label>
         <label class="cb-check"><input type="checkbox" id="ce-aoe" /> Area of effect</label>
       </div>
-      <div class="field"><label for="ce-notes">Notes <span class="optional">(optional)</span></label><textarea id="ce-notes" rows="2"></textarea></div>
-      <div class="field" id="ce-desc-wrap"><label for="ce-desc">Spell description <span class="optional">(optional)</span></label><textarea id="ce-desc" rows="4"></textarea></div>
+      <div class="field"><label for="ce-notes">Notes <span class="optional">(optional)</span></label><textarea id="ce-notes" rows="2" data-cite placeholder="type ^ to cite an NPC"></textarea></div>
+      <div class="field" id="ce-desc-wrap"><label for="ce-desc">Spell description <span class="optional">(optional)</span></label><textarea id="ce-desc" rows="4" data-cite></textarea></div>
       <label class="cb-check" id="ce-savelib-wrap"><input type="checkbox" id="ce-savelib" /> Save to the campaign library (searchable for every character)</label>
       <div class="cb-preview" id="cePreview"></div>
       <div class="cb-form-error" id="ceError" role="alert"></div>

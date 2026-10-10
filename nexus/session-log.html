@@ -8,6 +8,7 @@
   <script src="js/nexus-auth.js"></script>
   <script src="js/nexus-config.js"></script>
   <script src="js/nexus-utils.js"></script>
+  <script src="js/nexus-cite.js"></script>
   <link rel="icon" type="image/x-icon" href="assets/favicon.ico" />
   <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@400;700;900&family=Rajdhani:wght@400;500;600;700&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="css/nexus.css" />
@@ -119,7 +120,7 @@
      SESSION MODAL
 ═══════════════════════════════════════════════════════ -->
 <div class="modal-backdrop" id="sessionModal"
-     onclick="if(event.target===this&&this._mousedownOnBackdrop)closeSessionModal()">
+     onclick="if(event.target===this)closeSessionModal()">
   <div class="modal" style="max-width:600px;width:100%">
 
     <div class="modal-header">
@@ -263,9 +264,9 @@
           </div>
           <div style="margin-bottom:0.6rem">
             <label class="modal-label">Notes</label>
-            <textarea id="inNpcNotes" class="modal-input"
+            <textarea id="inNpcNotes" class="modal-input" data-cite
                       style="width:100%;min-height:60px;resize:vertical"
-                      placeholder="Persistent notes about this NPC…"></textarea>
+                      placeholder="Persistent notes about this NPC… (type ^ to cite an NPC)"></textarea>
           </div>
           <div id="inNpcError" class="tx-desc-error"></div>
           <div style="display:flex;gap:0.5rem;justify-content:flex-end">
@@ -337,7 +338,7 @@
      NPC MODAL (global index add/edit)
 ═══════════════════════════════════════════════════════ -->
 <div class="modal-backdrop" id="npcModal"
-     onclick="if(event.target===this&&this._mousedownOnBackdrop)closeNpcModal()">
+     onclick="if(event.target===this)closeNpcModal()">
   <div class="modal" style="max-width:480px;width:100%">
 
     <div class="modal-header">
@@ -392,7 +393,7 @@
         <label class="modal-label">Notes</label>
         <textarea id="nmNotes" class="modal-input"
                   style="width:100%;min-height:90px;resize:vertical"
-                  placeholder="Persistent notes about this NPC across all sessions…"></textarea>
+                  placeholder="Persistent notes about this NPC across all sessions… (type ^ to cite an NPC)"></textarea>
       </div>
 
     </div>
@@ -472,6 +473,10 @@ async function boot() {
   }
   updateStats();
   renderView();
+  // Citation chips on other pages link here as session-log.html?npc=<slug>
+  const citedSlug = new URLSearchParams(location.search).get('npc');
+  const citedNpc  = citedSlug && npcMap.get(citedSlug);
+  if (citedNpc) jumpToNpc(citedNpc.id);
 }
 
 // ══════════════════════════════════════════════════════════════
@@ -482,6 +487,7 @@ function buildNpcMap() {
   for (const npc of npcs) {
     npcMap.set(npc.slug, npc);
   }
+  setCiteNpcs(npcs); // chips + ^ autocomplete (js/nexus-cite.js)
 }
 
 // ══════════════════════════════════════════════════════════════
@@ -517,40 +523,12 @@ function updateStats() {
 }
 
 // ══════════════════════════════════════════════════════════════
-//  CITATION RENDERING
-//  renderWithCitations(text) — parses ^slug tokens in plain text
-//  and replaces them with interactive NPC chip elements.
-//  Known slugs → .npc-chip (clickable, opens NPC in index view)
-//  Unknown slugs → .npc-chip-unresolved (dimmed, tooltip)
+//  CITATIONS
+//  renderWithCitations(text), DISP_CHIP_COLOR and the ^ autocomplete
+//  (initCitationAutocomplete) are shared: js/nexus-cite.js and
+//  renderCitations in js/nexus-utils.js. buildNpcMap() feeds them
+//  this page's NPC list via setCiteNpcs(npcs).
 // ══════════════════════════════════════════════════════════════
-// Disposition → chip accent colour (matches the disp badge palette)
-const DISP_CHIP_COLOR = {
-  allied:   'rgba(14,240,208,0.85)',   // cyan
-  friendly: 'rgba(60,224,138,0.85)',   // green
-  neutral:  'rgba(212,134,10,0.85)',   // amber
-  hostile:  'rgba(239,68,68,0.85)',    // red
-  unknown:  'rgba(140,148,158,0.7)',   // dim gray
-};
-
-function renderWithCitations(text) {
-  if (!text) return '';
-  // Split on ^word-chars tokens; keep the delimiters via capture group
-  const parts = String(text).split(/(\^[a-z0-9][a-z0-9-]*)/g);
-  return parts.map(part => {
-    if (!part.startsWith('^')) return esc(part);
-    const slug = part.slice(1);                 // strip leading ^
-    const npc  = npcMap.get(slug);
-    if (npc) {
-      // Resolved chip — colour matches NPC disposition
-      const color = DISP_CHIP_COLOR[npc.disposition] || DISP_CHIP_COLOR.unknown;
-      const title = `${esc(npc.name)}${npc.role ? ' — ' + esc(npc.role) : ''} [${npc.disposition}]`;
-      return `<span class="npc-chip" onclick="jumpToNpc('${esc(npc.id)}')" title="${title}" style="color:${color};border-color:${color.replace('0.85','0.3')};background:${color.replace('0.85','0.08')}">^${esc(slug)}</span>`;
-    } else {
-      // Unresolved chip — slug not in index
-      return `<span class="npc-chip-unresolved" title="Unknown NPC: ^${esc(slug)}">^${esc(slug)}</span>`;
-    }
-  }).join('');
-}
 
 // ── Citation preview: renders highlighted ^slug chips below the summary textarea ──
 // Only shown when the text contains at least one ^citation token.
@@ -600,156 +578,6 @@ function jumpToNpc(npcId) {
       }
     });
   }, 80);
-}
-
-// ══════════════════════════════════════════════════════════════
-//  CITATION AUTOCOMPLETE
-//  Attaches to a textarea or text input.  When the user types
-//  '^' followed by letters, a floating dropdown of matching NPCs
-//  appears.  Selecting an item replaces the partial token with
-//  the full ^slug token.
-//
-//  Usage:
-//    initCitationAutocomplete(inputEl)
-//
-//  Works for both <textarea> and <input type="text">.
-//  One shared singleton dropdown element is reused.
-// ══════════════════════════════════════════════════════════════
-let _citeDropEl  = null;   // singleton dropdown DOM element
-let _citeAnchor  = null;   // element the drop is currently attached to
-let _citeFocusIdx = -1;    // keyboard-nav index into current results
-
-function _ensureCiteDrop() {
-  if (_citeDropEl) return;
-  _citeDropEl = document.createElement('div');
-  _citeDropEl.className = 'cite-drop';
-  _citeDropEl.style.display = 'none';
-  document.body.appendChild(_citeDropEl);
-
-  // Hide on outside click
-  document.addEventListener('click', e => {
-    if (_citeDropEl &&
-        _citeAnchor && !_citeAnchor.contains(e.target) &&
-        !_citeDropEl.contains(e.target)) {
-      _hideCiteDrop();
-    }
-  }, true);
-}
-
-function _hideCiteDrop() {
-  if (_citeDropEl) _citeDropEl.style.display = 'none';
-  _citeAnchor   = null;
-  _citeFocusIdx = -1;
-}
-
-function _getCiteToken(el) {
-  // Returns { prefix, token, start } where token is the partial ^xxx being typed,
-  // or null if the cursor is not inside a citation token.
-  const val = el.value;
-  const pos = el.selectionStart;
-  // Walk left from cursor to find '^'
-  let i = pos - 1;
-  while (i >= 0 && /[a-z0-9-]/.test(val[i])) i--;
-  if (i < 0 || val[i] !== '^') return null;
-  const token = val.slice(i + 1, pos);  // text after ^ up to cursor
-  return { prefix: val.slice(0, i), token, after: val.slice(pos), caretStart: i };
-}
-
-function _positionDrop(el) {
-  // Use fixed positioning with raw viewport coordinates so the dropdown
-  // escapes any overflow:hidden/auto ancestor (including the session modal).
-  const rect = el.getBoundingClientRect();
-  const dropH = 220; // max-height of the dropdown
-  const spaceBelow = window.innerHeight - rect.bottom;
-  // Flip above the input if there's not enough room below
-  if (spaceBelow < dropH && rect.top > dropH) {
-    _citeDropEl.style.top    = 'auto';
-    _citeDropEl.style.bottom = (window.innerHeight - rect.top + 4) + 'px';
-  } else {
-    _citeDropEl.style.bottom = 'auto';
-    _citeDropEl.style.top    = (rect.bottom + 4) + 'px';
-  }
-  _citeDropEl.style.left     = rect.left + 'px';
-  _citeDropEl.style.position = 'fixed';
-}
-
-function _renderCiteDrop(matches, el, token) {
-  if (!matches.length) { _hideCiteDrop(); return; }
-  _citeFocusIdx = -1;
-  _citeDropEl.innerHTML = matches.map((npc, i) => `
-    <div class="cite-drop-item" data-i="${i}" data-slug="${esc(npc.slug)}">
-      <span class="cite-drop-name">${esc(npc.name)}</span>
-      <span class="cite-drop-slug">^${esc(npc.slug)}</span>
-    </div>`).join('');
-
-  _citeDropEl.querySelectorAll('.cite-drop-item').forEach(item => {
-    item.addEventListener('mousedown', e => {
-      e.preventDefault(); // prevent blur before insert
-      _insertCitation(el, item.dataset.slug);
-    });
-  });
-
-  _positionDrop(el);
-  _citeDropEl.style.display = 'block';
-  _citeAnchor = el;
-}
-
-function _insertCitation(el, slug) {
-  const ctx = _getCiteToken(el);
-  if (!ctx) { _hideCiteDrop(); return; }
-  const newVal = ctx.prefix + '^' + slug + ' ' + ctx.after;
-  el.value = newVal;
-  // Place cursor after the inserted token + space
-  const newPos = ctx.prefix.length + slug.length + 2; // +2 for ^ and space
-  el.setSelectionRange(newPos, newPos);
-  el.dispatchEvent(new Event('input', { bubbles: true }));
-  _hideCiteDrop();
-  el.focus();
-}
-
-function initCitationAutocomplete(el) {
-  if (!el || el._citeInit) return;
-  el._citeInit = true;
-  _ensureCiteDrop();
-
-  el.addEventListener('input', () => {
-    const ctx = _getCiteToken(el);
-    if (!ctx) { _hideCiteDrop(); return; }
-    const term = ctx.token.toLowerCase();
-    const matches = npcs
-      .filter(n => n.slug.includes(term) || n.name.toLowerCase().includes(term))
-      .slice(0, 8);
-    _renderCiteDrop(matches, el, ctx.token);
-  });
-
-  el.addEventListener('keydown', e => {
-    if (!_citeDropEl || _citeDropEl.style.display === 'none') return;
-    const items = _citeDropEl.querySelectorAll('.cite-drop-item');
-    if (!items.length) return;
-
-    if (e.key === 'ArrowDown') {
-      e.preventDefault();
-      _citeFocusIdx = Math.min(_citeFocusIdx + 1, items.length - 1);
-      items.forEach((it, i) => it.classList.toggle('cite-focused', i === _citeFocusIdx));
-    } else if (e.key === 'ArrowUp') {
-      e.preventDefault();
-      _citeFocusIdx = Math.max(_citeFocusIdx - 1, 0);
-      items.forEach((it, i) => it.classList.toggle('cite-focused', i === _citeFocusIdx));
-    } else if (e.key === 'Enter' && _citeFocusIdx >= 0) {
-      e.preventDefault();
-      const slug = items[_citeFocusIdx].dataset.slug;
-      _insertCitation(el, slug);
-    } else if (e.key === 'Escape') {
-      _hideCiteDrop();
-    }
-  });
-
-  el.addEventListener('blur', () => {
-    // Defer hide so mousedown on item fires first
-    setTimeout(() => {
-      if (_citeAnchor === el) _hideCiteDrop();
-    }, 150);
-  });
 }
 
 // ══════════════════════════════════════════════════════════════
@@ -1952,14 +1780,6 @@ document.addEventListener('keydown', e => {
   }
 });
 
-// Track whether a drag started on the backdrop itself (not inside modal content).
-// Prevents closing the modal when the user clicks inside and drags outside.
-document.getElementById('sessionModal').addEventListener('mousedown', function(e){
-  this._mousedownOnBackdrop = e.target === this;
-});
-document.getElementById('npcModal').addEventListener('mousedown', function(e){
-  this._mousedownOnBackdrop = e.target === this;
-});
 
 // ══════════════════════════════════════════════════════════════
 //  GLOBAL CLICK — close NPC suggestion dropdown

@@ -8,6 +8,7 @@
   <script src="js/nexus-auth.js"></script>
   <script src="js/nexus-config.js"></script>
   <script src="js/nexus-utils.js"></script>
+  <script src="js/nexus-cite.js"></script>
   <link rel="icon" type="image/x-icon" href="assets/favicon.ico" />
   <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@400;700;900&family=Rajdhani:wght@400;500;600&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="css/nexus.css" />
@@ -137,7 +138,7 @@
       </div>
       <div class="field">
         <label>Description <span class="field-required">(required)</span></label>
-        <input type="text" id="txDesc" placeholder="e.g. Contract payout, Equipment purchase…" oninput="(function(){var e=document.getElementById('txDescError');if(e&&this.value.trim())e.textContent='';}).call(this)" />
+        <input type="text" id="txDesc" data-cite placeholder="e.g. Contract payout, Equipment purchase…" oninput="(function(){var e=document.getElementById('txDescError');if(e&&this.value.trim())e.textContent='';}).call(this)" />
       </div>
       <div class="field">
         <label>Amounts</label>
@@ -145,7 +146,7 @@
       </div>
       <div class="field">
         <label>Notes <span class="optional">(optional)</span></label>
-        <textarea id="txNote" placeholder="Session notes, source, vendor…"></textarea>
+        <textarea id="txNote" data-cite placeholder="Session notes, source, vendor… (type ^ to cite an NPC)"></textarea>
       </div>
     </div>
     <div class="tx-desc-error" id="txDescError" aria-live="polite"></div>
@@ -655,8 +656,8 @@ function renderLedger() {
     return `<tr>
       <td><div class="tx-id">#${String(ledgerPosMap.get(tx.id) || i + 1).padStart(3,'0')}</div></td>
       <td>
-        <div class="tx-desc">${esc(tx.desc)}</div>
-        ${tx.note ? `<div class="tx-note">${esc(tx.note)}</div>` : ''}
+        <div class="tx-desc">${renderWithCitations(tx.desc)}</div>
+        ${tx.note ? `<div class="tx-note">${renderWithCitations(tx.note)}</div>` : ''}
       </td>
       <td class="hide-sm"><span class="tx-type tx-${tx.type}">${tx.type.toUpperCase()}</span></td>
       <td><div class="tx-amount ${sign > 0 ? 'positive' : 'negative'}">${amtDisplay}</div></td>
@@ -1974,7 +1975,7 @@ function openMemberModal(memberName) {
         : breakdown.map(b => `${sign>0?'+':'−'}${b}`).join(' / ') || '—';
       const date = new Date(tx.ts).toLocaleDateString(undefined, { month:'short', day:'numeric' });
       return `<tr>
-        <td><div class="tx-desc" style="font-size:0.8rem">${esc(tx.desc)}</div>${tx.note ? `<div class="tx-note">${esc(tx.note)}</div>` : ''}</td>
+        <td><div class="tx-desc" style="font-size:0.8rem">${renderWithCitations(tx.desc)}</div>${tx.note ? `<div class="tx-note">${renderWithCitations(tx.note)}</div>` : ''}</td>
         <td><span class="tx-type tx-${tx.type}" style="font-size:0.72rem">${tx.type.toUpperCase()}</span></td>
         <td><div class="tx-amount ${sign > 0 ? 'positive' : 'negative'}" style="font-size:0.8rem">${amtDisplay}</div></td>
         <td style="white-space:nowrap;font-size:0.72rem;color:var(--text-dim)">${date}</td>
@@ -2108,7 +2109,7 @@ async function renderMemberWealth() {
 // ══════════════════════════════════
 function openModal(id)  { document.getElementById(id).classList.add('open'); }
 function closeModal(id) { document.getElementById(id).classList.remove('open'); }
-function backdropClose(e, id) { const el = document.getElementById(id); if (e.target === el && el._mousedownOnBackdrop) { closeModal(id); if (id === 'addCurrencyModal') editCurrencyId = null; } }
+function backdropClose(e, id) { const el = document.getElementById(id); if (e.target === el) { closeModal(id); if (id === 'addCurrencyModal') editCurrencyId = null; } }
 
 // ══════════════════════════════════
 //  TOAST
@@ -2123,13 +2124,6 @@ document.addEventListener('keydown', e => {
   if (e.key === 'Enter' && document.getElementById('addCurrencyModal').classList.contains('open') && document.activeElement.tagName !== 'TEXTAREA') saveNewCurrency();
 });
 
-// Track whether a drag started on the backdrop itself (not inside modal content).
-// Prevents closing the modal when the user clicks inside and drags outside.
-['txModal','addCurrencyModal','splitModal','memberModal'].forEach(id => {
-  document.getElementById(id).addEventListener('mousedown', function(e){
-    this._mousedownOnBackdrop = e.target === this;
-  });
-});
 
 // ══════════════════════════════════
 //  INIT
@@ -2139,6 +2133,7 @@ Promise.all([
   loadModuleSettings(),
   loadData(),
   loadTxMembers(),
+  loadCiteNpcs(),
 ]).then(([_settings]) => {
   buildSidenav('treasury.html');
   applyModuleVisibility();

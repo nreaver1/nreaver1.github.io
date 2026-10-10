@@ -8,6 +8,7 @@
   <script src="js/nexus-auth.js"></script>
   <script src="js/nexus-config.js"></script>
   <script src="js/nexus-utils.js"></script>
+  <script src="js/nexus-cite.js"></script>
   <script src="js/nexus-srd.js"></script>
   <link rel="icon" type="image/x-icon" href="assets/favicon.ico" />
   <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@400;700;900&family=Rajdhani:wght@400;500;600;700&display=swap" rel="stylesheet" />
@@ -288,7 +289,7 @@
       </div>
       <div class="field">
         <label>Description / Notes</label>
-        <textarea class="mi" id="fieldDesc" placeholder="Item description, acquisition notes…"></textarea>
+        <textarea class="mi" id="fieldDesc" data-cite placeholder="Item description, acquisition notes… (type ^ to cite an NPC)"></textarea>
       </div>
       <label class="cb-check" id="fieldSaveLibWrap"><input type="checkbox" id="fieldSaveLib" /> Save to the campaign library (searchable for everyone)</label>
 
@@ -521,7 +522,7 @@ function renderTable(){
     return `<tr>
       <td>
         <div class="item-name">${esc(it.name)}${qtyBadge}</div>
-        ${it.desc?`<div class="item-desc">${esc(it.desc)}</div>`:''}
+        ${it.desc?`<div class="item-desc">${renderWithCitations(it.desc)}</div>`:''}
       </td>
       <td class="hide-mobile" style="text-align:center;font-family:'Share Tech Mono',monospace;font-size:0.8rem;color:${(it.qty??1)>1?'var(--cyan)':'var(--text-dim)'};">${it.qty??1}</td>
       <td class="hide-mobile"><span class="loot-type-cell"><span class="loot-type-emoji">${lootTypeEmoji(it.type)}</span><span class="loot-type-label">${esc(it.type)}</span></span></td>
@@ -964,7 +965,7 @@ function _syncSaveLib(){
 }
 
 function closeModal(){ document.getElementById('modalBackdrop').classList.remove('open'); editingId=null; pendingFx=[]; }
-function backdropClose(e){ if(e.target===document.getElementById('modalBackdrop')&&document.getElementById('modalBackdrop')._mousedownOnBackdrop) closeModal(); }
+function backdropClose(e){ if(e.target===document.getElementById('modalBackdrop')) closeModal(); }
 
 // ── INLINE ATTUNEMENT WARNING (modal) ───────────────────────
 // Called when attunement select changes or when editing an existing item.
@@ -1280,11 +1281,6 @@ function handleImport(e){
 
 document.addEventListener('keydown',e=>{ if(e.key==='Escape') closeModal(); if(e.key==='Enter'&&document.getElementById('modalBackdrop').classList.contains('open')&&document.activeElement.tagName!=='TEXTAREA'&&document.activeElement.tagName!=='SELECT') saveItem(); });
 
-// Track whether a drag started on the backdrop itself (not inside modal content).
-// Prevents closing the modal when the user clicks inside and drags outside.
-document.getElementById('modalBackdrop').addEventListener('mousedown', function(e){
-  this._mousedownOnBackdrop = e.target === this;
-});
 
 async function populateHolderFilter(){
   const sel=document.getElementById('filterHolder');
@@ -1311,6 +1307,7 @@ Promise.all([
   loadModuleSettings(),
   loadData(),
   loadPartyMembersAsync(),
+  loadCiteNpcs(),
 ]).then(() => {
   buildSidenav('loot-tracker.html');
   applyModuleVisibility();

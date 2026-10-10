@@ -8,6 +8,7 @@
   <script src="js/nexus-auth.js"></script>
   <script src="js/nexus-config.js"></script>
   <script src="js/nexus-utils.js"></script>
+  <script src="js/nexus-cite.js"></script>
   <link rel="icon" type="image/x-icon" href="assets/favicon.ico" />
   <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@400;700;900&family=Rajdhani:wght@400;500;600;700&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="css/nexus.css" />
@@ -386,6 +387,7 @@
           db.select('treasury_currencies', { order: 'sort_order.asc,created_at.asc' }),
           db.select('treasury_ledger'),
           db.select('party_members'),
+          loadCiteNpcs(),   // ^npc chips in ledger notes
         ]);
       } catch(e) {
         console.error('Could not load treasury data for modal:', e);
@@ -530,7 +532,7 @@
           : breakdown.map(b => `${sign>0?'+':'−'}${b}`).join(' / ') || '—';
         const date = new Date(tx.ts).toLocaleDateString(undefined, { month:'short', day:'numeric' });
         return `<tr>
-          <td><div class="tx-desc" style="font-size:0.8rem">${esc(tx.description || '')}</div>${tx.note ? `<div class="tx-note">${esc(tx.note)}</div>` : ''}</td>
+          <td><div class="tx-desc" style="font-size:0.8rem">${renderWithCitations(tx.description || '')}</div>${tx.note ? `<div class="tx-note">${renderWithCitations(tx.note)}</div>` : ''}</td>
           <td><span class="tx-type tx-${tx.type}" style="font-size:0.72rem">${tx.type.toUpperCase()}</span></td>
           <td><div class="tx-amount ${sign > 0 ? 'positive' : 'negative'}" style="font-size:0.8rem">${amtDisplay}</div></td>
           <td style="white-space:nowrap;font-size:0.72rem;color:var(--text-dim)">${date}</td>
