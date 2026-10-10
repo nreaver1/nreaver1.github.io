@@ -29,11 +29,14 @@ window.NEXUS_ADMIN_HASH = NEXUS_ADMIN_HASH;
 //  Pages use `db` (below), which is this object unless demo mode is on.
 // ══════════════════════════════════════════════════════════════
 const _supabaseDb = {
-  _headers() {
+  // Signed-in users send their own token, so the database's access rules
+  // (sql/supabase_auth.sql) see who they are. Everyone else uses the anon key.
+  async _headers() {
+    const token = (typeof nexusAccessToken === 'function' && await nexusAccessToken()) || SUPABASE_ANON;
     return {
       'Content-Type':  'application/json',
       'apikey':        SUPABASE_ANON,
-      'Authorization': `Bearer ${SUPABASE_ANON}`,
+      'Authorization': `Bearer ${token}`,
       'Prefer':        'return=representation',
     };
   },
@@ -43,7 +46,7 @@ const _supabaseDb = {
     let url = `${SUPABASE_URL}/rest/v1/${table}?select=*`;
     if (opts.order)  url += `&order=${opts.order}`;
     if (opts.filter) url += `&${opts.filter}`;
-    const r = await fetch(url, { headers: this._headers() });
+    const r = await fetch(url, { headers: await this._headers() });
     if (!r.ok) throw new Error(`DB select ${table}: ${await r.text()}`);
     return r.json();
   },
@@ -52,7 +55,7 @@ const _supabaseDb = {
   async insert(table, row) {
     const r = await fetch(`${SUPABASE_URL}/rest/v1/${table}`, {
       method:  'POST',
-      headers: this._headers(),
+      headers: await this._headers(),
       body:    JSON.stringify(row),
     });
     if (!r.ok) throw new Error(`DB insert ${table}: ${await r.text()}`);
@@ -64,7 +67,7 @@ const _supabaseDb = {
   async upsert(table, row) {
     const r = await fetch(`${SUPABASE_URL}/rest/v1/${table}`, {
       method:  'POST',
-      headers: { ...this._headers(), 'Prefer': 'resolution=merge-duplicates,return=representation' },
+      headers: { ...(await this._headers()), 'Prefer': 'resolution=merge-duplicates,return=representation' },
       body:    JSON.stringify(row),
     });
     if (!r.ok) throw new Error(`DB upsert ${table}: ${await r.text()}`);
@@ -76,7 +79,7 @@ const _supabaseDb = {
   async update(table, id, changes) {
     const r = await fetch(`${SUPABASE_URL}/rest/v1/${table}?id=eq.${encodeURIComponent(id)}`, {
       method:  'PATCH',
-      headers: this._headers(),
+      headers: await this._headers(),
       body:    JSON.stringify(changes),
     });
     if (!r.ok) throw new Error(`DB update ${table}: ${await r.text()}`);
@@ -88,7 +91,7 @@ const _supabaseDb = {
   async delete(table, id) {
     const r = await fetch(`${SUPABASE_URL}/rest/v1/${table}?id=eq.${encodeURIComponent(id)}`, {
       method:  'DELETE',
-      headers: this._headers(),
+      headers: await this._headers(),
     });
     if (!r.ok) throw new Error(`DB delete ${table}: ${await r.text()}`);
   },
@@ -97,7 +100,7 @@ const _supabaseDb = {
   async deleteWhere(table, filter) {
     const r = await fetch(`${SUPABASE_URL}/rest/v1/${table}?${filter}`, {
       method:  'DELETE',
-      headers: this._headers(),
+      headers: await this._headers(),
     });
     if (!r.ok) throw new Error(`DB deleteWhere ${table}: ${await r.text()}`);
   },
@@ -107,7 +110,7 @@ const _supabaseDb = {
     if (!rows.length) return [];
     const r = await fetch(`${SUPABASE_URL}/rest/v1/${table}`, {
       method:  'POST',
-      headers: { ...this._headers(), 'Prefer': 'resolution=merge-duplicates,return=representation' },
+      headers: { ...(await this._headers()), 'Prefer': 'resolution=merge-duplicates,return=representation' },
       body:    JSON.stringify(rows),
     });
     if (!r.ok) throw new Error(`DB upsertMany ${table}: ${await r.text()}`);
@@ -120,6 +123,12 @@ const _supabaseDb = {
 // admin password don't apply to it.
 const NEXUS_DEMO = typeof isNexusDemo === 'function' && isNexusDemo();
 const db = NEXUS_DEMO ? createDemoDb() : _supabaseDb;
+
+// Sign-in state (js/nexus-auth.js). Resolves once the database has said
+// whether auth is installed and what this user's role is.
+const nexusAuthReady = (NEXUS_DEMO || typeof nexusAuthInit !== 'function')
+  ? Promise.resolve()
+  : nexusAuthInit(SUPABASE_URL, SUPABASE_ANON);
 
 // ══════════════════════════════════════════════════════════════
 //  Config check — warns in console if credentials not set
@@ -356,6 +365,7 @@ let SITE_LOCK = { ...SITE_LOCK_DEFAULTS };
 
 // Load from Supabase — fetches module_enabled and site_lock together
 async function loadModuleSettings() {
+  await nexusAuthReady;
   try {
     const rows = await db.select('nexus_settings', { filter: 'key=in.(module_enabled,site_lock)' });
     const moduleRow = rows && rows.find(r => r.key === 'module_enabled');
@@ -509,9 +519,9 @@ function applyModuleVisibility() {
 // unlocked, or if the page has no #sidenav to anchor the banner to.
 function applyReadOnlyBanner() {
   const existing = document.getElementById('nexusReadOnlyBanner');
-  const locked = isSiteLocked() && sessionStorage.getItem('nexus_admin') !== '1';
+  const access = nexusAccessNow();
 
-  if (!locked) {
+  if (access.canEdit) {
     if (existing) existing.remove();
     return;
   }
@@ -520,9 +530,122 @@ function applyReadOnlyBanner() {
   const banner = document.createElement('div');
   banner.id = 'nexusReadOnlyBanner';
   banner.className = 'nexus-readonly-banner';
-  banner.innerHTML = `🔒 Read-only mode — viewing only. Admin login required to make changes.`;
+  if (access.mode === 'auth') {
+    const email = nexusAuthEmail();
+    banner.innerHTML = email
+      ? `🔒 Viewing only. ${_nexusEscape(email)} isn't on this campaign's editor list.`
+      : `🔒 Viewing only. <button type="button" class="nexus-banner-btn" onclick="nexusSignInDialog()">Sign in</button> to make changes.`;
+  } else {
+    banner.innerHTML = `🔒 Read-only mode — viewing only. Admin login required to make changes.`;
+  }
   document.body.prepend(banner);
 }
+
+// showToast lives in nexus-utils.js, which a few tool pages don't load.
+function _nexusNotice(msg) {
+  if (typeof showToast === 'function') showToast(msg); else console.warn('[NEXUS]', msg);
+}
+
+// What the current visitor may do — see nexusAccess() in js/nexus-auth.js.
+function nexusAccessNow() {
+  return nexusAccess({
+    demo:          NEXUS_DEMO,
+    authInstalled: typeof NexusAuth !== 'undefined' && NexusAuth.installed,
+    role:          typeof NexusAuth !== 'undefined' ? NexusAuth.role : null,
+    siteLocked:    isSiteLocked(),
+    adminFlag:     sessionStorage.getItem('nexus_admin') === '1',
+  });
+}
+
+// ══════════════════════════════════════════════════════════════
+//  SIGN-IN DIALOG + SIDENAV SLOT
+//  nexusSignInDialog() asks for an email and sends a sign-in link that
+//  comes back to the current page. renderNexusAuthSlot() fills the
+//  sidenav footer (buildSidenav calls it); hidden until auth is installed.
+// ══════════════════════════════════════════════════════════════
+function nexusSignInDialog() {
+  return new Promise(resolve => {
+    const overlay = document.createElement('div');
+    overlay.className = 'nxc-overlay';
+    overlay.innerHTML = `
+      <div class="nxc-dialog" role="dialog" aria-modal="true" aria-labelledby="nxsTitle">
+        <div class="nxc-header">
+          <span class="nxc-icon">✉</span>
+          <span class="nxc-title" id="nxsTitle">Sign in</span>
+        </div>
+        <div class="nxc-message" id="_nxsMsg" style="margin-top:0.9rem">We'll email you a sign-in link. It brings you back to this page.</div>
+        <div style="padding:0.6rem 1.3rem 0" id="_nxsForm">
+          <input id="_nxsEmail" type="email" placeholder="you@example.com" autocomplete="email"
+            style="width:100%;box-sizing:border-box;background:var(--bg);border:1px solid var(--border);
+                   border-radius:3px;color:var(--text);font-family:'Share Tech Mono',monospace;
+                   font-size:1rem;padding:0.45rem 0.7rem;outline:none" />
+          <div id="_nxsErr" style="font-family:'Share Tech Mono',monospace;font-size:0.8rem;
+                                   color:var(--red);min-height:1.2em;margin-top:0.35rem"></div>
+        </div>
+        <div class="nxc-actions">
+          <button class="nxc-btn nxc-cancel"  id="_nxsCancel">Cancel</button>
+          <button class="nxc-btn nxc-confirm" id="_nxsSend">Send link</button>
+        </div>
+      </div>`;
+    document.body.appendChild(overlay);
+    requestAnimationFrame(() => overlay.classList.add('nxc-open'));
+
+    const input = overlay.querySelector('#_nxsEmail');
+    const errEl = overlay.querySelector('#_nxsErr');
+    const send  = overlay.querySelector('#_nxsSend');
+    const cancel = overlay.querySelector('#_nxsCancel');
+
+    function dismiss(sent) {
+      overlay.classList.remove('nxc-open');
+      overlay.addEventListener('transitionend', () => overlay.remove(), { once: true });
+      resolve(sent);
+    }
+
+    async function attempt() {
+      const email = input.value.trim();
+      if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) { errEl.textContent = 'Enter an email address.'; return; }
+      send.disabled = true; errEl.textContent = '';
+      try {
+        await nexusSendSignInLink(email);
+        overlay.querySelector('#_nxsMsg').textContent = `Check ${email} for a sign-in link. You can close this.`;
+        overlay.querySelector('#_nxsForm').style.display = 'none';
+        send.style.display = 'none';
+        cancel.textContent = 'Close';
+        cancel.onclick = () => dismiss(true);
+      } catch (e) {
+        errEl.textContent = e.message;
+        send.disabled = false;
+      }
+    }
+
+    cancel.addEventListener('click', () => dismiss(false));
+    overlay.addEventListener('click', e => { if (e.target === overlay) dismiss(false); });
+    send.addEventListener('click', attempt);
+    input.addEventListener('keydown', e => {
+      if (e.key === 'Enter')  attempt();
+      if (e.key === 'Escape') dismiss(false);
+    });
+    setTimeout(() => input.focus(), 50);
+  });
+}
+
+function renderNexusAuthSlot() {
+  const slot = document.getElementById('nexusAuthSlot');
+  if (!slot) return;
+  const access = nexusAccessNow();
+  if (access.mode !== 'auth') { slot.innerHTML = ''; return; }
+  const email = nexusAuthEmail();
+  if (!email) {
+    slot.innerHTML = `<button type="button" class="sidenav-auth-btn" onclick="nexusSignInDialog()">Sign in</button>`;
+    return;
+  }
+  const role = NexusAuth.role === 'gm' ? 'GM' : NexusAuth.role === 'player' ? 'Player' : 'Viewer';
+  slot.innerHTML =
+    `<div class="sidenav-auth-who" title="${_nexusEscape(email)}">${_nexusEscape(email)}</div>` +
+    `<div class="sidenav-auth-row"><span class="sidenav-auth-role">${role}</span>` +
+    `<button type="button" class="sidenav-auth-btn" onclick="nexusSignOut()">Sign out</button></div>`;
+}
+
 
 // ══════════════════════════════════════════════════════════════
 //  BUTTON LOADING STATE  — shared across all modules
@@ -654,8 +777,17 @@ function _nexusPromptForAdminPassword() {
 
 function requireAdmin(fn) {
   return async function (...args) {
-    // Skip prompt in demo mode or if already authenticated this session
-    if (NEXUS_DEMO || sessionStorage.getItem('nexus_admin') === '1') return fn(...args);
+    await nexusAuthReady;
+    const access = nexusAccessNow();
+    if (access.mode === 'demo') return fn(...args);
+    if (access.mode === 'auth') {
+      if (access.isGm) return fn(...args);
+      if (!nexusAuthEmail()) await nexusSignInDialog();
+      else _nexusNotice('Only the GM can do that.');
+      return;
+    }
+    // Legacy (supabase_auth.sql not run): skip prompt if already authenticated this session
+    if (sessionStorage.getItem('nexus_admin') === '1') return fn(...args);
     const pw = await _nexusPromptForAdminPassword();
     if (pw === null) return;   // user cancelled — action aborted
     return fn(...args);
@@ -674,8 +806,15 @@ function requireAdmin(fn) {
 //  so normal editing is completely unaffected until the lock is on.
 // ══════════════════════════════════════════════════════════════
 async function nexusGate() {
-  if (!isSiteLocked()) return true;
-  if (sessionStorage.getItem('nexus_admin') === '1') return true;
+  await nexusAuthReady;
+  const access = nexusAccessNow();
+  if (access.canEdit) return true;
+  if (access.mode === 'auth') {
+    // Signing in leaves the page via the emailed link, so this action stops here.
+    if (!nexusAuthEmail()) await nexusSignInDialog();
+    else _nexusNotice("You're signed in, but not on this campaign's editor list.");
+    return false;
+  }
   const pw = await _nexusPromptForAdminPassword();
   return pw !== null;
 }

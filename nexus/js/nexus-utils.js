@@ -896,7 +896,7 @@ function buildSidenav(activeHref) {
     `  <div class="sidenav-links">\n` +
     linksHtml + '\n' +
     `  </div>\n` +
-    `  <div class="sidenav-bottom">nexus // v1.0.0</div>\n` +
+    `  <div class="sidenav-bottom"><div class="sidenav-auth" id="nexusAuthSlot"></div>nexus // v1.0.0</div>\n` +
     `</nav>`;
 
   // Wire toggle and overlay now that they exist in the DOM
@@ -905,6 +905,7 @@ function buildSidenav(activeHref) {
       ? closeNav() : openNav();
   });
   document.getElementById('navOverlay').addEventListener('click', closeNav);
+  if (typeof renderNexusAuthSlot === 'function') renderNexusAuthSlot();
 }
 
 function openNav() {

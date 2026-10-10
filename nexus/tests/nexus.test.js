@@ -10344,11 +10344,11 @@ describe('Demo mode', () => {
   });
 
   describe('wiring', () => {
-    it('every page that loads nexus-config.js loads nexus-demo.js right before it', () => {
+    it('every page that loads nexus-config.js loads nexus-demo.js and nexus-auth.js right before it', () => {
       for (const p of PAGES) {
         const src = read(p);
         if (!src.includes('js/nexus-config.js')) continue;
-        assert.match(src, /<script src="js\/nexus-demo\.js"><\/script>\s*<script src="js\/nexus-config\.js"><\/script>/, p);
+        assert.match(src, /<script src="js\/nexus-demo\.js"><\/script>\s*<script src="js\/nexus-auth\.js"><\/script>\s*<script src="js\/nexus-config\.js"><\/script>/, p);
       }
     });
 
@@ -10356,7 +10356,7 @@ describe('Demo mode', () => {
       const cfg = read('js/nexus-config.js');
       assert.ok(cfg.includes('const db = NEXUS_DEMO ? createDemoDb() : _supabaseDb;'));
       assert.ok(cfg.includes('return !NEXUS_DEMO && SITE_LOCK.enabled === true;'));
-      assert.ok(cfg.includes("if (NEXUS_DEMO || sessionStorage.getItem('nexus_admin') === '1') return fn(...args);"));
+      assert.ok(cfg.includes("if (access.mode === 'demo') return fn(...args);"), 'requireAdmin passes straight through in demo');
       assert.ok(read('admin.html').includes("let adminUnlocked = NEXUS_DEMO || sessionStorage.getItem('nexus_admin') === '1';"));
     });
 
@@ -10368,10 +10368,11 @@ describe('Demo mode', () => {
       assert.ok(!/SUPABASE_|supabase\.co/.test(read('js/nexus-demo.js')));
     });
 
-    it('the seed tool writes to the demo copy in demo mode', () => {
+    it('the seed tool uses the shared db (demo copy in demo mode, signed-in token otherwise)', () => {
       const seed = read('seed-session-log.html');
-      assert.ok(seed.includes('return NEXUS_DEMO ? db : makeDB(SEED_URL, SEED_KEY);'));
+      assert.match(seed, /function seedDB\(\) \{\s*return db;\s*\}/);
       assert.ok(!seed.includes('const db = makeDB('), 'runSeed/runWipe must go through seedDB()');
+      assert.ok(seed.includes('await requireAdmin(() => { ok = true; })();'), 'seeding is GM-only, like other admin actions');
     });
 
     it("the portfolio's Live demo links open demo mode", () => {
@@ -10379,6 +10380,172 @@ describe('Demo mode', () => {
       const links = [...home.matchAll(/href="(https:\/\/nreaver1\.github\.io\/nexus\/[^"]*)"/g)].map(m => m[1]);
       assert.ok(links.length >= 2);
       for (const l of links) assert.strictEqual(l, 'https://nreaver1.github.io/nexus/?demo');
+    });
+  });
+});
+
+
+// ══════════════════════════════════════════════════════════════
+//  SIGN-IN — js/nexus-auth.js + sql/supabase_auth.sql
+// ══════════════════════════════════════════════════════════════
+describe('Sign-in', () => {
+
+  const fs   = require('fs'), path = require('path');
+  const base = path.join(__dirname, '..');
+  const read = f => fs.readFileSync(path.join(base, f), 'utf8');
+  const { decodeJwtPayload, parseAuthRedirect, sessionNeedsRefresh, nexusAccess } = require('../js/nexus-auth.js');
+
+  const b64url = o => Buffer.from(JSON.stringify(o)).toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+  const jwt = claims => `${b64url({ alg: 'HS256' })}.${b64url(claims)}.sig`;
+
+  describe('decodeJwtPayload', () => {
+    it('reads the claims of a JWT (base64url, unicode)', () => {
+      assert.deepStrictEqual(decodeJwtPayload(jwt({ email: 'gm@example.com', exp: 123, name: 'Würst' })),
+        { email: 'gm@example.com', exp: 123, name: 'Würst' });
+    });
+    it('returns null for junk', () => {
+      assert.strictEqual(decodeJwtPayload('not-a-jwt'), null);
+      assert.strictEqual(decodeJwtPayload(null), null);
+    });
+  });
+
+  describe('parseAuthRedirect', () => {
+    it('builds a session from the sign-in link fragment', () => {
+      const access = jwt({ email: 'GM@Example.com', exp: 2000000000 });
+      const r = parseAuthRedirect(`#access_token=${access}&expires_at=1999999999&expires_in=3600&refresh_token=rt1&token_type=bearer&type=magiclink`);
+      assert.deepStrictEqual(r, { session: { access_token: access, refresh_token: 'rt1', expires_at: 1999999999, email: 'gm@example.com' } });
+    });
+    it('falls back to the token exp when expires_at is missing', () => {
+      const r = parseAuthRedirect(`#access_token=${jwt({ email: 'a@b.co', exp: 1234 })}&refresh_token=x`);
+      assert.strictEqual(r.session.expires_at, 1234);
+    });
+    it('reports a failed or expired link', () => {
+      assert.deepStrictEqual(parseAuthRedirect('#error=access_denied&error_code=otp_expired&error_description=Email+link+is+invalid+or+has+expired'),
+        { error: 'Email link is invalid or has expired' });
+    });
+    it('ignores ordinary fragments', () => {
+      assert.strictEqual(parseAuthRedirect(''), null);
+      assert.strictEqual(parseAuthRedirect('#session-3'), null);
+    });
+  });
+
+  describe('sessionNeedsRefresh', () => {
+    const now = 1_000_000_000_000;
+    it('refreshes within a minute of expiry, not before', () => {
+      assert.strictEqual(sessionNeedsRefresh({ access_token: 'x', expires_at: now / 1000 + 30 }, now), true);
+      assert.strictEqual(sessionNeedsRefresh({ access_token: 'x', expires_at: now / 1000 + 600 }, now), false);
+    });
+    it('no session, nothing to refresh', () => {
+      assert.strictEqual(sessionNeedsRefresh(null, now), false);
+    });
+  });
+
+  describe('nexusAccess — who may do what', () => {
+    const base = { demo: false, authInstalled: true, role: null, siteLocked: false, adminFlag: false };
+    it('demo mode allows everything', () => {
+      assert.deepStrictEqual(nexusAccess({ ...base, demo: true }), { mode: 'demo', canEdit: true, isGm: true });
+    });
+    it('with auth installed, the role decides (lock and password are ignored)', () => {
+      assert.deepStrictEqual(nexusAccess({ ...base, role: 'gm' }), { mode: 'auth', canEdit: true, isGm: true });
+      assert.deepStrictEqual(nexusAccess({ ...base, role: 'player' }), { mode: 'auth', canEdit: true, isGm: false });
+      assert.deepStrictEqual(nexusAccess({ ...base, role: null, adminFlag: true }), { mode: 'auth', canEdit: false, isGm: false });
+    });
+    it('without auth installed, the old site lock + password rules apply', () => {
+      const legacy = { ...base, authInstalled: false };
+      assert.deepStrictEqual(nexusAccess(legacy), { mode: 'legacy', canEdit: true, isGm: false });
+      assert.deepStrictEqual(nexusAccess({ ...legacy, siteLocked: true }), { mode: 'legacy', canEdit: false, isGm: false });
+      assert.deepStrictEqual(nexusAccess({ ...legacy, siteLocked: true, adminFlag: true }), { mode: 'legacy', canEdit: true, isGm: true });
+    });
+  });
+
+  describe('wiring', () => {
+    const cfg = read('js/nexus-config.js');
+
+    it('db sends the signed-in token, falling back to the anon key', () => {
+      assert.ok(cfg.includes("const token = (typeof nexusAccessToken === 'function' && await nexusAccessToken()) || SUPABASE_ANON;"));
+      assert.ok(cfg.includes("'Authorization': `Bearer ${token}`"));
+      assert.ok(!/[^(]this\._headers\(\)/.test(cfg.replace(/await this\._headers\(\)/g, '')), 'every _headers() call is awaited');
+    });
+
+    it('gates go through nexusAccessNow() after auth is ready', () => {
+      for (const fn of ['async function nexusGate()', 'function requireAdmin(fn)']) {
+        const body = cfg.slice(cfg.indexOf(fn), cfg.indexOf('\n}\n', cfg.indexOf(fn)));
+        assert.ok(body.includes('await nexusAuthReady;'), fn);
+        assert.ok(body.includes('nexusAccessNow()'), fn);
+      }
+      assert.ok(cfg.includes('async function loadModuleSettings() {\n  await nexusAuthReady;'), 'page boots wait for the role');
+    });
+
+    it('auth never starts in demo mode', () => {
+      assert.ok(cfg.includes("const nexusAuthReady = (NEXUS_DEMO || typeof nexusAuthInit !== 'function')"));
+    });
+
+    it('the sidenav footer has the sign-in slot', () => {
+      const utils = read('js/nexus-utils.js');
+      assert.ok(utils.includes('<div class="sidenav-auth" id="nexusAuthSlot"></div>'));
+      assert.ok(utils.includes("if (typeof renderNexusAuthSlot === 'function') renderNexusAuthSlot();"));
+    });
+
+    it('admin swaps the password gate for GM sign-in once auth is installed', () => {
+      const adm = read('admin.html');
+      assert.ok(adm.includes('id="gateAuth"') && adm.includes('id="gatePasswordForm"'));
+      assert.ok(adm.includes("document.getElementById('siteAccessCard')?.remove();"));
+      assert.ok(adm.includes("document.getElementById('adminPasswordCard')?.remove();"));
+      assert.ok(adm.includes('adminUnlocked = access.isGm;'));
+      assert.ok(adm.includes('adminReady.then(() => { if (adminUnlocked) loadAdminData(); });'));
+    });
+
+    it('nexus-auth.js keeps tokens out of URLs and sessionStorage', () => {
+      const auth = read('js/nexus-auth.js');
+      assert.ok(auth.includes("history.replaceState(null, '', location.pathname + location.search)"), 'clears the #access_token fragment');
+      assert.ok(!/sessionStorage/.test(auth));
+      assert.ok(!/[?&](access|refresh)_token=\$\{/.test(auth), 'tokens never go in a query string');
+    });
+  });
+
+  describe('sql/supabase_auth.sql', () => {
+    const sql = read('sql/supabase_auth.sql');
+    const setup = read('sql/supabase_setup.sql');
+    const setupTables = [...setup.matchAll(/create\s+table\s+if\s+not\s+exists\s+(?:public\.)?(\w+)/gi)].map(m => m[1]);
+    const listed = [...sql.slice(sql.indexOf('foreach t in array array['), sql.indexOf('] loop')).matchAll(/'(\w+)'/g)].map(m => m[1]);
+
+    it('covers every table from supabase_setup.sql (settings get GM-only writes)', () => {
+      for (const t of setupTables) {
+        if (t === 'nexus_settings') continue;
+        assert.ok(listed.includes(t), `${t} is missing from supabase_auth.sql and would stay publicly writable`);
+      }
+      assert.ok(sql.includes('create policy "nexus gm edit" on public.nexus_settings'));
+      assert.ok(sql.includes('using (public.nexus_is_gm()) with check (public.nexus_is_gm())'));
+    });
+
+    it('drops every open policy the setup script creates', () => {
+      assert.ok(sql.includes(`execute format('drop policy if exists "public_all" on public.%I', t);`));
+      for (const name of ['public read settings', 'public write settings']) {
+        assert.match(sql, new RegExp(`drop policy if exists "${name}"\\s+on public\\.nexus_settings;`), name);
+      }
+    });
+
+    it('only signed-in editors write; reads stay public', () => {
+      assert.ok(sql.includes("for all to authenticated '\n      'using (public.nexus_can_edit()) with check (public.nexus_can_edit())'"));
+      assert.ok(sql.includes('for select using (true)'));
+      assert.ok(!/to anon/i.test(sql), 'no policy grants anything to anon beyond reads');
+    });
+
+    it('membership list is read-only through the API and checks lowercase emails', () => {
+      assert.ok(sql.includes("check (email = lower(email))"));
+      assert.ok(sql.includes("check (role in ('gm', 'player'))"));
+      const memberPolicies = [...sql.matchAll(/create policy [^\n]+ on public\.campaign_members[\s\S]*?;/g)].map(m => m[0]);
+      assert.strictEqual(memberPolicies.length, 1);
+      assert.match(memberPolicies[0], /for select to authenticated/);
+    });
+
+    it('does not ship anyone\'s email', () => {
+      assert.ok(!/insert into public\.campaign_members[\s\S]*values\s*\('(?!you@example\.com)/i.test(sql));
+    });
+
+    it('campaign_members stays out of snapshots and the demo', () => {
+      assert.ok(!read('admin.html').slice(0, 1e6).match(/SNAPSHOT_TABLES[\s\S]{0,400}campaign_members/));
+      assert.ok(!setupTables.includes('campaign_members'));
     });
   });
 });

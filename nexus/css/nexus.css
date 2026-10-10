@@ -3780,6 +3780,54 @@ oot-vault-total {
   letter-spacing: 0.04em;
 }
 
+/* "Sign in" button inside the read-only banner (auth mode) */
+.nexus-banner-btn {
+  padding: 0.1rem 0.55rem;
+  background: transparent;
+  border: 1px solid var(--gold);
+  border-radius: 3px;
+  color: var(--gold);
+  font: inherit;
+  cursor: pointer;
+}
+.nexus-banner-btn:hover { background: rgba(240,168,50,0.15); }
+
+/* Sidenav footer: who's signed in (js/nexus-auth.js → renderNexusAuthSlot) */
+.sidenav-auth:empty { display: none; }
+.sidenav-auth {
+  margin-bottom: 0.6rem;
+  letter-spacing: 0.04em;
+}
+.sidenav-auth-who {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text);
+  font-size: 0.7rem;
+  margin-bottom: 0.35rem;
+}
+.sidenav-auth-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+.sidenav-auth-role {
+  color: var(--cyan);
+  font-size: 0.7rem;
+}
+.sidenav-auth-btn {
+  padding: 0.2rem 0.6rem;
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  color: var(--text-dim);
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 0.7rem;
+  cursor: pointer;
+}
+.sidenav-auth-btn:hover { border-color: var(--cyan-dim); color: var(--text); }
+
 /* Demo mode banner (js/nexus-demo.js) — same slot, violet accent */
 .nexus-demo-banner {
   position: sticky;

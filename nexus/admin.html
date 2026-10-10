@@ -24,11 +24,18 @@
       <div class="gate-icon">🔐</div>
       <div class="gate-title">ADMIN ACCESS</div>
       <div class="gate-sub">nexus // restricted panel</div>
-      <input type="password" id="gatePassword" placeholder="Enter password"
-             autocomplete="current-password"
-             onkeydown="if(event.key==='Enter') checkPassword()" />
-      <button class="btn btn-primary" style="width:100%" onclick="checkPassword()">Authenticate</button>
-      <div class="gate-error" id="gateError"></div>
+      <div id="gatePasswordForm">
+        <input type="password" id="gatePassword" placeholder="Enter password"
+               autocomplete="current-password"
+               onkeydown="if(event.key==='Enter') checkPassword()" />
+        <button class="btn btn-primary" style="width:100%" onclick="checkPassword()">Authenticate</button>
+        <div class="gate-error" id="gateError"></div>
+      </div>
+      <!-- Shown instead of the password once sql/supabase_auth.sql is installed -->
+      <div id="gateAuth" style="display:none">
+        <div class="gate-sub" id="gateAuthMsg" style="margin-bottom:1rem">Sign in with the GM's email to manage the campaign.</div>
+        <button class="btn btn-primary" style="width:100%" id="gateAuthBtn" onclick="nexusSignInDialog()">Sign in</button>
+      </div>
     </div>
   </div>
 
@@ -69,8 +76,8 @@
         </div>
       </div>
 
-      <!-- ── SITE ACCESS (READ-ONLY LOCK) ── -->
-      <div class="admin-section-card">
+      <!-- ── SITE ACCESS (READ-ONLY LOCK) ── legacy only; removed once sign-in is installed -->
+      <div class="admin-section-card" id="siteAccessCard">
         <div class="admin-section-head">Site Access</div>
         <div class="admin-section-desc">
           Make the entire site read-only for visitors. Everyone can still browse every module, but saving, adding,
@@ -161,8 +168,8 @@
         <div id="snapshotStatus" style="display:none;margin-top:0.9rem;font-family:'Share Tech Mono',monospace;font-size:0.65rem;letter-spacing:0.06em;line-height:1.7;padding:0.7rem 0.9rem;border-radius:4px;"></div>
       </div>
 
-      <!-- ── CHANGE PASSWORD ── -->
-      <div class="admin-section-card">
+      <!-- ── CHANGE PASSWORD ── legacy only; removed once sign-in is installed -->
+      <div class="admin-section-card" id="adminPasswordCard">
         <div class="admin-section-head">Admin Password</div>
         <div class="admin-section-desc">
           Change the admin password used across the whole site — this gate, the site-wide read-only lock below, and every
@@ -204,6 +211,7 @@
   </div><!-- /adminContent -->
 
   <script src="js/nexus-demo.js"></script>
+  <script src="js/nexus-auth.js"></script>
   <script src="js/nexus-config.js"></script>
   <script src="js/nexus-utils.js"></script>
   <script src="js/nexus-srd.js"></script>
@@ -248,6 +256,7 @@
   }
 
   function lockAdmin() {
+    if (nexusAccessNow().mode === 'auth') { nexusSignOut(); return; }
     sessionStorage.removeItem('nexus_admin');
     adminUnlocked = false;
     document.getElementById('adminContent').style.display = 'none';
@@ -255,20 +264,34 @@
     document.getElementById('gatePassword').value = '';
   }
 
-  // Auto-unlock if already authenticated this session
-  if (adminUnlocked) {
-    document.getElementById('adminGate').style.display = 'none';
-    document.getElementById('adminContent').style.display = 'block';
-  } else {
-    // Gate is visible — focus the password field immediately
-    document.addEventListener('DOMContentLoaded', () => {
-      document.getElementById('gatePassword').focus();
-    });
-    // DOMContentLoaded may have already fired if scripts are at bottom
-    if (document.readyState !== 'loading') {
-      document.getElementById('gatePassword').focus();
+  // Show nothing until sign-in state is known (instant in demo / legacy).
+  // With sql/supabase_auth.sql installed, the GM role replaces the password,
+  // and the site lock + password cards no longer apply.
+  document.getElementById('adminGate').style.display = 'none';
+  document.getElementById('adminContent').style.display = 'none';
+  const adminReady = nexusAuthReady.then(() => {
+    const access = nexusAccessNow();
+    if (access.mode === 'auth') {
+      document.getElementById('siteAccessCard')?.remove();
+      document.getElementById('adminPasswordCard')?.remove();
+      document.getElementById('gatePasswordForm').style.display = 'none';
+      document.getElementById('gateAuth').style.display = 'block';
+      const email = nexusAuthEmail();
+      if (email && !access.isGm) {
+        document.getElementById('gateAuthMsg').textContent = `${email} isn't the GM of this campaign.`;
+        const btn = document.getElementById('gateAuthBtn');
+        btn.textContent = 'Sign out';
+        btn.onclick = nexusSignOut;
+      }
+      adminUnlocked = access.isGm;
     }
-  }
+    if (adminUnlocked) {
+      document.getElementById('adminContent').style.display = 'block';
+    } else {
+      document.getElementById('adminGate').style.display = 'flex';
+      if (access.mode === 'legacy') document.getElementById('gatePassword').focus();
+    }
+  });
 
   // ══════════════════════════════════════════════════════════
   //  TERM MAPPING EDITOR
@@ -945,7 +968,7 @@
   //  UTILS
   // ══════════════════════════════════════════════════════════
   // If already unlocked on load, populate the grid
-  if (adminUnlocked) loadAdminData();
+  adminReady.then(() => { if (adminUnlocked) loadAdminData(); });
   </script>
 
 </body>

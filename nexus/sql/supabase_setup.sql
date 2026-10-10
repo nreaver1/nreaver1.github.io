@@ -1,6 +1,8 @@
 -- ══════════════════════════════════════════════════════════════
 --  NEXUS Campaign System — Supabase Database Setup
 --  Run this entire script in: Supabase Dashboard → SQL Editor
+--  The policies below leave every table open. Run supabase_auth.sql
+--  next to require sign-in for edits.
 -- ══════════════════════════════════════════════════════════════
 
 -- ── 1. PARTY ROSTER ──────────────────────────────────────────
