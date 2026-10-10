@@ -8914,7 +8914,7 @@ describe('Combat page — option editor', () => {
   });
 
   it('combat.html loads the SRD and editor scripts after utils and uses CombatEditor', () => {
-    const at = f => page.indexOf(`<script src="js/${f}"></script>`);
+    const at = f => page.indexOf(`<script src="js/${f}`);
     assert.ok(at('nexus-utils.js') < at('nexus-srd.js') && at('nexus-srd.js') < at('nexus-combat-editor.js'));
     assert.match(page, /CombatEditor\.open\(\{/);
     assert.match(page, /CombatEditor\.remove\(o,/);
@@ -9623,7 +9623,7 @@ describe('Party Roster — Spells tab', () => {
   };
 
   it('loads the SRD and shared editor scripts after utils', () => {
-    const at = f => src.indexOf(`<script src="js/${f}"></script>`);
+    const at = f => src.indexOf(`<script src="js/${f}`);
     assert.ok(at('nexus-utils.js') > 0 && at('nexus-utils.js') < at('nexus-srd.js') && at('nexus-srd.js') < at('nexus-combat-editor.js'));
   });
 
@@ -9925,7 +9925,7 @@ describe('Campaign library', () => {
       assert.match(loot, /if\(_lootPickedFrom!=='srd'&&document\.getElementById\('fieldSaveLib'\)\.checked\)\{\n\s+try\{ await CampaignLibrary\.save\(libraryEntryFromLoot\(item\)\);/);
     });
     it('admin lists library entries (escaped) and removes them gated + confirmed', () => {
-      assert.match(admin, /<script src="js\/nexus-srd\.js"><\/script>/);
+      assert.match(admin, /<script src="js\/nexus-srd\.js(\?v=\w+)?"><\/script>/);
       assert.match(admin, /\$\{esc\(e\.name\)\}/);
       assert.match(admin, /data-lib-id="\$\{esc\(e\.id\)\}"/);
       const body = admin.slice(admin.indexOf('async function removeLibraryEntry'), admin.indexOf("document.addEventListener('click', e => {\n    const btn = e.target.closest('[data-lib-id]')"));
@@ -10348,7 +10348,7 @@ describe('Demo mode', () => {
       for (const p of PAGES) {
         const src = read(p);
         if (!src.includes('js/nexus-config.js')) continue;
-        assert.match(src, /<script src="js\/nexus-demo\.js"><\/script>\s*<script src="js\/nexus-auth\.js"><\/script>\s*<script src="js\/nexus-config\.js"><\/script>/, p);
+        assert.match(src, /<script src="js\/nexus-demo\.js(\?v=\w+)?"><\/script>\s*<script src="js\/nexus-auth\.js(\?v=\w+)?"><\/script>\s*<script src="js\/nexus-config\.js(\?v=\w+)?"><\/script>/, p);
       }
     });
 
@@ -10679,7 +10679,7 @@ describe('Citations everywhere', () => {
   const PAGES = ['index.html', 'party-roster.html', 'treasury.html', 'loot-tracker.html', 'combat.html', 'session-log.html'];
   for (const page of PAGES) {
     it(`${page} loads nexus-cite.js right after nexus-utils.js`, () => {
-      assert.ok(read(page).includes('<script src="js/nexus-utils.js"></script>\n  <script src="js/nexus-cite.js"></script>'));
+      assert.match(read(page), /<script src="js\/nexus-utils\.js(\?v=\w+)?"><\/script>\n  <script src="js\/nexus-cite\.js(\?v=\w+)?"><\/script>/);
     });
   }
 
@@ -10755,12 +10755,58 @@ describe('Modal backdrop drag guard', () => {
 
   for (const f of FILES.filter(f => f.endsWith('.html'))) {
     it(`${f} loads nexus-config.js, which installs the guard`, () => {
-      assert.ok(read(f).includes('<script src="js/nexus-config.js"></script>'));
+      assert.match(read(f), /<script src="js\/nexus-config\.js(\?v=\w+)?"><\/script>/);
     });
   }
 
   it('the combat editor and DM target modals are .modal-backdrop elements', () => {
     assert.ok(read('js/nexus-combat-editor.js').includes('<div class="modal-backdrop" id="ceModal">'));
     assert.ok(read('combat.html').includes('<div class="modal-backdrop" id="targetModal">'));
+  });
+});
+
+
+// ══════════════════════════════════════════════════════════════
+//  CACHE-BUSTING STAMPS  (tools/stamp-assets.js)
+//
+//  Every local js/ and css/ link carries ?v=<hash of that file>, so a
+//  deploy never mixes fresh and cached scripts. If this fails, run
+//  `node tools/stamp-assets.js` and commit the result.
+// ══════════════════════════════════════════════════════════════
+
+describe('Cache-busting asset stamps', () => {
+  const fs = require('node:fs'), path = require('node:path');
+  const stamp = require('../tools/stamp-assets.js');
+  const read = f => fs.readFileSync(path.join(__dirname, '..', f), 'utf8');
+
+  it('stampHtml adds or replaces ?v= on js/ and css/ links only', () => {
+    const v = () => 'abc12345';
+    assert.equal(
+      stamp.stampHtml('<script src="js/a.js"></script><link rel="stylesheet" href="css/b.css?v=old" />', v),
+      '<script src="js/a.js?v=abc12345"></script><link rel="stylesheet" href="css/b.css?v=abc12345" />');
+    const untouched = '<link href="https://fonts.googleapis.com/css2?family=X" /><a href="session-log.html">x</a><img src="demo/img/a.jpg">';
+    assert.equal(stamp.stampHtml(untouched, v), untouched);
+  });
+
+  it('assetVersion is 8 hex chars and ignores CRLF vs LF', () => {
+    assert.match(stamp.assetVersion('js/nexus-utils.js'), /^[0-9a-f]{8}$/);
+  });
+
+  for (const page of stamp.htmlPages()) {
+    it(`${page}: every js/ and css/ link is stamped with the file's current hash (run tools/stamp-assets.js)`, () => {
+      const html = read(page);
+      const refs = [...html.matchAll(/\s(?:src|href)="((?:js|css)\/[^"]+)"/g)].map(m => m[1]);
+      for (const ref of refs) {
+        const [rel, query = ''] = ref.split('?');
+        assert.equal(query, `v=${stamp.assetVersion(rel)}`, `${page}: ${rel} is stale or unstamped`);
+      }
+    });
+  }
+
+  it('renderWithCitations falls back to escaped text if a stale nexus-utils.js lacks the helpers', () => {
+    const cite = read('js/nexus-cite.js');
+    const fn = cite.slice(cite.indexOf('function renderWithCitations('), cite.indexOf('// ═', cite.indexOf('function renderWithCitations(')));
+    assert.match(fn, /if \(typeof renderCitations !== 'function'\) return text \? _nexusEscape\(text\) : '';/);
+    assert.match(cite, /if \(typeof citeTokenAt !== 'function'\) return null;/);
   });
 });

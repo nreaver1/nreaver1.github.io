@@ -34,6 +34,9 @@ async function loadCiteNpcs() {
 
 /** Escaped HTML with ^slug tokens turned into NPC chips. */
 function renderWithCitations(text) {
+  // A stale cached nexus-utils.js may predate the citation helpers: show
+  // plain escaped text rather than throwing and blanking the whole list.
+  if (typeof renderCitations !== 'function') return text ? _nexusEscape(text) : '';
   return renderCitations(text, _citeNpcMap);
 }
 
@@ -78,6 +81,7 @@ function _hideCiteDrop() {
 function _getCiteToken(el) {
   // Returns { prefix, token, after } for the partial ^xxx at the cursor,
   // or null if the cursor is not inside a citation token.
+  if (typeof citeTokenAt !== 'function') return null; // stale nexus-utils.js: no autocomplete
   const val = el.value;
   const hit = citeTokenAt(val, el.selectionStart);
   if (!hit) return null;

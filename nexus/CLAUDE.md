@@ -37,6 +37,7 @@ js/nexus-demo.js      Demo mode (?demo): in-browser DemoStore with the same API 
                       sql/supabase_setup.sql at runtime. Loaded right BEFORE nexus-config.js on every page.
 demo/demo-data.json   The demo campaign (an Admin snapshot). demo/img/ holds its portraits.
 css/nexus.css         One shared stylesheet (~3.8k lines); theme tokens on :root
+tools/stamp-assets.js  Cache-busting: stamps every js/ and css/ link in the pages with ?v=<file hash>
 sql/                  Hand-run SQL for the Supabase SQL Editor (no migration tool)
 tests/nexus.test.js   ~10k lines, ~1480 tests
 .github/workflows/    Leftover test.yml that never runs. The live CI is ../.github/workflows/nexus-ci.yml at the repo root
@@ -99,6 +100,8 @@ Conditions (party roster) and the collapse state of the effects panel live in **
 - **Snapshot:** Admin exports all tables to JSON. Restore deletes every row and reinserts per table (not transactional).
 
 ## Testing
+
+**After editing anything in `js/` or `css/`, run `node tools/stamp-assets.js`.** It updates the `?v=<hash>` on every page's script/stylesheet links so browsers don't mix a fresh file with a cached old one (GitHub Pages caches for 10 minutes). The "Cache-busting asset stamps" tests fail if a link is stale. New pages and new scripts just need the plain `js/…` path; the tool adds the stamp.
 
 ```
 cd nexus && node --test tests/nexus.test.js
