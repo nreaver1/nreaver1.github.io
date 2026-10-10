@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "exported_at": 1791590649227,
+  "exported_at": 1791591060028,
   "campaign": "NEXUS",
   "tables": {
     "party_members": [
@@ -16,7 +16,7 @@
         "bio": "Divine connection with all known dice gods",
         "tags": [],
         "color": "#805700",
-        "photo": "demo/img/_nunrlv6ua.jpg",
+        "photo": "demo/img/member-nunrlv6ua.jpg",
         "abilities": {
           "cha": 11,
           "con": 10,
@@ -54,7 +54,7 @@
         "bio": "Was beaten and trapped in a cage for literal centuries, but has the best attitude in the party",
         "tags": [],
         "color": "#e03c3c",
-        "photo": "demo/img/_ww26n6ld7.jpg",
+        "photo": "demo/img/member-ww26n6ld7.jpg",
         "abilities": {
           "cha": 10,
           "con": 10,
@@ -86,7 +86,7 @@
         "bio": null,
         "tags": [],
         "color": "#3ce08a",
-        "photo": "demo/img/_ye11uuykm.jpg",
+        "photo": "demo/img/member-ye11uuykm.jpg",
         "abilities": {
           "cha": 10,
           "con": 10,

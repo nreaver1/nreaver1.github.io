@@ -10331,6 +10331,12 @@ describe('Demo mode', () => {
       }
     });
 
+    it('has no files starting with _ (GitHub Pages / Jekyll does not serve them)', () => {
+      const walk = d => fs.readdirSync(d, { withFileTypes: true })
+        .flatMap(e => e.isDirectory() ? walk(path.join(d, e.name)) : [e.name]);
+      for (const f of walk(path.join(base, 'demo'))) assert.ok(!f.startsWith('_'), `demo/…/${f} would 404 on GitHub Pages`);
+    });
+
     it('stays small enough for sessionStorage (< 400 KB)', () => {
       assert.ok(fs.statSync(path.join(base, 'demo/demo-data.json')).size < 400 * 1024);
     });

@@ -119,7 +119,7 @@ The public "Live demo" links (portfolio `../index.html`, `../README.md`) open `h
 **Updating the demo when a module changes** (CI enforces this):
 1. Add the column/table to `sql/supabase_setup.sql` as usual (the demo picks it up automatically), and add new tables to `SNAPSHOT_TABLES` in admin.html.
 2. Serve the site locally and open `/nexus/?demo`, then add sample data for the new feature through the normal UI.
-3. Admin → Export Snapshot, and save the file over `nexus/demo/demo-data.json`. New portraits come out as `data:` URLs: save them as small JPEGs in `demo/img/` and point `photo` at `demo/img/<file>.jpg`.
+3. Admin → Export Snapshot, and save the file over `nexus/demo/demo-data.json`. New portraits come out as `data:` URLs: save them as small JPEGs in `demo/img/` and point `photo` at `demo/img/<file>.jpg`. File names must not start with `_`: GitHub Pages (Jekyll) won't serve them.
 4. Run the tests. The "Demo mode" suite fails if any table in the setup script has no demo rows, a row uses a column that doesn't exist, an FK or holder/ledger name dangles, a photo is inline, the file passes 400 KB, or a page's `db.select`/`deleteWhere` uses a query shape DemoStore doesn't support.
 
 Hand-editing `demo-data.json` is fine too: it's a plain snapshot. Keep `exported_at` a new number whenever the content changes, so open demo tabs pick it up.
