@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "exported_at": 1791591060028,
+  "exported_at": 1791591630015,
   "campaign": "NEXUS",
   "tables": {
     "party_members": [
@@ -886,7 +886,7 @@
         "title": "Ledgers and Lies",
         "real_date": "2026-05-22",
         "world_date": "18th of Ashfall, Year 412",
-        "summary": "Acting on a suggestion from ^lord-aldric-thane, the party visited the Hall of Records and enlisted the help of archivist ^wren-ashford. Cross-referencing Compact property filings with tax exemptions Thane remembered approving, Wren identified three properties registered under shell names that all trace back to a single solicitor — one known to work exclusively for ^magistrix-orvenne-lhast. One of the properties is a decommissioned customs house on the north wharf. ^drav-the-fence confirmed that the customs house had been \"very busy\" for the past six months. ^commander-varek-stoneholm issued a warrant for Theron's arrest on a charge of \"arson and civil disruption\" — almost certainly connected to the warehouse job from Session 1.",
+        "summary": "Acting on a suggestion from ^lord-aldric-thane, the party visited the Hall of Records and enlisted the help of archivist ^wren-ashford. Cross-referencing Compact property filings with tax exemptions Thane remembered approving, Wren identified three properties registered under shell names that all trace back to a single solicitor — one known to work exclusively for ^magistrix-orvenne-lhast. One of the properties is a decommissioned customs house on the north wharf. ^drav-the-fence confirmed that the customs house had been \"very busy\" for the past six months. ^commander-varek-stoneholm issued a warrant for Glibnub's arrest on a charge of \"arson and civil disruption\" — almost certainly connected to the warehouse job from Session 1.",
         "status": "complete",
         "quests": [
           {
@@ -964,9 +964,9 @@
       {
         "id": "_icajr78eb",
         "session_id": "_i6gi3d7zl",
-        "text": "Zyx rolled a natural 20 to fast-talk the gate guard — improvised a story about a lost cat",
+        "text": "Pirate guy rolled a natural 20 to fast-talk the gate guard — improvised a story about a lost cat",
         "members": [
-          "Zyx"
+          "Pirate guy"
         ],
         "sort_order": 0,
         "created_at": "2026-05-29T17:11:27.000812+00:00"
@@ -974,9 +974,9 @@
       {
         "id": "_qfm4fa0s4",
         "session_id": "_i6gi3d7zl",
-        "text": "Mira's sleep spell dropped three guards simultaneously; the party had 4 minutes before the next patrol",
+        "text": "Dr. Wurst's sleep-gas grenade dropped three guards simultaneously; the party had 4 minutes before the next patrol",
         "members": [
-          "Mira"
+          "Dr. Wurst"
         ],
         "sort_order": 1,
         "created_at": "2026-05-29T17:11:27.000812+00:00"
@@ -992,9 +992,9 @@
       {
         "id": "_14vbih9a1",
         "session_id": "_i6gi3d7zl",
-        "text": "Varek's men spotted Theron on the rooftop; he is now a wanted face in the Dockside",
+        "text": "Varek's men spotted Glibnub on the rooftop; he is now a wanted face in the Dockside",
         "members": [
-          "Theron"
+          "Glibnub"
         ],
         "sort_order": 3,
         "created_at": "2026-05-29T17:11:27.000812+00:00"
@@ -1012,7 +1012,7 @@
         "session_id": "_22jk9q9fj",
         "text": "Sister Maela noted a faint Pale Flame glyph burned into the courier's palm — not the cause of death",
         "members": [
-          "Mira"
+          "Dr. Wurst"
         ],
         "sort_order": 1,
         "created_at": "2026-05-29T17:11:27.000812+00:00"
@@ -1030,8 +1030,8 @@
         "session_id": "_22jk9q9fj",
         "text": "The signet ring match to Varek's ring — either he was there or someone stole his identity",
         "members": [
-          "Zyx",
-          "Theron"
+          "Pirate guy",
+          "Glibnub"
         ],
         "sort_order": 3,
         "created_at": "2026-05-29T17:11:27.000812+00:00"
@@ -1039,9 +1039,9 @@
       {
         "id": "_egm4mm6sm",
         "session_id": "_wob4htma3",
-        "text": "Theron entered a collapsing corridor to recover the last acolyte — DC 14 Athletics, rolled 17",
+        "text": "Glibnub entered a collapsing corridor to recover the last acolyte — DC 14 Athletics, rolled 17",
         "members": [
-          "Theron"
+          "Glibnub"
         ],
         "sort_order": 0,
         "created_at": "2026-05-29T17:11:27.000812+00:00"
@@ -1081,9 +1081,9 @@
       {
         "id": "_bm4gdxod8",
         "session_id": "_ani8i45r7",
-        "text": "Varek's arrest warrant for Theron is nailed to the door of the Sunken Hearth by morning",
+        "text": "Varek's arrest warrant for Glibnub is nailed to the door of the Sunken Hearth by morning",
         "members": [
-          "Theron"
+          "Glibnub"
         ],
         "sort_order": 2,
         "created_at": "2026-05-29T17:11:27.000812+00:00"
@@ -1107,9 +1107,9 @@
       {
         "id": "_wsn131s2l",
         "session_id": "_hhez4qlcm",
-        "text": "The Hollow Man stepped aside at the sea-gate. Made eye contact with Zyx before disappearing.",
+        "text": "The Hollow Man stepped aside at the sea-gate. Made eye contact with Pirate guy before disappearing.",
         "members": [
-          "Zyx"
+          "Pirate guy"
         ],
         "sort_order": 1,
         "created_at": "2026-05-29T17:11:27.000812+00:00"

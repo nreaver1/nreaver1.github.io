@@ -10311,15 +10311,16 @@ describe('Demo mode', () => {
       }
     });
 
-    // Moment tags aren't checked: the original demo sessions (from the seed
-    // tool) tag Zyx / Mira / Theron, who aren't on the demo roster.
-    it('name joins resolve: loot holders, ledger members', () => {
+    it('name joins resolve: loot holders, ledger members, moment tags', () => {
       const names = new Set(tables.party_members.map(m => m.name));
       for (const it of tables.loot_items) {
         assert.ok(!it.holder || names.has(it.holder) || ['Party', 'Party Vault'].includes(it.holder), `loot holder "${it.holder}"`);
       }
       for (const tx of tables.treasury_ledger) {
         assert.ok(tx.member_name == null || names.has(tx.member_name), `ledger member "${tx.member_name}"`);
+      }
+      for (const ev of tables.session_events) {
+        for (const n of ev.members || []) assert.ok(names.has(n), `moment tags unknown member "${n}"`);
       }
     });
 

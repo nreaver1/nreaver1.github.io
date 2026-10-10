@@ -128,7 +128,6 @@ Hand-editing `demo-data.json` is fine too: it's a plain snapshot. Keep `exported
 
 - Security is client-side only. The site lock and admin password don't stop direct REST writes, and `site_lock` itself lives in the publicly writable `nexus_settings`.
 - `seed-session-log.html` is still deployed publicly. Its buttons require the admin password, but like everything else that's UI-only. In demo mode it seeds the demo copy.
-- The demo sessions' moments tag Zyx, Mira and Theron (from the old seed tool), who aren't on the demo roster. That's left as-is.
 - `nexusConfirm` escapes all of its text fields itself, so pass plain text, never HTML.
 - Record ids (`m.id`, `s.id`, ...) and `m.color` are still interpolated into inline handlers and `style` attributes unescaped. They're safe only while every row comes from the UI; a row written straight to the API could inject. Moving to `data-*` + `addEventListener` would close it.
 - `nexus/.github/workflows/test.yml` is a dead leftover and can be deleted.
