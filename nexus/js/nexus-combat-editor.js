@@ -278,7 +278,7 @@ const CombatEditor = (() => {
     const name = (ctx.member?.name || '').toLowerCase().trim();
     return (ctx.items || []).filter(it => {
       const h = (it.holder || '').toLowerCase().trim();
-      return isWeaponItem(it) && (h === name || h === 'party');
+      return isWeaponItem(it) && (h === name || isPartyHolder(h));
     });
   }
 

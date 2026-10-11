@@ -4,11 +4,12 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>LOOT TRACKER // Item Registry</title>
-  <script src="js/nexus-demo.js?v=c5fab7ec"></script>
+  <script src="js/nexus-demo.js?v=4ad1b72c"></script>
   <script src="js/nexus-auth.js?v=d48892dc"></script>
-  <script src="js/nexus-config.js?v=8dbbce26"></script>
-  <script src="js/nexus-utils.js?v=8e21f6f3"></script>
+  <script src="js/nexus-config.js?v=6c6e5739"></script>
+  <script src="js/nexus-utils.js?v=82e242d1"></script>
   <script src="js/nexus-cite.js?v=29a8deb3"></script>
+  <script src="js/nexus-live.js?v=16acaebe"></script>
   <script src="js/nexus-srd.js?v=7677f88e"></script>
   <link rel="icon" type="image/x-icon" href="assets/favicon.ico" />
   <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@400;700;900&family=Rajdhani:wght@400;500;600;700&display=swap" rel="stylesheet" />
@@ -422,28 +423,28 @@ const seedItems = [
 
 // LOOT_GROUP_EMOJI, lootTypeEmoji, uid — defined in js/nexus-utils.js
 
-async function loadData(){
+// quiet: a live refresh — no overlay, and a failure keeps what's on screen
+async function loadData(quiet){
   try{
-    showLoading(true);
+    if(!quiet) showLoading(true);
     const rows = await db.select('loot_items', { order: 'created_at.asc' });
-    if(rows.length){
-      items = rows.map(r=>({
-        id:          r.id,
-        name:        r.name,
-        type:        r.type,
-        rarity:      r.rarity,
-        holder:      r.holder,
-        attunement:  r.attunement,
-        desc:        r.description,
-        statEffects: r.stat_effects || [],
-        qty:         r.quantity ?? 1,
-      }));
-    }
+    items = rows.map(r=>({
+      id:          r.id,
+      name:        r.name,
+      type:        r.type,
+      rarity:      r.rarity,
+      holder:      r.holder,
+      attunement:  r.attunement,
+      desc:        r.description,
+      statEffects: r.stat_effects || [],
+      qty:         r.quantity ?? 1,
+    }));
   } catch(e){
+    if(quiet) throw e;
     console.error(e);
     showToast('Could not load items — check your Supabase config.');
     items = [];
-  } finally{ showLoading(false); }
+  } finally{ if(!quiet) showLoading(false); }
 }
 
 function itemToRow(it){
@@ -1317,6 +1318,16 @@ Promise.all([
   loadTerms().catch(() => {});
   renderTable();
   populateHolderFilter();
+  // Someone else's edits show up without a reload (js/nexus-live.js)
+  nexusLive(['loot_items','party_members'], async changed => {
+    if(changed.has('party_members')) _cachedPartyMembers = null;
+    await Promise.all([
+      changed.has('loot_items') ? loadData(true) : null,
+      loadPartyMembersAsync(),
+    ]);
+    renderTable();
+    populateHolderFilter();
+  });
 });
 </script>
 

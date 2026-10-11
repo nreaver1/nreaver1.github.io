@@ -4,11 +4,12 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>NEXUS // Campaign Dashboard</title>
-  <script src="js/nexus-demo.js?v=c5fab7ec"></script>
+  <script src="js/nexus-demo.js?v=4ad1b72c"></script>
   <script src="js/nexus-auth.js?v=d48892dc"></script>
-  <script src="js/nexus-config.js?v=8dbbce26"></script>
-  <script src="js/nexus-utils.js?v=8e21f6f3"></script>
+  <script src="js/nexus-config.js?v=6c6e5739"></script>
+  <script src="js/nexus-utils.js?v=82e242d1"></script>
   <script src="js/nexus-cite.js?v=29a8deb3"></script>
+  <script src="js/nexus-live.js?v=16acaebe"></script>
   <link rel="icon" type="image/x-icon" href="assets/favicon.ico" />
   <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@400;700;900&family=Rajdhani:wght@400;500;600;700&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="css/nexus.css?v=1c95a497" />
@@ -557,6 +558,13 @@
   loadLootStats();
   loadSessionStats();
   loadCombatStats();
+
+  // Someone else's edits show up without a reload (js/nexus-live.js)
+  nexusLive(['party_members', 'treasury_currencies', 'treasury_ledger', 'loot_items',
+             'session_log', 'npcs', 'combat_options'], () => {
+    _idxCurrencies = _idxLedger = _idxMembers = null;   // the holdings modal refetches
+    return Promise.all([loadPartyStats(), loadTreasuryStats(), loadLootStats(), loadSessionStats(), loadCombatStats()]);
+  });
 </script>
 
 

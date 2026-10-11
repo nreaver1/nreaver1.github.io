@@ -258,6 +258,25 @@ class DemoStore {
     this.deleteWhere(table, `id=eq.${encodeURIComponent(id)}`);
   }
 
+  // The Postgres functions in sql/supabase_atomic.sql. Like a transaction,
+  // a call that throws leaves every table as it was.
+  rpc(fn, args = {}) {
+    const impl = DEMO_RPC[fn];
+    if (!impl) throw new Error(`DB rpc ${fn}: function does not exist (demo)`);
+    const saved = _demoClone(this.tables);
+    try {
+      return impl(this, args);
+    } catch (e) {
+      this.tables = saved;
+      throw e;
+    }
+  }
+
+  _onlyColumns(table, row) {
+    const cols = this.schema[table].columns;
+    return Object.fromEntries(Object.entries(row || {}).filter(([k]) => cols[k]));
+  }
+
   // Follow every FK that points at `table`: cascade deletes, or null out.
   _cascade(table, ids) {
     for (const [child, def] of Object.entries(this.schema)) {
@@ -277,9 +296,80 @@ class DemoStore {
   }
 }
 
+// ── sql/supabase_atomic.sql, in JS ────────────────────────────
+const _demoNameKey = v => String(v ?? '').trim().toLowerCase();
+
+const DEMO_SESSION_FIELDS = ['number', 'title', 'real_date', 'world_date', 'summary', 'status', 'quests', 'session_npcs'];
+const DEMO_RESTORE_ORDER = ['party_members', 'treasury_currencies', 'treasury_ledger', 'loot_items',
+                            'combat_options', 'campaign_library', 'session_log', 'session_events', 'npcs'];
+
+const DEMO_RPC = {
+  nexus_save_session(store, { p_session, p_events = [] }) {
+    const s = p_session || {};
+    if (s.id == null) throw new Error('DB rpc nexus_save_session: session id missing (demo)');
+    const row = { id: s.id };
+    for (const f of DEMO_SESSION_FIELDS) row[f] = s[f] === undefined ? null : s[f];
+    row.status = row.status || 'draft';
+    row.quests = row.quests || [];
+    row.session_npcs = row.session_npcs || [];
+    store.upsert('session_log', row);
+    store.deleteWhere('session_events', `session_id=eq.${encodeURIComponent(s.id)}`);
+    for (const ev of p_events || []) {
+      store.insert('session_events', {
+        id: ev.id, session_id: s.id, text: ev.text,
+        members: ev.members || [], sort_order: ev.sort_order ?? 0,
+      });
+    }
+    return null;
+  },
+
+  nexus_rename_member(store, { p_id, p_name }) {
+    const name = String(p_name ?? '').trim();
+    if (!name) throw new Error('DB rpc nexus_rename_member: name missing (demo)');
+    const member = store.tables.party_members.find(r => String(r.id) === String(p_id));
+    if (!member) throw new Error(`DB rpc nexus_rename_member: member ${p_id} not found (demo)`);
+    const old = member.name;
+    if (old === name) return null;
+    const oldKey = _demoNameKey(old);
+    store.update('party_members', p_id, { name });
+    for (const it of store.tables.loot_items) {
+      if (_demoNameKey(it.holder) === oldKey && it.holder != null) { it.holder = name; store._touch('loot_items', it); }
+    }
+    for (const tx of store.tables.treasury_ledger) {
+      if (tx.member_name != null && _demoNameKey(tx.member_name) === oldKey) tx.member_name = name;
+    }
+    for (const ev of store.tables.session_events) {
+      if (Array.isArray(ev.members) && ev.members.some(m => typeof m === 'string' && _demoNameKey(m) === oldKey)) {
+        ev.members = ev.members.map(m => (typeof m === 'string' && _demoNameKey(m) === oldKey ? name : m));
+      }
+    }
+    return null;
+  },
+
+  nexus_restore_snapshot(store, { p_tables }) {
+    if (!p_tables || typeof p_tables !== 'object' || Array.isArray(p_tables)) {
+      throw new Error('DB rpc nexus_restore_snapshot: expected an object of tables (demo)');
+    }
+    for (const t of [...DEMO_RESTORE_ORDER].reverse()) store.tables[t] = [];
+    let count = 0;
+    for (const t of [...DEMO_RESTORE_ORDER, 'nexus_settings']) {
+      const rows = p_tables[t] === undefined ? [] : p_tables[t];
+      if (!Array.isArray(rows)) throw new Error(`DB rpc nexus_restore_snapshot: ${t} is not an array (demo)`);
+      for (const r of rows) {
+        const row = store._onlyColumns(t, r);
+        if (!Object.keys(row).length) continue;
+        if (t === 'nexus_settings') store.upsert(t, row);
+        else store.insert(t, row);
+        count++;
+      }
+    }
+    return count;
+  },
+};
+
 // ── Browser adapter: same API as the Supabase `db` object ─────
 /**
- * createDemoDb() → { select, insert, upsert, update, delete, deleteWhere, upsertMany }
+ * createDemoDb() → { select, insert, upsert, update, delete, deleteWhere, upsertMany, rpc }
  * Loads the schema + demo data once, keeps the working copy in
  * sessionStorage (so it survives page navigation in this tab), and
  * resets it whenever demo/demo-data.json is republished.
@@ -321,13 +411,14 @@ function createDemoDb() {
 
   return {
     demo:        true,
-    select:      (table, opts)       => run(s => s.select(table, opts)),
+    select:      (table, opts)       => run(s => nexusCleanRows(s.select(table, opts), table)),
     insert:      (table, row)        => run(s => s.insert(table, row)[0], true),
     upsert:      (table, row)        => run(s => { const r = s.upsert(table, row); return Array.isArray(row) ? r : r[0]; }, true),
     upsertMany:  (table, rows)       => rows.length ? run(s => s.upsert(table, rows), true) : Promise.resolve([]),
     update:      (table, id, ch)     => run(s => s.update(table, id, ch)[0], true),
     delete:      (table, id)         => run(s => { s.delete(table, id); }, true),
     deleteWhere: (table, filter)     => run(s => { s.deleteWhere(table, filter); }, true),
+    rpc:         (fn, args)          => run(s => s.rpc(fn, args), true),
   };
 }
 

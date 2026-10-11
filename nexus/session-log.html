@@ -4,11 +4,12 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>NEXUS // Session Log</title>
-  <script src="js/nexus-demo.js?v=c5fab7ec"></script>
+  <script src="js/nexus-demo.js?v=4ad1b72c"></script>
   <script src="js/nexus-auth.js?v=d48892dc"></script>
-  <script src="js/nexus-config.js?v=8dbbce26"></script>
-  <script src="js/nexus-utils.js?v=8e21f6f3"></script>
+  <script src="js/nexus-config.js?v=6c6e5739"></script>
+  <script src="js/nexus-utils.js?v=82e242d1"></script>
   <script src="js/nexus-cite.js?v=29a8deb3"></script>
+  <script src="js/nexus-live.js?v=16acaebe"></script>
   <link rel="icon" type="image/x-icon" href="assets/favicon.ico" />
   <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@400;700;900&family=Rajdhani:wght@400;500;600;700&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="css/nexus.css?v=1c95a497" />
@@ -455,16 +456,7 @@ async function boot() {
     applyModuleVisibility();
     applyReadOnlyBanner();
     if (!enforceModuleGuard('sessionLog')) { guarded = true; return; }
-    sessions = sessionRows;
-    // Group events by session_id
-    events = {};
-    for (const ev of eventRows) {
-      if (!events[ev.session_id]) events[ev.session_id] = [];
-      events[ev.session_id].push(ev);
-    }
-    npcs = npcRows;
-    buildNpcMap();
-    _rebuildIdMaps();
+    applySessionData(sessionRows, eventRows, npcRows);
   } catch(e) {
     console.error(e);
     showToast('Could not load session data — check your Supabase config.');
@@ -477,6 +469,31 @@ async function boot() {
   const citedSlug = new URLSearchParams(location.search).get('npc');
   const citedNpc  = citedSlug && npcMap.get(citedSlug);
   if (citedNpc) jumpToNpc(citedNpc.id);
+
+  // Someone else's edits show up without a reload (js/nexus-live.js)
+  nexusLive(['session_log', 'session_events', 'npcs'], async () => {
+    const [sessionRows, eventRows, npcRows] = await Promise.all([
+      db.select('session_log',    { order: 'number.desc' }),
+      db.select('session_events', { order: 'session_id.asc,sort_order.asc' }),
+      db.select('npcs',           { order: 'name.asc' }),
+    ]);
+    applySessionData(sessionRows, eventRows, npcRows);
+    updateStats();
+    renderView();
+  });
+}
+
+function applySessionData(sessionRows, eventRows, npcRows) {
+  sessions = sessionRows;
+  // Group events by session_id
+  events = {};
+  for (const ev of eventRows) {
+    if (!events[ev.session_id]) events[ev.session_id] = [];
+    events[ev.session_id].push(ev);
+  }
+  npcs = npcRows;
+  buildNpcMap();
+  _rebuildIdMaps();
 }
 
 // ══════════════════════════════════════════════════════════════
@@ -1093,11 +1110,6 @@ async function saveSession() {
   setLoading(btn, true); setModalLoading(modal, true);
 
   try {
-    await db.upsert('session_log', row);
-
-    // ── Save events: delete existing, then batch-insert draft ──
-    // deleteWhere with session_id filter; safe even on new sessions (no rows match)
-    await db.deleteWhere('session_events', `session_id=eq.${encodeURIComponent(id)}`);
     const eventRows = _draftMoments
       .filter(m => m.text.trim())
       .map((m, i) => ({
@@ -1107,7 +1119,9 @@ async function saveSession() {
         members:    m.members || [],
         sort_order: i,
       }));
-    if (eventRows.length) await db.upsertMany('session_events', eventRows);
+    // The session and its moments save in one transaction (sql/supabase_atomic.sql):
+    // a failed save leaves the old moments in place instead of none.
+    await db.rpc('nexus_save_session', { p_session: row, p_events: eventRows });
 
     // Update local events cache
     events[id] = eventRows;

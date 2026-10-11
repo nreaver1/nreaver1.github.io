@@ -54,6 +54,56 @@ function esc(s) {
     .replace(/'/g, '&#39;');
 }
 
+// ──────────────────────────────────────────────────────────────
+//  ROW GUARD — every row read from the database passes through
+//  cleanDbRows (db.select in nexus-config.js and the live-sync
+//  refresh), because pages put ids into onclick="f('${m.id}')",
+//  element ids and CSS, and colours into style="". The UI only ever
+//  writes uid()-style ids and picker colours; this keeps a row written
+//  straight to the API from turning those spots into script.
+// ──────────────────────────────────────────────────────────────
+
+const SAFE_ID_RE    = /^[A-Za-z0-9_-]{1,64}$/;
+const SAFE_COLOR_RE = /^(#[0-9a-f]{3,8}|var\(--[a-z0-9-]+\)|rgba?\(\s*[\d.]+%?\s*,\s*[\d.]+%?\s*,\s*[\d.]+%?\s*(,\s*[\d.]+%?\s*)?\))$/i;
+
+/** True for ids the pages can put in markup as-is: letters, digits, _ and -. */
+function isSafeId(v) {
+  return typeof v === 'string' && SAFE_ID_RE.test(v);
+}
+
+/** A hex / var(--x) / rgb() colour, or null for anything else. */
+function safeCssColor(v) {
+  if (typeof v !== 'string') return null;
+  const s = v.trim();
+  return SAFE_COLOR_RE.test(s) ? s : null;
+}
+
+// Columns that hold another row's id
+const ROW_REF_COLUMNS = ['member_id', 'loot_item_id', 'session_id', 'first_seen'];
+
+/**
+ * cleanDbRows(rows, table?) → rows
+ * Drops rows whose `id` isn't a safe id, nulls unsafe colours and
+ * id references. Rows without an `id` column (nexus_settings) pass.
+ */
+function cleanDbRows(rows, table = '') {
+  if (!Array.isArray(rows)) return rows;
+  const out = [];
+  for (const row of rows) {
+    if (!row || typeof row !== 'object') continue;
+    if ('id' in row && !isSafeId(row.id)) {
+      if (typeof console !== 'undefined') console.warn(`[NEXUS] Skipped a ${table || 'database'} row with an unsafe id.`);
+      continue;
+    }
+    if ('color' in row && row.color != null) row.color = safeCssColor(row.color);
+    for (const col of ROW_REF_COLUMNS) {
+      if (row[col] != null && !isSafeId(row[col])) row[col] = null;
+    }
+    out.push(row);
+  }
+  return out;
+}
+
 
 // ──────────────────────────────────────────────────────────────
 //  MEMBER IDENTITY — the colour, portrait and status a character
@@ -166,6 +216,15 @@ const DAMAGE_TYPES = [
 ];
 
 /**
+ * True for loot held by the whole party. The Loot Tracker's shared option
+ * saves 'Party Inventory'; older rows and the demo use 'Party'.
+ */
+function isPartyHolder(holder) {
+  const h = String(holder || '').toLowerCase().trim();
+  return h === 'party' || h === 'party inventory';
+}
+
+/**
  * computeNetEffects(memberName, items)
  * Aggregates all stat effects from items held by a party member
  * (or tagged as 'Party') into a net effects map.
@@ -187,7 +246,7 @@ const DAMAGE_TYPES = [
  *   }
  *   relevant — the filtered array of items that apply to this member
  *
- * Matching is case-insensitive. Items held by 'Party' apply to all members.
+ * Matching is case-insensitive. Party loot (isPartyHolder) applies to all members.
  * The top-level bonus/penalty totals always reflect the grand total so
  * existing code that reads net[stat].bonus continues to work unchanged.
  *
@@ -200,7 +259,7 @@ function computeNetEffects(memberName, items, opts = {}) {
   const relevant = items.filter(it => {
     const h = (it.holder || '').toLowerCase().trim();
     const n = (memberName || '').toLowerCase().trim();
-    return h === n || h === 'party';
+    return h === n || isPartyHolder(h);
   });
 
   const net = {};
@@ -1035,6 +1094,9 @@ if (typeof module !== 'undefined') {
     uid,
     fmt,
     esc,
+    isSafeId,
+    safeCssColor,
+    cleanDbRows,
     showToast,
     openNav,
     closeNav,
@@ -1045,6 +1107,7 @@ if (typeof module !== 'undefined') {
     modStr,
     computeCheck,
     computeNetEffects,
+    isPartyHolder,
     COMBAT_ABILITIES,
     parseDice,
     diceAvg,

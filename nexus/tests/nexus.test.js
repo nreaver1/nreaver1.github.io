@@ -2325,48 +2325,65 @@ describe('Conditions section (under Stats) — buildCondPanel structure', () => 
 });
 
 // ══════════════════════════════════════════════════════════════
-// Section 32 — Condition localStorage persistence
+// Section 32 — Conditions live on the character (party_members.conditions)
 // ══════════════════════════════════════════════════════════════
-describe('Conditions — localStorage persistence helpers', () => {
+describe('Conditions — stored in party_members.conditions', () => {
   const fs = require('fs'), path = require('path');
   const src = fs.readFileSync(path.join(__dirname,'../party-roster.html'),'utf8');
+  const setup = fs.readFileSync(path.join(__dirname,'../sql/supabase_setup.sql'),'utf8');
+  const addon = fs.readFileSync(path.join(__dirname,'../sql/supabase_conditions.sql'),'utf8');
 
-  it('_COND_KEY constant is defined', () => {
-    assert.ok(src.includes("const _COND_KEY='nexus_conditions'"), 
-      '_COND_KEY must be nexus_conditions');
+  it('the column is in the setup script and has an add-column file', () => {
+    assert.match(setup, /create table if not exists party_members \([\s\S]*?\bconditions\s+jsonb\s+default '\[\]'/);
+    assert.match(addon, /alter table public\.party_members add column if not exists conditions jsonb default '\[\]'/);
   });
 
-  it('_condLoad, _condSave, getConditions are all defined', () => {
-    assert.ok(src.includes('function _condLoad()'), '_condLoad must be defined');
-    assert.ok(src.includes('function _condSave('), '_condSave must be defined');
-    assert.ok(src.includes('function getConditions('), 'getConditions must be defined');
+  it('loadData reads conditions and drops unknown keys', () => {
+    assert.ok(src.includes('conditions:Array.isArray(r.conditions)?r.conditions.filter(k=>CONDITION_MAP[k]):[]'));
+  });
+
+  it('saveMemberToDB writes conditions and an edit keeps the existing ones', () => {
+    assert.ok(src.includes('conditions:member.conditions||[],'));
+    assert.ok(src.includes('member.conditions=prev?.conditions||[];'));
+  });
+
+  it('getConditions reads the member row, not localStorage', () => {
+    assert.ok(src.includes('function getConditions(memberId){return members.find(m=>m.id===memberId)?.conditions||[];}'));
+    assert.ok(!src.includes('function _condLoad('), 'the localStorage cache is gone');
+  });
+
+  it('toggles and clear-all write through nexusGate and roll back on failure', () => {
+    const fn = src.slice(src.indexOf('async function _setConditions('), src.indexOf('function toggleCondition('));
+    assert.ok(fn.includes('if(!(await nexusGate()))return;'));
+    assert.ok(fn.includes("db.update('party_members',memberId,{conditions:next})"));
+    assert.ok(fn.includes('m.conditions=prev;'), 'a failed save must restore the old list');
+    assert.ok(src.includes('function clearConditions(memberId){\n  return _setConditions(memberId,[]);'));
   });
 
   it('toggleCondition adds key when absent, removes when present', () => {
-    // Simulate the toggle logic (no DOM needed — pure logic test)
     function simulateToggle(existing, key) {
       return existing.includes(key) ? existing.filter(k=>k!==key) : [...existing, key];
     }
     assert.deepStrictEqual(simulateToggle([], 'blinded'), ['blinded']);
     assert.deepStrictEqual(simulateToggle(['blinded'], 'blinded'), []);
     assert.deepStrictEqual(simulateToggle(['poisoned'], 'blinded'), ['poisoned','blinded']);
-    assert.deepStrictEqual(simulateToggle(['poisoned','blinded'], 'poisoned'), ['blinded']);
+    assert.ok(src.includes('cur.includes(key)?cur.filter(k=>k!==key):[...cur,key]'));
   });
 
-  it('_refreshCondChips is called after toggleCondition', () => {
-    assert.ok(src.includes('_refreshCondChips(memberId)'),
-      'toggleCondition must call _refreshCondChips after save');
+  it('_refreshCondChips runs after a change', () => {
+    assert.ok(src.includes('_refreshCondChips(memberId)'));
   });
 
-  it('clearConditions deletes the member entry from the map', () => {
-    assert.ok(src.includes('delete map[memberId]'), 
-      'clearConditions must delete the member entry (not just set to [])');
+  it('old localStorage conditions move into the database once, for editors only', () => {
+    const fn = src.slice(src.indexOf('async function migrateLocalConditions('), src.indexOf('// Surgically update only condition chips'));
+    assert.ok(src.includes("const _COND_KEY='nexus_conditions'"));
+    assert.ok(fn.includes('if(!nexusAccessNow().canEdit) return 0;'));
+    assert.ok(fn.includes('localStorage.removeItem(_COND_KEY)'));
+    assert.ok(src.includes('migrateLocalConditions().then('), 'boot must run the migration');
   });
 
-  it('getConditions returns empty array for unknown memberId', () => {
-    // The function: return _condLoad()[memberId] || []
-    assert.ok(src.includes("return _condLoad()[memberId]||[]"),
-      'getConditions must return empty array as fallback');
+  it('the roster import keeps conditions', () => {
+    assert.ok(src.includes('conditions:m.conditions\n'));
   });
 });
 
@@ -2662,36 +2679,26 @@ describe('Campaign Snapshot — restoreSnapshot function', () => {
       'restoreSnapshot must build per-table counts for confirm message');
   });
 
-  it('restoreSnapshot deletes existing rows before re-seeding (except nexus_settings)', () => {
-    assert.ok(src.includes("db.deleteWhere(tbl, 'id=gt.')"),
-      "restoreSnapshot must call deleteWhere with 'id=gt.' to clear existing rows");
+  it('restoreSnapshot replaces every table in one database call', () => {
+    const fn = src.slice(src.indexOf('async function restoreSnapshot('), src.indexOf('// ══', src.indexOf('async function restoreSnapshot(')));
+    assert.ok(fn.includes("await db.rpc('nexus_restore_snapshot', { p_tables: tables })"),
+      'restore must go through the all-or-nothing nexus_restore_snapshot function');
+    assert.ok(!fn.includes('db.deleteWhere('), 'no table-by-table deletes: a failure halfway would lose data');
+    assert.ok(!fn.includes('db.upsertMany('), 'no table-by-table inserts');
   });
 
-  it('restoreSnapshot treats nexus_settings as upsert-only (no delete)', () => {
-    assert.ok(src.includes("tbl === 'nexus_settings'"),
-      'restoreSnapshot must handle nexus_settings separately (upsert, no delete)');
+  it('restoreSnapshot refuses a snapshot whose tables are not arrays, before touching anything', () => {
+    assert.ok(src.includes(".filter(tbl => !Array.isArray(snapshot.tables[tbl]))"));
+    assert.ok(src.includes('if (!errors.length) {'));
   });
 
-  it('restoreSnapshot uses upsertMany to re-seed tables', () => {
-    assert.ok(src.includes('await db.upsertMany(tbl, rows)'),
-      'restoreSnapshot must use db.upsertMany to restore each table');
-  });
-
-  it('restoreSnapshot tracks and reports errors per table', () => {
-    assert.ok(src.includes('const errors = []') || src.includes('const errors=[]'),
-      'restoreSnapshot must collect per-table errors');
-    assert.ok(src.includes('errors.push('),
-      'restoreSnapshot must push to errors array on failure');
+  it('restoreSnapshot says nothing changed when it fails', () => {
+    assert.ok(src.includes('Restore failed — nothing was changed.'));
   });
 
   it('restoreSnapshot reports total records restored', () => {
     assert.ok(src.includes('totalRestored'),
       'restoreSnapshot must track totalRestored count');
-  });
-
-  it('restoreSnapshot shows partial failure message if errors exist', () => {
-    assert.ok(src.includes('Restore partially') || src.includes('partially completed'),
-      'restoreSnapshot must report partial failure distinctly from full failure');
   });
 
   it('restoreSnapshot shows export date from snapshot metadata on success', () => {
@@ -2898,11 +2905,6 @@ describe('db.upsertMany — batch upsert method', () => {
       'upsertMany must use POST method for Supabase batch upsert');
   });
 
-  it('restoreSnapshot calls upsertMany with table name and rows array', () => {
-    const adm = fs.readFileSync(path.join(__dirname,'../admin.html'), 'utf8');
-    assert.ok(adm.includes('await db.upsertMany(tbl, rows)'),
-      'restoreSnapshot must call db.upsertMany(tbl, rows) not db.upsert()');
-  });
 });
 
 // ══════════════════════════════════════════════════════════════
@@ -2948,19 +2950,12 @@ describe('Campaign Snapshot — logic correctness (pure JS)', () => {
       'restoreSnapshot must validate tables is a typeof object');
   });
 
-  it('restore only calls deleteWhere for non-settings tables', () => {
-    // nexus_settings is key-value store — wrong to bulk-delete it
-    const restoreIdx = src.indexOf('async function restoreSnapshot(');
-    const restoreBlock = src.slice(restoreIdx, restoreIdx + 2000);
-    assert.ok(restoreBlock.includes("tbl === 'nexus_settings'"),
-      'restoreSnapshot must check tbl === "nexus_settings" to skip bulk delete for settings');
+  it('restore sends only the snapshot tables, in the order they export', () => {
+    assert.ok(src.includes('Object.fromEntries(SNAPSHOT_TABLES.map(tbl => [tbl, snapshot.tables[tbl]]))'));
   });
 
-  it('restore increments totalRestored by rows.length for each table', () => {
-    const restoreIdx = src.indexOf('async function restoreSnapshot(');
-    const restoreBlock = src.slice(restoreIdx, restoreIdx + 3000);
-    assert.ok(restoreBlock.includes('totalRestored += rows.length'),
-      'restoreSnapshot must add rows.length to totalRestored for each table');
+  it('restore reports the row count the database function returns', () => {
+    assert.ok(src.includes("totalRestored = await db.rpc('nexus_restore_snapshot'"));
   });
 
   it('restore uses toLocaleDateString for human-readable export date on success', () => {
@@ -4845,11 +4840,10 @@ describe('Stage 3 — Session CRUD', () => {
     );
   });
 
-  it('saveSession() calls db.upsert on session_log', () => {
-    assert.ok(
-      src.includes("db.upsert('session_log'") || src.includes('db.upsert("session_log"'),
-      'saveSession must call db.upsert on session_log'
-    );
+  it('saveSession() saves the session and its moments in one transaction', () => {
+    assert.ok(src.includes("await db.rpc('nexus_save_session', { p_session: row, p_events: eventRows })"),
+      'saveSession must use the all-or-nothing nexus_save_session function');
+    assert.ok(!src.includes("db.upsert('session_log'"), 'no separate session upsert');
   });
 
   it('saveSession() uses setLoading and setModalLoading during save', () => {
@@ -5179,16 +5173,9 @@ describe('Stage 4 — Events (Moments tab)', () => {
   });
 
   // ── saveSession integration ──────────────────────────────────
-  it('saveSession deletes existing session_events before re-inserting', () => {
-    assert.ok(
-      src.includes("db.deleteWhere('session_events'") ||
-      src.includes('db.deleteWhere("session_events"'),
-      'saveSession must call db.deleteWhere on session_events'
-    );
-    assert.ok(
-      src.includes('session_id=eq.') || src.includes('session_id=eq'),
-      'deleteWhere must filter by session_id'
-    );
+  it('saveSession no longer deletes moments in a separate request', () => {
+    assert.ok(!src.includes("db.deleteWhere('session_events'"),
+      'a failure between a separate delete and insert would lose every moment');
   });
 
   it('saveSession filters out blank moment texts before saving', () => {
@@ -5199,12 +5186,12 @@ describe('Stage 4 — Events (Moments tab)', () => {
     );
   });
 
-  it('saveSession batch-inserts event rows via db.upsertMany', () => {
-    assert.ok(
-      src.includes("db.upsertMany('session_events'") ||
-      src.includes('db.upsertMany("session_events"'),
-      'saveSession must call db.upsertMany on session_events'
-    );
+  it('the save function replaces the session moments inside the transaction', () => {
+    const sql = fs.readFileSync(path.join(__dirname, '../sql/supabase_atomic.sql'), 'utf8');
+    const fn = sql.slice(sql.indexOf('function public.nexus_save_session'), sql.indexOf('function public.nexus_rename_member'));
+    assert.ok(fn.includes('on conflict (id) do update set'));
+    assert.ok(fn.includes('delete from session_events where session_id = v_id;'));
+    assert.ok(fn.includes('insert into session_events (id, session_id, text, members, sort_order)'));
   });
 
   it('saveSession assigns sort_order to each event row', () => {
@@ -8895,7 +8882,7 @@ describe('Combat page — option editor', () => {
   it('only weapons the member (or the party) holds can be linked', () => {
     const body = fnBody('linkableWeapons');
     assert.match(body, /isWeaponItem\(it\)/);
-    assert.match(body, /h === name \|\| h === 'party'/);
+    assert.ok(body.includes('h === name || isPartyHolder(h)'));
   });
 
   it('the editor previews the ranking maths live', () => {
@@ -9221,9 +9208,12 @@ describe('Flat stat (set) effects', () => {
     assert.match(read('combat.html'), /fx-pill fx-set">\$\{label\} = \$\{esc\(f\.value\)\}/);
   });
 
-  it('both roster net-effect copies record set values', () => {
-    const hits = read('party-roster.html').match(/if\(fx\.type==='set'&&Number\.isFinite\(fx\.value\)\) net\[fx\.stat\]\.set=Math\.max/g) || [];
-    assert.strictEqual(hits.length, 2);
+  it('the roster uses the tested utils computeNetEffects (no page copy)', () => {
+    const src = read('party-roster.html');
+    assert.ok(!src.includes('function computeNetEffects('), 'party-roster.html must not shadow computeNetEffects');
+    assert.ok(!src.includes('_computeNetEffectsFromMaps'));
+    assert.ok(src.includes('computeNetEffects(m.name,_itemsByHolder\n    ? [...(_itemsByHolder.get(nameLc)||[]),..._partyItems]\n    : getItemEffects())'));
+    assert.ok(src.includes('computeNetEffects(m.name,getItemEffects())'));
   });
 
   it('roster ability, AC, speed and initiative use effectiveStat', () => {
@@ -10808,5 +10798,268 @@ describe('Cache-busting asset stamps', () => {
     const fn = cite.slice(cite.indexOf('function renderWithCitations('), cite.indexOf('// ═', cite.indexOf('function renderWithCitations(')));
     assert.match(fn, /if \(typeof renderCitations !== 'function'\) return text \? _nexusEscape\(text\) : '';/);
     assert.match(cite, /if \(typeof citeTokenAt !== 'function'\) return null;/);
+  });
+});
+
+
+// ══════════════════════════════════════════════════════════════
+//  HARDENING: row guard, atomic saves, renames, live sync
+// ══════════════════════════════════════════════════════════════
+describe('Row guard (cleanDbRows)', () => {
+  const fs = require('fs'), path = require('path');
+  const { isSafeId, safeCssColor, cleanDbRows } = require('../js/nexus-utils.js');
+  const read = f => fs.readFileSync(path.join(__dirname, '..', f), 'utf8');
+
+  it('isSafeId accepts uid() ids and short keys, rejects markup and quotes', () => {
+    for (const ok of ['_a1b2c3d4e', 'cr', 'npc-slug_2', uid()]) assert.ok(isSafeId(ok), ok);
+    for (const bad of ["x')alert(1)//", 'a"b', '<img>', 'a b', '', null, 7, 'x'.repeat(65)]) assert.ok(!isSafeId(bad), String(bad));
+  });
+
+  it('safeCssColor keeps hex, var() and rgb(), rejects anything else', () => {
+    assert.strictEqual(safeCssColor('#0ef0d0'), '#0ef0d0');
+    assert.strictEqual(safeCssColor(' #abc '), '#abc');
+    assert.strictEqual(safeCssColor('var(--cyan)'), 'var(--cyan)');
+    assert.strictEqual(safeCssColor('rgba(1, 2, 3, 0.5)'), 'rgba(1, 2, 3, 0.5)');
+    for (const bad of ['red;background:url(x)', '#fff" onmouseover="x', 'expression(alert(1))', 'var(--x);}', '', null]) {
+      assert.strictEqual(safeCssColor(bad), null, String(bad));
+    }
+  });
+
+  it('cleanDbRows drops unsafe ids, nulls unsafe colours and references, keeps the rest', () => {
+    const rows = cleanDbRows([
+      { id: '_good00001', name: 'A', color: '#f0a832', member_id: '_m1' },
+      { id: "x');alert(1)//", name: 'evil' },
+      { id: '_good00002', color: 'red;x:y', member_id: 'a"b', first_seen: '_s1' },
+      { key: 'term_mappings', value: {} },
+    ]);
+    assert.deepStrictEqual(rows.map(r => r.id || r.key), ['_good00001', '_good00002', 'term_mappings']);
+    assert.strictEqual(rows[0].color, '#f0a832');
+    assert.strictEqual(rows[1].color, null);
+    assert.strictEqual(rows[1].member_id, null);
+    assert.strictEqual(rows[1].first_seen, '_s1');
+  });
+
+  it('every demo row survives the guard (no real data is dropped)', () => {
+    const data = JSON.parse(read('demo/demo-data.json'));
+    for (const [t, rows] of Object.entries(data.tables)) {
+      assert.strictEqual(cleanDbRows(JSON.parse(JSON.stringify(rows)), t).length, rows.length, t);
+    }
+  });
+
+  it('both db implementations run reads through the guard', () => {
+    assert.ok(read('js/nexus-config.js').includes('return nexusCleanRows(await r.json(), table);'));
+    assert.ok(read('js/nexus-demo.js').includes('run(s => nexusCleanRows(s.select(table, opts), table))'));
+  });
+
+  it('the roster import never writes an unsafe id or colour', () => {
+    assert.ok(read('party-roster.html').includes('id:isSafeId(m.id)?m.id:uid(),color:safeCssColor(m.color)'));
+  });
+});
+
+describe('Party holder (isPartyHolder)', () => {
+  const { isPartyHolder, computeNetEffects } = require('../js/nexus-utils.js');
+
+  it("treats the Loot Tracker's 'Party Inventory' and legacy 'Party' as party loot", () => {
+    for (const h of ['Party', 'party', ' Party Inventory ', 'PARTY INVENTORY']) assert.ok(isPartyHolder(h), h);
+    for (const h of ['Party Vault', 'Partygoer', '', null]) assert.ok(!isPartyHolder(h), String(h));
+  });
+
+  it('computeNetEffects applies Party Inventory items to every member', () => {
+    const items = [{ name: 'Banner', holder: 'Party Inventory', statEffects: [{ stat: 'ac', type: 'bonus', value: 1 }] }];
+    assert.strictEqual(computeNetEffects('Kael', items).net.ac.bonus, 1);
+  });
+});
+
+describe('All-or-nothing saves (sql/supabase_atomic.sql)', () => {
+  const fs = require('fs'), path = require('path');
+  const read = f => fs.readFileSync(path.join(__dirname, '..', f), 'utf8');
+  const { parseDemoSchema, DemoStore } = require('../js/nexus-demo.js');
+  const atomic = read('sql/supabase_atomic.sql');
+  const setup  = read('sql/supabase_setup.sql');
+  const schema = parseDemoSchema(setup);
+  const FNS = ['nexus_save_session', 'nexus_rename_member', 'nexus_restore_snapshot'];
+
+  const store = () => new DemoStore(schema, {
+    party_members:   [{ id: '_m1', name: 'Dr. Wurst' }, { id: '_m2', name: 'Glibnub' }],
+    loot_items:      [{ id: '_l1', name: 'Bat', holder: 'dr. wurst ' }, { id: '_l2', name: 'Hat', holder: 'Glibnub' }],
+    treasury_ledger: [{ id: '_t1', type: 'gain', member_name: 'Dr. Wurst', coins: {} }, { id: '_t2', type: 'gain', member_name: null, coins: {} }],
+    session_log:     [{ id: '_s1', number: 1, title: 'One', status: 'draft', quests: [], session_npcs: [] }],
+    session_events:  [{ id: '_e1', session_id: '_s1', text: 'old', members: ['Dr. Wurst', 'Glibnub'], sort_order: 0 }],
+    npcs:            [{ id: '_n1', slug: 'bob', name: 'Bob', first_seen: '_s1' }],
+    nexus_settings:  [{ key: 'term_mappings', value: {} }],
+  });
+
+  const fnBody = (sql, fn) => {
+    const start = sql.indexOf(`function public.${fn}(`);
+    return start < 0 ? '' : sql.slice(start, sql.indexOf('end $$;', start));
+  };
+
+  it('the setup script carries the same functions as the add-on file', () => {
+    for (const fn of FNS) {
+      assert.ok(fnBody(atomic, fn).length > 50, `${fn} missing from supabase_atomic.sql`);
+      assert.strictEqual(fnBody(setup, fn), fnBody(atomic, fn), `${fn} differs between setup and atomic`);
+    }
+  });
+
+  it('the functions run as the caller, so the access rules still apply', () => {
+    assert.strictEqual((atomic.match(/language plpgsql security invoker/g) || []).length, FNS.length);
+    assert.ok(!/security definer/.test(atomic));
+  });
+
+  it('demo nexus_save_session upserts the session and replaces only its moments', () => {
+    const s = store();
+    s.rpc('nexus_save_session', {
+      p_session: { id: '_s1', number: 2, title: 'Two', quests: [{ id: 'q', text: 'x' }] },
+      p_events: [{ id: '_e2', text: 'new', members: ['Glibnub'], sort_order: 0 }],
+    });
+    const sess = s.select('session_log');
+    assert.strictEqual(sess.length, 1);
+    assert.strictEqual(sess[0].title, 'Two');
+    assert.strictEqual(sess[0].status, 'draft');
+    assert.deepStrictEqual(s.select('session_events').map(e => [e.id, e.session_id]), [['_e2', '_s1']]);
+    assert.strictEqual(s.select('npcs')[0].first_seen, '_s1', 'an upsert must not null out first_seen');
+  });
+
+  it('demo nexus_rename_member follows the name into loot, ledger and moments', () => {
+    const s = store();
+    s.rpc('nexus_rename_member', { p_id: '_m1', p_name: ' Doctor Wurst ' });
+    assert.deepStrictEqual(s.select('party_members').map(m => m.name), ['Doctor Wurst', 'Glibnub']);
+    assert.deepStrictEqual(s.select('loot_items').map(i => i.holder), ['Doctor Wurst', 'Glibnub']);
+    assert.deepStrictEqual(s.select('treasury_ledger').map(t => t.member_name), ['Doctor Wurst', null]);
+    assert.deepStrictEqual(s.select('session_events')[0].members, ['Doctor Wurst', 'Glibnub']);
+  });
+
+  it('demo nexus_restore_snapshot replaces tables, skips unknown columns and upserts settings', () => {
+    const s = store();
+    const n = s.rpc('nexus_restore_snapshot', { p_tables: {
+      party_members: [{ id: '_r1', name: 'Restored', bogus: 1 }],
+      nexus_settings: [{ key: 'term_mappings', value: { a: 1 } }],
+    } });
+    assert.strictEqual(n, 2);
+    assert.deepStrictEqual(s.select('party_members').map(m => [m.id, m.status]), [['_r1', 'active']]);
+    assert.strictEqual(s.select('loot_items').length, 0);
+    assert.strictEqual(s.select('session_events').length, 0);
+    assert.deepStrictEqual(s.select('nexus_settings')[0].value, { a: 1 });
+  });
+
+  it('a demo rpc that fails leaves every table untouched', () => {
+    const s = store();
+    const before = JSON.stringify(s.tables);
+    assert.throws(() => s.rpc('nexus_restore_snapshot', { p_tables: { party_members: [{ id: '_x', name: 'X' }], loot_items: 'nope' } }));
+    assert.strictEqual(JSON.stringify(s.tables), before);
+    assert.throws(() => s.rpc('nexus_rename_member', { p_id: '_missing', p_name: 'X' }));
+    assert.throws(() => s.rpc('no_such_fn', {}), /does not exist/);
+  });
+
+  it('the Supabase db wrapper and the demo adapter both expose rpc', () => {
+    assert.ok(read('js/nexus-config.js').includes('async rpc(fn, args = {}) {'));
+    assert.ok(read('js/nexus-config.js').includes('/rest/v1/rpc/${fn}'));
+    assert.ok(read('js/nexus-demo.js').includes('run(s => s.rpc(fn, args), true)'));
+  });
+
+  it('every rpc a page calls exists in the SQL and in demo mode', () => {
+    const demo = read('js/nexus-demo.js');
+    let calls = 0;
+    for (const f of ['session-log.html', 'admin.html', 'party-roster.html']) {
+      for (const m of read(f).matchAll(/db\.rpc\('(\w+)'/g)) {
+        calls++;
+        assert.ok(atomic.includes(`function public.${m[1]}(`), `${f}: ${m[1]} not in supabase_atomic.sql`);
+        assert.ok(demo.includes(`  ${m[1]}(store,`), `${f}: ${m[1]} not in DEMO_RPC`);
+      }
+    }
+    assert.strictEqual(calls, 3);
+  });
+});
+
+describe('Member rename', () => {
+  const fs = require('fs'), path = require('path');
+  const src = fs.readFileSync(path.join(__dirname, '../party-roster.html'), 'utf8');
+  const fn = src.slice(src.indexOf('async function saveMember('), src.indexOf('async function deleteMember('));
+
+  it('a rename moves loot, vault entries and moments in one transaction', () => {
+    assert.ok(fn.includes("if(renamed) await db.rpc('nexus_rename_member',{p_id:editId,p_name:name});"));
+    assert.ok(fn.indexOf("db.rpc('nexus_rename_member'") < fn.indexOf('await saveMemberToDB(member)'),
+      'rename first, so the member row and its references change together');
+    assert.ok(fn.includes('if(renamed) await Promise.all([prefetchLootItems(),prefetchTreasury()]);'));
+  });
+
+  it('two characters cannot share a name', () => {
+    assert.ok(fn.includes("members.some(m=>m.id!==editId&&(m.name||'').trim().toLowerCase()===name.toLowerCase())"));
+  });
+});
+
+describe('Live updates (js/nexus-live.js)', () => {
+  const fs = require('fs'), path = require('path');
+  const read = f => fs.readFileSync(path.join(__dirname, '..', f), 'utf8');
+  const { nexusLiveBusy, nexusLiveJoinMessage, nexusLiveChangedTable, nexusLive } = require('../js/nexus-live.js');
+  const setup = read('sql/supabase_setup.sql');
+  const realtime = read('sql/supabase_realtime.sql');
+  const LIVE_PAGES = ['index.html', 'party-roster.html', 'loot-tracker.html', 'treasury.html', 'session-log.html', 'combat.html'];
+
+  it('the join frame subscribes to every change in each table', () => {
+    const msg = nexusLiveJoinMessage(['loot_items', 'npcs'], 'tok', '3');
+    assert.strictEqual(msg.event, 'phx_join');
+    assert.strictEqual(msg.topic, 'realtime:nexus-live');
+    assert.strictEqual(msg.ref, '3');
+    assert.strictEqual(msg.payload.access_token, 'tok');
+    assert.deepStrictEqual(msg.payload.config.postgres_changes, [
+      { event: '*', schema: 'public', table: 'loot_items' },
+      { event: '*', schema: 'public', table: 'npcs' },
+    ]);
+  });
+
+  it('reads the changed table from a postgres_changes frame and ignores the rest', () => {
+    assert.strictEqual(nexusLiveChangedTable({ event: 'postgres_changes', payload: { data: { table: 'npcs', type: 'UPDATE' } } }), 'npcs');
+    assert.strictEqual(nexusLiveChangedTable({ event: 'phx_reply', payload: {} }), null);
+    assert.strictEqual(nexusLiveChangedTable(null), null);
+  });
+
+  it('waits while a modal is open, a field has focus or the tab is hidden', () => {
+    const doc = (o = {}) => ({ hidden: !!o.hidden, activeElement: o.active || null, querySelector: () => o.open || null });
+    assert.strictEqual(nexusLiveBusy(doc()), false);
+    assert.strictEqual(nexusLiveBusy(doc({ hidden: true })), true);
+    assert.strictEqual(nexusLiveBusy(doc({ open: {} })), true);
+    assert.strictEqual(nexusLiveBusy(doc({ active: { tagName: 'TEXTAREA' } })), true);
+    assert.strictEqual(nexusLiveBusy(doc({ active: { tagName: 'BUTTON' } })), false);
+  });
+
+  it('does nothing outside a browser', () => {
+    assert.strictEqual(nexusLive(['npcs'], () => {}), null);
+  });
+
+  it('every page that listens loads nexus-live.js after utils', () => {
+    for (const f of LIVE_PAGES) {
+      const src = read(f);
+      const utils = src.indexOf('src="js/nexus-utils.js');
+      const live  = src.indexOf('src="js/nexus-live.js');
+      assert.ok(utils >= 0 && live > utils, `${f} must load nexus-live.js after nexus-utils.js`);
+      assert.ok(src.includes('nexusLive(['), `${f} must call nexusLive`);
+    }
+  });
+
+  it('pages only listen to tables in the realtime publication', () => {
+    const published = [...realtime.matchAll(/'(\w+)'/g)].map(m => m[1]);
+    for (const f of LIVE_PAGES) {
+      const call = read(f).match(/nexusLive\(\[([^\]]*)\]/);
+      for (const t of [...call[1].matchAll(/'(\w+)'/g)].map(m => m[1])) {
+        assert.ok(published.includes(t), `${f} listens to ${t}, which supabase_realtime.sql does not publish`);
+      }
+    }
+  });
+
+  it('the realtime list covers every campaign table and the setup script includes it', () => {
+    const tables = [...setup.matchAll(/create\s+table\s+if\s+not\s+exists\s+(?:public\.)?(\w+)/gi)].map(m => m[1]);
+    for (const t of tables) assert.ok(realtime.includes(`'${t}'`), `${t} missing from supabase_realtime.sql`);
+    assert.ok(setup.includes('alter publication supabase_realtime add table public.%I'));
+  });
+
+  it('live refreshes reload quietly and never clear the page on a network error', () => {
+    for (const f of ['party-roster.html', 'loot-tracker.html', 'treasury.html']) {
+      const src = read(f);
+      assert.ok(/async function loadData\(quiet\)\s*\{/.test(src), f);
+      assert.ok(/if ?\(quiet\) throw e;/.test(src), f);
+    }
+    assert.ok(read('treasury.html').includes('} else if (!quiet) {\n      // First run'),
+      'a live refresh must not seed currencies');
   });
 });

@@ -210,10 +210,10 @@
     </div><!-- /admin-main -->
   </div><!-- /adminContent -->
 
-  <script src="js/nexus-demo.js?v=c5fab7ec"></script>
+  <script src="js/nexus-demo.js?v=4ad1b72c"></script>
   <script src="js/nexus-auth.js?v=d48892dc"></script>
-  <script src="js/nexus-config.js?v=8dbbce26"></script>
-  <script src="js/nexus-utils.js?v=8e21f6f3"></script>
+  <script src="js/nexus-config.js?v=6c6e5739"></script>
+  <script src="js/nexus-utils.js?v=82e242d1"></script>
   <script src="js/nexus-srd.js?v=7677f88e"></script>
 <script>loadModuleSettings().then(() => { buildSidenav('admin.html'); applyModuleVisibility(); });</script>
   <script>
@@ -921,40 +921,28 @@
     btn.dataset.loadingText = 'Restoring…';
     setLoading(btn, true);
 
-    const errors = [];
+    const errors = SNAPSHOT_TABLES
+      .filter(tbl => !Array.isArray(snapshot.tables[tbl]))
+      .map(tbl => `${tbl}: not an array`);
+
+    // One transaction (sql/supabase_atomic.sql): every table is replaced, or
+    // nothing changes. Unknown columns are skipped; missing ones take defaults.
     let totalRestored = 0;
-
-    for (const tbl of SNAPSHOT_TABLES) {
-      const rows = snapshot.tables[tbl];
-      if (!Array.isArray(rows)) { errors.push(`${tbl}: not an array`); continue; }
-
+    if (!errors.length) {
+      const tables = Object.fromEntries(SNAPSHOT_TABLES.map(tbl => [tbl, snapshot.tables[tbl]]));
       try {
-        if (tbl === 'nexus_settings') {
-          // Key-value store — upsert by key, no blanket delete
-          if (rows.length) await db.upsertMany(tbl, rows);
-        } else if (tbl === 'session_events') {
-          // session_events has FK → session_log (already restored above in loop order).
-          // CASCADE delete on session_log would wipe events, but we delete session_log
-          // first then re-seed both, so we delete session_events explicitly here too.
-          await db.deleteWhere(tbl, 'id=gt.').catch(() => {});
-          if (rows.length) await db.upsertMany(tbl, rows);
-        } else {
-          // Delete all existing rows, then re-seed
-          await db.deleteWhere(tbl, 'id=gt.').catch(() => {}); // ignore if table is empty
-          if (rows.length) await db.upsertMany(tbl, rows);
-        }
-        totalRestored += rows.length;
+        totalRestored = await db.rpc('nexus_restore_snapshot', { p_tables: tables });
       } catch (e) {
-        console.error(`Restore failed for ${tbl}:`, e);
-        errors.push(`${tbl}: ${e.message || 'unknown error'}`);
+        console.error('Restore failed:', e);
+        errors.push(e.message || 'unknown error');
       }
     }
 
     setLoading(btn, false);
 
     if (errors.length) {
-      snapshotStatus(`⚠ Restore partially completed — ${totalRestored} records written.\nErrors: ${errors.join('; ')}`, true);
-      showToast('Restore partially failed — check console.');
+      snapshotStatus(`✗ Restore failed — nothing was changed.\nErrors: ${errors.join('; ')}`, true);
+      showToast('Restore failed — nothing was changed.');
     } else {
       const exportDate = snapshot.exported_at
         ? new Date(snapshot.exported_at).toLocaleDateString(undefined, { dateStyle: 'medium' })

@@ -4,11 +4,12 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>VAULT-LEDGER // Party Treasury</title>
-  <script src="js/nexus-demo.js?v=c5fab7ec"></script>
+  <script src="js/nexus-demo.js?v=4ad1b72c"></script>
   <script src="js/nexus-auth.js?v=d48892dc"></script>
-  <script src="js/nexus-config.js?v=8dbbce26"></script>
-  <script src="js/nexus-utils.js?v=8e21f6f3"></script>
+  <script src="js/nexus-config.js?v=6c6e5739"></script>
+  <script src="js/nexus-utils.js?v=82e242d1"></script>
   <script src="js/nexus-cite.js?v=29a8deb3"></script>
+  <script src="js/nexus-live.js?v=16acaebe"></script>
   <link rel="icon" type="image/x-icon" href="assets/favicon.ico" />
   <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@400;700;900&family=Rajdhani:wght@400;500;600&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="css/nexus.css?v=1c95a497" />
@@ -337,9 +338,11 @@ let memberVaultsCache = {};     // per-member vault totals, refreshed by renderM
 // ══════════════════════════════════
 //  PERSIST  (Supabase)
 // ══════════════════════════════════
-async function loadData() {
+// quiet: a live refresh — no overlay, no first-run seeding, and a failure
+// keeps what's on screen
+async function loadData(quiet) {
   try {
-    showLoading(true);
+    if (!quiet) showLoading(true);
     const [curRows, ledgerRows] = await Promise.all([
       db.select('treasury_currencies', { order: 'sort_order.asc,created_at.asc' }),
       db.select('treasury_ledger',     { order: 'ts.asc' }),
@@ -352,7 +355,7 @@ async function loadData() {
       }));
       // Snapshot labels so deleted currencies still display correctly
       currencies.forEach(cur => { currencyLabels[cur.id] = { name: cur.name, abbr: cur.abbr }; });
-    } else {
+    } else if (!quiet) {
       // First run — seed default currency
       currencies = JSON.parse(JSON.stringify(DEFAULT_CURRENCIES));
       await db.upsert('treasury_currencies', {
@@ -361,19 +364,18 @@ async function loadData() {
       });
     }
 
-    if (ledgerRows.length) {
-      ledger = ledgerRows.map(r => ({
-        id: r.id, type: r.type, desc: r.description,
-        note: r.note, ts: r.ts, coins: r.coins || {}, member: r.member_name || null,
-      }));
-    }
+    ledger = ledgerRows.map(r => ({
+      id: r.id, type: r.type, desc: r.description,
+      note: r.note, ts: r.ts, coins: r.coins || {}, member: r.member_name || null,
+    }));
     recalcVault();
   } catch(e) {
+    if (quiet) throw e;
     console.error(e);
     showToast('Could not load treasury — check your Supabase config.');
     currencies = JSON.parse(JSON.stringify(DEFAULT_CURRENCIES));
     vault = {}; ledger = [];
-  } finally { showLoading(false); }
+  } finally { if (!quiet) showLoading(false); }
 }
 
 function txToRow(tx) {
@@ -2147,6 +2149,15 @@ Promise.all([
   if (arrow) { arrow.textContent = ' ▼'; }
   const th = arrow ? arrow.closest('th') : null;
   if (th) th.classList.add('sorted');
+  // Someone else's edits show up without a reload (js/nexus-live.js)
+  nexusLive(['treasury_currencies', 'treasury_ledger', 'party_members'], async changed => {
+    if (changed.has('party_members')) _cachedTxMembers = null;
+    await Promise.all([
+      (changed.has('treasury_currencies') || changed.has('treasury_ledger')) ? loadData(true) : null,
+      loadTxMembers(),
+    ]);
+    render();
+  });
 });
 </script>
 

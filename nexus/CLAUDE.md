@@ -13,7 +13,7 @@ Static multi-page web app for tracking a tabletop campaign: party roster, treasu
 
 ```
 index.html            Dashboard: module cards + summary stats pulled from every table
-party-roster.html     Characters, abilities, skills/saves, HP, conditions (under Stats), rests, item effects, Spells tab
+party-roster.html     Characters, abilities, skills/saves, HP, conditions (under Stats; stored on the row), rests, item effects, Spells tab
 treasury.html         Custom currencies, gain/spend ledger, splits, per-member vaults, net worth
 loot-tracker.html     Items, rarity, holder, attunement (max 3), quantity, stat effects, import/transfer, SRD name search
 session-log.html      Sessions, "moments" (events), quests, NPC index, ^slug citations
@@ -33,26 +33,27 @@ js/nexus-cite.js      ^npc-slug citations on every page: loadCiteNpcs/setCiteNpc
                       the ^ autocomplete (auto-attached to any [data-cite] field). Loaded right after utils.
 js/nexus-auth.js      Sign-in: Supabase Auth emailed links, session in localStorage, token refresh, role
                       lookup in campaign_members, and nexusAccess() (who may edit). Loaded between demo and config.
+js/nexus-live.js      Live updates: nexusLive(tables, refresh) over Supabase Realtime (raw Phoenix websocket, no SDK).
+                      Loaded after utils/cite on the six module pages. Off in demo mode.
 js/nexus-demo.js      Demo mode (?demo): in-browser DemoStore with the same API as `db`, schema read from
                       sql/supabase_setup.sql at runtime. Loaded right BEFORE nexus-config.js on every page.
 demo/demo-data.json   The demo campaign (an Admin snapshot). demo/img/ holds its portraits.
 css/nexus.css         One shared stylesheet (~3.8k lines); theme tokens on :root
 tools/stamp-assets.js  Cache-busting: stamps every js/ and css/ link in the pages with ?v=<file hash>
 sql/                  Hand-run SQL for the Supabase SQL Editor (no migration tool)
-tests/nexus.test.js   ~10k lines, ~1480 tests
-.github/workflows/    Leftover test.yml that never runs. The live CI is ../.github/workflows/nexus-ci.yml at the repo root
+tests/nexus.test.js   ~10k lines, ~1600 tests (CI: ../.github/workflows/nexus-ci.yml at the repo root)
 ```
 
 ## Page conventions
 
 Each module page follows the same pattern:
 
-1. `<script src="js/nexus-demo.js">`, `js/nexus-auth.js`, `js/nexus-config.js`, then `js/nexus-utils.js` (order matters: config picks the demo store and starts sign-in, and utils call `isModuleEnabled` from config).
+1. `<script src="js/nexus-demo.js">`, `js/nexus-auth.js`, `js/nexus-config.js`, then `js/nexus-utils.js` (order matters: config picks the demo store and starts sign-in, and utils call `isModuleEnabled` from config). Pages that refresh live load `js/nexus-live.js` after utils (and cite).
 2. `<div id="nexus-nav-root">`, filled by `buildSidenav('<this-page>.html')`.
 3. An async `boot()`/`init()` that runs `Promise.all([loadModuleSettings(), loadTerms(), db.select(...)])`, then `buildSidenav`, `applyModuleVisibility()`, `applyReadOnlyBanner()` and `if (!enforceModuleGuard('<moduleKey>')) return;`, and then renders.
-4. State lives in page-level globals (`members`, `items`, `sessions`, `events`, `npcs`, `ledger`, ...). Every mutation writes to Supabase and then patches the local array and re-renders. There's no realtime sync, so other tabs/users only see changes after a reload.
+4. State lives in page-level globals (`members`, `items`, `sessions`, `events`, `npcs`, `ledger`, ...). Every mutation writes to Supabase and then patches the local array and re-renders. After boot each page calls `nexusLive([...tables], refresh)`; the refresh re-runs the page's loaders (`loadData(true)` = quiet: no overlay, rethrows instead of clearing) and re-renders. It waits while a modal/popover is open, a field has focus or the tab is hidden. Our own writes echo back too, so refreshes must be idempotent.
 5. Every function that writes to the DB starts with `if (!(await nexusGate())) return;`. GM-only actions (settings, danger zone, snapshots, DM target) are wrapped in `requireAdmin(fn)`. Both decide via `nexusAccessNow()`; the database enforces the same rules, so these are UX, not security.
-6. Rendering is template-string `innerHTML`. **All user text must go through `esc()`**, including attribute values like `src`, `title` and `style`. Never interpolate user strings into inline JS such as `onclick="f('${esc(x)}')"`: the browser decodes entities before running the handler, so escaping doesn't help there. Use `data-member="${esc(m.name)}" onclick="f(this.dataset.member)"` instead (tests enforce this for member names).
+6. Every `db.select` result passes `cleanDbRows` (utils): rows whose `id` isn't `[A-Za-z0-9_-]{1,64}` are dropped, `color` must be hex/`var(--x)`/`rgb()`, and `*_id`/`first_seen` refs must be safe ids. That is what makes `onclick="f('${m.id}')"` and `style="color:${m.color}"` safe; new code that writes ids or colours from imports should use `isSafeId`/`safeCssColor`. Rendering is template-string `innerHTML`. **All user text must go through `esc()`**, including attribute values like `src`, `title` and `style`. Never interpolate user strings into inline JS such as `onclick="f('${esc(x)}')"`: the browser decodes entities before running the handler, so escaping doesn't help there. Use `data-member="${esc(m.name)}" onclick="f(this.dataset.member)"` instead (tests enforce this for member names).
 7. Modals: give the backdrop `class="modal-backdrop"` (or `data-backdrop`) and close on `e.target === backdrop`. The drag guard in nexus-config.js stops a press inside the modal released on the backdrop from closing it, for every modal; don't add per-page mousedown tracking.
 8. Confirmations use `await nexusConfirm({...})`, never `confirm()` (a test enforces this in some modules). Toasts use `showToast()`. Buttons use `setLoading(btn, true/false)`.
 9. Use CSS variables (`var(--cyan)`, `var(--border)`, ...), not hex values. The tests check for hard-coded colors in places.
@@ -63,25 +64,26 @@ IDs are client-generated text strings from `uid()` (`'_' + 9 base36 chars`).
 
 | Table | Notes |
 |---|---|
-| `party_members` | `abilities`, `combat` (ac, hp, hpcur, speed, ...), `proficiencies` are JSONB. `photo` is a base64 data URL stored inline. |
-| `loot_items` | `holder` is a free-text member **name** (not an id). The canonical holders are `'Party'` (applies effects to everyone) and `'Party Vault'`. `stat_effects` is JSONB `[{stat,type,value,damageType?}]`; `type` is `bonus`, `penalty`, `set` (flat stat: "at least value", highest wins, only for `SETTABLE_STATS`), `advantage` or `disadvantage`. The JS maps `qty` to the `quantity` column. |
+| `party_members` | `abilities`, `combat` (ac, hp, hpcur, speed, ...), `proficiencies`, `conditions` (`['poisoned', ...]`) are JSONB. `photo` is a base64 data URL stored inline. |
+| `loot_items` | `holder` is a free-text member **name** (not an id). Party loot is `'Party Inventory'` (what the Loot Tracker writes) or legacy `'Party'`; test with `isPartyHolder()`. It applies effects to everyone. `'Party Vault'` is the other special holder. `stat_effects` is JSONB `[{stat,type,value,damageType?}]`; `type` is `bonus`, `penalty`, `set` (flat stat: "at least value", highest wins, only for `SETTABLE_STATS`), `advantage` or `disadvantage`. The JS maps `qty` to the `quantity` column. |
 | `treasury_currencies` | `rate` converts to the base currency; `sort_order`. |
 | `treasury_ledger` | `type` is `'gain'` or `'spend'`, `coins` is JSONB `{currencyId: amount}`, `ts` is epoch ms, `member_name` (nullable) is a member-vault transaction. Balances are **always derived** with `recalcVaultFromLedger`; nothing stores them. |
 | `session_log` | `quests` and `session_npcs` are inline JSONB arrays. |
-| `session_events` | FK to session_log with cascade. Saved by delete-all-then-reinsert for the session (non-atomic). |
+| `session_events` | FK to session_log with cascade. Saved with the session in one transaction by `db.rpc('nexus_save_session')` (delete + reinsert inside the function). |
 | `npcs` | `slug` is unique. `first_seen` is an FK with set null. |
 | `combat_options` | One attack/spell/feature per row. **Also the spell list**: the roster Spells tab shows `kind='spell'` rows (with `school`, `components`, `material`, `casting_time`, `duration`, `concentration`, `ritual`, `description`, `prepared`, `srd_index`). FK `member_id` → party_members (cascade; keyed by **id**, not name), `loot_item_id` → loot_items (set null). `action` action/bonus/reaction, `resolve` attack/save/auto/none, `ability` str..cha or `spell`, `spell_level` 0 = cantrip. |
 | `campaign_library` | Hand-typed non-SRD content (Tasha's, homebrew) shared by every name search. `kind` spell/weapon/item/feature, `name`, `data` JSONB in the form's shape (combat_options fields, or loot fields for items). Unique on `(kind, lower(name))`; the app updates by name instead of duplicating. |
 | `nexus_settings` | key/value JSONB: `term_mappings`, `module_enabled`, `site_lock` (legacy only), `combat_target` (`{ac, save}`). GM-only writes. |
 | `campaign_members` | `email` (lowercase, PK), `role` `gm`/`player`. Created by `sql/supabase_auth.sql`, **not** in setup.sql, snapshots or the demo. Managed in the SQL Editor; signed-in users can read only their own row. |
 
-Member names are the join key between the roster, loot `holder` and ledger `member_name`. Renaming a member doesn't cascade.
+Member names are the join key between the roster, loot `holder`, ledger `member_name` and moment `members`. A rename goes through `db.rpc('nexus_rename_member')`, which updates all four in one transaction; the roster refuses a name another character already has.
 
-Conditions (party roster) and the collapse state of the effects panel live in **localStorage**, not the DB, so they're per-browser.
+Conditions are on `party_members.conditions` (shared). The roster moves an editor's old localStorage `nexus_conditions` into the row once. The effects-panel collapse state still lives in localStorage.
 
 ### SQL files
 - `sql/supabase_setup.sql`: the full install (all tables + settings + session log).
 - `sql/supabase_session_log.sql`, `supabase_settings_only.sql`, `supabase_tx_member.sql`, `supabase_loot_quantity.sql`, `supabase_combat.sql`: incremental add-ons for older installs. They overlap the setup script. `supabase_combat.sql` creates the table **and** ends with `add column if not exists` lines, so re-running it upgrades an older combat_options. `supabase_library.sql` creates campaign_library.
+- `sql/supabase_atomic.sql`: the Postgres functions behind `db.rpc` (`nexus_save_session`, `nexus_rename_member`, `nexus_restore_snapshot`), all `security invoker` so RLS still applies. `supabase_conditions.sql` adds `party_members.conditions`; `supabase_realtime.sql` adds every table to the `supabase_realtime` publication (a new table must be added there too, a test checks). All three are also in the setup script. DemoStore implements the same functions in `DEMO_RPC` (nexus-demo.js); a new rpc needs both.
 - `sql/supabase_auth.sql`: run after the setup script. Replaces the open `public_all` policies: anyone reads, editors in `campaign_members` write, GM-only `nexus_settings`. **A new table in setup.sql must be added to its table list** (a test checks), or it stays publicly writable.
 - When you add a column, add it to `supabase_setup.sql` **and** ship an `add column if not exists` file. A test checks that the setup script has the columns the pages write.
 
@@ -97,7 +99,7 @@ Conditions (party roster) and the collapse state of the effects panel live in **
 - **Spells tab (roster):** reads `combat_options` at boot; add/edit go through `CombatEditor` with `kind: 'spell'`; Prepared toggles write straight to the row. Adding a weapon from the editor can create the Loot Tracker item (held by the character) and link it.
 - **Sign-in / access:** `nexusAccess()` in nexus-auth.js has three modes. In `demo` everything is allowed. In `auth` (the `campaign_members` table exists) the role decides: gm/player can edit and gm does admin. In `legacy` (supabase_auth.sql never run) the old site lock + `NEXUS_ADMIN_HASH` password apply. Signing in emails a link (`/auth/v1/otp`) that returns to the current page. `nexusAuthInit` picks the tokens up from the `#access_token=…` fragment, saves them to localStorage `nexus_auth`, clears the fragment, and refreshes them before expiry. `db._headers()` sends the user's token, so RLS sees their email. In auth mode, Admin hides the Site Access and Admin Password cards and asks for GM sign-in instead.
 - **Email limits:** Supabase's built-in mailer only delivers to members of the Supabase team, a few per hour. Players need an SMTP provider configured before they can sign in. Supabase → Authentication → URL Configuration must list `https://nreaver1.github.io/nexus/**` (and the Site URL), or links land on localhost.
-- **Snapshot:** Admin exports all tables to JSON. Restore deletes every row and reinserts per table (not transactional).
+- **Snapshot:** Admin exports all tables to JSON. Restore is one `db.rpc('nexus_restore_snapshot')` call: all tables are replaced or nothing changes. Unknown columns are skipped and missing ones take their defaults; `nexus_settings` is upserted by key.
 
 ## Testing
 
@@ -140,5 +142,5 @@ Hand-editing `demo-data.json` is fine too: it's a plain snapshot. Keep `exported
 - With supabase_auth.sql installed, writes are enforced by RLS. Without it (fresh installs), security is client-side only, as before.
 - `seed-session-log.html` is still deployed publicly. Its buttons require the admin password, but like everything else that's UI-only. In demo mode it seeds the demo copy.
 - `nexusConfirm` escapes all of its text fields itself, so pass plain text, never HTML.
-- Record ids (`m.id`, `s.id`, ...) and `m.color` are still interpolated into inline handlers and `style` attributes unescaped. They're safe only while every row comes from the UI; a row written straight to the API could inject. Moving to `data-*` + `addEventListener` would close it.
-- `nexus/.github/workflows/test.yml` is a dead leftover and can be deleted.
+- Record ids and colours are still interpolated into inline handlers and `style` attributes; the `cleanDbRows` read guard is what keeps that safe. Don't bypass `db.select` for rendering data.
+- Players can't sign in until an SMTP provider is set up in Supabase (see Email limits).

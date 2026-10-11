@@ -48,7 +48,7 @@ const _supabaseDb = {
     if (opts.filter) url += `&${opts.filter}`;
     const r = await fetch(url, { headers: await this._headers() });
     if (!r.ok) throw new Error(`DB select ${table}: ${await r.text()}`);
-    return r.json();
+    return nexusCleanRows(await r.json(), table);
   },
 
   // INSERT — single row, returns inserted row
@@ -116,7 +116,26 @@ const _supabaseDb = {
     if (!r.ok) throw new Error(`DB upsertMany ${table}: ${await r.text()}`);
     return r.json();
   },
+
+  // Call a Postgres function (sql/supabase_atomic.sql). Each call runs as
+  // one transaction, so a multi-table save lands completely or not at all.
+  async rpc(fn, args = {}) {
+    const r = await fetch(`${SUPABASE_URL}/rest/v1/rpc/${fn}`, {
+      method:  'POST',
+      headers: await this._headers(),
+      body:    JSON.stringify(args),
+    });
+    if (!r.ok) throw new Error(`DB rpc ${fn}: ${await r.text()}`);
+    const text = await r.text();
+    return text ? JSON.parse(text) : null;
+  },
 };
+
+// Every read goes through the row guard in nexus-utils.js (unsafe ids
+// dropped, colours checked). seed-session-log.html loads no utils.
+function nexusCleanRows(rows, table) {
+  return typeof cleanDbRows === 'function' ? cleanDbRows(rows, table) : rows;
+}
 
 // Demo mode (?demo, see js/nexus-demo.js) swaps in the sample campaign held
 // in this browser tab. It never talks to Supabase, and the site lock and

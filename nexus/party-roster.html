@@ -4,13 +4,14 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>PARTY ROSTER // Crew Registry</title>
-  <script src="js/nexus-demo.js?v=c5fab7ec"></script>
+  <script src="js/nexus-demo.js?v=4ad1b72c"></script>
   <script src="js/nexus-auth.js?v=d48892dc"></script>
-  <script src="js/nexus-config.js?v=8dbbce26"></script>
-  <script src="js/nexus-utils.js?v=8e21f6f3"></script>
+  <script src="js/nexus-config.js?v=6c6e5739"></script>
+  <script src="js/nexus-utils.js?v=82e242d1"></script>
   <script src="js/nexus-cite.js?v=29a8deb3"></script>
+  <script src="js/nexus-live.js?v=16acaebe"></script>
   <script src="js/nexus-srd.js?v=7677f88e"></script>
-  <script src="js/nexus-combat-editor.js?v=5ac9e6a6"></script>
+  <script src="js/nexus-combat-editor.js?v=343792a0"></script>
   <link rel="icon" type="image/x-icon" href="assets/favicon.ico" />
   <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@400;700;900&family=Rajdhani:wght@400;500;600;700&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="css/nexus.css?v=1c95a497" />
@@ -341,10 +342,8 @@ const STATUS_COLORS=Object.fromEntries(Object.entries(MEMBER_STATUS).map(([k,v])
 const STATUS_LABELS=Object.fromEntries(Object.entries(MEMBER_STATUS).map(([k,v])=>[k,v.label]));
 
 // ── Official D&D 5e conditions (PHB Appendix A) ─────────────────────────────
-// Each entry: key (stored in localStorage per member), icon (emoji),
+// Each entry: key (stored in party_members.conditions), icon (emoji),
 // label (display), tip (tooltip for the DM).
-// Stored outside member DB rows — conditions are session-volatile state;
-// persisting them per member ID in localStorage keeps the DB schema clean.
 const CONDITIONS=[
   {key:'blinded',       icon:'👁',  label:'Blinded',       color:'#b0b0c0', tip:"Can't see. Attacks vs you have adv; your attacks have disadv."},
   {key:'charmed',       icon:'💖',  label:'Charmed',       color:'#e050a0', tip:"Can't attack charmer. Charmer has adv on social checks vs you."},
@@ -377,34 +376,55 @@ let currentPhoto=null;
 // In-memory only — intentionally resets on page reload.
 let _rosterFilter={search:'',status:'',sort:'created'};
 
-// ── Conditions: localStorage persistence ────────────────────
-// Conditions are per-member volatile session state. We store them
-// in localStorage (key → member id, value → string[]) to survive
-// full re-renders and page reloads without needing a DB column.
-// Shape: { memberId: ['blinded','poisoned',…], … }
+// ── Conditions: party_members.conditions ─────────────────────
+// Shared by everyone at the table (sql/supabase_conditions.sql); they used
+// to live in each browser's localStorage under this key.
 const _COND_KEY='nexus_conditions';
-// In-memory write-through caches — eliminates repeated JSON.parse on every card render.
-// Write path (save/toggle) updates both cache and localStorage in one step.
-let _condCache=null;  // null = not yet loaded
-function _condLoad(){
-  if(_condCache!==null) return _condCache;
-  try{_condCache=JSON.parse(localStorage.getItem(_COND_KEY)||'{}')}catch{_condCache={}}
-  return _condCache;
+function getConditions(memberId){return members.find(m=>m.id===memberId)?.conditions||[];}
+
+async function _setConditions(memberId,next){
+  if(!(await nexusGate()))return;
+  const m=members.find(x=>x.id===memberId);if(!m)return;
+  const prev=m.conditions||[];
+  m.conditions=next;
+  _refreshCondChips(memberId);
+  try{await db.update('party_members',memberId,{conditions:next});}
+  catch(e){
+    console.error(e);
+    m.conditions=prev;
+    _refreshCondChips(memberId);
+    showToast('Could not save conditions.');
+  }
 }
-function _condSave(map){
-  _condCache=map;  // update cache first
-  try{localStorage.setItem(_COND_KEY,JSON.stringify(map))}catch{}
-}
-function getConditions(memberId){return _condLoad()[memberId]||[];}
 
 // Toggle a single condition for a member, then do a surgical DOM refresh —
 // only the condition chips and header badge update, no full re-render.
 function toggleCondition(memberId,key){
-  const map=_condLoad();
-  const cur=map[memberId]||[];
-  map[memberId]=cur.includes(key)?cur.filter(k=>k!==key):[...cur,key];
-  _condSave(map);
-  _refreshCondChips(memberId);
+  const cur=getConditions(memberId);
+  return _setConditions(memberId,cur.includes(key)?cur.filter(k=>k!==key):[...cur,key]);
+}
+
+// One-time move of this browser's old localStorage conditions into the
+// database. Only editors can write, so viewers keep the local copy.
+async function migrateLocalConditions(){
+  let local;
+  try{local=JSON.parse(localStorage.getItem(_COND_KEY)||'null');}catch{local=null;}
+  if(!local||typeof local!=='object') return 0;
+  await nexusAuthReady;
+  if(!nexusAccessNow().canEdit) return 0;
+  let moved=0;
+  const moves=members.filter(m=>!(m.conditions||[]).length&&Array.isArray(local[m.id])&&local[m.id].length);
+  try{
+    for(const m of moves){
+      const next=local[m.id].filter(k=>CONDITION_MAP[k]);
+      if(!next.length) continue;
+      await db.update('party_members',m.id,{conditions:next});
+      m.conditions=next;
+      moved++;
+    }
+    localStorage.removeItem(_COND_KEY);
+  }catch(e){console.error('Could not move local conditions:',e);}
+  return moved;
 }
 
 // Surgically update only condition chips + badges after a toggle.
@@ -445,10 +465,7 @@ function _refreshCondChips(memberId){
 
 // Clear all conditions for a member (e.g. after long rest)
 function clearConditions(memberId){
-  const map=_condLoad();
-  delete map[memberId];
-  _condSave(map);
-  _refreshCondChips(memberId);
+  return _setConditions(memberId,[]);
 }
 
 // ── fx-items collapsed state ─────────────────────────────────────────────────────
@@ -571,66 +588,7 @@ function getMemberWallet(memberName){
     .filter(({amt})=>amt!==0);
 }
 
-// ── COMPUTE NET EFFECTS for a member (from loot items) ──
-function computeNetEffects(memberName){
-  const items=getItemEffects();
-  // Items apply if held by this member OR if held by "party"/"party inventory"
-  const relevant=items.filter(it=>{
-    const h=(it.holder||'').toLowerCase().trim();
-    const n=(memberName||'').toLowerCase().trim();
-    return h===n||h==='party';
-  });
-  const net={};
-  for(const item of relevant){
-    for(const fx of (item.statEffects||[])){
-      if(!fx.stat) continue;
-      if(!net[fx.stat]) net[fx.stat]={bonus:0,penalty:0,advantage:0,disadvantage:0,sources:[]};
-      if(fx.type==='bonus')        net[fx.stat].bonus+=(fx.value||0);
-      if(fx.type==='penalty')      net[fx.stat].penalty+=(fx.value||0);
-      if(fx.type==='advantage')    net[fx.stat].advantage++;
-      if(fx.type==='disadvantage') net[fx.stat].disadvantage++;
-      if(fx.type==='set'&&Number.isFinite(fx.value)) net[fx.stat].set=Math.max(net[fx.stat].set??-Infinity,fx.value);
-      net[fx.stat].sources.push({itemName:item.name,itemRarity:item.rarity,fx});
-      // Track per-damage-type breakdowns for damage stats
-      if(fx.type==='bonus'||fx.type==='penalty'){
-        if(!net[fx.stat].byType) net[fx.stat].byType={};
-        const bucket=fx.damageType?fx.damageType.toLowerCase():'untyped';
-        if(!net[fx.stat].byType[bucket]) net[fx.stat].byType[bucket]={bonus:0,penalty:0};
-        if(fx.type==='bonus')   net[fx.stat].byType[bucket].bonus+=(fx.value||0);
-        if(fx.type==='penalty') net[fx.stat].byType[bucket].penalty+=(fx.value||0);
-      }
-    }
-  }
-  return{net,relevant};
-}
-
-// Fast variant of computeNetEffects using pre-grouped maps from render().
-// Avoids re-scanning the full items array for each member — O(1) map lookup.
-function _computeNetEffectsFromMaps(nameLc,_itemsByHolder,_partyItems){
-  const relevant=[...(_itemsByHolder.get(nameLc)||[]),..._partyItems];
-  const net={};
-  for(const item of relevant){
-    for(const fx of (item.statEffects||[])){
-      if(!fx.stat) continue;
-      if(!net[fx.stat]) net[fx.stat]={bonus:0,penalty:0,advantage:0,disadvantage:0,sources:[]};
-      if(fx.type==='bonus')        net[fx.stat].bonus+=(fx.value||0);
-      if(fx.type==='penalty')      net[fx.stat].penalty+=(fx.value||0);
-      if(fx.type==='advantage')    net[fx.stat].advantage++;
-      if(fx.type==='disadvantage') net[fx.stat].disadvantage++;
-      if(fx.type==='set'&&Number.isFinite(fx.value)) net[fx.stat].set=Math.max(net[fx.stat].set??-Infinity,fx.value);
-      net[fx.stat].sources.push({itemName:item.name,itemRarity:item.rarity,fx});
-      if(fx.type==='bonus'||fx.type==='penalty'){
-        if(!net[fx.stat].byType) net[fx.stat].byType={};
-        const bucket=fx.damageType?fx.damageType.toLowerCase():'untyped';
-        if(!net[fx.stat].byType[bucket]) net[fx.stat].byType[bucket]={bonus:0,penalty:0};
-        if(fx.type==='bonus')   net[fx.stat].byType[bucket].bonus+=(fx.value||0);
-        if(fx.type==='penalty') net[fx.stat].byType[bucket].penalty+=(fx.value||0);
-      }
-    }
-  }
-  return{net,relevant};
-}
-
+// Net item effects come from computeNetEffects(name, items) in js/nexus-utils.js
 
 function computeCheck(key,ability,m,net,prof){
   let base=abilityMod(effectiveStat(m.abilities?.[ability]||10,net[ability]));
@@ -727,21 +685,24 @@ async function doLongRest(){
 // ══════════════════════════════════════════════════════════════
 //  DB PERSISTENCE
 // ══════════════════════════════════════════════════════════════
-async function loadData(){
+// quiet: a live refresh — no overlay, and a failure keeps what's on screen
+async function loadData(quiet){
   try{
-    showLoading(true);
+    if(!quiet) showLoading(true);
     const rows=await db.select('party_members',{order:'created_at.asc'});
     members=rows.map(r=>({
       id:r.id, name:r.name, player:r.player, class:r.class, race:r.race,
       level:r.level, status:r.status, prof:r.prof, bio:r.bio,
       tags:r.tags||[], color:r.color, photo:r.photo,
       abilities:r.abilities||{}, combat:r.combat||{}, proficiencies:r.proficiencies||{},
+      conditions:Array.isArray(r.conditions)?r.conditions.filter(k=>CONDITION_MAP[k]):[],
     }));
   }catch(e){
+    if(quiet) throw e;
     console.error(e);
     showToast('Could not load roster — check your Supabase config.');
     members=[];
-  }finally{showLoading(false);}
+  }finally{if(!quiet) showLoading(false);}
 }
 
 async function saveMemberToDB(member){
@@ -753,6 +714,7 @@ async function saveMemberToDB(member){
     bio:member.bio||null, tags:member.tags||[], color:member.color||null,
     photo:member.photo||null, abilities:member.abilities||{},
     combat:member.combat||{}, proficiencies:member.proficiencies||{},
+    conditions:member.conditions||[],
   });
 }
 
@@ -874,16 +836,15 @@ function render(){
   const _partyItems=[];
   for(const it of getItemEffects()){
     const h=(it.holder||'').toLowerCase().trim();
-    if(h==='party'||h==='party inventory'){ _partyItems.push(it); continue; }
+    if(isPartyHolder(h)){ _partyItems.push(it); continue; }
     if(!_itemsByHolder.has(h)) _itemsByHolder.set(h,[]);
     _itemsByHolder.get(h).push(it);
   }
 
-  // Pre-load localStorage once (single JSON.parse each) for the whole render pass
-  const _condSnap=_condLoad();
+  // Pre-load localStorage once (single JSON.parse) for the whole render pass
   const _fxSnap=_fxCollapseLoad();
 
-  grid.innerHTML=filtered.map((m,i)=>buildCard(m,i,_itemsByHolder,_partyItems,_condSnap,_fxSnap)).join('')+
+  grid.innerHTML=filtered.map((m,i)=>buildCard(m,i,_itemsByHolder,_partyItems,_fxSnap)).join('')+
     `<div class="add-card" onclick="openModal()"><div class="add-card-icon">+</div><div class="add-card-label">Recruit Member</div></div>`;
 }
 
@@ -1035,7 +996,7 @@ function buildCondPanel(m,activeConditions,color){
 // ── buildCard ─────────────────────────────────────────────────
 // Master card builder. All tabs are built here and injected as
 // static HTML — no async work, so render() stays synchronous.
-function buildCard(m,idx,_itemsByHolder,_partyItems,_condSnap,_fxSnap){
+function buildCard(m,idx,_itemsByHolder,_partyItems,_fxSnap){
   const color=m.color||COLORS[idx%COLORS.length];
   const initials=(m.name||'?').split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase();
   const portrait=m.photo
@@ -1045,14 +1006,13 @@ function buildCard(m,idx,_itemsByHolder,_partyItems,_condSnap,_fxSnap){
 
   // Use pre-grouped item maps when available (from render()), fall back for surgical calls
   const nameLc=(m.name||'').toLowerCase().trim();
-  const {net,relevant}=_itemsByHolder
-    ? _computeNetEffectsFromMaps(nameLc,_itemsByHolder,_partyItems)
-    : computeNetEffects(m.name);
+  const {net,relevant}=computeNetEffects(m.name,_itemsByHolder
+    ? [...(_itemsByHolder.get(nameLc)||[]),..._partyItems]
+    : getItemEffects());
   // Higher of the stored bonus and the level table, plus prof_bonus items (matches the Combat sheet)
   const prof=effectiveProf(m,net);
 
-  // ── Conditions (read from pre-loaded snapshot when available) ──
-  const activeConditions=_condSnap ? (_condSnap[m.id]||[]) : getConditions(m.id);
+  const activeConditions=m.conditions||[];
 
   // ── HP Bar ────────────────────────────────────────────────────
   // Displayed inline in the card header — always visible without
@@ -1547,6 +1507,13 @@ async function saveMember(){
     document.getElementById('f-name').focus();
     return;
   }
+  // Names are the join key for loot holders, vaults and moments, so two
+  // characters can't share one
+  if(members.some(m=>m.id!==editId&&(m.name||'').trim().toLowerCase()===name.toLowerCase())){
+    if(fNameError)fNameError.textContent='⚠ Another character already has this name.';
+    document.getElementById('f-name').focus();
+    return;
+  }
   const btn=document.getElementById('btnSaveMember');
   const modal=document.getElementById('memberModal');
   setLoading(btn,true);setModalLoading(modal,true);
@@ -1574,8 +1541,15 @@ async function saveMember(){
     color:currentColor,photo:currentPhoto,
     abilities:abs,combat:cs,proficiencies:profs,
   };
+  const prev=editId?members.find(m=>m.id===editId):null;
+  member.conditions=prev?.conditions||[];
+  const renamed=prev&&prev.name!==name;
   try{
+    // A rename also moves loot, vault entries and tagged moments to the
+    // new name, in one transaction (sql/supabase_atomic.sql)
+    if(renamed) await db.rpc('nexus_rename_member',{p_id:editId,p_name:name});
     await saveMemberToDB(member);
+    if(renamed) await Promise.all([prefetchLootItems(),prefetchTreasury()]);
     if(editId){const i=members.findIndex(m=>m.id===editId);if(i>=0)members[i]=member;showToast('Member updated.');}
     else{members.push(member);showToast(`${name} added to the roster.`);}
     const _tabs=captureTabState();render();restoreTabState(_tabs);closeModal();
@@ -1626,13 +1600,14 @@ async function handleImport(e){
       if(!Array.isArray(imported)) throw new Error();
       const ok=await nexusConfirm({title:'Import Roster',name:`${imported.length} members`,message:'This will replace your current roster. This cannot be undone.',confirmLabel:'Import'});
       if(!ok)return;
-      members=imported.map(m=>({...m,id:m.id||uid()}));
+      members=imported.map(m=>({...m,id:isSafeId(m.id)?m.id:uid(),color:safeCssColor(m.color),conditions:Array.isArray(m.conditions)?m.conditions:[]}));
       try{
         await db.upsertMany('party_members',members.map(m=>({
           id:m.id,name:m.name,player:m.player||null,class:m.class||null,
           race:m.race||null,level:m.level||null,status:m.status||'active',
           prof:m.prof||2,bio:m.bio||null,tags:m.tags||[],color:m.color||null,
-          photo:m.photo||null,abilities:m.abilities||{},combat:m.combat||{},proficiencies:m.proficiencies||{}
+          photo:m.photo||null,abilities:m.abilities||{},combat:m.combat||{},proficiencies:m.proficiencies||{},
+          conditions:m.conditions
         })));
         render();showToast(`Imported ${members.length} members.`);
       }catch(err){console.error(err);showToast('Import failed — check your Supabase config.');}
@@ -1676,7 +1651,7 @@ function lt_refreshEffectsForItem(item){
 function lt_refreshEffectsPanel(m){
   const panel=document.getElementById(`tab-effects-${m.id}`);
   if(!panel)return;
-  const{net,relevant}=computeNetEffects(m.name);
+  const{net,relevant}=computeNetEffects(m.name,getItemEffects());
   const newPanel=buildEffectsPanel(m,net,relevant);
   const wasActive=panel.classList.contains('active');
   panel.outerHTML=newPanel;
@@ -1883,6 +1858,17 @@ Promise.all([
   loadTerms().catch(() => {});
   wireSpellEvents();
   render();
+  migrateLocalConditions().then(moved=>{if(moved){const _tabs=captureTabState();render();restoreTabState(_tabs);}});
+  // Someone else's edits show up without a reload (js/nexus-live.js)
+  nexusLive(['party_members','loot_items','combat_options','treasury_currencies','treasury_ledger'],async changed=>{
+    await Promise.all([
+      changed.has('party_members')?loadData(true):null,
+      changed.has('loot_items')?prefetchLootItems():null,
+      changed.has('combat_options')?prefetchSpells():null,
+      (changed.has('treasury_currencies')||changed.has('treasury_ledger'))?prefetchTreasury():null,
+    ]);
+    const _tabs=captureTabState();render();restoreTabState(_tabs);
+  });
 });
 </script>
 
