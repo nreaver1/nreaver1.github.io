@@ -6,8 +6,8 @@
   <title>LOOT TRACKER // Item Registry</title>
   <script src="js/nexus-demo.js?v=4ad1b72c"></script>
   <script src="js/nexus-auth.js?v=d48892dc"></script>
-  <script src="js/nexus-config.js?v=6c6e5739"></script>
-  <script src="js/nexus-utils.js?v=82e242d1"></script>
+  <script src="js/nexus-config.js?v=d731f649"></script>
+  <script src="js/nexus-utils.js?v=47289a76"></script>
   <script src="js/nexus-cite.js?v=29a8deb3"></script>
   <script src="js/nexus-live.js?v=16acaebe"></script>
   <script src="js/nexus-srd.js?v=7677f88e"></script>
@@ -377,7 +377,7 @@ const FX_TYPES = [
 // selector on damage_rolls and spell_damage stat effects.
 // Sourced from nexus-utils.js (DAMAGE_TYPES) at runtime; this list
 // must stay in sync. We reference window.DAMAGE_TYPES below.
-const DAMAGE_STATS = new Set(['damage_rolls', 'spell_damage', 'attack_rolls']);
+const DAMAGE_STATS = DAMAGE_FX_STATS;  // js/nexus-utils.js
 
 // Pre-built O(1) lookup maps — built once at parse time, not on every pill render
 const _STAT_LABEL_MAP = new Map(ALL_STATS.map(s => [s.key, s.label.split(' – ')[0]]));
@@ -858,18 +858,7 @@ function removeFxRow(idx){
 }
 
 function collectFx(){
-  return pendingFx.filter(f=>f&&f.stat).map(f=>{
-    const fx={
-      stat:  f.stat,
-      type:  f.type||'bonus',
-      value: fxNeedsValue(f.type||'bonus')?(f.value||0):null,
-    };
-    // Only include damageType when it's a damage-relevant stat and a value was chosen
-    if(f.damageType && DAMAGE_STATS.has(f.stat) && (f.type==='bonus'||f.type==='penalty')){
-      fx.damageType = f.damageType;
-    }
-    return fx;
-  });
+  return collectStatEffects(pendingFx);  // js/nexus-utils.js
 }
 
 // Sets the holder display to a saved value without opening the dropdown

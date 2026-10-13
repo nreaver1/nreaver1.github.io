@@ -1376,21 +1376,19 @@ describe('fx-val-wrap layout — dmg select inside wrapper', () => {
 
 describe('lt_collectFx() — party-roster modal collect logic', () => {
 
-  // Pure replica of lt_collectFx for testing
-  const LT_DAMAGE_STATS = new Set(['damage_rolls','spell_damage','attack_rolls']);
-  function lt_collectFx(pendingFx) {
-    return pendingFx.filter(f => f && f.stat).map(f => {
-      const fx = {
-        stat:  f.stat,
-        type:  f.type || 'bonus',
-        value: (f.type === 'bonus' || f.type === 'penalty') ? (f.value || 0) : null,
-      };
-      if (f.damageType && LT_DAMAGE_STATS.has(f.stat) && (f.type === 'bonus' || f.type === 'penalty')) {
-        fx.damageType = f.damageType;
-      }
-      return fx;
-    });
-  }
+  // lt_collectFx (roster) and collectFx (Loot Tracker) both delegate to this
+  const { collectStatEffects: lt_collectFx } = require('../js/nexus-utils.js');
+
+  it('keeps the value for "set" effects (flat stats)', () => {
+    assert.deepEqual(lt_collectFx([{ stat: 'str', type: 'set', value: 19 }]),
+      [{ stat: 'str', type: 'set', value: 19 }]);
+  });
+
+  it('an unassigned item does not apply to a member with no name', () => {
+    const { itemAffectsMember } = require('../js/nexus-utils.js');
+    assert.equal(itemAffectsMember('', ''), false);
+    assert.equal(itemAffectsMember(' Party ', ''), true);
+  });
 
   it('filters out null (deleted) rows', () => {
     const pending = [
@@ -1513,13 +1511,9 @@ describe('lt_saveItem — DB column name mapping', () => {
 
 describe('lt_refreshEffectsForItem — member targeting logic', () => {
 
-  // Pure replica of the "is this member affected?" predicate
-  function isAffected(item, memberName) {
-    const holderLc = (item.holder || '').toLowerCase().trim();
-    const nameLc   = (memberName  || '').toLowerCase().trim();
-    const isParty  = holderLc === 'party' || holderLc === 'party inventory';
-    return isParty || holderLc === nameLc;
-  }
+  // lt_refreshEffectsForItem and computeNetEffects both use this predicate
+  const { itemAffectsMember } = require('../js/nexus-utils.js');
+  const isAffected = (item, memberName) => itemAffectsMember(item.holder, memberName);
 
   it('item held by a specific member affects only that member', () => {
     const item = { holder: 'Thalindra', statEffects: [] };
@@ -2775,18 +2769,17 @@ describe('Term system — no raw hardcoded display strings remain', () => {
       violations.map((l,i) => `\n  ${l.trim()}`).join(''));
   });
 
-  it('party-roster lt_refreshEffectsForItem keeps canonical "party inventory" for logic', () => {
-    // This is a DB-value comparison in party-roster, must NOT use t()
-    assert.ok(pr.includes("holderLc==='party inventory'") || pr.includes("holderLc === 'party inventory'"),
-      'lt_refreshEffectsForItem must compare holder to canonical "party inventory" string (DB value)');
-    assert.ok(!pr.includes("holderLc===t('partyInventory')") && !pr.includes("holderLc === t('partyInventory')"),
-      'lt_refreshEffectsForItem must NOT use t() for logic comparison — would break on rename');
+  it('party-roster lt_refreshEffectsForItem matches holders with the shared itemAffectsMember', () => {
+    // Holder values are canonical DB strings; a t() comparison would break on rename
+    const body = pr.slice(pr.indexOf('function lt_refreshEffectsForItem('), pr.indexOf('function lt_refreshEffectsPanel('));
+    assert.match(body, /itemAffectsMember\(item\.holder,m\.name\)/);
+    assert.ok(!body.includes("t('partyInventory')"));
   });
 
-  it('party-roster isParty check uses canonical "party inventory" string', () => {
-    // This logic check matches stored DB holder values
-    assert.ok(pr.includes("holderLc==='party inventory'") || pr.includes("holderLc === 'party inventory'"),
-      'isParty check must use canonical "party inventory" string not a t() call');
+  it('isPartyHolder compares to the canonical "party inventory" string', () => {
+    const u = fs.readFileSync(path.join(__dirname,'../js/nexus-utils.js'), 'utf8');
+    const body = u.slice(u.indexOf('function isPartyHolder('), u.indexOf('function isPartyHolder(') + 200);
+    assert.ok(body.includes("'party inventory'") && !body.includes("t('"));
   });
 });
 
@@ -9190,8 +9183,9 @@ describe('Flat stat (set) effects', () => {
     });
     it(`${file} keeps the value for set effects when saving`, () => {
       const src = read(file);
-      const body = src.slice(src.indexOf(`function ${collect}(`), src.indexOf(`function ${collect}(`) + 500);
-      assert.match(body, /fxNeedsValue\(f\.type\|\|'bonus'\)\?\(f\.value\|\|0\):null/);
+      // The page delegates to collectStatEffects, which keeps set values (tested against utils)
+      const body = src.slice(src.indexOf(`function ${collect}(`), src.indexOf(`function ${collect}(`) + 200);
+      assert.match(body, /collectStatEffects\((lt_)?pendingFx\)/);
     });
     it(`${file} only allows "Set to" on settable stats`, () => {
       assert.match(read(file), /syncFxSetOption\(/);
@@ -9222,7 +9216,18 @@ describe('Flat stat (set) effects', () => {
     assert.match(src, /const acNet=effectiveStat\(cs\.ac\|\|10,net\['ac'\]\)/);
     assert.match(src, /const spdNet=effectiveStat\(cs\.speed\|\|30,net\['speed'\]\)/);
     assert.match(src, /const dexMod=abilityMod\(effectiveStat\(abs\['dex'\]\|\|10,net\['dex'\]\)\)/);
-    assert.match(src, /function computeCheck\(key,ability,m,net,prof\)\{\n  let base=abilityMod\(effectiveStat\(/);
+    // Checks use the shared computeCheck (which applies effectiveStat), not a page copy
+    assert.doesNotMatch(src, /function computeCheck\(/);
+  });
+
+  it('pages use the shared helpers instead of redefining them', () => {
+    const shared = new Set(Object.keys(require('../js/nexus-utils.js')));
+    for (const page of ['index.html', 'party-roster.html', 'treasury.html', 'loot-tracker.html',
+                        'session-log.html', 'combat.html', 'admin.html']) {
+      const dupes = [...read(page).matchAll(/function\s+([A-Za-z_$][\w$]*)\s*\(/g)]
+        .map(m => m[1]).filter(n => shared.has(n));
+      assert.deepEqual(dupes, [], `${page} redefines ${dupes.join(', ')}`);
+    }
   });
 
   it('.fx-set pill style exists and uses a theme token', () => {
@@ -11061,5 +11066,61 @@ describe('Live updates (js/nexus-live.js)', () => {
     }
     assert.ok(read('treasury.html').includes('} else if (!quiet) {\n      // First run'),
       'a live refresh must not seed currencies');
+  });
+});
+
+// ══════════════════════════════════════════════════════════════
+// Portraits in Supabase Storage
+// ══════════════════════════════════════════════════════════════
+describe('Portraits in Supabase Storage', () => {
+  const U = require('../js/nexus-utils.js');
+  const src = f => require('fs').readFileSync(require('path').join(__dirname, '..', f), 'utf8');
+  const BASE = 'https://abc.supabase.co';
+
+  it('portraitObjectPath finds our own bucket files only', () => {
+    assert.equal(U.portraitObjectPath(`${BASE}/storage/v1/object/public/portraits/_abc123-lq2x.jpg`, BASE), '_abc123-lq2x.jpg');
+    assert.equal(U.portraitObjectPath('data:image/jpeg;base64,AAAA', BASE), null);
+    assert.equal(U.portraitObjectPath('demo/img/member-x.jpg', BASE), null);
+    assert.equal(U.portraitObjectPath(`https://evil.example/storage/v1/object/public/portraits/a.jpg`, BASE), null);
+    assert.equal(U.portraitObjectPath(`${BASE}/storage/v1/object/public/other/a.jpg`, BASE), null);
+    assert.equal(U.portraitObjectPath(`${BASE}/storage/v1/object/public/portraits/../x.jpg`, BASE), null);
+    assert.equal(U.portraitObjectPath(null, BASE), null);
+  });
+
+  it('portraitFileName is unique per upload and path-safe', () => {
+    assert.equal(U.portraitFileName('_abc123', 36 ** 3), '_abc123-1000.jpg');
+    assert.notEqual(U.portraitFileName('_a', 1), U.portraitFileName('_a', 2));
+    assert.match(U.portraitFileName('../x y', 5), /^xy-5\.jpg$/);
+    const n = U.portraitFileName('_abc', Date.now());
+    assert.equal(U.portraitObjectPath(`${BASE}/storage/v1/object/public/portraits/${n}`, BASE), n);
+  });
+
+  it('the roster uploads new portraits instead of saving the image in the row', () => {
+    const pr = src('party-roster.html');
+    assert.match(pr, /member\.photo=await nexusStorePortrait\(member\.id,member\.photo\)/);
+    assert.match(pr, /const photo=await nexusStorePortrait\(id,file\)/);
+    assert.ok(!pr.includes('readAsDataURL'), 'no raw FileReader data: URLs');
+  });
+
+  it('the roster moves old inline portraits into storage and removes replaced ones', () => {
+    const pr = src('party-roster.html');
+    assert.match(pr, /migrateInlinePortraits\(\)\.then\(/);
+    assert.match(pr, /nexusDeletePortrait\(prev\.photo\)/);
+    assert.match(pr, /nexusDeletePortrait\(m\.photo\)/);
+  });
+
+  it('uploads only happen with sign-in; demo and legacy keep data: URLs', () => {
+    const cfg = src('js/nexus-config.js');
+    const body = cfg.slice(cfg.indexOf('async function nexusStorePortrait('), cfg.indexOf('async function nexusDeletePortrait('));
+    assert.match(body, /if \(nexusAccessNow\(\)\.mode !== 'auth'\) return _blobToDataUrl\(jpeg\);/);
+    assert.match(body, /storage\/v1\/object\/\$\{PORTRAIT_BUCKET\}/);
+  });
+
+  it('the storage SQL makes a public bucket that only editors can write', () => {
+    const sql = src('sql/supabase_storage.sql');
+    assert.match(sql, /values \('portraits', 'portraits', true,/);
+    for (const op of ['insert', 'update', 'delete']) {
+      assert.match(sql, new RegExp(`for ${op} to authenticated[\\s\\S]{0,120}public\\.nexus_can_edit\\(\\)`));
+    }
   });
 });

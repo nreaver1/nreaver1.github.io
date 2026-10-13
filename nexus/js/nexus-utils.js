@@ -137,6 +137,32 @@ function memberInitials(name) {
 }
 
 /**
+ * PORTRAIT_BUCKET / portraitObjectPath(url, supabaseUrl)
+ * Portraits live in the public Supabase Storage bucket "portraits"
+ * (sql/supabase_storage.sql) and party_members.photo holds the public URL.
+ * portraitObjectPath returns the object's path inside that bucket, or null
+ * for anything else (a data: URL, a demo/img/ path, another site), so only
+ * our own files are ever deleted.
+ */
+const PORTRAIT_BUCKET = 'portraits';
+function portraitObjectPath(url, supabaseUrl) {
+  const prefix = `${supabaseUrl}/storage/v1/object/public/${PORTRAIT_BUCKET}/`;
+  if (typeof url !== 'string' || !supabaseUrl || !url.startsWith(prefix)) return null;
+  const path = url.slice(prefix.length);
+  return /^[A-Za-z0-9_-]{1,64}.(jpg|png|webp)$/.test(path) ? path : null;
+}
+
+/**
+ * portraitFileName(memberId, nowMs)
+ * A fresh object name per upload (member id + time), so a new portrait
+ * never hides behind a cached copy of the old one.
+ */
+function portraitFileName(memberId, nowMs = Date.now()) {
+  const id = String(memberId || '').replace(/[^A-Za-z0-9_-]/g, '').slice(0, 40) || 'member';
+  return `${id}-${Math.max(0, Math.floor(nowMs)).toString(36)}.jpg`;
+}
+
+/**
  * memberPortraitHtml(member)
  * Inner HTML for a .portrait-ring: the photo, or initials in the member's
  * colour (via the ring's --member-color).
@@ -256,11 +282,7 @@ function isPartyHolder(holder) {
  *   adds it back per option via combatContext(). Default false.
  */
 function computeNetEffects(memberName, items, opts = {}) {
-  const relevant = items.filter(it => {
-    const h = (it.holder || '').toLowerCase().trim();
-    const n = (memberName || '').toLowerCase().trim();
-    return h === n || isPartyHolder(h);
-  });
+  const relevant = items.filter(it => itemAffectsMember(it.holder, memberName));
 
   const net = {};
   for (const item of relevant) {
@@ -447,6 +469,40 @@ function effectiveStat(base, n) {
  */
 function fxNeedsValue(type) {
   return type === 'bonus' || type === 'penalty' || type === 'set';
+}
+
+/**
+ * DAMAGE_FX_STATS
+ * Stats whose bonus/penalty effects can name a damage type (e.g. +1d4 fire).
+ */
+const DAMAGE_FX_STATS = new Set(['damage_rolls', 'spell_damage', 'attack_rolls']);
+
+/**
+ * collectStatEffects(pending)
+ * Turns the rows of an item-effect editor (Loot Tracker + roster) into the
+ * stat_effects JSON that is saved. Deleted rows (null) and rows with no stat
+ * are dropped; only numeric types keep a value; damageType is kept only for
+ * a bonus/penalty on a DAMAGE_FX_STATS stat.
+ */
+function collectStatEffects(pending) {
+  return (pending || []).filter(f => f && f.stat).map(f => {
+    const type = f.type || 'bonus';
+    const fx = { stat: f.stat, type, value: fxNeedsValue(type) ? (f.value || 0) : null };
+    if (f.damageType && DAMAGE_FX_STATS.has(f.stat) && (type === 'bonus' || type === 'penalty')) {
+      fx.damageType = f.damageType;
+    }
+    return fx;
+  });
+}
+
+/**
+ * itemAffectsMember(holder, memberName)
+ * True when an item held by `holder` applies its effects to this member:
+ * the member holds it (case and spacing ignored) or the party does.
+ */
+function itemAffectsMember(holder, memberName) {
+  const h = String(holder || '').toLowerCase().trim();
+  return isPartyHolder(h) || (h !== '' && h === String(memberName || '').toLowerCase().trim());
 }
 
 /**
@@ -1121,6 +1177,9 @@ if (typeof module !== 'undefined') {
     SETTABLE_STATS,
     effectiveStat,
     fxNeedsValue,
+    DAMAGE_FX_STATS,
+    collectStatEffects,
+    itemAffectsMember,
     syncFxSetOption,
     isAtWill,
     isPrepared,
@@ -1155,5 +1214,8 @@ if (typeof module !== 'undefined') {
     memberColor,
     memberInitials,
     memberPortraitHtml,
+    PORTRAIT_BUCKET,
+    portraitObjectPath,
+    portraitFileName,
   };
 }

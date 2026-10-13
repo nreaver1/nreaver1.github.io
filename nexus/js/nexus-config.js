@@ -150,6 +150,63 @@ const nexusAuthReady = (NEXUS_DEMO || typeof nexusAuthInit !== 'function')
   : nexusAuthInit(SUPABASE_URL, SUPABASE_ANON);
 
 // ══════════════════════════════════════════════════════════════
+//  PORTRAITS — Supabase Storage (sql/supabase_storage.sql)
+//  party_members.photo holds a public URL in the "portraits" bucket.
+//  Images are shrunk to a 512px JPEG first. Demo mode keeps them in the
+//  tab as data: URLs, and so does an install without sign-in (legacy),
+//  where the bucket's editor-only rules can't be met.
+// ══════════════════════════════════════════════════════════════
+const PORTRAIT_MAX_PX = 512;
+
+// File/Blob or data: URL → JPEG Blob no larger than PORTRAIT_MAX_PX a side
+async function nexusShrinkPortrait(src) {
+  const blob = typeof src === 'string' ? await (await fetch(src)).blob() : src;
+  const bmp = await createImageBitmap(blob);
+  const scale = Math.min(1, PORTRAIT_MAX_PX / Math.max(bmp.width, bmp.height));
+  const canvas = document.createElement('canvas');
+  canvas.width = Math.max(1, Math.round(bmp.width * scale));
+  canvas.height = Math.max(1, Math.round(bmp.height * scale));
+  canvas.getContext('2d').drawImage(bmp, 0, 0, canvas.width, canvas.height);
+  bmp.close?.();
+  return new Promise((ok, fail) => canvas.toBlob(b => b ? ok(b) : fail(new Error('Could not encode the image')), 'image/jpeg', 0.85));
+}
+
+function _blobToDataUrl(blob) {
+  return new Promise((ok, fail) => {
+    const r = new FileReader();
+    r.onload = () => ok(r.result);
+    r.onerror = () => fail(r.error);
+    r.readAsDataURL(blob);
+  });
+}
+
+// Shrinks and stores a portrait; returns the value for party_members.photo
+async function nexusStorePortrait(memberId, src) {
+  const jpeg = await nexusShrinkPortrait(src);
+  if (nexusAccessNow().mode !== 'auth') return _blobToDataUrl(jpeg);
+  const name = portraitFileName(memberId);
+  const { apikey, Authorization } = await _supabaseDb._headers();
+  const r = await fetch(`${SUPABASE_URL}/storage/v1/object/${PORTRAIT_BUCKET}/${name}`, {
+    method: 'POST',
+    headers: { apikey, Authorization, 'Content-Type': 'image/jpeg', 'Cache-Control': '31536000' },
+    body: jpeg,
+  });
+  if (!r.ok) throw new Error(`Portrait upload: ${await r.text()}`);
+  return `${SUPABASE_URL}/storage/v1/object/public/${PORTRAIT_BUCKET}/${name}`;
+}
+
+// Best effort: removes a replaced portrait from the bucket. Ignores
+// anything that isn't one of our bucket URLs (data:, demo/img/, …).
+async function nexusDeletePortrait(url) {
+  const path = portraitObjectPath(url, SUPABASE_URL);
+  if (!path || NEXUS_DEMO) return;
+  try {
+    const { apikey, Authorization } = await _supabaseDb._headers();
+    await fetch(`${SUPABASE_URL}/storage/v1/object/${PORTRAIT_BUCKET}/${path}`, { method: 'DELETE', headers: { apikey, Authorization } });
+  } catch (e) { console.warn('Could not remove the old portrait:', e); }
+}
+
+// ══════════════════════════════════════════════════════════════
 //  Config check — warns in console if credentials not set
 // ══════════════════════════════════════════════════════════════
 if (SUPABASE_URL.includes('YOUR_PROJECT_REF') || SUPABASE_ANON.includes('YOUR_ANON')) {

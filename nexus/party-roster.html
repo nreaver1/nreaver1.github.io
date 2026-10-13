@@ -6,8 +6,8 @@
   <title>PARTY ROSTER // Crew Registry</title>
   <script src="js/nexus-demo.js?v=4ad1b72c"></script>
   <script src="js/nexus-auth.js?v=d48892dc"></script>
-  <script src="js/nexus-config.js?v=6c6e5739"></script>
-  <script src="js/nexus-utils.js?v=82e242d1"></script>
+  <script src="js/nexus-config.js?v=d731f649"></script>
+  <script src="js/nexus-utils.js?v=47289a76"></script>
   <script src="js/nexus-cite.js?v=29a8deb3"></script>
   <script src="js/nexus-live.js?v=16acaebe"></script>
   <script src="js/nexus-srd.js?v=7677f88e"></script>
@@ -108,7 +108,7 @@
           <div class="photo-upload-btns">
             <button class="btn btn-ghost" style="font-size:0.55rem" onclick="document.getElementById('photoFileInput').click()">⬆ Upload Image</button>
             <button class="btn btn-ghost" style="font-size:0.55rem;color:var(--red);border-color:rgba(224,60,60,0.3)" onclick="clearPhoto()">✕ Remove</button>
-            <div class="hint">JPG, PNG — stored locally</div>
+            <div class="hint">JPG, PNG — resized to 512px</div>
           </div>
         </div>
         <input type="file" id="photoFileInput" accept="image/*" style="display:none" onchange="handlePhotoUpload(event)" />
@@ -505,8 +505,7 @@ let _cachedMemberWallet={};
 let _cachedTreasuryCurrencies=[];
 
 // ── STAT HELPERS ──
-function abilityMod(score){return Math.floor(((score||10)-10)/2);}
-function modStr(n){return n>=0?`+${n}`:String(n);}
+// abilityMod, modStr, computeCheck — defined in js/nexus-utils.js
 
 function getItemEffects(){return _cachedLootItems||[];}
 
@@ -590,13 +589,6 @@ function getMemberWallet(memberName){
 
 // Net item effects come from computeNetEffects(name, items) in js/nexus-utils.js
 
-function computeCheck(key,ability,m,net,prof){
-  let base=abilityMod(effectiveStat(m.abilities?.[ability]||10,net[ability]));
-  if(m.proficiencies?.[key]) base+=prof;
-  const n=net[key];
-  if(n){base+=(n.bonus||0);base-=(n.penalty||0);}
-  return base;
-}
 
 // ══════════════════════════════════════════════════════════════
 //  REST MECHANICS
@@ -1397,25 +1389,46 @@ function wireSpellEvents(){
 // ══════════════════════════════════════════════════════════════
 //  PHOTO HANDLING
 // ══════════════════════════════════════════════════════════════
-function handlePhotoUpload(e){
-  const file=e.target.files[0];if(!file)return;
-  const reader=new FileReader();
-  reader.onload=ev=>{currentPhoto=ev.target.result;document.getElementById('photoPreview').innerHTML=`<img src="${currentPhoto}" alt="portrait" style="width:100%;height:100%;object-fit:cover;border-radius:50%" />`;};
-  reader.readAsDataURL(file);e.target.value='';
+// Portraits go to Supabase Storage (nexusStorePortrait in js/nexus-config.js).
+// The modal previews a shrunk data: URL, and saveMember uploads it.
+async function handlePhotoUpload(e){
+  const file=e.target.files[0];e.target.value='';if(!file)return;
+  try{
+    currentPhoto=await _blobToDataUrl(await nexusShrinkPortrait(file));
+    document.getElementById('photoPreview').innerHTML=`<img src="${esc(currentPhoto)}" alt="portrait" style="width:100%;height:100%;object-fit:cover;border-radius:50%" />`;
+  }catch(err){console.error(err);showToast('That image could not be read.');}
 }
 function clearPhoto(){currentPhoto=null;document.getElementById('photoPreview').innerHTML=`<span class="photo-initials">${getInitials()}</span>`;}
 function getInitials(){const n=document.getElementById('f-name')?.value||'';return n?n.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase():'?';}
 function triggerPhotoUpload(id){document.getElementById(`inline-photo-${id}`)?.click();}
-function handleInlinePhoto(e,id){
-  const file=e.target.files[0];if(!file)return;
-  const reader=new FileReader();
-  reader.onload=async ev=>{
-    const idx=members.findIndex(m=>m.id===id);if(idx<0)return;
-    members[idx].photo=ev.target.result;
-    try{await saveMemberToDB(members[idx]);const _tabs=captureTabState();render();restoreTabState(_tabs);showToast('Portrait updated.');}
-    catch(e){console.error(e);showToast('Photo save failed.');}
-  };
-  reader.readAsDataURL(file);e.target.value='';
+async function handleInlinePhoto(e,id){
+  const file=e.target.files[0];e.target.value='';if(!file)return;
+  if(!(await nexusGate()))return;
+  const m=members.find(x=>x.id===id);if(!m)return;
+  const old=m.photo;
+  try{
+    const photo=await nexusStorePortrait(id,file);
+    await db.update('party_members',id,{photo});
+    m.photo=photo;
+    nexusDeletePortrait(old);
+    const _tabs=captureTabState();render();restoreTabState(_tabs);showToast('Portrait updated.');
+  }catch(err){console.error(err);showToast('Photo save failed.');}
+}
+
+// Older rows hold the image itself (a data: URL). An editor's visit moves
+// each one into Storage, so pages and live refreshes stop downloading it.
+async function migrateInlinePortraits(){
+  await nexusAuthReady;
+  if(nexusAccessNow().mode!=='auth'||!nexusAccessNow().canEdit) return 0;
+  let moved=0;
+  for(const m of members.filter(x=>String(x.photo||'').startsWith('data:'))){
+    try{
+      const photo=await nexusStorePortrait(m.id,m.photo);
+      await db.update('party_members',m.id,{photo});
+      m.photo=photo;moved++;
+    }catch(e){console.error('Could not move a portrait to storage:',e);break;}
+  }
+  return moved;
 }
 
 // ══════════════════════════════════════════════════════════════
@@ -1473,7 +1486,7 @@ function openModal(id){
     currentColor=m.color||COLORS[0];
     currentPhoto=m.photo||null;
     const preview=document.getElementById('photoPreview');
-    if(currentPhoto) preview.innerHTML=`<img src="${currentPhoto}" alt="portrait" style="width:100%;height:100%;object-fit:cover;border-radius:50%" />`;
+    if(currentPhoto) preview.innerHTML=`<img src="${esc(currentPhoto)}" alt="portrait" style="width:100%;height:100%;object-fit:cover;border-radius:50%" />`;
     else{const ini=(m.name||'?').split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase();preview.innerHTML=`<span class="photo-initials">${ini}</span>`;}
   }else{
     ['f-name','f-player','f-class','f-race','f-level','f-bio','f-tags'].forEach(i=>{const el=document.getElementById(i);if(el)el.value='';});
@@ -1547,8 +1560,10 @@ async function saveMember(){
   try{
     // A rename also moves loot, vault entries and tagged moments to the
     // new name, in one transaction (sql/supabase_atomic.sql)
+    if(String(member.photo||'').startsWith('data:')) member.photo=await nexusStorePortrait(member.id,member.photo);
     if(renamed) await db.rpc('nexus_rename_member',{p_id:editId,p_name:name});
     await saveMemberToDB(member);
+    if(prev&&prev.photo!==member.photo) nexusDeletePortrait(prev.photo);
     if(renamed) await Promise.all([prefetchLootItems(),prefetchTreasury()]);
     if(editId){const i=members.findIndex(m=>m.id===editId);if(i>=0)members[i]=member;showToast('Member updated.');}
     else{members.push(member);showToast(`${name} added to the roster.`);}
@@ -1570,6 +1585,7 @@ async function deleteMember(id){
   if(delBtn){setLoading(delBtn,true);delBtn.dataset.loadingText='';}
   try{
     await deleteMemberFromDB(id);
+    nexusDeletePortrait(m.photo);
     members=members.filter(x=>x.id!==id);
     const _tabs=captureTabState();render();restoreTabState(_tabs);showToast('Member removed.');
   }catch(err){
@@ -1637,13 +1653,7 @@ document.addEventListener('keydown',e=>{
 // After saving a loot item, re-render only the Effects tab panels
 // of members affected by it (holder match or party-wide items).
 function lt_refreshEffectsForItem(item){
-  const holderLc=(item.holder||'').toLowerCase().trim();
-  const isParty=holderLc==='party'||holderLc==='party inventory';
-  members.forEach(m=>{
-    const nameLc=(m.name||'').toLowerCase().trim();
-    if(!isParty&&holderLc!==nameLc)return;
-    lt_refreshEffectsPanel(m);
-  });
+  members.forEach(m=>{if(itemAffectsMember(item.holder,m.name))lt_refreshEffectsPanel(m);});
 }
 
 // ── lt_refreshEffectsPanel ────────────────────────────────────
@@ -1672,7 +1682,7 @@ function lt_refreshEffectsPanel(m){
 
 let lt_editingId=null;
 let lt_pendingFx=[];
-const LT_DAMAGE_STATS=new Set(['damage_rolls','spell_damage','attack_rolls']);
+const LT_DAMAGE_STATS=DAMAGE_FX_STATS;  // js/nexus-utils.js
 
 const LT_ALL_STATS=[
   {key:'str',label:'STR – Strength'},{key:'dex',label:'DEX – Dexterity'},{key:'con',label:'CON – Constitution'},
@@ -1750,13 +1760,7 @@ function lt_removeFxRow(idx){
   const row=document.getElementById(`lt_fx-row-${idx}`);
   if(row)row.remove();
 }
-function lt_collectFx(){
-  return lt_pendingFx.filter(f=>f&&f.stat).map(f=>{
-    const fx={stat:f.stat,type:f.type||'bonus',value:fxNeedsValue(f.type||'bonus')?(f.value||0):null};
-    if(f.damageType&&LT_DAMAGE_STATS.has(f.stat)&&(f.type==='bonus'||f.type==='penalty'))fx.damageType=f.damageType;
-    return fx;
-  });
-}
+function lt_collectFx(){return collectStatEffects(lt_pendingFx);}
 
 // Synchronous — uses members[] already loaded at page start, no DB call needed
 function lt_populateHolderSelect(currentValue){
@@ -1859,6 +1863,7 @@ Promise.all([
   wireSpellEvents();
   render();
   migrateLocalConditions().then(moved=>{if(moved){const _tabs=captureTabState();render();restoreTabState(_tabs);}});
+  migrateInlinePortraits().then(moved=>{if(moved){const _tabs=captureTabState();render();restoreTabState(_tabs);}});
   // Someone else's edits show up without a reload (js/nexus-live.js)
   nexusLive(['party_members','loot_items','combat_options','treasury_currencies','treasury_ledger'],async changed=>{
     await Promise.all([

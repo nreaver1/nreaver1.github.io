@@ -6,8 +6,8 @@
   <title>VAULT-LEDGER // Party Treasury</title>
   <script src="js/nexus-demo.js?v=4ad1b72c"></script>
   <script src="js/nexus-auth.js?v=d48892dc"></script>
-  <script src="js/nexus-config.js?v=6c6e5739"></script>
-  <script src="js/nexus-utils.js?v=82e242d1"></script>
+  <script src="js/nexus-config.js?v=d731f649"></script>
+  <script src="js/nexus-utils.js?v=47289a76"></script>
   <script src="js/nexus-cite.js?v=29a8deb3"></script>
   <script src="js/nexus-live.js?v=16acaebe"></script>
   <link rel="icon" type="image/x-icon" href="assets/favicon.ico" />
@@ -1173,18 +1173,6 @@ function setSplitMode(mode) {
   calcSplit();
 }
 
-// Compute a member's net worth in base-currency units from memberVaultsCache
-function getMemberNetWorth(memberName) {
-  const v = memberVaultsCache[memberName] || {};
-  let total = 0;
-  let hasRate = false;
-  for (const cur of currencies) {
-    const amt = v[cur.id] || 0;
-    if (cur.rate != null) { total += amt * cur.rate; hasRate = true; }
-  }
-  return hasRate ? total : null;
-}
-
 function buildSplitRecipientCard(recipient, index) {
   const base = currencies.find(c => c.id === 'cr') || currencies[0];
   const weightVal = recipient.weight != null ? recipient.weight : null;
@@ -1219,7 +1207,7 @@ function buildSplitRecipientCard(recipient, index) {
     </div>`;
   }
   const m = recipient.member;
-  const wv = getMemberNetWorth(m.name);
+  const wv = getMemberNetWorth(m.name, memberVaultsCache, currencies);  // js/nexus-utils.js
   const isNeg = wv !== null && wv < 0;
   const wealthStr = wv === null ? '—'
     : (isNeg ? '−' : '') + Math.abs(wv).toLocaleString(undefined, { maximumFractionDigits: 1 }) + ' ' + base.abbr;
