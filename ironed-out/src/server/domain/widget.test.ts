@@ -1,14 +1,24 @@
-import { eq } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { createTestDb, type TestDb } from '../../../tests/helpers/db';
 import { courseId, futureSaturday } from '../../../tests/helpers/fixtures';
 import { OutingSchema, WidgetTokenSchema } from '../api/openapi';
-import { apiClients, auditLog, outings, rateLimits, tenants } from '../db/schema';
+import { apiClients, auditLog, outings, players, rateLimits, tenants } from '../db/schema';
 import { seedWidgetDemo, WIDGET_DEMO_CLIENT_ID, WIDGET_DEMO_TENANT_SLUG } from '../db/seed';
 import { withTenant } from '../db/tenant';
 import { isDomainError } from '../errors';
+import { DemoVerifier } from '../notify/verify';
 import { createApiClient, findActiveClient, type ApiCaller } from './api-clients';
-import { createWidgetToken, demoWidgetToken, previewWidget, redeemWidget, type WidgetDeps } from './widget';
+import { confirmOrganizer, organizerCanConfirm, startOrganizerConfirm } from './organizer-access';
+import { addTeeTime, deleteOuting, getOutingView } from './outings';
+import {
+  createWidgetToken,
+  demoWidgetToken,
+  previewWidget,
+  redeemWidget,
+  widgetOrganizer,
+  type WidgetDeps,
+} from './widget';
 
 const SECRET = 'test-secret-0123456789-0123456789-abc';
 const APP_URL = 'https://io.test';
@@ -181,5 +191,95 @@ describe('widget tokens', () => {
       organizerName: 'Mike Golfer',
     });
     expect(await demoWidgetToken(deps, 'no-such-tenant', WIDGET_DEMO_CLIENT_ID)).toBeNull();
+  });
+});
+
+describe('the booker manages the outing', () => {
+  const verifierDeps = () => ({ db: t.db, tenantId, verifier: new DemoVerifier(t.db, SECRET) });
+  const ctx = { ip: '203.0.113.9', userAgent: 'vitest' };
+
+  it('the button knows the organizer once it has made the outing', async () => {
+    const { token } = await createWidgetToken(deps, caller, await booking({ external_ref: 'RES-MGR' }));
+    expect(await widgetOrganizer(deps, token, IP)).toBeNull();
+    const outing = await redeemWidget(deps, token, IP);
+
+    const organizer = (await widgetOrganizer(deps, token, IP))!;
+    expect(organizer.invitePath).toBe(new URL(outing.invite_url!).pathname);
+    const view = (await getOutingView({ db: t.db, tenantId }, outing.id, organizer.playerId))!;
+    expect(view.isOrganizer).toBe(true);
+    // ...and can use the organizer controls in the partner's tenant.
+    await addTeeTime({ db: t.db, tenantId }, { playerId: organizer.playerId }, outing.id);
+    expect((await getOutingView({ db: t.db, tenantId }, outing.id, null))!.teeTimes).toHaveLength(4);
+
+    const [row] = await withTenant(t.db, tenantId, (tx) =>
+      tx
+        .select()
+        .from(auditLog)
+        .where(
+          and(eq(auditLog.target, `outing:${outing.id}`), eq(auditLog.action, 'outing.organizer_confirmed')),
+        ),
+    );
+    expect(row!.meta).toMatchObject({ via: 'widget' });
+
+    await deleteOuting({ db: t.db, tenantId }, { playerId: organizer.playerId }, outing.id);
+    expect(await widgetOrganizer(deps, token, IP)).toBeNull();
+  });
+
+  it('confirms the booking number by code on another device', async () => {
+    const outing = await redeemWidget(
+      deps,
+      (await createWidgetToken(deps, caller, await booking({ external_ref: 'RES-PHONE' }))).token,
+      IP,
+    );
+    const v = verifierDeps();
+    expect(await organizerCanConfirm(v, outing.id)).toBe(true);
+    await expectError(startOrganizerConfirm(v, outing.id, { phone: '410-555-0100' }, ctx), 'invalid_input');
+
+    const { demoCode, phoneMasked } = await startOrganizerConfirm(v, outing.id, { phone: '4105550177' }, ctx);
+    expect(phoneMasked).toBe('•••-•••-0177');
+    await expectError(
+      confirmOrganizer(
+        v,
+        outing.id,
+        { phone: '4105550177', code: demoCode === '000000' ? '111111' : '000000' },
+        ctx,
+      ),
+      'invalid_input',
+    );
+    // A code for someone else's number doesn't open this outing.
+    await expectError(
+      confirmOrganizer(v, outing.id, { phone: '4105550100', code: demoCode! }, ctx),
+      'invalid_input',
+    );
+
+    const { playerId } = await confirmOrganizer(
+      v,
+      outing.id,
+      { phone: '(410) 555-0177', code: demoCode! },
+      ctx,
+    );
+    const view = (await getOutingView({ db: t.db, tenantId }, outing.id, playerId))!;
+    expect(view.isOrganizer).toBe(true);
+    const [p] = await withTenant(t.db, tenantId, (tx) =>
+      tx.select().from(players).where(eq(players.id, playerId)),
+    );
+    expect(p!.phoneVerifiedAt).not.toBeNull();
+  });
+
+  it('has nothing to confirm when the partner sent no number', async () => {
+    const outing = await redeemWidget(
+      deps,
+      (
+        await createWidgetToken(
+          deps,
+          caller,
+          await booking({ external_ref: 'RES-NOPHONE', organizer: { name: 'Lee' } }),
+        )
+      ).token,
+      IP,
+    );
+    const v = verifierDeps();
+    expect(await organizerCanConfirm(v, outing.id)).toBe(false);
+    await expectError(startOrganizerConfirm(v, outing.id, { phone: '4105550177' }, ctx), 'invalid_input');
   });
 });

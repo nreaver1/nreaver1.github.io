@@ -65,12 +65,30 @@ test('demo booking page: the button opens our page, which makes the outing once'
   await hosted.reload();
   await expect(hosted.getByLabel('Invite link')).toHaveText(link!);
 
+  // The booker's browser is the organizer: the invite page has the controls.
   await hosted.getByRole('link', { name: 'See the invite page' }).click();
   await expect(hosted.getByText('Mount Pleasant Golf Course').first()).toBeVisible();
+  await hosted.getByRole('button', { name: 'Add another tee time' }).click();
+  await expect(hosted.getByRole('article', { name: '8:10 AM tee time' })).toBeVisible();
+  await hosted.getByRole('button', { name: 'Lock it in' }).click();
+  await expect(hosted.getByRole('button', { name: 'Unlock the outing' })).toBeVisible();
+  await hosted.getByRole('link', { name: 'Share the link again' }).click();
+  await expect(hosted.getByLabel('Invite link')).toHaveText(link!);
+  await axe(hosted, '/t/share (booker)');
+  await hosted.getByRole('link', { name: 'Back to the outing' }).click();
+
+  // Deleting lands on a note, not the "link expired" page.
+  await hosted.getByRole('button', { name: 'Delete this outing' }).click();
+  await hosted.getByRole('button', { name: 'Yes, delete it' }).click();
+  await expect(hosted.getByRole('heading', { name: 'Outing deleted' })).toBeVisible();
   expect(csp).toEqual([]);
 });
 
-test('partner API: widget token → hosted page; tampered tokens are refused', async ({ request, page }) => {
+test('partner API: widget token → hosted page; tampered tokens are refused', async ({
+  request,
+  page,
+  browser,
+}) => {
   const token = await accessToken(request);
   const courses = await request.get('/api/v1/courses?query=pleasant', {
     headers: { Authorization: `Bearer ${token}` },
@@ -102,6 +120,33 @@ test('partner API: widget token → hosted page; tampered tokens are refused', a
     headers: { Authorization: `Bearer ${token}` },
   });
   expect(((await outings.json()) as { data: unknown[] }).data).toHaveLength(1);
+  const invitePath = (await page.getByRole('link', { name: 'See the invite page' }).getAttribute('href'))!;
+
+  // On another device the same button opens the organizer controls again...
+  const other = await browser.newContext();
+  const phone = await other.newPage();
+  await phone.goto(new URL(body.url).pathname);
+  await phone.getByRole('button', { name: 'Manage the tee sheet' }).click();
+  await expect(phone.getByRole('button', { name: 'Lock it in' })).toBeVisible();
+  await other.close();
+
+  // ...and from just the invite link, the booker confirms the number they booked with.
+  const third = await browser.newContext();
+  const friend = await third.newPage();
+  await friend.goto(invitePath);
+  await expect(friend.getByRole('button', { name: 'Lock it in' })).toHaveCount(0);
+  await friend.getByRole('button', { name: 'Are you Robin B.? Manage this outing' }).click();
+  await friend.getByLabel('Mobile number').fill('4105550100');
+  await friend.getByRole('button', { name: 'Text me a code' }).click();
+  await expect(friend.getByText('That isn’t the number this outing was booked with.')).toBeVisible();
+  await friend.getByLabel('Mobile number').fill('410-555-0188');
+  await friend.getByRole('button', { name: 'Text me a code' }).click();
+  const code = await friend.locator('[role="note"] .display').textContent();
+  await friend.getByLabel('Code').fill(code!.trim());
+  await friend.getByRole('button', { name: 'Manage the outing' }).click();
+  await expect(friend.getByRole('button', { name: 'Lock it in' })).toBeVisible();
+  await axe(friend, '/t (booker on another device)');
+  await third.close();
 
   await page.goto(`/w/${body.token.slice(0, -2)}xx`);
   await expect(page.getByRole('heading', { name: 'This button has expired' })).toBeVisible();

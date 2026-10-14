@@ -1,12 +1,18 @@
 'use client';
 
 import { useState, useTransition } from 'react';
-import { deleteOutingAction } from '@/app/outings/actions';
 import { Button, Sheet } from '@/components/ui';
 import type { OutingView } from '@/server/domain/outings';
+import type { ActionResult } from './organizer-actions';
 
-/** Organizer-only "Delete this outing" with a confirmation sheet. Success redirects to Home. */
-export function DeleteOuting({ view }: { view: OutingView }) {
+/** Organizer-only "Delete this outing" with a confirmation sheet. Success redirects away. */
+export function DeleteOuting({
+  view,
+  onDelete,
+}: {
+  view: OutingView;
+  onDelete: () => Promise<ActionResult>;
+}) {
   const [open, setOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [pending, start] = useTransition();
@@ -35,7 +41,7 @@ export function DeleteOuting({ view }: { view: OutingView }) {
           onClick={() =>
             start(async () => {
               setError(null);
-              const r = await deleteOutingAction(view.id);
+              const r = await onDelete();
               if (r?.error) setError(r.error);
             })
           }

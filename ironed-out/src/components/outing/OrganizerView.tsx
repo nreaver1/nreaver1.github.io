@@ -5,6 +5,7 @@ import { ButtonLink } from '@/components/ui';
 import type { Feed } from '@/server/domain/feed';
 import type { OutingView } from '@/server/domain/outings';
 import { DeleteOuting } from './DeleteOuting';
+import type { OrganizerActions } from './organizer-actions';
 import { SinceBanner } from './SinceBanner';
 import { TeeSheet } from './TeeSheet';
 
@@ -13,10 +14,14 @@ export function OrganizerView({
   view,
   feed,
   markSeen,
+  actions,
+  shareHref,
 }: {
   view: OutingView;
   feed: Feed;
   markSeen: (lastEventId: number) => Promise<void>;
+  actions: OrganizerActions;
+  shareHref: string;
 }) {
   const [dismissed, setDismissed] = useState(false);
   const baselined = useRef(false);
@@ -40,12 +45,12 @@ export function OrganizerView({
           }}
         />
       )}
-      <TeeSheet view={view} mode="organizer" newTeeTimeIds={[]}>
-        <ButtonLink href={`/outings/${view.id}/share`} variant="primary">
+      <TeeSheet view={view} mode="organizer" organizer={actions} newTeeTimeIds={[]}>
+        <ButtonLink href={shareHref} variant="primary">
           Share the link again
         </ButtonLink>
       </TeeSheet>
-      <DeleteOuting view={view} />
+      <DeleteOuting view={view} onDelete={actions.deleteOuting} />
     </>
   );
 }

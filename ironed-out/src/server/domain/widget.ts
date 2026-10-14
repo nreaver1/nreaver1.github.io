@@ -1,6 +1,7 @@
 import { eq } from 'drizzle-orm';
 import { z } from 'zod';
-import { apiClients, courses, tenants } from '../db/schema';
+import { audit } from '../audit';
+import { apiClients, courses, outings, tenants } from '../db/schema';
 import { withTenant } from '../db/tenant';
 import type { Db } from '../db/types';
 import { DomainError } from '../errors';
@@ -15,6 +16,7 @@ import {
   ApiCreateOutingInput,
   createPartnerOuting,
   getOutingResource,
+  loadOutingResource,
   toOutingInput,
   type ApiCreateOuting,
   type ApiOuting,
@@ -208,6 +210,42 @@ export async function redeemWidget(
     await finishIdempotent(idem, client.id, key, { status: 500, body: null }).catch(() => undefined);
     throw e;
   }
+}
+
+/**
+ * The booker behind a token that has made its outing: whoever holds the button is the person the
+ * partner booked for, so their browser gets remembered as the organizer (SPEC §7 widget). Null if
+ * the token is dead or hasn't made an outing (or the outing was deleted).
+ */
+export async function widgetOrganizer(
+  deps: WidgetDeps,
+  token: string,
+  ctx: { ip: string | null },
+): Promise<{ playerId: string; invitePath: string } | null> {
+  const opened = await openToken(deps, token);
+  if (!opened) return null;
+  const { payload, client } = opened;
+  const done = await findIdempotent({ db: deps.db, tenantId: client.tenantId }, client.id, keyOf(payload));
+  const id = z.object({ id: z.uuid() }).safeParse(done?.status === 201 ? done.body : null);
+  if (!id.success) return null;
+  return withTenant(deps.db, client.tenantId, async (tx) => {
+    const [o] = await tx
+      .select({ organizer: outings.organizerPlayerId })
+      .from(outings)
+      .where(eq(outings.id, id.data.id));
+    if (!o) return null;
+    const outing = await loadOutingResource(tx, deps, id.data.id, { includePlayers: false });
+    if (!outing?.invite_url) return null;
+    await audit(tx, {
+      tenantId: client.tenantId,
+      actor: `player:${o.organizer}`,
+      action: 'outing.organizer_confirmed',
+      target: `outing:${id.data.id}`,
+      ip: ctx.ip,
+      meta: { via: 'widget' },
+    });
+    return { playerId: o.organizer, invitePath: new URL(outing.invite_url).pathname };
+  });
 }
 
 /**

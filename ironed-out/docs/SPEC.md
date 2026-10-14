@@ -218,8 +218,17 @@ items, max 5, newest first) plus `last_event_id`. `POST /outings/:id/seen {last_
   needed and `/w` keeps `frame-ancestors 'none'`. It works under a strict partner CSP
   (constructed stylesheet, no innerHTML) and re-attaches after React/SPA re-renders. Demo:
   `/developers/widget` (a made-up booking site, tenant `widget-demo` seeded by `pnpm db:seed`).
-  Open item: the booker isn't recognized as the organizer on the invite page (true of every
-  partner-created outing), so they can share but not manage from the web app._
+  Booker management (2026-10-13): partner bookers have no account, so the invite page knows them
+  by the signed device cookie (90 days) instead. Making the link sets it; "Manage the tee sheet"
+  on the done screen sets it again (another device with the same button, until it expires); and
+  if the partner sent the organizer's phone, "Are you <name>? Manage this outing" on the invite
+  page checks a text code for that exact number, marks it verified (so alerts can reach them) and
+  sets the cookie. Organizers with an account never get the phone path. The invite page then shows
+  the usual organizer controls through token-bound actions (the domain still checks the actor is
+  the organizer), "Share the link again" goes to `/t/<token>/share` (no "make a new link" there),
+  and deleting lands on `/t/<token>?deleted=1`. Both grants are audited as
+  `outing.organizer_confirmed` with `meta.via` = `widget` | `phone`. A plain API outing (no
+  widget) is managed only through the phone path, so partners should send the organizer phone._
 
 ## 8. Course data
 

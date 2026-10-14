@@ -5,8 +5,8 @@ import { formatMinutes, formatPlayDate } from '@/lib/format';
 import { previewWidget } from '@/server/domain/widget';
 import { getServices } from '@/web/services';
 import { ShareClient } from '../../outings/[id]/share/ShareClient';
-import { makeOutingAction } from './actions';
-import { MakeOutingForm } from './MakeOutingForm';
+import { makeOutingAction, manageOutingAction } from './actions';
+import { WidgetForm } from './WidgetForm';
 import styles from './widget.module.css';
 
 type Props = { params: Promise<{ token: string }> };
@@ -46,6 +46,16 @@ export default async function WidgetPage({ params }: Props) {
           }
           host={new URL(services.appUrl).host}
         />
+        <WidgetForm
+          action={manageOutingAction.bind(null, token)}
+          label="Manage the tee sheet"
+          pendingLabel="Opening…"
+          variant="default"
+        />
+        <p className={styles.fine}>
+          Add tee times, remove players or lock it in. This device stays signed in as the organizer for 90
+          days.
+        </p>
       </main>
     );
   }
@@ -79,7 +89,11 @@ export default async function WidgetPage({ params }: Props) {
           </dd>
         </dl>
       </Card>
-      <MakeOutingForm action={makeOutingAction.bind(null, token)} />
+      <WidgetForm
+        action={makeOutingAction.bind(null, token)}
+        label="Make the invite link"
+        pendingLabel="Making your link…"
+      />
       <p className={styles.fine}>
         Ironed Out runs the sign-up sheet for {booking.partnerName}. They may see the names on the tee sheet,
         never phone numbers. <Link href="/privacy">Privacy policy</Link>

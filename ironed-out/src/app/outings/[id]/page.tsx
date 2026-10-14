@@ -9,7 +9,16 @@ import { getOutingView } from '@/server/domain/outings';
 import { calendarLinks } from '@/web/outing-links';
 import { getServices } from '@/web/services';
 import { requireUser } from '@/web/session';
-import { markSeenOutingAction, memberDropOutAction } from '../actions';
+import {
+  addTeeTimeAction,
+  changeCapacityAction,
+  deleteOutingAction,
+  deleteTeeTimeAction,
+  markSeenOutingAction,
+  memberDropOutAction,
+  removePlayerAction,
+  setLockedAction,
+} from '../actions';
 
 export const metadata: Metadata = { title: 'Outing' };
 
@@ -28,7 +37,20 @@ export default async function OutingPage({ params }: { params: Promise<{ id: str
       <BackLink href="/home" label="Back to home" />
       <OutingHero view={view} />
       {view.isOrganizer ? (
-        <OrganizerView view={view} feed={feed} markSeen={markSeen} />
+        <OrganizerView
+          view={view}
+          feed={feed}
+          markSeen={markSeen}
+          shareHref={`/outings/${id}/share`}
+          actions={{
+            addTeeTime: addTeeTimeAction.bind(null, id),
+            changeCapacity: changeCapacityAction,
+            deleteTeeTime: deleteTeeTimeAction,
+            removePlayer: removePlayerAction,
+            setLocked: setLockedAction.bind(null, id),
+            deleteOuting: deleteOutingAction.bind(null, id),
+          }}
+        />
       ) : (
         <OutingPlayerView
           view={view}

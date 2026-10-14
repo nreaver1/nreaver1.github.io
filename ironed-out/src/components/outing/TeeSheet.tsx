@@ -1,17 +1,11 @@
 'use client';
 
 import { useState, useTransition } from 'react';
-import {
-  addTeeTimeAction,
-  changeCapacityAction,
-  deleteTeeTimeAction,
-  removePlayerAction,
-  setLockedAction,
-} from '@/app/outings/actions';
 import { CloseIcon, MinusIcon, PlusIcon, TrashIcon } from '@/components/icons';
 import { Button } from '@/components/ui';
 import { formatTime } from '@/lib/format';
 import type { OutingView, SlotView, TeeTimeView } from '@/server/domain/outings';
+import type { OrganizerActions } from './organizer-actions';
 import styles from './outing.module.css';
 import { spotsText } from './spots';
 
@@ -26,6 +20,8 @@ const PALETTE = [
 export type TeeSheetProps = {
   view: OutingView;
   mode: 'organizer' | 'friend';
+  /** Required in organizer mode. */
+  organizer?: OrganizerActions;
   /** Slots that opened since the viewer last looked (sand + wiggle). */
   freshSlotIds?: string[];
   /** Tee times added since the viewer last looked. */
@@ -39,6 +35,7 @@ export type TeeSheetProps = {
 export function TeeSheet({
   view,
   mode,
+  organizer,
   freshSlotIds = [],
   newTeeTimeIds = [],
   onClaim,
@@ -89,7 +86,7 @@ export function TeeSheet({
                     className={styles.tool}
                     aria-label={`Remove an empty spot from ${time(tee)}`}
                     disabled={!canLess || pending}
-                    onClick={() => run(() => changeCapacityAction(tee.id, -1))}
+                    onClick={() => run(() => organizer!.changeCapacity(tee.id, -1))}
                   >
                     <MinusIcon />
                   </button>
@@ -98,7 +95,7 @@ export function TeeSheet({
                     className={styles.tool}
                     aria-label={`Add a spot to ${time(tee)}`}
                     disabled={!canAdd || pending}
-                    onClick={() => run(() => changeCapacityAction(tee.id, 1))}
+                    onClick={() => run(() => organizer!.changeCapacity(tee.id, 1))}
                   >
                     <PlusIcon />
                   </button>
@@ -107,7 +104,7 @@ export function TeeSheet({
                     className={styles.tool}
                     aria-label={`Delete the ${time(tee)} tee time`}
                     disabled={!canDel || pending}
-                    onClick={() => run(() => deleteTeeTimeAction(tee.id))}
+                    onClick={() => run(() => organizer!.deleteTeeTime(tee.id))}
                   >
                     <TrashIcon />
                   </button>
@@ -139,7 +136,7 @@ export function TeeSheet({
                     slot={slot}
                     canRemove={editable && slot.tag !== 'organizer'}
                     canDrop={!isOrg && slot.isYou && !view.locked && !!onDropOut}
-                    onRemove={() => run(() => removePlayerAction(slot.id))}
+                    onRemove={() => run(() => organizer!.removePlayer(slot.id))}
                     onDrop={() => onDropOut?.()}
                     pending={pending}
                   />
@@ -159,7 +156,7 @@ export function TeeSheet({
           {!view.locked && (
             <Button
               disabled={pending || view.teeTimes.length >= 6}
-              onClick={() => run(() => addTeeTimeAction(view.id))}
+              onClick={() => run(() => organizer!.addTeeTime())}
             >
               <PlusIcon /> Add another tee time
             </Button>
@@ -168,7 +165,7 @@ export function TeeSheet({
             aria-pressed={view.locked}
             variant={view.locked ? 'danger' : 'default'}
             disabled={pending}
-            onClick={() => run(() => setLockedAction(view.id, !view.locked))}
+            onClick={() => run(() => organizer!.setLocked(!view.locked))}
           >
             {view.locked ? 'Unlock the outing' : 'Lock it in'}
           </Button>
