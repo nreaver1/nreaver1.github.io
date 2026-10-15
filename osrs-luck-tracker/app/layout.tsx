@@ -29,7 +29,9 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" className={`${fraunces.variable} ${oswald.variable}`}>
+    // data-scroll-behavior lets Next turn off the smooth scrolling in
+    // globals.css during page navigations, so only in-page jumps glide.
+    <html lang="en" data-scroll-behavior="smooth" className={`${fraunces.variable} ${oswald.variable}`}>
       <body className="min-h-screen bg-ink text-parchment font-serif antialiased">
         <NavigationProvider>
           <Nav />

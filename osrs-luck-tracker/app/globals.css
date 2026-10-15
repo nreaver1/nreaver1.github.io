@@ -46,6 +46,25 @@ body {
   .page-grid > .page-grid-nested {
     grid-column: full;
   }
+  /* SectionNav's wide-screen list: the left wide track, spanning enough
+     rows to cover the page so it can stick while the content scrolls. */
+  :is(.page-grid, .page-grid-nested) > .section-rail {
+    grid-column: wide-start / content-start;
+    grid-row: 1 / span 20;
+    align-self: start;
+    position: sticky;
+    top: 2rem;
+    padding-right: 1.5rem;
+  }
+  /* Room above a section heading for SectionNav's sticky strip. */
+  .nav-target {
+    scroll-margin-top: 4.5rem;
+  }
+  @media (min-width: 1280px) {
+    .nav-target {
+      scroll-margin-top: 2rem;
+    }
+  }
 
   /* Horizontal swipe strips on touch screens: keep the scroll, hide the bar. */
   .no-scrollbar {
@@ -53,6 +72,12 @@ body {
   }
   .no-scrollbar::-webkit-scrollbar {
     display: none;
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  html {
+    scroll-behavior: smooth;
   }
 }
 

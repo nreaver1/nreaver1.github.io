@@ -14,6 +14,7 @@ import CompareCard from "@/components/CompareCard";
 import ComparisonTable from "@/components/ComparisonTable";
 import DemoBadge from "@/components/DemoBadge";
 import OverallCard from "@/components/OverallCard";
+import SectionNav, { type NavSection } from "@/components/SectionNav";
 import { overallLuck } from "@/lib/overall";
 
 type Compared =
@@ -87,9 +88,18 @@ export default async function PlayerPage({
   );
 
   if (found.length === 0) {
+    const hasPools = !!data.pools && data.pools.length > 0;
+    const hasHunting = !!data.hunting && data.hunting.length > 0;
+    const sections: NavSection[] = [
+      { id: "overview", label: "Overview" },
+      { id: "drops", label: "Every logged drop", count: data.results.length },
+      ...(hasPools ? [{ id: "log-pages", label: "By log page", count: data.pools!.length }] : []),
+      ...(hasHunting ? [{ id: "hunting", label: "Still hunting", count: data.hunting!.length }] : []),
+    ];
+
     return (
-      <div className="pt-12">
-        <h1 className="text-3xl font-medium text-parchment sm:text-4xl">
+      <div className="page-grid-nested pt-12">
+        <h1 id="overview" className="nav-target text-3xl font-medium text-parchment sm:text-4xl">
           {data.ign}&rsquo;s luck
           {data.demo && <DemoBadge className="ml-3" />}
         </h1>
@@ -98,6 +108,7 @@ export default async function PlayerPage({
             A sample account with made-up drops, here so you can try the site.
           </p>
         )}
+        <SectionNav sections={sections} />
 
         {/* Overall luck leads; the compare search moves to its right on
             wider screens and drops below it on phones. */}
@@ -115,7 +126,7 @@ export default async function PlayerPage({
           <SummaryCard title="Dry streak" result={data.driest} dry />
         </div>
 
-        <div className="mt-10">
+        <div id="drops" className="nav-target mt-10">
           <h2 className="mb-4 font-mono text-xs uppercase tracking-wide text-parchment-dim">
             Every logged drop
           </h2>
@@ -125,8 +136,8 @@ export default async function PlayerPage({
           <LuckTable results={data.results} />
         </div>
 
-        {data.pools && data.pools.length > 0 && (
-          <div className="mt-10">
+        {hasPools && (
+          <div id="log-pages" className="nav-target mt-10">
             <h2 className="font-mono text-xs uppercase tracking-wide text-parchment-dim">By log page</h2>
             <p className="mb-4 mt-1 max-w-xl text-sm text-parchment-dim">
               Every unique on these pages shares one drop rate, so each item alone would show the same number. Rated
@@ -134,21 +145,21 @@ export default async function PlayerPage({
               kill count.
             </p>
             <div className="grid gap-4 sm:grid-cols-2">
-              {data.pools.map((pool) => (
+              {data.pools!.map((pool) => (
                 <PoolCard key={pool.source_name} pool={pool} />
               ))}
             </div>
           </div>
         )}
 
-        {data.hunting && data.hunting.length > 0 && (
-          <div className="mt-10">
+        {hasHunting && (
+          <div id="hunting" className="nav-target mt-10">
             <h2 className="font-mono text-xs uppercase tracking-wide text-parchment-dim">Still hunting</h2>
             <p className="mb-4 mt-1 max-w-xl text-sm text-parchment-dim">
               Drops the collection log shows {data.ign} doesn&rsquo;t have yet, and how many players would have
               had one by the same kill count. Bosses with the latest kill counts come first.
             </p>
-            <HuntingGroups hunting={data.hunting} />
+            <HuntingGroups hunting={data.hunting!} />
           </div>
         )}
       </div>
