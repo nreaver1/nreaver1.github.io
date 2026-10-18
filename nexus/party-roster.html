@@ -6,7 +6,7 @@
   <title>PARTY ROSTER // Crew Registry</title>
   <script src="js/nexus-demo.js?v=4ad1b72c"></script>
   <script src="js/nexus-auth.js?v=d48892dc"></script>
-  <script src="js/nexus-config.js?v=95851a9a"></script>
+  <script src="js/nexus-config.js?v=79bf5737"></script>
   <script src="js/nexus-utils.js?v=47289a76"></script>
   <script src="js/nexus-cite.js?v=29a8deb3"></script>
   <script src="js/nexus-live.js?v=16acaebe"></script>
@@ -123,37 +123,37 @@
         <div class="field"><label>Race / Species</label><input type="text" id="f-race" placeholder="e.g. Human, Cyborg…" /></div>
       </div>
       <div class="field-row">
-        <div class="field"><label>Level</label><input type="number" id="f-level" placeholder="1" min="1" max="99" /></div>
+        <div class="field"><label>Level</label><input type="number" id="f-level" data-fill placeholder="1" min="1" max="99" /></div>
         <div class="field"><label>Status</label>
           <select id="f-status"><option value="active">Active</option><option value="retired">Retired</option><option value="deceased">Deceased</option><option value="missing">MIA</option></select>
         </div>
-        <div class="field"><label>Proficiency Bonus</label><input type="number" id="f-prof" placeholder="+2" min="1" max="9" /></div>
+        <div class="field"><label>Proficiency Bonus</label><input type="number" id="f-prof" data-fill="2" placeholder="+2" min="1" max="9" /></div>
       </div>
       <div class="field"><label>Card Color</label><div class="color-row" id="modalColorRow"></div></div>
 
       <!-- ABILITY SCORES -->
       <div class="modal-section">Ability Scores</div>
       <div class="ability-inputs">
-        <div class="ability-inp-wrap"><label>STR</label><input type="number" id="f-str" min="1" max="30" placeholder="10" /></div>
-        <div class="ability-inp-wrap"><label>DEX</label><input type="number" id="f-dex" min="1" max="30" placeholder="10" /></div>
-        <div class="ability-inp-wrap"><label>CON</label><input type="number" id="f-con" min="1" max="30" placeholder="10" /></div>
-        <div class="ability-inp-wrap"><label>INT</label><input type="number" id="f-int" min="1" max="30" placeholder="10" /></div>
-        <div class="ability-inp-wrap"><label>WIS</label><input type="number" id="f-wis" min="1" max="30" placeholder="10" /></div>
-        <div class="ability-inp-wrap"><label>CHA</label><input type="number" id="f-cha" min="1" max="30" placeholder="10" /></div>
+        <div class="ability-inp-wrap"><label>STR</label><input type="number" id="f-str" min="1" max="30" data-fill placeholder="10" /></div>
+        <div class="ability-inp-wrap"><label>DEX</label><input type="number" id="f-dex" min="1" max="30" data-fill placeholder="10" /></div>
+        <div class="ability-inp-wrap"><label>CON</label><input type="number" id="f-con" min="1" max="30" data-fill placeholder="10" /></div>
+        <div class="ability-inp-wrap"><label>INT</label><input type="number" id="f-int" min="1" max="30" data-fill placeholder="10" /></div>
+        <div class="ability-inp-wrap"><label>WIS</label><input type="number" id="f-wis" min="1" max="30" data-fill placeholder="10" /></div>
+        <div class="ability-inp-wrap"><label>CHA</label><input type="number" id="f-cha" min="1" max="30" data-fill placeholder="10" /></div>
       </div>
 
       <!-- COMBAT STATS -->
       <div class="modal-section">Combat Stats</div>
       <div class="combat-inputs">
-        <div class="combat-inp-wrap"><label>AC</label><input type="number" id="f-ac" min="0" max="30" placeholder="10" /></div>
-        <div class="combat-inp-wrap"><label>HP Max</label><input type="number" id="f-hp" min="1" placeholder="20" /></div>
-        <div class="combat-inp-wrap"><label>HP Current</label><input type="number" id="f-hpcur" min="0" placeholder="20" /></div>
-        <div class="combat-inp-wrap"><label>Speed (ft)</label><input type="number" id="f-speed" min="0" placeholder="30" /></div>
-        <div class="combat-inp-wrap"><label>Initiative</label><input type="number" id="f-init" placeholder="0" /></div>
+        <div class="combat-inp-wrap"><label>AC</label><input type="number" id="f-ac" min="0" max="30" data-fill placeholder="10" /></div>
+        <div class="combat-inp-wrap"><label>HP Max</label><input type="number" id="f-hp" min="1" data-fill placeholder="20" /></div>
+        <div class="combat-inp-wrap"><label>HP Current</label><input type="number" id="f-hpcur" min="0" data-fill data-fill-from="f-hp" placeholder="20" /></div>
+        <div class="combat-inp-wrap"><label>Speed (ft)</label><input type="number" id="f-speed" min="0" data-fill placeholder="30" /></div>
+        <div class="combat-inp-wrap"><label>Initiative</label><input type="number" id="f-init" data-fill placeholder="0" /></div>
         <div class="combat-inp-wrap"><label>Spell Save DC</label><input type="number" id="f-spelldc" min="0" placeholder="—" /></div>
         <div class="combat-inp-wrap"><label>Spell Atk Bonus</label><input type="number" id="f-spellatk" placeholder="—" /></div>
-        <div class="combat-inp-wrap"><label>Passive Perc</label><input type="number" id="f-passperc" placeholder="10" /></div>
-        <div class="combat-inp-wrap" title="Extra Attack: how many weapon attacks one Attack action makes (Combat sheet)"><label>Attacks / Action</label><input type="number" id="f-attacks" min="1" max="4" placeholder="1" /></div>
+        <div class="combat-inp-wrap"><label>Passive Perc</label><input type="number" id="f-passperc" data-fill placeholder="10" /></div>
+        <div class="combat-inp-wrap" title="Extra Attack: how many weapon attacks one Attack action makes (Combat sheet)"><label>Attacks / Action</label><input type="number" id="f-attacks" min="1" max="4" data-fill placeholder="1" /></div>
       </div>
 
       <!-- PROFICIENCIES -->
@@ -1737,7 +1737,7 @@ function lt_addFxRow(existing){
     <select class="fx-stat-sel" onchange="lt_pendingFx[${idx}].stat=this.value;lt_fxUpdateDmgVis(${idx})">${lt_buildStatSelect()}</select>
     <select class="fx-type-sel" onchange="lt_pendingFx[${idx}].type=this.value;document.getElementById('lt_fx-val-${idx}').style.display=fxNeedsValue(this.value)?'block':'none';lt_fxUpdateDmgVis(${idx})">${lt_buildTypeSelect()}</select>
     <div class="fx-val-wrap">
-      <input type="number" class="fx-val-inp" id="lt_fx-val-${idx}" placeholder="±#" style="display:${needsVal(fx.type)?'block':'none'}" onchange="lt_pendingFx[${idx}].value=parseFloat(this.value)||null" />
+      <input type="number" class="fx-val-inp" id="lt_fx-val-${idx}" data-fill="1" placeholder="±#" style="display:${needsVal(fx.type)?'block':'none'}" onchange="lt_pendingFx[${idx}].value=parseFloat(this.value)||null" />
       <select class="fx-dmg-sel" id="lt_fx-dmg-${idx}" style="display:${showDmg(fx.type,fx.stat)?'block':'none'}" onchange="lt_pendingFx[${idx}].damageType=this.value||null">${lt_buildDmgTypeSelect()}</select>
     </div>
     <button class="fx-del-btn" onclick="lt_removeFxRow(${idx})">✕</button>`;

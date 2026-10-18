@@ -246,12 +246,15 @@ window.addEventListener('click', e => {
 //  (or the data-fill value, when set) into it. Only empty fields, so
 //  Ctrl+→ still jumps words once there's text. Mark only fields whose
 //  placeholder is a real value ("1 action"), not a hint ("1d8, 8d6").
+//  data-fill-from="<id>" copies that field's value instead, when set
+//  (HP Current ← HP Max).
 // ══════════════════════════════════════════════════════════════
 document.addEventListener('keydown', e => {
   if (e.key !== 'ArrowRight' || !e.ctrlKey || e.altKey || e.shiftKey || e.metaKey) return;
   const el = e.target;
   if (!el || !el.matches || !el.matches('[data-fill]') || el.value !== '') return;
-  const value = el.dataset.fill || el.placeholder;
+  const from = el.dataset.fillFrom && document.getElementById(el.dataset.fillFrom);
+  const value = (from && from.value) || el.dataset.fill || el.placeholder;
   if (!value) return;
   e.preventDefault();
   el.value = value;

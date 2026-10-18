@@ -9560,6 +9560,20 @@ describe('Shared combat editor — SRD, loot and prepared', () => {
     assert.match(cfg, /el\.dispatchEvent\(new Event\('input',/);
     for (const id of ['school', 'cast', 'components', 'duration']) assert.match(src, new RegExp(`id="ce-${id}"[^>]*data-fill`), id);
     assert.doesNotMatch(src, /id="ce-dice"[^>]*data-fill/, 'hint placeholders are not fill values');
+    assert.match(cfg, /const value = \(from && from\.value\) \|\| el\.dataset\.fill \|\| el\.placeholder;/);
+  });
+
+  it('Ctrl+→ fill on the roster and loot effect values', () => {
+    const roster = fs.readFileSync(path.join(__dirname, '..', 'party-roster.html'), 'utf8');
+    const loot   = fs.readFileSync(path.join(__dirname, '..', 'loot-tracker.html'), 'utf8');
+    for (const id of ['level', 'str', 'dex', 'con', 'int', 'wis', 'cha', 'ac', 'hp', 'speed', 'init', 'passperc', 'attacks']) {
+      assert.match(roster, new RegExp(`id="f-${id}"[^>]*data-fill`), id);
+    }
+    assert.match(roster, /id="f-prof"[^>]*data-fill="2"/, 'a number box can\'t take "+2"');
+    assert.match(roster, /id="f-hpcur"[^>]*data-fill-from="f-hp"/, 'HP Current copies HP Max');
+    assert.doesNotMatch(roster, /id="f-name"[^>]*data-fill/, '"e.g." hints are not fill values');
+    assert.match(roster, /id="lt_fx-val-\$\{idx\}" data-fill="1"/);
+    assert.match(loot, /id="fx-val-\$\{idx\}" data-fill="1"/);
   });
 
   it('name field searches SRD + library spells / weapons, and library-only features', () => {
