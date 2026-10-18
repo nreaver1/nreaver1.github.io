@@ -114,6 +114,29 @@ const ZEZIMA: PlayerLuckResponse = {
       supported: false,
       backfilled: true,
     },
+    // Shared with Spoonfed and Dry Bones, as in seed-demo.sql.
+    {
+      item_id: 12819,
+      source_name: "Corporeal Beast",
+      kc_received: 6000,
+      date_received: daysAgo(90),
+      probability: 0.769,
+      label: "average",
+      estimated: false,
+      supported: true,
+      backfilled: false,
+    },
+    {
+      item_id: 12922,
+      source_name: "Zulrah",
+      kc_received: 700,
+      date_received: daysAgo(70),
+      probability: 0.7453,
+      label: "average",
+      estimated: false,
+      supported: true,
+      backfilled: false,
+    },
   ],
   mostSpooned: null,
   driest: null,
@@ -215,12 +238,15 @@ const SPOONFED: PlayerLuckResponse = {
     flat(21992, "Vorkath", 90, 0.03, "spooned", 60),
     flat(13231, "Cerberus", 15, 0.028, "spooned", 45),
     flat(12819, "Corporeal Beast", 200, 0.048, "spooned", 20),
+    flat(11286, "Vorkath", 120, 0.0237, "spooned", 50),
+    { ...flat(21907, "Vorkath", 4, 0.0776, "spooned", 85), estimated: true },
+    flat(12816, "Corporeal Beast", 150, 0.0296, "spooned", 25),
   ],
   mostSpooned: null,
   driest: null,
 };
-SPOONFED.mostSpooned = SPOONFED.results[2];
-SPOONFED.driest = SPOONFED.results[3];
+SPOONFED.mostSpooned = SPOONFED.results[4];
+SPOONFED.driest = SPOONFED.results[5];
 
 // Everything late (and an IGN with a space).
 const DRY_BONES: PlayerLuckResponse = {
@@ -231,12 +257,16 @@ const DRY_BONES: PlayerLuckResponse = {
     flat(12004, "Kraken", 1500, 0.977, "dry", 200),
     flat(13200, "Zulrah", 20000, 0.953, "dry", 100),
     flat(23757, "The Gauntlet", 2400, 0.699, "average", 50),
+    // Guaranteed on the 50th kill: the pity badge.
+    { ...flat(21907, "Vorkath", 50, 1, "desert", 150), estimated: true, pity: true as const },
+    flat(12922, "Zulrah", 1800, 0.9703, "dry", 250),
+    flat(4207, "The Gauntlet", 400, 0.9648, "dry", 120),
   ],
   mostSpooned: null,
   driest: null,
 };
 DRY_BONES.mostSpooned = DRY_BONES.results[3];
-DRY_BONES.driest = DRY_BONES.results[0];
+DRY_BONES.driest = DRY_BONES.results[4];
 
 // Imported an existing log (with seed-demo.sql's KC snapshots); one drop
 // tracked since.

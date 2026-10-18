@@ -320,12 +320,19 @@ export default function ComparisonTable({
       )}
 
       {/* Tablet / desktop: one column per player. If the columns still
-          don't fit, the table scrolls sideways with the item column pinned. */}
-      <div className={`hidden overflow-x-auto ${rows.length > 0 ? "md:block" : ""}`}>
+          don't fit, the table scrolls sideways with the item column pinned.
+          A scroll container would also trap the sticky header, so it only
+          scrolls at widths too narrow for the columns' minimum widths
+          (11rem + 9rem a player against the wide column). */}
+      <div
+        className={`hidden ${players.length > 3 ? "overflow-x-auto lg:overflow-visible" : ""} ${
+          rows.length > 0 ? "md:block" : ""
+        }`}
+      >
         <table className="w-full border-collapse text-sm">
           <thead>
-            <tr className="border-b border-panel-border text-left font-mono text-xs uppercase tracking-wide text-parchment-dim">
-              <th className="sticky left-0 z-10 min-w-[11rem] bg-ink py-2 pr-4 font-normal">
+            <tr className="sticky-head text-left font-mono text-xs uppercase tracking-wide text-parchment-dim">
+              <th className="left-0 z-30 min-w-[11rem] py-2 pr-4 font-normal">
                 <HeaderButton label="Item" column={{ by: "item", dir: "asc" }} sort={sort} onSort={sortBy} className="uppercase tracking-wide" />
                 <span aria-hidden className="mx-1">/</span>
                 <HeaderButton label="Source" column={{ by: "source", dir: "asc" }} sort={sort} onSort={sortBy} className="uppercase tracking-wide" />

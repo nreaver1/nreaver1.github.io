@@ -274,7 +274,7 @@ export default function LuckTable({ results: allResults }: { results: LuckResult
       {/* Desktop / tablet: real table */}
       <table className={`hidden w-full border-collapse text-sm ${results.length > 0 ? "sm:table" : ""}`}>
         <thead>
-          <tr className="border-b border-panel-border text-left font-mono text-xs uppercase tracking-wide text-parchment-dim">
+          <tr className="sticky-head sticky-head-under-nav text-left font-mono text-xs uppercase tracking-wide text-parchment-dim">
             {COLUMNS.map((c) => (
               <SortHeader key={c.key} column={c} sort={sort} onSort={sortBy} />
             ))}

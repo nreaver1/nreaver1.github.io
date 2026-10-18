@@ -44,6 +44,10 @@ values
   ('demo-zezima', 20997, 'Chambers of Xeric',   1900,  1900,  false, now() - interval '40 days',  now() - interval '40 days'),  -- points_based (estimated)
   ('demo-zezima', 27283, 'Tombs of Amascut',    25,    25,    false, now() - interval '30 days',  now() - interval '30 days'),  -- streak_adjusted (estimated)
   ('demo-zezima', 29889, 'Amoxliatl',           null,  null,  true,  null,                        now() - interval '199 days'), -- backfilled
+  -- Shared with Spoonfed and Dry Bones so the comparison page has rows to compare.
+  ('demo-zezima', 12819, 'Corporeal Beast',     6000,  6000,  false, now() - interval '90 days',  now() - interval '90 days'),  -- average
+  ('demo-zezima', 21907, 'Vorkath',             20,    20,    false, now() - interval '180 days', now() - interval '180 days'), -- streak_adjusted (estimated)
+  ('demo-zezima', 12922, 'Zulrah',              700,   700,   false, now() - interval '70 days',  now() - interval '70 days'),  -- average
 
   -- Newscape: a small, all-average log.
   ('demo-newscape', 11812, 'General Graardor',  260,   260,   false, now() - interval '20 days',  now() - interval '20 days'),
@@ -54,6 +58,9 @@ values
   ('demo-spoonfed', 21992, 'Vorkath',           90,    90,    false, now() - interval '60 days',  now() - interval '60 days'),
   ('demo-spoonfed', 13231, 'Cerberus',          15,    15,    false, now() - interval '45 days',  now() - interval '45 days'),
   ('demo-spoonfed', 12819, 'Corporeal Beast',   200,   200,   false, now() - interval '20 days',  now() - interval '20 days'),
+  ('demo-spoonfed', 11286, 'Vorkath',           120,   120,   false, now() - interval '50 days',  now() - interval '50 days'),
+  ('demo-spoonfed', 21907, 'Vorkath',           4,     4,     false, now() - interval '85 days',  now() - interval '85 days'),
+  ('demo-spoonfed', 12816, 'Corporeal Beast',   150,   150,   false, now() - interval '25 days',  now() - interval '25 days'),
 
   -- Dry Bones: everything late.
   ('demo-drybones', 12816, 'Corporeal Beast',   30000, 30000, false, now() - interval '300 days', now() - interval '300 days'), -- desert
@@ -61,6 +68,8 @@ values
   ('demo-drybones', 13200, 'Zulrah',            20000, 20000, false, now() - interval '100 days', now() - interval '100 days'), -- dry
   ('demo-drybones', 23757, 'The Gauntlet',      2400,  2400,  false, now() - interval '50 days',  now() - interval '50 days'),  -- average
   ('demo-drybones', 21907, 'Vorkath',           50,    50,    false, now() - interval '150 days', now() - interval '150 days'), -- pity (guaranteed on kill 50)
+  ('demo-drybones', 12922, 'Zulrah',            1800,  1800,  false, now() - interval '250 days', now() - interval '250 days'), -- dry
+  ('demo-drybones',  4207, 'The Gauntlet',      400,   400,   false, now() - interval '120 days', now() - interval '120 days'), -- dry
 
   -- Backlogged: imported an existing log, one drop tracked since.
   ('demo-backlogged', 11832, 'General Graardor', null, null,  true,  null,                        now() - interval '14 days'),
@@ -128,6 +137,7 @@ insert into boss_kc (account_hash, boss_name, current_kc) values
   ('demo-zezima',     'Corporeal Beast',   25210),
   ('demo-zezima',     'Chambers of Xeric', 2050),
   ('demo-zezima',     'Tombs of Amascut',  415),
+  ('demo-zezima',     'Zulrah',            760),
   ('demo-newscape',   'General Graardor',  301),
   ('demo-newscape',   'The Gauntlet',      112),
   ('demo-emptylogs',  'General Graardor',  18),
