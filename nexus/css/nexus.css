@@ -94,7 +94,7 @@ body.page-treasury::before {
 /* ─────────────────────────────────────────────
    4. SCROLLBAR
    ───────────────────────────────────────────── */
-::-webkit-scrollbar { width: 5px; }
+::-webkit-scrollbar { width: 5px; height: 8px; }
 ::-webkit-scrollbar-track { background: var(--bg); }
 ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
 
@@ -1346,7 +1346,7 @@ x-from-items { display: flex; flex-direction: column; gap: 0.5rem; }
 }
 .ledger-filter-clear-all:hover { opacity: 1; border-color: var(--red); }
 
-.ledger-wrap { background: var(--panel); border: 1px solid var(--border); border-radius: 4px; overflow: hidden; }
+.ledger-wrap { background: var(--panel); border: 1px solid var(--border); border-radius: 4px; overflow-x: auto; overflow-y: hidden; }
 table { width: 100%; border-collapse: collapse; }
 thead th { background: rgba(14,240,208,0.04); font-family: 'Share Tech Mono', monospace; font-size: 0.8rem; letter-spacing: 0.2em; text-transform: uppercase; color: var(--cyan-dim); padding: 0.65rem 1rem; text-align: left; border-bottom: 1px solid rgba(14,240,208,0.12); white-space: nowrap; }
 tbody tr { border-bottom: 1px solid rgba(30,45,69,0.5); transition: background 0.12s; animation: rowIn 0.25s ease both; }
@@ -1433,7 +1433,7 @@ body.page-loot select:focus { border-color: var(--cyan-dim); box-shadow: 0 0 8px
 body.page-loot input[type="text"]::placeholder { color: var(--text-dim); }
 .search-input { min-width: 200px; flex: 1; }
 
-.table-wrap { background: var(--panel); border: 1px solid var(--border); border-radius: 4px; overflow: hidden; box-shadow: 0 6px 40px rgba(0,0,0,0.4); }
+.table-wrap { background: var(--panel); border: 1px solid var(--border); border-radius: 4px; overflow-x: auto; overflow-y: hidden; box-shadow: 0 6px 40px rgba(0,0,0,0.4); }
 thead th { cursor: pointer; user-select: none; transition: color 0.15s; }
 thead th:hover { color: var(--cyan); }
 thead th.sorted { color: var(--gold); }
