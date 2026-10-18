@@ -30,6 +30,17 @@ const CombatEditor = (() => {
   const ABILITY_OPTS = '<option value="str">STR</option><option value="dex">DEX</option><option value="con">CON</option>' +
     '<option value="int">INT</option><option value="wis">WIS</option><option value="cha">CHA</option>';
 
+  // Suggestions for the free-text spell fields (<datalist>: pick one or type anything)
+  const SUGGESTIONS = {
+    'ce-school-list':     ['Abjuration', 'Conjuration', 'Divination', 'Enchantment', 'Evocation', 'Illusion', 'Necromancy', 'Transmutation'],
+    'ce-cast-list':       ['1 action', '1 bonus action', '1 reaction', '1 minute', '10 minutes', '1 hour', '8 hours', '12 hours', '24 hours'],
+    'ce-components-list': ['V', 'S', 'M', 'V, S', 'V, M', 'S, M', 'V, S, M'],
+    'ce-duration-list':   ['Instantaneous', '1 round', '1 minute', '10 minutes', '1 hour', '8 hours', '24 hours',
+                           'Up to 1 round', 'Up to 1 minute', 'Up to 10 minutes', 'Up to 1 hour', 'Up to 8 hours', 'Up to 24 hours',
+                           'Until dispelled', 'Special'],
+    'ce-range-list':      ['Self', 'Touch', '5 ft', '10 ft', '30 ft', '60 ft', '90 ft', '120 ft', '150 ft', '300 ft', '500 ft', '1 mile', 'Sight', 'Unlimited'],
+  };
+
   const MARKUP = `
 <div class="modal-backdrop" id="ceModal">
   <div class="modal">
@@ -66,12 +77,12 @@ const CombatEditor = (() => {
               <option value="7">7th</option><option value="8">8th</option><option value="9">9th</option>
             </select>
           </div>
-          <div class="field"><label for="ce-school">School</label><input type="text" id="ce-school" placeholder="Evocation" /></div>
-          <div class="field"><label for="ce-cast">Casting time</label><input type="text" id="ce-cast" placeholder="1 action" /></div>
+          <div class="field"><label for="ce-school">School</label><input type="text" id="ce-school" list="ce-school-list" data-fill placeholder="Evocation" /></div>
+          <div class="field"><label for="ce-cast">Casting time</label><input type="text" id="ce-cast" list="ce-cast-list" data-fill placeholder="1 action" /></div>
         </div>
         <div class="field-row">
-          <div class="field"><label for="ce-components">Components</label><input type="text" id="ce-components" placeholder="V, S, M" /></div>
-          <div class="field"><label for="ce-duration">Duration</label><input type="text" id="ce-duration" placeholder="Instantaneous" /></div>
+          <div class="field"><label for="ce-components">Components</label><input type="text" id="ce-components" list="ce-components-list" data-fill placeholder="V, S, M" /></div>
+          <div class="field"><label for="ce-duration">Duration</label><input type="text" id="ce-duration" list="ce-duration-list" data-fill placeholder="Instantaneous" /></div>
         </div>
         <div class="field" id="ce-material-wrap"><label for="ce-material">Material <span class="optional">(M component)</span></label><input type="text" id="ce-material" /></div>
         <div class="cb-checks">
@@ -110,10 +121,10 @@ const CombatEditor = (() => {
       </div>
       <div class="field-row">
         <div class="field"><label for="ce-dice">Damage dice</label><input type="text" id="ce-dice" placeholder="1d8, 8d6, 3d4+3" /></div>
-        <div class="field"><label for="ce-extra">Extra damage <span class="optional">(rider)</span></label><input type="text" id="ce-extra" placeholder="1d8" /></div>
+        <div class="field"><label for="ce-extra">Extra damage <span class="optional">(rider)</span></label><input type="text" id="ce-extra" data-fill placeholder="1d8" /></div>
         <div class="field"><label for="ce-dtype">Damage type</label><select id="ce-dtype"></select></div>
       </div>
-      <div class="field"><label for="ce-range">Range <span class="optional">(optional)</span></label><input type="text" id="ce-range" placeholder="5 ft, 120 ft, 20 ft radius" /></div>
+      <div class="field"><label for="ce-range">Range <span class="optional">(optional)</span></label><input type="text" id="ce-range" list="ce-range-list" placeholder="5 ft, 120 ft, 20 ft radius" /></div>
       <div class="cb-checks">
         <label class="cb-check" id="ce-addmod-wrap"><input type="checkbox" id="ce-addmod" /> Add ability mod to damage</label>
         <label class="cb-check" id="ce-scales-wrap"><input type="checkbox" id="ce-scales" /> Cantrip dice scale at 5 / 11 / 17</label>
@@ -124,6 +135,8 @@ const CombatEditor = (() => {
       <label class="cb-check" id="ce-savelib-wrap"><input type="checkbox" id="ce-savelib" /> Save to the campaign library (searchable for every character)</label>
       <div class="cb-preview" id="cePreview"></div>
       <div class="cb-form-error" id="ceError" role="alert"></div>
+      ${Object.entries(SUGGESTIONS).map(([id, vals]) =>
+        `<datalist id="${id}">${vals.map(v => `<option value="${v}"></option>`).join('')}</datalist>`).join('')}
     </div>
     <div class="modal-footer">
       <button class="btn btn-ghost" data-ce="close">Cancel</button>
@@ -154,6 +167,7 @@ const CombatEditor = (() => {
     });
     $('ce-item').addEventListener('change', () => { applyLinkedItem(); sync(); });
     for (const id of ['ce-resolve', 'ce-ability', 'ce-level', 'ce-components']) $(id).addEventListener('change', sync);
+    $('ce-components').addEventListener('input', sync);   // a datalist pick shows/hides Material right away
     $('ceModal').addEventListener('input', updatePreview);
     document.addEventListener('keydown', e => {
       if (e.key === 'Escape' && $('ceModal').classList.contains('open')) close();

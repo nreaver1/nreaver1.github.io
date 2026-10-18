@@ -241,6 +241,25 @@ window.addEventListener('click', e => {
 }, true);
 
 // ══════════════════════════════════════════════════════════════
+//  PLACEHOLDER FILL  — shared across all pages
+//  Ctrl+→ in an EMPTY field marked data-fill types its placeholder
+//  (or the data-fill value, when set) into it. Only empty fields, so
+//  Ctrl+→ still jumps words once there's text. Mark only fields whose
+//  placeholder is a real value ("1 action"), not a hint ("1d8, 8d6").
+// ══════════════════════════════════════════════════════════════
+document.addEventListener('keydown', e => {
+  if (e.key !== 'ArrowRight' || !e.ctrlKey || e.altKey || e.shiftKey || e.metaKey) return;
+  const el = e.target;
+  if (!el || !el.matches || !el.matches('[data-fill]') || el.value !== '') return;
+  const value = el.dataset.fill || el.placeholder;
+  if (!value) return;
+  e.preventDefault();
+  el.value = value;
+  el.dispatchEvent(new Event('input',  { bubbles: true }));
+  el.dispatchEvent(new Event('change', { bubbles: true }));
+});
+
+// ══════════════════════════════════════════════════════════════
 //  NEXUS CONFIRM DIALOG  — shared across all modules
 //  Usage:
 //    const confirmed = await nexusConfirm({

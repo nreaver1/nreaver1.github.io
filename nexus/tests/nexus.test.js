@@ -9544,6 +9544,24 @@ describe('Shared combat editor — SRD, loot and prepared', () => {
   const src  = fs.readFileSync(path.join(__dirname, '..', 'js', 'nexus-combat-editor.js'), 'utf8');
   const page = fs.readFileSync(path.join(__dirname, '..', 'combat.html'), 'utf8');
 
+  it('school, casting time, components, duration and range suggest values but stay free text', () => {
+    for (const id of ['school', 'cast', 'components', 'duration', 'range']) {
+      assert.match(src, new RegExp(`<input type="text" id="ce-${id}" list="ce-${id}-list"`), id);
+      assert.match(src, new RegExp(`'ce-${id}-list':\\s+\\[`), `${id} has suggestions`);
+    }
+    assert.match(src, /<datalist id="\$\{id\}">/);
+    assert.match(src, /'ce-school-list':\s+\['Abjuration', 'Conjuration', 'Divination', 'Enchantment', 'Evocation', 'Illusion', 'Necromancy', 'Transmutation'\]/);
+  });
+
+  it('Ctrl+→ fills empty data-fill fields with their placeholder (config)', () => {
+    const cfg = fs.readFileSync(path.join(__dirname, '..', 'js', 'nexus-config.js'), 'utf8');
+    assert.match(cfg, /e\.key !== 'ArrowRight' \|\| !e\.ctrlKey/);
+    assert.match(cfg, /el\.matches\('\[data-fill\]'\) \|\| el\.value !== ''\) return;/, 'only empty fields, so word-jumping still works');
+    assert.match(cfg, /el\.dispatchEvent\(new Event\('input',/);
+    for (const id of ['school', 'cast', 'components', 'duration']) assert.match(src, new RegExp(`id="ce-${id}"[^>]*data-fill`), id);
+    assert.doesNotMatch(src, /id="ce-dice"[^>]*data-fill/, 'hint placeholders are not fill values');
+  });
+
   it('name field searches SRD + library spells / weapons, and library-only features', () => {
     assert.match(src, /spell:   \['spells', 'campaign:spell'\],/);
     assert.match(src, /weapon:  \['weapons', 'campaign:weapon'\],/);
