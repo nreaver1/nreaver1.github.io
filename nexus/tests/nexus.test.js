@@ -9878,6 +9878,34 @@ describe('Campaign library', () => {
       { name: 'Hand Crossbow', type: 'Ranged Weapon', rarity: 'common', attunement: 'none', desc: '1d6 piercing · 30/120 ft · Light', statEffects: [] });
   });
 
+  describe('lootToCombatOption()', () => {
+    const { lootToCombatOption } = require('../js/nexus-srd.js');
+    it('turns a loot weapon into a valid combat option', () => {
+      const o = lootToCombatOption({ name: ' Homerun Bat ', type: 'Melee Weapon', desc: '' });
+      assert.strictEqual(o.name, 'Homerun Bat');
+      assert.strictEqual(o.kind, 'weapon');
+      assert.strictEqual(o.ability, 'str');
+      assert.strictEqual(o.dice, null);
+      assert.strictEqual(o.range, '5 ft');
+      assert.strictEqual(validateCombatOption(o), null);
+    });
+    it('reads dice, damage type and range from the description', () => {
+      const o = lootToCombatOption({ name: 'Hand Crossbow', type: 'Ranged Weapon', desc: '1d6 piercing · 30/120 ft · Light' });
+      assert.deepStrictEqual([o.dice, o.damage_type, o.ability, o.range], ['1d6', 'piercing', 'dex', '30/120 ft']);
+      const club = lootToCombatOption({ name: 'Club', type: 'Melee Weapon', desc: 'Deals 2d4 + 1 bludgeoning damage.' });
+      assert.deepStrictEqual([club.dice, club.damage_type], ['2d4+1', 'bludgeoning']);
+    });
+    it('finesse uses DEX only when it beats STR', () => {
+      const item = { name: 'Rapier', type: 'Melee Weapon', desc: '1d8 piercing · Finesse' };
+      assert.strictEqual(lootToCombatOption(item, { abilities: { str: 10, dex: 16 } }).ability, 'dex');
+      assert.strictEqual(lootToCombatOption(item, { abilities: { str: 16, dex: 10 } }).ability, 'str');
+    });
+    it('skips non-weapons and ammunition', () => {
+      assert.strictEqual(lootToCombatOption({ name: 'Ring', type: 'Ring' }), null);
+      assert.strictEqual(lootToCombatOption({ name: 'Arrows', type: 'Ammunition' }), null);
+    });
+  });
+
   describe('wiring', () => {
     const srd = read('js/nexus-srd.js');
     const editor = read('js/nexus-combat-editor.js');

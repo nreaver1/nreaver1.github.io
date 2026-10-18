@@ -341,6 +341,46 @@ function libraryWeaponToLoot(data) {
 }
 
 /**
+ * lootToCombatOption(item, member?)
+ * A Loot Tracker weapon → combat_options fields (kind 'weapon', no id or
+ * member_id), so a weapon logged on the Loot Tracker shows up on its
+ * holder's combat sheet. Dice, damage type and range are read from the
+ * description ("1d8 bludgeoning · 30/120 ft", the shape SRD and library
+ * picks write). Ranged and finesse use DEX like srdWeaponToOption.
+ * null for anything that isn't a weapon (ammunition included).
+ */
+const _LOOT_DAMAGE_RE = 'acid|bludgeoning|cold|fire|force|lightning|necrotic|piercing|poison|psychic|radiant|slashing|thunder';
+
+function lootToCombatOption(item, member) {
+  const it = item || {};
+  const type = String(it.type || '');
+  if (!/weapon/i.test(type)) return null;
+  const desc = String(it.desc || '');
+  const hit = desc.match(new RegExp(`\\b(\\d*d\\d+(?:\\s*[+-]\\s*\\d+)?)(?:\\s+(${_LOOT_DAMAGE_RE})\\b)?`, 'i'));
+  const dice = hit && _srdParseDice(hit[1]) ? hit[1].replace(/\s+/g, '') : null;
+  const typed = hit?.[2] || desc.match(new RegExp(`\\b(${_LOOT_DAMAGE_RE})\\b`, 'i'))?.[1];
+  const ranged = /ranged/i.test(type);
+  const abs = member?.abilities || {};
+  const ability = ranged ? 'dex'
+    : /\bfinesse\b/i.test(desc) && (abs.dex || 10) > (abs.str || 10) ? 'dex'
+    : 'str';
+  const range = desc.match(/\b\d+\/\d+ ?ft\b/i)?.[0] || (ranged ? null : /\breach\b/i.test(desc) ? '10 ft' : '5 ft');
+  return {
+    name:        String(it.name || '').trim(),
+    kind:        'weapon',
+    action:      'action',
+    resolve:     'attack',
+    ability,
+    dice,
+    extra_dice:  null,
+    damage_type: typed ? typed.toLowerCase() : null,
+    add_mod:     true,
+    spell_level: null,
+    range,
+  };
+}
+
+/**
  * SRD_KIND_LABELS / srdPickKind(detail)
  * When one search covers several lists, each result is tagged with its
  * type, and the pick tells the form what kind of thing it is:
@@ -566,6 +606,7 @@ if (typeof module !== 'undefined') {
     findLibraryMatch,
     librarySearchList,
     libraryWeaponToLoot,
+    lootToCombatOption,
     SRD_KIND_LABELS,
     srdPickKind,
     srdListFromResponse,

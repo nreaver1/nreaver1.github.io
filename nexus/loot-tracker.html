@@ -10,7 +10,7 @@
   <script src="js/nexus-utils.js?v=47289a76"></script>
   <script src="js/nexus-cite.js?v=29a8deb3"></script>
   <script src="js/nexus-live.js?v=16acaebe"></script>
-  <script src="js/nexus-srd.js?v=7677f88e"></script>
+  <script src="js/nexus-srd.js?v=ac87a9aa"></script>
   <link rel="icon" type="image/x-icon" href="assets/favicon.ico" />
   <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@400;700;900&family=Rajdhani:wght@400;500;600;700&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="css/nexus.css?v=1c95a497" />
@@ -465,6 +465,28 @@ async function saveItemToDB(item){
   await db.upsert('loot_items', itemToRow(item));
 }
 
+// A weapon held by a character gets a combat option on their sheet, linked
+// by loot_item_id; a transfer moves the linked options to the new holder.
+// Returns a note for the toast. A failure here never undoes the item save.
+async function syncWeaponOption(item){
+  try{
+    const member=(await loadPartyMembersAsync()).find(m=>m.name===item.holder);
+    const option=member&&lootToCombatOption(item,member);
+    if(!option) return '';
+    const linked=await db.select('combat_options',{filter:`loot_item_id=eq.${item.id}`});
+    if(linked.length){
+      const moved=linked.filter(o=>o.member_id!==member.id);
+      for(const o of moved) await db.update('combat_options',o.id,{member_id:member.id});
+      return moved.length?` Combat option moved to ${member.name}.`:'';
+    }
+    await db.insert('combat_options',{id:uid(),member_id:member.id,sort_order:Date.now()%1e9,...option,loot_item_id:item.id});
+    return ` Added to ${member.name}'s combat options${option.dice?'':' (set its damage dice there)'}.`;
+  }catch(e){
+    console.error(e);
+    return ' (Combat option not added — run sql/supabase_combat.sql.)';
+  }
+}
+
 async function deleteItemFromDB(id){
   await db.delete('loot_items', id);
 }
@@ -896,6 +918,8 @@ async function openModal(id){
     document.getElementById('fieldDesc').value=it.desc||'';
     document.getElementById('fieldAttuneWarn').textContent='';
     (it.statEffects||[]).forEach(fx=>addFxRow({...fx}));
+    // Already in the campaign library → keep it ticked so saving updates the entry
+    document.getElementById('fieldSaveLib').checked=!!findLibraryMatch(await CampaignLibrary.load(),'item',it.name);
     // init holder dropdown with saved value
     await initHolderDisplay(it.holder||'');
     checkAttuneWarn();
@@ -1147,7 +1171,7 @@ async function confirmTransfer(){
     if(idx>=0) items[idx]=updated;
     renderTable();
     const toName=newHolder||'Unassigned';
-    showToast(`${it.name} → ${toName}`);
+    showToast(`${it.name} → ${toName}`+await syncWeaponOption(updated));
   }catch(e){
     console.error(e); showToast('Transfer failed — check your Supabase config.');
   }finally{
@@ -1203,6 +1227,7 @@ async function saveItem(){
       try{ await CampaignLibrary.save(libraryEntryFromLoot(item)); libNote=' Saved to the campaign library.'; }
       catch(e){ console.error(e); libNote=' (Campaign library not saved — run sql/supabase_library.sql.)'; }
     }
+    libNote+=await syncWeaponOption(item);
     if(editingId){ const idx=items.findIndex(i=>i.id===editingId); if(idx>=0) items[idx]=item; showToast('Item updated.'+libNote); }
     else{ items.push(item); showToast('Item logged to registry.'+libNote); }
     renderTable(); closeModal();
