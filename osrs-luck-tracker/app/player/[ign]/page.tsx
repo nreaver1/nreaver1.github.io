@@ -90,9 +90,17 @@ export default async function PlayerPage({
   if (found.length === 0) {
     const hasPools = !!data.pools && data.pools.length > 0;
     const hasHunting = !!data.hunting && data.hunting.length > 0;
+    // A backlogged item on a pooled page is already counted by its PoolCard,
+    // so the drop list leaves it out. Tracked drops still show there.
+    const pooled = new Set(
+      (data.pools ?? []).flatMap((pool) => pool.item_ids.map((id) => `${id}|${pool.source_name}`)),
+    );
+    const dropResults = data.results.filter(
+      (r) => !(r.backfilled && pooled.has(`${r.item_id}|${r.source_name}`)),
+    );
     const sections: NavSection[] = [
       { id: "overview", label: "Overview" },
-      { id: "drops", label: "Every logged drop", count: data.results.length },
+      { id: "drops", label: "Every logged drop", count: dropResults.length },
       ...(hasPools ? [{ id: "log-pages", label: "By log page", count: data.pools!.length }] : []),
       ...(hasHunting ? [{ id: "hunting", label: "Still hunting", count: data.hunting!.length }] : []),
     ];
@@ -133,7 +141,7 @@ export default async function PlayerPage({
           <div className="mb-4 max-w-xl">
             <LuckScale />
           </div>
-          <LuckTable results={data.results} />
+          <LuckTable results={dropResults} />
         </div>
 
         {hasPools && (
