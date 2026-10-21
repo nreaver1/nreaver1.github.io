@@ -5,6 +5,7 @@ import {
   calculateLuck,
   geometricCDF,
   huntingLuck,
+  huntingLuckAcrossModes,
   pointsBasedApprox,
   snapshotLuck,
   streakAdjustedApprox,
@@ -218,6 +219,26 @@ Deno.test("huntingLuck only rates flat rates with kills", () => {
   assert(huntingLuck(row, rate({ distribution_type: "points_based" })) === null, "points_based");
   assert(huntingLuck(row, rate({ distribution_type: "streak_adjusted" })) === null, "streak_adjusted");
   assert(huntingLuck({ ...row, kc: 0 }, rate({})) === null, "no kills");
+});
+
+Deno.test("huntingLuckAcrossModes counts every mode's kills at its own rate", () => {
+  // Enhanced crystal weapon seed: 1/2000 per Gauntlet, 1/400 per Corrupted.
+  const normal = { row: { item_id: 25859, source_name: "The Gauntlet", kc: 40, updated_at: "2026-10-01" }, rate: rate({ denominator: 2000 }), name: "Gauntlet" };
+  const corrupted = { row: { item_id: 25859, source_name: "Corrupted Gauntlet", kc: 210, updated_at: "2026-10-21" }, rate: rate({ denominator: 400 }), name: "Corrupted Gauntlet" };
+  const h = huntingLuckAcrossModes("The Gauntlet", [normal, corrupted])!;
+  assertClose(h.probability, 1 - Math.pow(1999 / 2000, 40) * Math.pow(399 / 400, 210));
+  assert(h.source_name === "The Gauntlet", h.source_name);
+  assert(h.kc === 250, `kc ${h.kc}`);
+  assert(h.updated_at === "2026-10-21", `updated_at ${h.updated_at}`);
+  assert(h.modes?.map((m) => `${m.name}:${m.kc}`).join(",") === "Gauntlet:40,Corrupted Gauntlet:210", "modes");
+
+  // Corrupted kills only still rate at the corrupted rate, under the page.
+  const only = huntingLuckAcrossModes("The Gauntlet", [corrupted])!;
+  assertClose(only.probability, geometricCDF(210, 1, 400));
+  assert(only.source_name === "The Gauntlet", only.source_name);
+
+  const pity = { ...corrupted, rate: rate({ distribution_type: "streak_adjusted" }) };
+  assert(huntingLuckAcrossModes("The Gauntlet", [normal, pity]) === null, "a non-flat mode fails closed");
 });
 
 Deno.test("streak_adjusted uses kills since the previous drop", () => {

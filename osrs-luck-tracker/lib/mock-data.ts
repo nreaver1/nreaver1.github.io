@@ -1,4 +1,11 @@
-import type { LeaderboardEntry, LeaderboardResponse, LuckLabel, PlayerLuckResponse, SnapshotLuck } from "./types";
+import type {
+  HuntingMode,
+  LeaderboardEntry,
+  LeaderboardResponse,
+  LuckLabel,
+  PlayerLuckResponse,
+  SnapshotLuck,
+} from "./types";
 import { MIN_RATED_DROPS, isRated, overallLuck } from "./overall";
 
 // Drop dates relative to now, like seed-demo.sql's `now() - interval`.
@@ -300,6 +307,7 @@ const hunting = (
   probability: number,
   label: LuckLabel,
   updated_at: string,
+  modes?: HuntingMode[],
 ) => ({
   item_id,
   source_name,
@@ -307,6 +315,7 @@ const hunting = (
   probability,
   label,
   updated_at,
+  ...(modes ? { modes } : {}),
 });
 BACKLOGGED.hunting = [
   hunting(11812, "General Graardor", 1100, 0.8855, "dry", "2026-01-02T00:00:00Z"),
@@ -329,6 +338,10 @@ BACKLOGGED.pools = [
   },
 ];
 DRY_BONES.hunting = [
+  hunting(25859, "The Gauntlet", 2461, 0.9947, "desert", "2026-01-03T00:00:00Z", [
+    { source_name: "The Gauntlet", name: "Gauntlet", kc: 461 },
+    { source_name: "Corrupted Gauntlet", name: "Corrupted Gauntlet", kc: 2000 },
+  ]),
   hunting(12921, "Zulrah", 20108, 0.9934, "desert", "2026-01-02T00:00:00Z"),
   hunting(12819, "Corporeal Beast", 30420, 0.9994, "desert", "2026-01-01T00:00:00Z"),
 ];

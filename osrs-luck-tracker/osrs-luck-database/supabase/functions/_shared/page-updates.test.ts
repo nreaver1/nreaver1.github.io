@@ -29,3 +29,12 @@ Deno.test("a page whose counter isn't kills is never raised", () => {
 Deno.test("a source the account has no page or hunting rows for isn't matched", () => {
   assertEquals(pageSourceForKc("Vorkath", SOURCES), undefined);
 });
+
+Deno.test("each mode's kill count raises its own rows on a multi-mode page", () => {
+  // Hunting rows are stored per mode (_shared/modes.ts).
+  const sources = ["The Gauntlet", "Corrupted Gauntlet", "Callisto and Artio", "Artio"];
+  assertEquals(pageSourceForKc("Gauntlet", sources), "The Gauntlet");
+  assertEquals(pageSourceForKc("Corrupted Gauntlet", sources), "Corrupted Gauntlet");
+  assertEquals(pageSourceForKc("Callisto", sources), "Callisto and Artio");
+  assertEquals(pageSourceForKc("Artio", sources), "Artio");
+});

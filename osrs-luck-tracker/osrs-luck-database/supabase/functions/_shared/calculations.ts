@@ -152,6 +152,34 @@ export function huntingLuck(row: HuntingRow, rate: DropRate): HuntingResult | nu
   };
 }
 
+/**
+ * huntingLuck for one item on a page that counts several modes, each
+ * rated at its own source's rate (_shared/modes.ts): every kill of any
+ * mode was a chance at the slot, so the chance it would have dropped by
+ * now is 1 - Π (1 - P_mode), and kc is the kills summed. `modes` holds
+ * the item's rows from the page and its variants, in page order. Null if
+ * any mode isn't a flat rate, rather than rating only part of the kills.
+ */
+export function huntingLuckAcrossModes(
+  page: string,
+  modes: Array<{ row: HuntingRow; rate: DropRate; name: string }>,
+): HuntingResult | null {
+  const rated = modes.map((m) => huntingLuck(m.row, m.rate));
+  if (rated.length === 0 || rated.some((r) => r === null)) return null;
+  const results = rated as HuntingResult[];
+  const probability = 1 - results.reduce((survival, r) => survival * (1 - r.probability), 1);
+  const updated = results.map((r) => r.updated_at).filter((u): u is string => u !== null).sort();
+  return {
+    item_id: results[0].item_id,
+    source_name: page,
+    kc: results.reduce((sum, r) => sum + r.kc, 0),
+    probability,
+    label: labelFor(probability),
+    updated_at: updated.at(-1) ?? null,
+    modes: modes.map((m) => ({ source_name: m.row.source_name, name: m.name, kc: m.row.kc })),
+  };
+}
+
 export interface PityRamp {
   start_denominator: number;
   end_denominator: number;

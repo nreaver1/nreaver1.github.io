@@ -42,7 +42,20 @@ export interface HuntingResult {
   label: LuckLabel;
   /** When `kc` last went up; null if unknown. Missing from older APIs. */
   updated_at?: string | null;
+  /**
+   * Pages that count several modes (The Gauntlet and its corrupted runs)
+   * only: each mode's kills, the page's own first. `kc` is their sum and
+   * `probability` covers all of them.
+   */
+  modes?: HuntingMode[];
   item_name?: string;
+}
+
+export interface HuntingMode {
+  source_name: string;
+  /** As the kill-count message names it ("Corrupted Gauntlet"). */
+  name: string;
+  kc: number;
 }
 
 /** One of a pool's two questions; high `probability` is dry, as everywhere. */

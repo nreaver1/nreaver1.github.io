@@ -113,12 +113,16 @@ where d.account_hash = 'demo-backlogged'
 -- empty at the page's kill count. get-player-luck rates them with
 -- huntingLuck(), P = 1 - (1 - n/d)^(kc * rolls).
 -- updated_at orders the site's groups (latest kill count first), so
--- Dry Bones' Zulrah comes before Corp.
+-- Dry Bones' Zulrah comes before Corp. The Gauntlet's page counts two
+-- modes (_shared/modes.ts), so its hunt is a row per mode, merged into
+-- one item: 1 - (1999/2000)^461 * (399/400)^2000.
 insert into hunting_items (account_hash, item_id, source_name, kc, updated_at) values
   ('demo-backlogged', 11812, 'General Graardor', 1100,  '2026-01-02'), -- Bandos hilt, dry
   ('demo-backlogged', 12650, 'General Graardor', 1100,  '2026-01-02'), -- pet, average
   ('demo-drybones',   12819, 'Corporeal Beast',  30420, '2026-01-01'), -- Elysian sigil, desert
-  ('demo-drybones',   12921, 'Zulrah',           20108, '2026-01-02'); -- pet, desert
+  ('demo-drybones',   12921, 'Zulrah',           20108, '2026-01-02'), -- pet, desert
+  ('demo-drybones',   25859, 'The Gauntlet',       461, '2026-01-03'), -- Enhanced seed: 461 normal
+  ('demo-drybones',   25859, 'Corrupted Gauntlet', 2000, '2026-01-03'); -- and 2,000 corrupted, desert
 
 -- Backlogged's Barrows page as the plugin last read it (migration 0009).
 -- Barrows is a pooled source (_shared/pools.ts), so get-player-luck rates

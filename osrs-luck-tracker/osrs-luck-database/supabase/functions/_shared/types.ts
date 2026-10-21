@@ -56,13 +56,22 @@ export interface SnapshotLuck {
 // `results`, so leaderboard, overall luck and comparisons can't use it.
 export interface HuntingResult {
   item_id: number;
-  source_name: string;
-  kc: number; // the log page's kill count when last read
+  source_name: string; // the log page, also when the kills are from a variant mode
+  kc: number; // the log page's kill count when last read (every mode's, summed)
   probability: number; // chance a fair player would have had the drop by now
   label: "spooned" | "average" | "dry" | "desert";
   // When kc last went up (a page read or a kill-count message), so the
   // site can put the bosses played most recently first. Null if unknown.
   updated_at: string | null;
+  // Pages that count several modes (_shared/modes.ts) only: each mode's
+  // kills, the page's own first. probability covers all of them.
+  modes?: HuntingMode[];
+}
+
+export interface HuntingMode {
+  source_name: string; // the drop_rates source rating this mode
+  name: string; // as the kill-count message names it ("Corrupted Gauntlet")
+  kc: number;
 }
 
 export interface HuntingRow {

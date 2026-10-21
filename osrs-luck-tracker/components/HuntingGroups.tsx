@@ -1,4 +1,4 @@
-import type { HuntingResult } from "@/lib/types";
+import type { HuntingMode, HuntingResult } from "@/lib/types";
 import { luckTier, type LuckTier } from "@/lib/luck-tier";
 import LuckBar from "./LuckBar";
 import { TierText } from "./LuckBadge";
@@ -26,23 +26,37 @@ interface Group {
   source_name: string;
   kc: number;
   updated_at: string;
+  /** Each mode's kills on a page that counts several (highest seen per mode), page order. */
+  modes: HuntingMode[];
   /** Driest first: the most common drop still missing leads. */
   items: HuntingResult[];
+}
+
+function addModes(group: Group, modes: HuntingMode[] | undefined) {
+  for (const m of modes ?? []) {
+    const held = group.modes.find((g) => g.source_name === m.source_name);
+    if (!held) group.modes.push({ ...m });
+    else held.kc = Math.max(held.kc, m.kc);
+  }
 }
 
 /**
  * One group per source, the most recently raised kill count first (the
  * bosses played lately on top), then the most kills. Every row from a
- * source shares its page's kill count, so the group shows it once.
+ * source shares its page's kill count, so the group shows it once, with
+ * each mode's share on pages that count several.
  */
 export function groupHunting(hunting: HuntingResult[]): Group[] {
   const bySource = new Map<string, Group>();
   for (const h of hunting) {
     const group = bySource.get(h.source_name);
     if (!group) {
-      bySource.set(h.source_name, { source_name: h.source_name, kc: h.kc, updated_at: h.updated_at ?? "", items: [h] });
+      const created: Group = { source_name: h.source_name, kc: h.kc, updated_at: h.updated_at ?? "", modes: [], items: [h] };
+      addModes(created, h.modes);
+      bySource.set(h.source_name, created);
       continue;
     }
+    addModes(group, h.modes);
     group.items.push(h);
     group.kc = Math.max(group.kc, h.kc);
     if ((h.updated_at ?? "") > group.updated_at) group.updated_at = h.updated_at ?? "";
@@ -66,6 +80,12 @@ function HuntingCard({ group }: { group: Group }) {
           {group.kc.toLocaleString()} KC &middot; {group.items.length} missing
         </p>
       </div>
+      {group.modes.length > 1 && (
+        // Every mode's kills count toward the slot, each at its own rate.
+        <p className="mt-1 font-mono text-xs tabular-nums text-parchment-dim">
+          {group.modes.map((m) => `${m.kc.toLocaleString()} ${m.name}`).join(" + ")}
+        </p>
+      )}
 
       {/* The most overdue drop, with its bar, stands for the page. */}
       <div className="mt-4">

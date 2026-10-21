@@ -10,8 +10,9 @@
 // Both return the player's full luck breakdown plus a most-spooned /
 // driest summary for their profile page, and `demo: true` for the seeded
 // sample accounts. `hunting` lists rated items the player has none of yet
-// (migration 0008), most recently raised kill count first, then driest;
-// it's kept apart from `results` so the summary and everything built on
+// (migration 0008), most recently raised kill count first, then driest,
+// one per item and page even where the page counts several modes
+// (_shared/modes.ts: The Gauntlet's corrupted runs); it's kept apart from `results` so the summary and everything built on
 // results never count it. `pools` rates
 // whole log pages whose items share one rate (migration 0009,
 // _shared/pools.ts); a pooled item then has no per-item snapshot or
@@ -20,7 +21,8 @@
 // plugin can send only what changed.
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { calculateLuck, huntingLuck, summarizePlayerLuck } from "../_shared/calculations.ts";
+import { calculateLuck, huntingLuck, huntingLuckAcrossModes, summarizePlayerLuck } from "../_shared/calculations.ts";
+import { modeName, PAGE_MODES, pageOf, siblingSources } from "../_shared/modes.ts";
 import { POOLED_SOURCES, poolsForPage, type LogPage, type PoolResult } from "../_shared/pools.ts";
 import { getSecretKey } from "../_shared/secret-key.ts";
 import {
@@ -195,14 +197,29 @@ Deno.serve(async (req) => {
   const { mostSpooned, driest } = summarizePlayerLuck(results as any);
 
   // A recorded drop (tracked or backfilled) means the hunt is over, even
-  // before the plugin next reads the page and clears the row.
-  const recorded = new Set((drops ?? []).map((d: CollectionLogDrop) => `${d.item_id}::${d.source_name}`));
-  const hunting = (huntingRows ?? [])
-    .filter((h: HuntingRow) => !recorded.has(`${h.item_id}::${h.source_name}`))
-    .filter((h: HuntingRow) => !pooledPairs.has(`${h.item_id}::${h.source_name}`))
-    .map((h: HuntingRow) => {
-      const rate = rateMap.get(`${h.item_id}::${h.source_name}`);
-      return rate ? huntingLuck(h, rate) : null;
+  // before the plugin next reads the page and clears the row. Keyed by log
+  // page, since a drop in any mode fills the slot (_shared/modes.ts).
+  const recorded = new Set((drops ?? []).map((d: CollectionLogDrop) => `${d.item_id}::${pageOf(d.source_name)}`));
+  // One hunt per (item, page): a multi-mode page's rows merge into one.
+  const hunts = new Map<string, HuntingRow[]>();
+  for (const h of (huntingRows ?? []) as HuntingRow[]) {
+    const key = `${h.item_id}::${pageOf(h.source_name)}`;
+    if (recorded.has(key) || pooledPairs.has(key)) continue;
+    hunts.set(key, [...(hunts.get(key) ?? []), h]);
+  }
+  const hunting = [...hunts.values()]
+    .map((rows) => {
+      const page = pageOf(rows[0].source_name);
+      if (rows.length === 1 && rows[0].source_name === page && !PAGE_MODES[page]) {
+        const rate = rateMap.get(`${rows[0].item_id}::${page}`);
+        return rate ? huntingLuck(rows[0], rate) : null;
+      }
+      const modes = siblingSources(page).flatMap((source) => {
+        const row = rows.find((r) => r.source_name === source);
+        const rate = row && rateMap.get(`${row.item_id}::${source}`);
+        return row && rate ? [{ row, rate, name: modeName(source) }] : [];
+      });
+      return modes.length === rows.length ? huntingLuckAcrossModes(page, modes) : null;
     })
     .filter((h): h is HuntingResult => h !== null)
     // Most recently raised kill count first (the site groups by source in

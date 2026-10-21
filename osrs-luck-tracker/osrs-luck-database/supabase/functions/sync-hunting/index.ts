@@ -16,6 +16,11 @@
 // read) is ignored rather than overwriting a newer one. Pairs without a
 // drop rate are skipped and reported in `unknown`, and pages from a
 // source with no drop rates are skipped too.
+//
+// On a page that counts several modes (_shared/modes.ts) each mode sends
+// its own hunting row, under its own source with its own count. A slot
+// is one slot, though: an item obtained, or dropped, under any mode ends
+// the hunt under all of them.
 
 import { createClient, type SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { getSecretKey } from "../_shared/secret-key.ts";
@@ -30,6 +35,7 @@ import {
   serverError,
   tokensMatch,
 } from "../_shared/http.ts";
+import { siblingSources } from "../_shared/modes.ts";
 
 const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
 const serviceRoleKey = getSecretKey();
@@ -51,6 +57,10 @@ interface HuntingItem extends Pair {
 }
 
 const pairKey = (d: Pair) => `${d.item_id}|${d.source_name}`;
+
+/** The pair under its own source and every other mode of its page. */
+const withSiblings = (d: Pair): Pair[] =>
+  siblingSources(d.source_name).map((source_name) => ({ item_id: d.item_id, source_name }));
 
 const isPair = (d: unknown): d is Pair => {
   const r = d as Record<string, unknown> | null;
@@ -135,7 +145,8 @@ Deno.serve(async (req) => {
 
   // Dedupe, keeping the highest kc per pair. A pair in both lists was
   // read obtained after being read empty, so obtained wins.
-  const obtainedKeys = new Set((obtained as Pair[]).map(pairKey));
+  const obtainedPairs = (obtained as Pair[]).flatMap(withSiblings);
+  const obtainedKeys = new Set(obtainedPairs.map(pairKey));
   const wanted = new Map<string, HuntingItem>();
   for (const h of hunting as HuntingItem[]) {
     if (obtainedKeys.has(pairKey(h))) continue;
@@ -149,10 +160,10 @@ Deno.serve(async (req) => {
   if (pagesSaved instanceof Response) return pagesSaved;
 
   let removed = 0;
-  if (obtained.length > 0) {
+  if (obtainedPairs.length > 0) {
     // One delete per pair keeps source names out of a PostgREST filter
     // string (they can contain commas and parentheses).
-    for (const o of obtained as Pair[]) {
+    for (const o of new Map(obtainedPairs.map((p) => [pairKey(p), p])).values()) {
       const { data, error } = await supabase
         .from("hunting_items")
         .delete()
@@ -194,7 +205,7 @@ Deno.serve(async (req) => {
     .eq("account_hash", account_hash)
     .in("item_id", itemIds);
   if (droppedError) return serverError("sync-hunting: drop lookup failed", droppedError);
-  const droppedPairs = new Set((dropped ?? []).map(pairKey));
+  const droppedPairs = new Set((dropped ?? []).flatMap(withSiblings).map(pairKey));
 
   const unknown = [...wanted.values()].filter((h) => !knownPairs.has(pairKey(h)));
   const rows = [...wanted.values()]

@@ -11,6 +11,7 @@
 
 import type { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { KC_ALIASES, normalizeSource } from "./kc-aliases.ts";
+import { siblingSources } from "./modes.ts";
 import { POOLS } from "./pools.ts";
 
 // Pages whose log counter isn't the kill count, so a kill-count message
@@ -63,9 +64,24 @@ export async function raiseKc(
 /**
  * A tracked drop of `itemId` from `source`: marks it obtained on the
  * stored page read (counting the copy for a pooled item, whose pages are
- * all non-stackable), and ends the hunt for it. Returns an error, if any.
+ * all non-stackable), and ends the hunt for it. A drop in any mode of a
+ * multi-mode page (_shared/modes.ts) fills the slot for all of them.
+ * Returns an error, if any.
  */
 export async function recordDropOnPage(
+  supabase: SupabaseClient,
+  accountHash: string,
+  itemId: number,
+  source: string,
+): Promise<unknown> {
+  for (const sibling of siblingSources(source)) {
+    const error = await recordOnSource(supabase, accountHash, itemId, sibling);
+    if (error) return error;
+  }
+  return null;
+}
+
+async function recordOnSource(
   supabase: SupabaseClient,
   accountHash: string,
   itemId: number,
