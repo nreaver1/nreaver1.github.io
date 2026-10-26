@@ -4268,3 +4268,45 @@ body.page-combat main { max-width: 1150px; }
 
 .srd-opt.srd-k-weapon, .srd-opt.srd-k-spell, .srd-opt.srd-k-feature, .srd-opt.srd-k-item { border-left: 3px solid var(--kind); }
 .srd-k-weapon .srd-kind, .srd-k-spell .srd-kind, .srd-k-feature .srd-kind, .srd-k-item .srd-kind { color: var(--kind); border-color: var(--kind); }
+
+/* combat: advantage toggle, used spells/features, long rest */
+.cb-roll { display: inline-flex; border: 1px solid var(--border); border-radius: 3px; overflow: hidden; }
+.cb-roll-btn {
+  padding: 0.3rem 0.65rem;
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 0.7rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  background: transparent;
+  border: none;
+  border-right: 1px solid var(--border);
+  cursor: pointer;
+}
+.cb-roll-btn:last-child { border-right: none; }
+.cb-roll-btn.active { color: var(--cyan); background: rgba(14,240,208,0.08); }
+.cb-roll-adv.active { color: var(--green); background: rgba(60,224,138,0.1); }
+.cb-roll-dis.active { color: var(--red); background: rgba(224,60,60,0.1); }
+.cb-rest-btn { padding: 0.3rem 0.7rem; font-size: 0.65rem; }
+.cb-use-btn {
+  align-self: center;
+  flex: 0 0 auto;
+  margin-left: 0.5rem;
+  padding: 0.25rem 0.55rem;
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 0.65rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--amber);
+  background: transparent;
+  border: 1px solid rgba(212,134,10,0.45);
+  border-radius: 3px;
+  cursor: pointer;
+}
+.cb-use-btn:hover { background: rgba(212,134,10,0.12); }
+.cb-tag-used { color: var(--amber); border-color: rgba(212,134,10,0.4); }
+.cb-spent .cb-opt-name, .cb-spent .cb-opt-line, .cb-spent .cb-opt-exp { opacity: 0.45; text-decoration: line-through; }
+@media (max-width: 600px) {
+  .cb-roll { order: 10; width: 100%; }
+  .cb-roll-btn { flex: 1 1 0; padding: 0.45rem 0.3rem; }
+}

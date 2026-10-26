@@ -8225,7 +8225,7 @@ describe('Combat math', () => {
     parseDice, diceAvg, formatDice, profFromLevel, cantripTier,
     hitChance, saveFailChance, effectiveProf, effectiveAbilityMod,
     isAtWill, combatBreakdown, expectedDamage, rankCombatOptions,
-    COMBAT_ABILITIES,
+    COMBAT_ABILITIES, critChance, normalizeRollMode, isSpendable, ROLL_MODES,
   } = require('../js/nexus-utils.js');
 
   const near = (actual, expected, msg) =>
@@ -8297,6 +8297,41 @@ describe('Combat math', () => {
     it('a sure thing still misses on a natural 1 (95%)', () => { near(hitChance(20, 10), 0.95); });
     it('needing exactly a 20 is 5%', () => { near(hitChance(0, 20), 0.05); });
     it('needing a 2 is 95%', () => { near(hitChance(5, 7), 0.95); });
+    it('advantage: 1 − miss² (+7 vs AC 15: 65% → 87.75%)', () => { near(hitChance(7, 15, 'adv'), 0.8775); });
+    it('disadvantage: hit² (+7 vs AC 15: 65% → 42.25%)', () => { near(hitChance(7, 15, 'dis'), 0.4225); });
+    it('advantage keeps the natural-1/20 clamp per die', () => {
+      near(hitChance(0, 30, 'adv'), 0.0975);
+      near(hitChance(20, 10, 'dis'), 0.9025);
+    });
+    it('any other roll value is a normal roll', () => {
+      near(hitChance(7, 15, 'normal'), 0.65);
+      near(hitChance(7, 15, 'bogus'), 0.65);
+    });
+  });
+
+  describe('critChance() / normalizeRollMode()', () => {
+    it('crit odds: 5% normal, 9.75% advantage, 0.25% disadvantage', () => {
+      near(critChance(), 0.05);
+      near(critChance('adv'), 0.0975);
+      near(critChance('dis'), 0.0025);
+    });
+    it('normalizeRollMode falls back to normal', () => {
+      assert.strictEqual(normalizeRollMode('adv'), 'adv');
+      assert.strictEqual(normalizeRollMode('dis'), 'dis');
+      assert.strictEqual(normalizeRollMode('x'), 'normal');
+      assert.strictEqual(normalizeRollMode(undefined), 'normal');
+      assert.deepStrictEqual(ROLL_MODES, ['adv', 'normal', 'dis']);
+    });
+  });
+
+  describe('isSpendable()', () => {
+    it('leveled spells and features can be used up; weapons and cantrips cannot', () => {
+      assert.strictEqual(isSpendable({ kind: 'spell', spell_level: 3 }), true);
+      assert.strictEqual(isSpendable({ kind: 'feature' }), true);
+      assert.strictEqual(isSpendable({ kind: 'weapon' }), false);
+      assert.strictEqual(isSpendable({ kind: 'spell', spell_level: 0 }), false);
+      assert.strictEqual(isSpendable(null), false);
+    });
   });
 
   describe('saveFailChance()', () => {
@@ -8478,6 +8513,24 @@ describe('Combat math', () => {
       const [r] = rankCombatOptions([longsword], ctx()).ranked;
       assert.strictEqual(r.breakdown.toHit.total, 7);
       near(r.expected, 11.5);
+    });
+    it('spent options are left out; at-will ones ignore the spent list', () => {
+      const ids = { fireball: { ...fireball, id: 'fb' }, longsword: { ...longsword, id: 'ls' }, missile: { ...missile, id: 'mm' } };
+      const all = Object.values(ids);
+      const { ranked } = rankCombatOptions(all, ctx(), { spent: new Set(['fb', 'ls']) });
+      assert.deepStrictEqual(ranked.map(r => r.option.name), ['Longsword', 'Magic Missile']);
+      assert.deepStrictEqual(rankCombatOptions(all, ctx(), { spent: ['mm'] }).ranked.map(r => r.option.name), ['Fireball', 'Longsword']);
+    });
+    it('advantage lifts attack options above save options', () => {
+      const tgt = roll => ctx({ target: { ac: 18, save: 2, roll } });
+      const plain = rankCombatOptions([longsword, shatter], tgt());
+      const adv   = rankCombatOptions([longsword, shatter], tgt('adv'));
+      const lsPlain = plain.ranked.find(r => r.option.name === 'Longsword').expected;
+      const lsAdv   = adv.ranked.find(r => r.option.name === 'Longsword').expected;
+      const shPlain = plain.ranked.find(r => r.option.name === 'Shatter').expected;
+      const shAdv   = adv.ranked.find(r => r.option.name === 'Shatter').expected;
+      assert.ok(lsAdv > lsPlain, 'advantage raises attack damage');
+      near(shAdv, shPlain, 'advantage does not change save spells');
     });
     it('empty / missing input is safe', () => {
       assert.deepStrictEqual(rankCombatOptions([], ctx()), { ranked: [], top: [], bestAtWill: null });
@@ -8670,11 +8723,31 @@ describe('Combat page — read view', () => {
   };
 
   it('ranks with the shared utils, not a local copy of the math', () => {
-    assert.match(script, /rankCombatOptions\(mine, ctxFor\)/);
-    assert.match(script, /combatContext\(member, items, option, COMBAT_TARGET\)/);
+    assert.match(script, /rankCombatOptions\(mine, ctxFor, \{ spent \}\)/);
+    assert.match(script, /\{ \.\.\.COMBAT_TARGET, roll: rollMode \}/);
+    assert.match(script, /combatContext\(member, items, option, target\)/);
     for (const fn of ['parseDice', 'hitChance', 'saveFailChance', 'combatBreakdown', 'expectedDamage', 'rankCombatOptions', 'computeNetEffects', 'effectiveProf']) {
       assert.ok(!new RegExp(`function ${fn}\\(`).test(script), `${fn} must come from nexus-utils.js`);
     }
+  });
+
+  it('used spells are kept per browser and cleared by a confirmed long rest', () => {
+    assert.match(fnBody('loadSpent'), /filter\(isSafeId\)/);
+    const rest = fnBody('longRest');
+    assert.match(rest, /await nexusConfirm\(/);
+    assert.match(rest, /spent = new Set\(\)/);
+    assert.match(rest, /saveSpent\(\)/);
+    assert.match(fnBody('toggleSpent'), /isSpendable\(o\)/);
+  });
+
+  it('the advantage toggle is not saved, so a reload starts at normal', () => {
+    assert.match(script, /let rollMode\s*= 'normal'/);
+    assert.ok(!/(local|session)Storage\.setItem\([^)]*roll/i.test(script));
+    assert.match(fnBody('setRollMode'), /normalizeRollMode\(mode\)/);
+  });
+
+  it('buttons inside a card summary do not toggle the card', () => {
+    assert.match(script, /el\.closest\('summary'\)\) e\.preventDefault\(\)/);
   });
 
   it('maps loot rows to statEffects before computing net effects', () => {
@@ -8731,7 +8804,7 @@ describe('Combat page — read view', () => {
 
   it('breakdowns use native <details> so they work without extra JS', () => {
     assert.ok(script.includes('<details class="cb-pick cb-k-${combatKind(o)}">'));
-    assert.ok(script.includes(`<details class="cb-opt cb-k-\${combatKind(o)}\${isPrepared(o) ? '' : ' cb-unprepared'}">`));
+    assert.ok(script.includes(`<details class="cb-opt cb-k-\${combatKind(o)}\${isPrepared(o) ? '' : ' cb-unprepared'}\${isSpent(o) ? ' cb-spent' : ''}">`));
     assert.match(script, /breakdownHtml\(o, b, r\.expected\)/);
   });
 

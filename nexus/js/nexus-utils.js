@@ -404,13 +404,34 @@ function cantripTier(level) {
 }
 
 /**
- * hitChance(attackBonus, ac)
+ * hitChance(attackBonus, ac, roll)
  * Chance that d20 + attackBonus ≥ AC. Clamped to 5–95% because a
  * natural 1 always misses and a natural 20 always hits.
+ * roll 'adv' rolls two d20s and keeps the higher (1 − miss²),
+ * 'dis' keeps the lower (hit²); anything else is a normal roll.
  */
-function hitChance(attackBonus, ac) {
-  const p = (21 - ((ac || 0) - (attackBonus || 0))) / 20;
-  return Math.min(0.95, Math.max(0.05, p));
+function hitChance(attackBonus, ac, roll) {
+  const p = Math.min(0.95, Math.max(0.05, (21 - ((ac || 0) - (attackBonus || 0))) / 20));
+  if (roll === 'adv') return 1 - (1 - p) * (1 - p);
+  if (roll === 'dis') return p * p;
+  return p;
+}
+
+/**
+ * critChance(roll)
+ * Chance of a natural 20: 5%, 9.75% with advantage, 0.25% with disadvantage.
+ */
+function critChance(roll) {
+  return hitChance(0, 40, roll);
+}
+
+/**
+ * normalizeRollMode(mode)
+ * 'adv' | 'dis' | 'normal' (the fallback for anything else).
+ */
+const ROLL_MODES = ['adv', 'normal', 'dis'];
+function normalizeRollMode(mode) {
+  return mode === 'adv' || mode === 'dis' ? mode : 'normal';
 }
 
 /**
@@ -534,6 +555,15 @@ function isAtWill(option) {
 }
 
 /**
+ * isSpendable(option)
+ * Leveled spells and features cost a slot or a use, so the Combat page
+ * lets you mark them spent until a long rest. Weapons and cantrips don't.
+ */
+function isSpendable(option) {
+  return !!option && !isAtWill(option);
+}
+
+/**
  * isPrepared(option)
  * Only leveled spells can be unprepared. Weapons, features and cantrips
  * always count; a leveled spell counts unless prepared is explicitly false.
@@ -643,8 +673,9 @@ function combatBreakdown(option, ctx) {
 
 /**
  * expectedDamage(option, ctx)
- * Average damage per use against ctx.target = { ac, save }.
- *   attack: hit% × perHit + 5% crit × dice-only avg (crits double dice)
+ * Average damage per use against ctx.target = { ac, save, roll? }.
+ *   attack: hit% × perHit + crit% × dice-only avg (crits double dice);
+ *           target.roll 'adv'/'dis' changes both (hitChance, critChance)
  *   save:   fail% × perHit + success% × (half_on_save ? perHit/2 : 0)
  *   auto:   perHit
  * Multiplied by the Extra Attack count for weapons on the Action.
@@ -657,7 +688,7 @@ function expectedDamage(option, ctx, breakdown) {
   const { perHit, diceOnly } = b.damage;
   let per = 0;
   if (option.resolve === 'attack' && b.toHit) {
-    per = hitChance(b.toHit.total, target.ac) * perHit + 0.05 * diceOnly;
+    per = hitChance(b.toHit.total, target.ac, target.roll) * perHit + critChance(target.roll) * diceOnly;
   } else if (option.resolve === 'save' && b.dc) {
     const fail = saveFailChance(b.dc.total, target.save);
     per = fail * perHit + (1 - fail) * (option.half_on_save ? perHit / 2 : 0);
@@ -765,16 +796,20 @@ function normalizeCombatTarget(target) {
  * Scores every damaging option and sorts best-first (ties by name).
  * ctx is either one shared context or a function option → context
  * (so each option can carry its own linked-weapon bonus).
- * Unprepared leveled spells are left out (isPrepared).
+ * Unprepared leveled spells are left out (isPrepared), and so are
+ * options whose id is in opts.spent (a Set or array of used-up
+ * spells/features; at-will options can't be spent, see isSpendable).
  * Returns {
  *   ranked:     [{ option, breakdown, expected }]   damaging options only
  *   top:        first 3 of ranked
  *   bestAtWill: best weapon/cantrip, only when none is in top; else null
  * }
  */
-function rankCombatOptions(options, ctx) {
+function rankCombatOptions(options, ctx, opts) {
+  const spent = new Set(opts?.spent || []);
   const ranked = (options || [])
     .filter(o => o && o.resolve && o.resolve !== 'none' && isPrepared(o))
+    .filter(o => !(isSpendable(o) && spent.has(o.id)))
     .map(option => {
       const c = typeof ctx === 'function' ? ctx(option) : ctx;
       const breakdown = combatBreakdown(option, c);
@@ -1171,6 +1206,10 @@ if (typeof module !== 'undefined') {
     profFromLevel,
     cantripTier,
     hitChance,
+    critChance,
+    ROLL_MODES,
+    normalizeRollMode,
+    isSpendable,
     saveFailChance,
     effectiveProf,
     effectiveAbilityMod,

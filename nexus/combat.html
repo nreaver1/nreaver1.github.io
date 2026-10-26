@@ -10,14 +10,14 @@
   <script src="js/nexus-demo.js?v=4ad1b72c"></script>
   <script src="js/nexus-auth.js?v=d48892dc"></script>
   <script src="js/nexus-config.js?v=79bf5737"></script>
-  <script src="js/nexus-utils.js?v=47289a76"></script>
+  <script src="js/nexus-utils.js?v=d0e50bea"></script>
   <script src="js/nexus-cite.js?v=29a8deb3"></script>
   <script src="js/nexus-live.js?v=16acaebe"></script>
   <script src="js/nexus-srd.js?v=ac87a9aa"></script>
   <script src="js/nexus-combat-editor.js?v=d5bee314"></script>
   <link rel="icon" type="image/x-icon" href="assets/favicon.ico" />
   <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@400;700;900&family=Rajdhani:wght@400;500;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="css/nexus.css?v=e20bd40b" />
+  <link rel="stylesheet" href="css/nexus.css?v=e3a6c4bc" />
 </head>
 <body class="has-sidenav page-combat">
 
@@ -78,7 +78,11 @@ let items      = [];   // loot rows mapped to { statEffects } for computeNetEffe
 let options    = [];   // combat_options rows
 let selectedId = null; // member id whose sheet is showing
 
-const CB_LAST_KEY = 'nexus_combat_member';
+let rollMode   = 'normal'; // adv / normal / dis for this fight; not saved, so a reload starts at normal
+let spent      = new Set(); // ids of spells/features used since the last long rest (this browser)
+const CB_LAST_KEY  = 'nexus_combat_member';
+const CB_SPENT_KEY = 'nexus_combat_spent';
+const ROLL_LABELS  = { adv: 'Advantage', normal: 'Normal', dis: 'Disadvantage' };
 
 // Stats that matter on a combat sheet, for the "buffs in play" list
 const CB_STAT_LABELS = {
@@ -126,6 +130,7 @@ async function boot() {
     document.getElementById('combatTitle').textContent = t('combat').toUpperCase();
     applyCombatData(memberRows, itemRows, optionRows);
     selectedId = pickInitialMember();
+    spent = loadSpent();
   } catch(e) {
     console.error(e);
     showToast('Could not load combat data — check your Supabase config.');
@@ -179,6 +184,50 @@ function selectMember(id) {
   render();
 }
 
+// Used-up spells/features live in this browser until a long rest
+function loadSpent() {
+  let ids = [];
+  try { ids = JSON.parse(localStorage.getItem(CB_SPENT_KEY) || '[]'); } catch(e) {}
+  return new Set(Array.isArray(ids) ? ids.filter(isSafeId) : []);
+}
+
+function saveSpent() {
+  try { localStorage.setItem(CB_SPENT_KEY, JSON.stringify([...spent])); } catch(e) {}
+}
+
+function isSpent(o) {
+  return isSpendable(o) && spent.has(o.id);
+}
+
+function toggleSpent(id) {
+  const o = options.find(x => x.id === id);
+  if (!o || !isSpendable(o)) return;
+  if (spent.has(id)) spent.delete(id); else spent.add(id);
+  saveSpent();
+  render();
+  if (spent.has(id)) showToast(`${o.name} marked used`);
+}
+
+async function longRest() {
+  if (!spent.size) { showToast('Nothing to restore'); return; }
+  const ok = await nexusConfirm({
+    title: 'Long rest',
+    message: 'Restore every used spell and feature for the whole party?',
+    confirmLabel: 'Long Rest',
+    danger: false,
+  });
+  if (!ok) return;
+  spent = new Set();
+  saveSpent();
+  render();
+  showToast('Long rest: everything restored');
+}
+
+function setRollMode(mode) {
+  rollMode = normalizeRollMode(mode);
+  render();
+}
+
 // ══════════════════════════════════════════════════════════════
 //  MATH CONTEXT
 // ══════════════════════════════════════════════════════════════
@@ -189,8 +238,10 @@ function memberNet(member) {
 
 // Per-option maths context: weapon attack/damage bonuses only count for
 // the option linked to that weapon (see combatContext in nexus-utils.js)
+// The DM target plus this fight's advantage/disadvantage
 function contextFor(member) {
-  return option => combatContext(member, items, option, COMBAT_TARGET);
+  const target = { ...COMBAT_TARGET, roll: rollMode };
+  return option => combatContext(member, items, option, target);
 }
 
 function memberOptions(member) {
@@ -240,17 +291,19 @@ function optionTags(o, b) {
   if (o.range) tags.push(esc(o.range));
   if (isAtWill(o)) tags.push('at-will');
   if (!isPrepared(o)) tags.push('not prepared');
+  if (isSpent(o)) tags.push('used');
   // Kind chip first, in the kind's colour (weapon gold / spell violet / feature green)
   return `<span class="cb-tag cb-tag-kind">${combatKind(o)}</span>` +
-    tags.map(tag => `<span class="cb-tag${tag === 'at-will' ? ' cb-tag-will' : tag === 'not prepared' ? ' cb-tag-unprep' : ''}">${tag}</span>`).join('');
+    tags.map(tag => `<span class="cb-tag${tag === 'at-will' ? ' cb-tag-will' : tag === 'not prepared' ? ' cb-tag-unprep' : tag === 'used' ? ' cb-tag-used' : ''}">${tag}</span>`).join('');
 }
 
 // The "why is this number what it is" panel shown when an option is expanded
 function breakdownHtml(o, b, expected) {
   const rows = [];
   if (b.toHit) {
-    const pct = Math.round(hitChance(b.toHit.total, COMBAT_TARGET.ac) * 100);
-    rows.push(`<div><span class="cb-bd-k">To hit</span> ${modStr(b.toHit.total)} = ${partsText(b.toHit.parts)} <span class="cb-bd-odds">${pct}% vs AC ${COMBAT_TARGET.ac}</span></div>`);
+    const pct = Math.round(hitChance(b.toHit.total, COMBAT_TARGET.ac, rollMode) * 100);
+    const roll = rollMode === 'normal' ? '' : ` with ${ROLL_LABELS[rollMode].toLowerCase()}`;
+    rows.push(`<div><span class="cb-bd-k">To hit</span> ${modStr(b.toHit.total)} = ${partsText(b.toHit.parts)} <span class="cb-bd-odds">${pct}% vs AC ${COMBAT_TARGET.ac}${roll}</span></div>`);
   }
   if (b.dc) {
     const pct = Math.round(saveFailChance(b.dc.total, COMBAT_TARGET.save) * 100);
@@ -280,6 +333,7 @@ function breakdownHtml(o, b, expected) {
   if (o.description) rows.push(`<div class="cb-bd-notes cb-bd-desc">${renderWithCitations(o.description)}</div>`);
   const canPrep = o.kind === 'spell' && o.spell_level > 0;
   rows.push(`<div class="cb-bd-actions">
+    ${isSpendable(o) ? `<button class="btn btn-ghost" data-action="toggle-spent" data-id="${esc(o.id)}">${isSpent(o) ? '↺ Restore' : '✓ Mark used'}</button>` : ''}
     ${canPrep ? `<button class="btn btn-ghost" data-action="toggle-prep" data-id="${esc(o.id)}">${isPrepared(o) ? '○ Unprepare' : '● Prepare'}</button>` : ''}
     <button class="btn btn-ghost" data-action="edit-option" data-id="${esc(o.id)}">✎ Edit</button>
     <button class="btn btn-ghost cb-del" data-action="delete-option" data-id="${esc(o.id)}">✕ Remove</button>
@@ -311,11 +365,15 @@ function renderTabs() {
 }
 
 function renderTarget() {
+  const rolls = ROLL_MODES.map(mode => `<button class="cb-roll-btn cb-roll-${mode}${mode === rollMode ? ' active' : ''}"
+      data-action="roll-mode" data-mode="${mode}" aria-pressed="${mode === rollMode}">${ROLL_LABELS[mode]}</button>`).join('');
   document.getElementById('cbTarget').innerHTML = `
     <span class="cb-target-label">🎯 DM target</span>
     <span class="cb-target-val">AC ${COMBAT_TARGET.ac}</span>
     <span class="cb-target-val">Save ${modStr(COMBAT_TARGET.save)}</span>
-    <button class="btn btn-ghost cb-target-btn" data-action="edit-target">Set</button>`;
+    <button class="btn btn-ghost cb-target-btn" data-action="edit-target">Set</button>
+    <span class="cb-roll" role="group" aria-label="Attack rolls">${rolls}</span>
+    <button class="btn btn-ghost cb-rest-btn" data-action="long-rest" title="Restore every used spell and feature">Long rest${spent.size ? ` (${spent.size})` : ''}</button>`;
 }
 
 function renderSheet() {
@@ -331,7 +389,7 @@ function renderSheet() {
   const { net, relevant } = memberNet(member);
   const ctxFor = contextFor(member);
   const mine = memberOptions(member);
-  const { ranked, top, bestAtWill } = rankCombatOptions(mine, ctxFor);
+  const { ranked, top, bestAtWill } = rankCombatOptions(mine, ctxFor, { spent });
   const scored = new Map(ranked.map(r => [r.option.id, r]));
 
   root.innerHTML = `
@@ -407,6 +465,7 @@ function pickCardHtml(r, rank) {
           <span class="cb-tags">${optionTags(o, b)}</span>
         </span>
         <span class="cb-pick-exp" title="Expected damage per turn vs the DM target">~${fmtNum(r.expected)}</span>
+        ${isSpendable(o) ? `<button class="cb-use-btn" data-action="toggle-spent" data-id="${esc(o.id)}" title="Mark used until a long rest">Used</button>` : ''}
       </summary>
       ${breakdownHtml(o, b, r.expected)}
     </details>`;
@@ -414,24 +473,32 @@ function pickCardHtml(r, rank) {
 
 function optionRowHtml(o, b, expected) {
   return `
-    <details class="cb-opt cb-k-${combatKind(o)}${isPrepared(o) ? '' : ' cb-unprepared'}">
+    <details class="cb-opt cb-k-${combatKind(o)}${isPrepared(o) ? '' : ' cb-unprepared'}${isSpent(o) ? ' cb-spent' : ''}">
       <summary>
         <span class="cb-opt-main">
           <span class="cb-opt-name">${esc(o.name)}</span>
           <span class="cb-opt-line">${resolveText(o, b)}${b.damage ? ' · ' + damageText(o, b) : ''}</span>
         </span>
         ${expected > 0 ? `<span class="cb-opt-exp">~${fmtNum(expected)}</span>` : ''}
+        ${isSpent(o) ? `<button class="cb-use-btn" data-action="toggle-spent" data-id="${esc(o.id)}" title="Restore">↺</button>` : ''}
       </summary>
       <div class="cb-tags">${optionTags(o, b)}</div>
       ${breakdownHtml(o, b, expected)}
     </details>`;
 }
 
+// Options outside the ranking; a used one keeps its numbers in the list
+function spentRow(o, ctx) {
+  const breakdown = combatBreakdown(o, ctx);
+  const expected = isSpent(o) && isPrepared(o) && o.resolve !== 'none' ? expectedDamage(o, ctx, breakdown) : 0;
+  return { option: o, breakdown, expected };
+}
+
 function columnHtml(col, mine, ctxFor, scored) {
   const list = mine
     .filter(o => (o.action || 'action') === col.key)
-    .map(o => scored.get(o.id) || { option: o, breakdown: combatBreakdown(o, ctxFor(o)), expected: 0 })
-    .sort((a, b) => (b.expected - a.expected) || String(a.option.name).localeCompare(String(b.option.name)));
+    .map(o => scored.get(o.id) || spentRow(o, ctxFor(o)))
+    .sort((a, b) => (isSpent(a.option) - isSpent(b.option)) || (b.expected - a.expected) || String(a.option.name).localeCompare(String(b.option.name)));
   return `
     <div class="cb-col">
       <div class="cb-col-head">${col.label}<span class="cb-col-count">${list.length}</span></div>
@@ -549,6 +616,8 @@ function wireEvents() {
     const el = e.target.closest('[data-action]');
     if (!el) return;
     const id = el.dataset.id;
+    // A button inside a <summary> must not also open/close the card
+    if (el.tagName === 'BUTTON' && el.closest('summary')) e.preventDefault();
     switch (el.dataset.action) {
       case 'select-member': selectMember(id); break;
       case 'edit-target':   openTargetModal(); break;
@@ -558,6 +627,9 @@ function wireEvents() {
       case 'edit-option':   openOptionEditor(id); break;
       case 'delete-option': deleteOption(id); break;
       case 'toggle-prep':   togglePrepared(id); break;
+      case 'toggle-spent':  toggleSpent(id); break;
+      case 'long-rest':     longRest(); break;
+      case 'roll-mode':     setRollMode(el.dataset.mode); break;
     }
   });
   document.getElementById('targetModal').addEventListener('click', e => {
