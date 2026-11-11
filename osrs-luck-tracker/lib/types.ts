@@ -84,6 +84,36 @@ export interface PoolResult {
   item_names?: Record<string, string>;
 }
 
+/**
+ * A raid's recorded completions (mirrors RaidSummary in
+ * osrs-luck-database/supabase/functions/_shared/raid-luck.ts). Purples
+ * count only raids the plugin recorded, since earlier ones' results are
+ * unknown.
+ */
+export interface RaidSummary {
+  raid: string;
+  /** Latest known completions per mode: entry, normal, expert. */
+  mode_counts: Record<string, number>;
+  total: number;
+  tracked: number;
+  purples: number;
+  expected_purples: number;
+  /** Mid-p; low = more purples than expected. Null with no tracked raids. */
+  probability: number | null;
+  label: LuckLabel | null;
+  last_raid: {
+    mode: string;
+    raid_level: number | null;
+    team_size: number | null;
+    personal_points: number | null;
+    /** This player's chance of a purple from that raid. */
+    unique_chance: number | null;
+    purple: boolean | null;
+    purple_mine: boolean | null;
+    completed_at: string;
+  } | null;
+}
+
 export interface PlayerLuckResponse {
   ign: string;
   /** A seeded sample account (seed-demo.sql), badged as "Demo". */
@@ -93,6 +123,8 @@ export interface PlayerLuckResponse {
   hunting?: HuntingResult[];
   /** Whole-page luck. Missing from APIs older than migration 0009. */
   pools?: PoolResult[];
+  /** Per-raid summaries. Missing from APIs older than migration 0011. */
+  raids?: RaidSummary[];
   mostSpooned: LuckResult | null;
   driest: LuckResult | null;
 }

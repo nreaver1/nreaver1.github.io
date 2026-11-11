@@ -7,6 +7,7 @@ import LuckScale from "@/components/LuckScale";
 import LuckTable from "@/components/LuckTable";
 import HuntingGroups from "@/components/HuntingGroups";
 import PoolCard from "@/components/PoolCard";
+import RaidCard from "@/components/RaidCard";
 import SearchBar from "@/components/SearchBar";
 import DemoQuickLinks from "@/components/DemoQuickLinks";
 import PlayerLink from "@/components/PlayerLink";
@@ -90,6 +91,7 @@ export default async function PlayerPage({
   if (found.length === 0) {
     const hasPools = !!data.pools && data.pools.length > 0;
     const hasHunting = !!data.hunting && data.hunting.length > 0;
+    const hasRaids = !!data.raids && data.raids.length > 0;
     // A backlogged item on a pooled page is already counted by its PoolCard,
     // so the drop list leaves it out. Tracked drops still show there.
     const pooled = new Set(
@@ -101,6 +103,7 @@ export default async function PlayerPage({
     const sections: NavSection[] = [
       { id: "overview", label: "Overview" },
       { id: "drops", label: "Every logged drop", count: dropResults.length },
+      ...(hasRaids ? [{ id: "raids", label: "Raids", count: data.raids!.length }] : []),
       ...(hasPools ? [{ id: "log-pages", label: "By log page", count: data.pools!.length }] : []),
       ...(hasHunting ? [{ id: "hunting", label: "Still hunting", count: data.hunting!.length }] : []),
     ];
@@ -143,6 +146,22 @@ export default async function PlayerPage({
           </div>
           <LuckTable results={dropResults} />
         </div>
+
+        {hasRaids && (
+          <div id="raids" className="nav-target mt-10">
+            <h2 className="font-mono text-xs uppercase tracking-wide text-parchment-dim">Raids</h2>
+            <p className="mb-4 mt-1 max-w-xl text-sm text-parchment-dim">
+              Every raid the plugin has recorded, with its raid level and {data.ign}&rsquo;s points. Purples are
+              compared with what a fair player would get from the same raids. Raids from before tracking started
+              only count toward each item&rsquo;s own luck, which assumes a typical raid for the mode.
+            </p>
+            <div className="grid gap-4 sm:grid-cols-2">
+              {data.raids!.map((raid) => (
+                <RaidCard key={raid.raid} raid={raid} />
+              ))}
+            </div>
+          </div>
+        )}
 
         {hasPools && (
           <div id="log-pages" className="nav-target mt-10">

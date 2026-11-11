@@ -15,6 +15,8 @@
 
 import { createClient, type SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { calculateLuck } from "../_shared/calculations.ts";
+import { isRaidRate, raidDropLuck } from "../_shared/raid-luck.ts";
+import type { RaidCompletion } from "../_shared/raids.ts";
 import { getSecretKey } from "../_shared/secret-key.ts";
 import { isItemId, isSourceName, json, rateLimit, serverError } from "../_shared/http.ts";
 import { rankPlayers } from "../_shared/leaderboard.ts";
@@ -143,11 +145,34 @@ async function playerLeaderboard(supabase: SupabaseClient) {
   const rateMap = new Map<string, DropRate>();
   for (const r of rates) rateMap.set(`${r.item_id}::${r.source_name}`, r);
 
+  // Raid drops are rated over the account's recorded completions, the
+  // same as on its profile (_shared/raid-luck.ts).
+  const raidHashes = [...new Set(drops
+    .filter((d) => { const rate = rateMap.get(`${d.item_id}::${d.source_name}`); return rate && isRaidRate(rate); })
+    .map((d) => d.account_hash))];
+  const raidsByHash = new Map<string, RaidCompletion[]>();
+  for (let i = 0; i < raidHashes.length; i += HASHES_PER_QUERY) {
+    const rows = await fetchAll<RaidCompletion & { account_hash: string }>((from, to) =>
+      supabase
+        .from("raid_completions")
+        .select("id, account_hash, raid, mode, mode_kc, total_kc, mode_counts, team_size, personal_points, purple, purple_mine, details, completed_at")
+        .in("account_hash", raidHashes.slice(i, i + HASHES_PER_QUERY))
+        .order("id")
+        .range(from, to)
+    );
+    for (const r of rows) raidsByHash.set(r.account_hash, [...(raidsByHash.get(r.account_hash) ?? []), r]);
+  }
+  const dropsByHash = new Map<string, CollectionLogDrop[]>();
+  for (const d of drops) dropsByHash.set(d.account_hash, [...(dropsByHash.get(d.account_hash) ?? []), d]);
+
   const resultsByHash = new Map<string, LuckResult[]>();
   for (const d of drops) {
     const rate = rateMap.get(`${d.item_id}::${d.source_name}`);
     if (!rate) continue;
-    resultsByHash.set(d.account_hash, [...(resultsByHash.get(d.account_hash) ?? []), calculateLuck(d, rate)]);
+    const result = isRaidRate(rate)
+      ? raidDropLuck(d, { raids: raidsByHash.get(d.account_hash) ?? [], drops: dropsByHash.get(d.account_hash) ?? [] })
+      : calculateLuck(d, rate);
+    resultsByHash.set(d.account_hash, [...(resultsByHash.get(d.account_hash) ?? []), result]);
   }
 
   return rankPlayers(listed.map((p) => ({

@@ -19,6 +19,11 @@
 // hunting row, since the pool says the same thing once. The POST form
 // also returns `log_pages`, the page reads the backend holds, so the
 // plugin can send only what changed.
+//
+// Raids (migration 0011): raid drops and a raid page's missing items are
+// rated over the account's recorded completions (_shared/raid-luck.ts),
+// and `raids` summarizes each raid with recorded completions: counts per
+// mode, and purples against what a fair-luck player would expect.
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { calculateLuck, huntingLuck, huntingLuckAcrossModes, summarizePlayerLuck } from "../_shared/calculations.ts";
@@ -35,6 +40,9 @@ import {
   tokensMatch,
 } from "../_shared/http.ts";
 import { isDemoAccount, pickPlayer } from "../_shared/players.ts";
+import { isRaidRate, raidDropLuck, raidHunting, raidSummaries, type RaidHistory } from "../_shared/raid-luck.ts";
+import { isRaidPage, type RaidCompletion } from "../_shared/raids.ts";
+import { TOA, TOA_ITEMS } from "../_shared/toa.ts";
 import type { CollectionLogDrop, DropRate, HuntingResult, HuntingRow } from "../_shared/types.ts";
 
 const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
@@ -125,18 +133,31 @@ Deno.serve(async (req) => {
 
   const { data: logPages, error: pagesError } = await supabase
     .from("log_pages")
-    .select("source_name, kc, obtained, quantities")
+    .select("source_name, kc, obtained, quantities, updated_at")
     .eq("account_hash", player.account_hash);
 
   if (pagesError) return serverError("get-player-luck: page lookup failed", pagesError);
+
+  const { data: raidRows, error: raidsError } = await supabase
+    .from("raid_completions")
+    .select("id, raid, mode, mode_kc, total_kc, mode_counts, team_size, personal_points, purple, purple_mine, details, completed_at")
+    .eq("account_hash", player.account_hash)
+    .order("total_kc", { ascending: true });
+
+  if (raidsError) return serverError("get-player-luck: raid lookup failed", raidsError);
+  const history: RaidHistory = { raids: (raidRows ?? []) as RaidCompletion[], drops: (drops ?? []) as CollectionLogDrop[] };
 
   // Owner only: what the backend stores, unfiltered, so the plugin can send
   // just what changed. (`hunting` hides pooled and recorded pairs.)
   const ownerPages = isOwner ? { log_pages: logPages ?? [], hunting_rows: huntingRows ?? [] } : {};
 
+  const pageKcs = new Map<string, number>((logPages ?? []).map((p: LogPage) => [p.source_name, p.kc]));
+  const raids = raidSummaries(history, pageKcs);
+
   if ((!drops || drops.length === 0) && (!huntingRows || huntingRows.length === 0) && (!logPages || logPages.length === 0)) {
-    return json({ ign: player.ign, demo, results: [], hunting: [], pools: [], mostSpooned: null, driest: null, ...ownerPages }, 200);
+    return json({ ign: player.ign, demo, results: [], hunting: [], pools: [], raids, mostSpooned: null, driest: null, ...ownerPages }, 200);
   }
+  const raidPages = (logPages ?? []).filter((p: LogPage) => isRaidPage(p.source_name));
 
   // Batch-fetch drop_rates rows for these items; matched to exact
   // (item_id, source_name) pairs via rateMap below. Filtering by item_id
@@ -146,6 +167,8 @@ Deno.serve(async (req) => {
     ...new Set([
       ...(drops ?? []).map((d: CollectionLogDrop) => d.item_id),
       ...(huntingRows ?? []).map((h: HuntingRow) => h.item_id),
+      // A raid page's missing items are rated from the page read alone.
+      ...(raidPages.some((p: LogPage) => p.source_name === TOA) ? TOA_ITEMS : []),
     ]),
   ];
   const { data: rates, error: ratesError } = await supabase
@@ -178,7 +201,7 @@ Deno.serve(async (req) => {
     .map((d: CollectionLogDrop) => {
       const rate = rateMap.get(`${d.item_id}::${d.source_name}`);
       if (!rate) return null; // no reference rate yet — skip rather than guess
-      const computed = calculateLuck(d, rate);
+      const computed = isRaidRate(rate) && !d.is_backfilled ? raidDropLuck(d, history) : calculateLuck(d, rate);
       // The plugin offers "Add luck estimates" for backfilled rows with no
       // stored snapshot. Whether one is shown isn't the same thing (pooled
       // items hide theirs, non-flat rates never get one), so the owner is
@@ -204,7 +227,7 @@ Deno.serve(async (req) => {
   const hunts = new Map<string, HuntingRow[]>();
   for (const h of (huntingRows ?? []) as HuntingRow[]) {
     const key = `${h.item_id}::${pageOf(h.source_name)}`;
-    if (recorded.has(key) || pooledPairs.has(key)) continue;
+    if (recorded.has(key) || pooledPairs.has(key) || isRaidPage(pageOf(h.source_name))) continue;
     hunts.set(key, [...(hunts.get(key) ?? []), h]);
   }
   const hunting = [...hunts.values()]
@@ -222,9 +245,10 @@ Deno.serve(async (req) => {
       return modes.length === rows.length ? huntingLuckAcrossModes(page, modes) : null;
     })
     .filter((h): h is HuntingResult => h !== null)
+    .concat(raidPages.flatMap((p: LogPage & { updated_at?: string | null }) => raidHunting(p, rateMap, history)))
     // Most recently raised kill count first (the site groups by source in
     // this order), then driest first.
     .sort((a, b) => (b.updated_at ?? "").localeCompare(a.updated_at ?? "") || b.probability - a.probability);
 
-  return json({ ign: player.ign, demo, results, hunting, pools, mostSpooned, driest, ...ownerPages }, 200);
+  return json({ ign: player.ign, demo, results, hunting, pools, raids, mostSpooned, driest, ...ownerPages }, 200);
 });

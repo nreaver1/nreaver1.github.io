@@ -337,6 +337,29 @@ BACKLOGGED.pools = [
     distinct: { count: 8, of: 24, expected: 10.455, probability: 0.8388, label: "dry" },
   },
 ];
+// Mirrors seed-demo.sql's raid_completions rows, with the summary get-player-luck returns for them.
+ZEZIMA.raids = [
+  {
+    raid: "Tombs of Amascut",
+    mode_counts: { entry: 4, normal: 21, expert: 390 },
+    total: 415,
+    tracked: 5,
+    purples: 1,
+    expected_purples: 0.3125,
+    probability: 0.1551,
+    label: "average",
+    last_raid: {
+      mode: "expert",
+      raid_level: 420,
+      team_size: 1,
+      personal_points: 23460,
+      unique_chance: 0.0655,
+      purple: false,
+      purple_mine: false,
+      completed_at: daysAgo(1),
+    },
+  },
+];
 DRY_BONES.hunting = [
   hunting(25859, "The Gauntlet", 2461, 0.9947, "desert", "2026-01-03T00:00:00Z", [
     { source_name: "The Gauntlet", name: "Gauntlet", kc: 461 },

@@ -1,6 +1,7 @@
 -- Demo players for the live site (the home page links to Zezima,
 -- Newscape and EmptyLogs). Safe to re-run: it deletes every demo player
--- first, which cascades to their drops, boss_kc, hunting_items and log_pages rows.
+-- first, which cascades to their drops, boss_kc, hunting_items, log_pages and
+-- raid_completions rows.
 --
 --   npx supabase db query --linked -f supabase/seed-demo.sql
 --
@@ -155,5 +156,17 @@ insert into boss_kc (account_hash, boss_name, current_kc) values
   ('demo-drybones',   'The Gauntlet',      2461),
   ('demo-drybones',   'Vorkath',           380),
   ('demo-backlogged', 'Cerberus',          712);
+
+-- Zezima's last few ToA raids as the plugin records them (migration
+-- 0011): every mode's count after the raid, raid level and points. One
+-- purple in five Expert solos at 400+ (about 0.31 expected) shows the
+-- site's raid card; the Breach drop above, from before tracking, is
+-- rated with the per-mode assumptions instead.
+insert into raid_completions (account_hash, raid, mode, mode_kc, total_kc, mode_counts, team_size, personal_points, purple, purple_mine, details, completed_at) values
+  ('demo-zezima', 'Tombs of Amascut', 'expert', 386, 411, '{"entry": 4, "normal": 21, "expert": 386}', 1, 22150, false, false, '{"raid_level": 400}', now() - interval '5 days'),
+  ('demo-zezima', 'Tombs of Amascut', 'expert', 387, 412, '{"entry": 4, "normal": 21, "expert": 387}', 1, 23010, false, false, '{"raid_level": 410}', now() - interval '4 days'),
+  ('demo-zezima', 'Tombs of Amascut', 'expert', 388, 413, '{"entry": 4, "normal": 21, "expert": 388}', 1, 22740, true,  true,  '{"raid_level": 410}', now() - interval '3 days'),
+  ('demo-zezima', 'Tombs of Amascut', 'expert', 389, 414, '{"entry": 4, "normal": 21, "expert": 389}', 1, 21980, false, false, '{"raid_level": 420}', now() - interval '2 days'),
+  ('demo-zezima', 'Tombs of Amascut', 'expert', 390, 415, '{"entry": 4, "normal": 21, "expert": 390}', 1, 23460, false, false, '{"raid_level": 420}', now() - interval '1 day');
 
 commit;

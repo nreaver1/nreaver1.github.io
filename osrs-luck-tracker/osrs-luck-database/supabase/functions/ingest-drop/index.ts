@@ -11,13 +11,22 @@
 //   source_name: string,
 //   kc_received: number,
 //   current_kc: number,          // boss_kc.current_kc at time of drop
-//   date_received?: string       // ISO timestamp, defaults to now()
+//   date_received?: string,      // ISO timestamp, defaults to now()
+//   raid?: { ... }               // raid drops: the completion it came from,
+//                                // as /record-raid takes it (_shared/raids.ts)
 // }
+//
+// A raid drop is stored under the raid's log page, with kc_received the
+// page's total completions across every mode and roll_context
+// { mode, mode_counts, raid_id }. Without `raid` (an older plugin) its
+// kc_received stays the mode's count, with roll_context { mode }.
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { getSecretKey } from "../_shared/secret-key.ts";
 import { matchSource } from "../_shared/kc-aliases.ts";
 import { pageSourceForKc, raiseKc, recordDropOnPage } from "../_shared/page-updates.ts";
+import { isRaidPage, parseRaidRecord, raidModeForKcName, type RaidRollContext } from "../_shared/raids.ts";
+import { storeRaid } from "../_shared/raid-store.ts";
 import {
   isAccountHash,
   isInstallToken,
@@ -56,6 +65,7 @@ Deno.serve(async (req) => {
     kc_received?: unknown;
     current_kc?: unknown;
     date_received?: unknown;
+    raid?: unknown;
   };
   try {
     body = await req.json();
@@ -63,13 +73,8 @@ Deno.serve(async (req) => {
     return json({ error: "Invalid JSON body" }, 400);
   }
 
-  const {
-    install_token,
-    account_hash,
-    item_id,
-    kc_received,
-    current_kc,
-  } = body ?? {};
+  const { install_token, account_hash, item_id } = body ?? {};
+  let { kc_received, current_kc } = body ?? {};
 
   if (
     !isInstallToken(install_token) || !isAccountHash(account_hash) ||
@@ -109,8 +114,30 @@ Deno.serve(async (req) => {
     return json({ error: "No drop rate for this item from this source" }, 422);
   }
 
+  // --- Raid drops: rated against the completion they came from ---
+  let roll_context: RaidRollContext | null = null;
+  if (isRaidPage(source_name)) {
+    const mode = raidModeForKcName(body.source_name as string)?.mode ?? "normal";
+    roll_context = { mode };
+    if (body.raid != null) {
+      const record = parseRaidRecord(body.raid);
+      if (typeof record === "string") return json({ error: record }, 400);
+      if (record.raid !== source_name || record.mode !== mode) {
+        return json({ error: "raid doesn't match the drop's source" }, 422);
+      }
+      const stored = await storeRaid(supabase, account_hash, record);
+      if (!stored.raid) return serverError("ingest-drop: raid store failed", stored.error);
+      if (stored.error) console.error("ingest-drop: raid page update failed", stored.error);
+      kc_received = stored.raid.total_kc;
+      current_kc = Math.max(current_kc as number, stored.raid.total_kc);
+      roll_context = { mode, mode_counts: stored.raid.mode_counts, raid_id: stored.raid.id };
+    }
+  }
+  const kcReceived = kc_received as number;
+  const currentKc = current_kc as number;
+
   // --- Anti-cheat: kc_received cannot exceed current_kc ---
-  if (kc_received > current_kc) {
+  if (kcReceived > currentKc) {
     return json({ error: "kc_received cannot exceed current_kc" }, 422);
   }
 
@@ -159,7 +186,7 @@ Deno.serve(async (req) => {
     {
       account_hash,
       boss_name: source_name,
-      current_kc,
+      current_kc: currentKc,
       updated_at: new Date().toISOString(),
     },
     { onConflict: "account_hash,boss_name" },
@@ -172,10 +199,11 @@ Deno.serve(async (req) => {
       account_hash,
       item_id,
       source_name,
-      kc_received,
+      kc_received: kcReceived,
       kc_at_previous_drop: previousDrop
-        ? kc_received - previousDrop.kc_received
-        : kc_received,
+        ? kcReceived - previousDrop.kc_received
+        : kcReceived,
+      roll_context,
       date_received: dateReceived.toISOString(),
     })
     .select()
@@ -194,7 +222,7 @@ Deno.serve(async (req) => {
   // the next page read corrects the page anyway.
   const pageError = await recordDropOnPage(supabase, account_hash, item_id, source_name) ??
     (pageSourceForKc(body.source_name as string, [source_name])
-      ? await raiseKc(supabase, account_hash, source_name, current_kc)
+      ? await raiseKc(supabase, account_hash, source_name, currentKc)
       : null);
   if (pageError) console.error("ingest-drop: page update failed", pageError);
 

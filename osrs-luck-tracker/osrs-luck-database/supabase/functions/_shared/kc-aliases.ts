@@ -20,6 +20,9 @@ export const KC_ALIASES: Record<string, string> = {
   "Royal Titan": "Royal Titans",
   "Branda the Fire Queen": "Royal Titans",
   "Eldric the Ice King": "Royal Titans",
+  // Raid modes share their log page (_shared/raids.ts).
+  "Tombs of Amascut: Entry Mode": "Tombs of Amascut",
+  "Tombs of Amascut: Expert Mode": "Tombs of Amascut",
 };
 
 // Same rule as the plugin's BackfillPlanner.normalize: ignore case,

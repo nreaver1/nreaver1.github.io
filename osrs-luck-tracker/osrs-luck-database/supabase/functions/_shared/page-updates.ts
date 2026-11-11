@@ -13,11 +13,13 @@ import type { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { KC_ALIASES, normalizeSource } from "./kc-aliases.ts";
 import { siblingSources } from "./modes.ts";
 import { POOLS } from "./pools.ts";
+import { RAIDS } from "./raids.ts";
 
 // Pages whose log counter isn't the kill count, so a kill-count message
 // can't raise them: Tempoross's page counts reward permits (the plugin's
-// LogPageSnapshot.ROLL_COUNTERS).
-const PAGE_COUNTER_DIFFERS = new Set(["Tempoross"]);
+// LogPageSnapshot.ROLL_COUNTERS), and a raid page counts every mode
+// together, which /record-raid raises instead (_shared/raids.ts).
+const PAGE_COUNTER_DIFFERS = new Set(["Tempoross", ...Object.keys(RAIDS)]);
 
 /**
  * The page a kill-count name raises, out of `sources`: an exact or

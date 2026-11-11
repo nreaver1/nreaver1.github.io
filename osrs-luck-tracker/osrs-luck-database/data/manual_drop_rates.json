@@ -694,7 +694,8 @@
       "metadata": {
         "avg_points_per_activity": 20000,
         "points_per_roll": 7500,
-        "assumption": "Raid level 150 with ~20,000 personal points. The points figure is not from the wiki (it is borrowed from the level 300 solo guide), so treat Normal Mode numbers as rough."
+        "assumption": "Rated raid by raid from the recorded raid level and your points (supabase/functions/_shared/toa.ts). Raids from before tracking assume a deathless solo with ~20,000 points at the bottom of the mode's level band.",
+        "raid_model": "toa"
       },
       "wiki": "Chest (Tombs of Amascut)"
     },
@@ -709,7 +710,8 @@
       "metadata": {
         "avg_points_per_activity": 20000,
         "points_per_roll": 7500,
-        "assumption": "Raid level 150 with ~20,000 personal points. The points figure is not from the wiki (it is borrowed from the level 300 solo guide), so treat Normal Mode numbers as rough."
+        "assumption": "Rated raid by raid from the recorded raid level and your points (supabase/functions/_shared/toa.ts). Raids from before tracking assume a deathless solo with ~20,000 points at the bottom of the mode's level band.",
+        "raid_model": "toa"
       },
       "wiki": "Chest (Tombs of Amascut)"
     },
@@ -724,7 +726,8 @@
       "metadata": {
         "avg_points_per_activity": 20000,
         "points_per_roll": 7500,
-        "assumption": "Raid level 150 with ~20,000 personal points. The points figure is not from the wiki (it is borrowed from the level 300 solo guide), so treat Normal Mode numbers as rough."
+        "assumption": "Rated raid by raid from the recorded raid level and your points (supabase/functions/_shared/toa.ts). Raids from before tracking assume a deathless solo with ~20,000 points at the bottom of the mode's level band.",
+        "raid_model": "toa"
       },
       "wiki": "Chest (Tombs of Amascut)"
     },
@@ -739,7 +742,8 @@
       "metadata": {
         "avg_points_per_activity": 20000,
         "points_per_roll": 7500,
-        "assumption": "Raid level 150 with ~20,000 personal points. The points figure is not from the wiki (it is borrowed from the level 300 solo guide), so treat Normal Mode numbers as rough."
+        "assumption": "Rated raid by raid from the recorded raid level and your points (supabase/functions/_shared/toa.ts). Raids from before tracking assume a deathless solo with ~20,000 points at the bottom of the mode's level band.",
+        "raid_model": "toa"
       },
       "wiki": "Chest (Tombs of Amascut)"
     },
@@ -754,7 +758,8 @@
       "metadata": {
         "avg_points_per_activity": 20000,
         "points_per_roll": 7500,
-        "assumption": "Raid level 150 with ~20,000 personal points. The points figure is not from the wiki (it is borrowed from the level 300 solo guide), so treat Normal Mode numbers as rough."
+        "assumption": "Rated raid by raid from the recorded raid level and your points (supabase/functions/_shared/toa.ts). Raids from before tracking assume a deathless solo with ~20,000 points at the bottom of the mode's level band.",
+        "raid_model": "toa"
       },
       "wiki": "Chest (Tombs of Amascut)"
     },
@@ -769,7 +774,8 @@
       "metadata": {
         "avg_points_per_activity": 20000,
         "points_per_roll": 7500,
-        "assumption": "Raid level 150 with ~20,000 personal points. The points figure is not from the wiki (it is borrowed from the level 300 solo guide), so treat Normal Mode numbers as rough."
+        "assumption": "Rated raid by raid from the recorded raid level and your points (supabase/functions/_shared/toa.ts). Raids from before tracking assume a deathless solo with ~20,000 points at the bottom of the mode's level band.",
+        "raid_model": "toa"
       },
       "wiki": "Chest (Tombs of Amascut)"
     },
@@ -784,7 +790,8 @@
       "metadata": {
         "avg_points_per_activity": 20000,
         "points_per_roll": 7500,
-        "assumption": "Raid level 150 with ~20,000 personal points. The points figure is not from the wiki (it is borrowed from the level 300 solo guide), so treat Normal Mode numbers as rough."
+        "assumption": "Rated raid by raid from the recorded raid level and your points (supabase/functions/_shared/toa.ts). Raids from before tracking assume a deathless solo with ~20,000 points at the bottom of the mode's level band.",
+        "raid_model": "toa"
       },
       "wiki": "Chest (Tombs of Amascut)"
     },
@@ -799,7 +806,8 @@
       "metadata": {
         "avg_points_per_activity": 20000,
         "points_per_roll": 245000,
-        "assumption": "Raid level 150 with ~20,000 personal points. The points figure is not from the wiki (it is borrowed from the level 300 solo guide), so treat Normal Mode numbers as rough."
+        "assumption": "Rated raid by raid from the recorded raid level and your points (supabase/functions/_shared/toa.ts). Raids from before tracking assume a deathless solo with ~20,000 points at the bottom of the mode's level band.",
+        "raid_model": "toa"
       },
       "wiki": "Chest (Tombs of Amascut)"
     },
@@ -817,7 +825,8 @@
           "end_denominator": 3.3333333333333335,
           "ramp_kc": 15
         },
-        "assumption": "First thread only: 1/10, rising linearly to 3/10 at 15 completions. The game counts completions across all modes; this uses the count for this mode."
+        "assumption": "Rated raid by raid (supabase/functions/_shared/toa.ts): pity counts completions in every mode, and jewels get duplicate protection.",
+        "raid_model": "toa"
       },
       "wiki": "Chest (Tombs of Amascut)"
     },
@@ -835,7 +844,8 @@
           "end_denominator": 16.666666666666668,
           "ramp_kc": 75
         },
-        "assumption": "1/50 per jewel, rising linearly to 3/50 at 75 completions. Ignores duplicate protection, which makes each missing jewel likelier once you own others."
+        "assumption": "Rated raid by raid (supabase/functions/_shared/toa.ts): pity counts completions in every mode, and jewels get duplicate protection.",
+        "raid_model": "toa"
       },
       "wiki": "Chest (Tombs of Amascut)"
     },
@@ -853,7 +863,8 @@
           "end_denominator": 16.666666666666668,
           "ramp_kc": 75
         },
-        "assumption": "1/50 per jewel, rising linearly to 3/50 at 75 completions. Ignores duplicate protection, which makes each missing jewel likelier once you own others."
+        "assumption": "Rated raid by raid (supabase/functions/_shared/toa.ts): pity counts completions in every mode, and jewels get duplicate protection.",
+        "raid_model": "toa"
       },
       "wiki": "Chest (Tombs of Amascut)"
     },
@@ -871,7 +882,8 @@
           "end_denominator": 16.666666666666668,
           "ramp_kc": 75
         },
-        "assumption": "1/50 per jewel, rising linearly to 3/50 at 75 completions. Ignores duplicate protection, which makes each missing jewel likelier once you own others."
+        "assumption": "Rated raid by raid (supabase/functions/_shared/toa.ts): pity counts completions in every mode, and jewels get duplicate protection.",
+        "raid_model": "toa"
       },
       "wiki": "Chest (Tombs of Amascut)"
     },
@@ -889,217 +901,8 @@
           "end_denominator": 16.666666666666668,
           "ramp_kc": 75
         },
-        "assumption": "1/50 per jewel, rising linearly to 3/50 at 75 completions. Ignores duplicate protection, which makes each missing jewel likelier once you own others."
-      },
-      "wiki": "Chest (Tombs of Amascut)"
-    },
-    {
-      "rolls_per_kill": 1,
-      "item_id": 26219,
-      "item_name": "Osmumten's fang",
-      "source_name": "Tombs of Amascut: Expert Mode",
-      "distribution_type": "points_based",
-      "numerator": 7,
-      "denominator": 2400,
-      "metadata": {
-        "avg_points_per_activity": 20000,
-        "points_per_roll": 4500,
-        "assumption": "Raid level 300 with ~20,000 personal points, which gives the wiki money making guide's ~1/22.5 purple rate for a deathless solo. Your share of a team's unique chance scales with your own points, so team size drops out."
-      },
-      "wiki": "Chest (Tombs of Amascut)"
-    },
-    {
-      "rolls_per_kill": 1,
-      "item_id": 25975,
-      "item_name": "Lightbearer",
-      "source_name": "Tombs of Amascut: Expert Mode",
-      "distribution_type": "points_based",
-      "numerator": 7,
-      "denominator": 2400,
-      "metadata": {
-        "avg_points_per_activity": 20000,
-        "points_per_roll": 4500,
-        "assumption": "Raid level 300 with ~20,000 personal points, which gives the wiki money making guide's ~1/22.5 purple rate for a deathless solo. Your share of a team's unique chance scales with your own points, so team size drops out."
-      },
-      "wiki": "Chest (Tombs of Amascut)"
-    },
-    {
-      "rolls_per_kill": 1,
-      "item_id": 25985,
-      "item_name": "Elidinis' ward",
-      "source_name": "Tombs of Amascut: Expert Mode",
-      "distribution_type": "points_based",
-      "numerator": 3,
-      "denominator": 2400,
-      "metadata": {
-        "avg_points_per_activity": 20000,
-        "points_per_roll": 4500,
-        "assumption": "Raid level 300 with ~20,000 personal points, which gives the wiki money making guide's ~1/22.5 purple rate for a deathless solo. Your share of a team's unique chance scales with your own points, so team size drops out."
-      },
-      "wiki": "Chest (Tombs of Amascut)"
-    },
-    {
-      "rolls_per_kill": 1,
-      "item_id": 27226,
-      "item_name": "Masori mask",
-      "source_name": "Tombs of Amascut: Expert Mode",
-      "distribution_type": "points_based",
-      "numerator": 2,
-      "denominator": 2400,
-      "metadata": {
-        "avg_points_per_activity": 20000,
-        "points_per_roll": 4500,
-        "assumption": "Raid level 300 with ~20,000 personal points, which gives the wiki money making guide's ~1/22.5 purple rate for a deathless solo. Your share of a team's unique chance scales with your own points, so team size drops out."
-      },
-      "wiki": "Chest (Tombs of Amascut)"
-    },
-    {
-      "rolls_per_kill": 1,
-      "item_id": 27229,
-      "item_name": "Masori body",
-      "source_name": "Tombs of Amascut: Expert Mode",
-      "distribution_type": "points_based",
-      "numerator": 2,
-      "denominator": 2400,
-      "metadata": {
-        "avg_points_per_activity": 20000,
-        "points_per_roll": 4500,
-        "assumption": "Raid level 300 with ~20,000 personal points, which gives the wiki money making guide's ~1/22.5 purple rate for a deathless solo. Your share of a team's unique chance scales with your own points, so team size drops out."
-      },
-      "wiki": "Chest (Tombs of Amascut)"
-    },
-    {
-      "rolls_per_kill": 1,
-      "item_id": 27232,
-      "item_name": "Masori chaps",
-      "source_name": "Tombs of Amascut: Expert Mode",
-      "distribution_type": "points_based",
-      "numerator": 2,
-      "denominator": 2400,
-      "metadata": {
-        "avg_points_per_activity": 20000,
-        "points_per_roll": 4500,
-        "assumption": "Raid level 300 with ~20,000 personal points, which gives the wiki money making guide's ~1/22.5 purple rate for a deathless solo. Your share of a team's unique chance scales with your own points, so team size drops out."
-      },
-      "wiki": "Chest (Tombs of Amascut)"
-    },
-    {
-      "rolls_per_kill": 1,
-      "item_id": 27277,
-      "item_name": "Tumeken's shadow (uncharged)",
-      "source_name": "Tombs of Amascut: Expert Mode",
-      "distribution_type": "points_based",
-      "numerator": 1,
-      "denominator": 2400,
-      "metadata": {
-        "avg_points_per_activity": 20000,
-        "points_per_roll": 4500,
-        "assumption": "Raid level 300 with ~20,000 personal points, which gives the wiki money making guide's ~1/22.5 purple rate for a deathless solo. Your share of a team's unique chance scales with your own points, so team size drops out."
-      },
-      "wiki": "Chest (Tombs of Amascut)"
-    },
-    {
-      "rolls_per_kill": 1,
-      "item_id": 27352,
-      "item_name": "Tumeken's guardian",
-      "source_name": "Tombs of Amascut: Expert Mode",
-      "distribution_type": "points_based",
-      "numerator": 1,
-      "denominator": 100,
-      "metadata": {
-        "avg_points_per_activity": 20000,
-        "points_per_roll": 140000,
-        "assumption": "Raid level 300 with ~20,000 personal points, which gives the wiki money making guide's ~1/22.5 purple rate for a deathless solo. Your share of a team's unique chance scales with your own points, so team size drops out."
-      },
-      "wiki": "Chest (Tombs of Amascut)"
-    },
-    {
-      "rolls_per_kill": 1,
-      "item_id": 27279,
-      "item_name": "Thread of Elidinis",
-      "source_name": "Tombs of Amascut: Expert Mode",
-      "distribution_type": "streak_adjusted",
-      "numerator": 1,
-      "denominator": 10,
-      "metadata": {
-        "pity_ramp": {
-          "start_denominator": 10,
-          "end_denominator": 3.3333333333333335,
-          "ramp_kc": 15
-        },
-        "assumption": "First thread only: 1/10, rising linearly to 3/10 at 15 completions. The game counts completions across all modes; this uses the count for this mode."
-      },
-      "wiki": "Chest (Tombs of Amascut)"
-    },
-    {
-      "rolls_per_kill": 1,
-      "item_id": 27285,
-      "item_name": "Eye of the Corruptor",
-      "source_name": "Tombs of Amascut: Expert Mode",
-      "distribution_type": "streak_adjusted",
-      "numerator": 1,
-      "denominator": 50,
-      "metadata": {
-        "pity_ramp": {
-          "start_denominator": 50,
-          "end_denominator": 16.666666666666668,
-          "ramp_kc": 75
-        },
-        "assumption": "1/50 per jewel, rising linearly to 3/50 at 75 completions. Ignores duplicate protection, which makes each missing jewel likelier once you own others."
-      },
-      "wiki": "Chest (Tombs of Amascut)"
-    },
-    {
-      "rolls_per_kill": 1,
-      "item_id": 27289,
-      "item_name": "Jewel of the Sun",
-      "source_name": "Tombs of Amascut: Expert Mode",
-      "distribution_type": "streak_adjusted",
-      "numerator": 1,
-      "denominator": 50,
-      "metadata": {
-        "pity_ramp": {
-          "start_denominator": 50,
-          "end_denominator": 16.666666666666668,
-          "ramp_kc": 75
-        },
-        "assumption": "1/50 per jewel, rising linearly to 3/50 at 75 completions. Ignores duplicate protection, which makes each missing jewel likelier once you own others."
-      },
-      "wiki": "Chest (Tombs of Amascut)"
-    },
-    {
-      "rolls_per_kill": 1,
-      "item_id": 27283,
-      "item_name": "Breach of the Scarab",
-      "source_name": "Tombs of Amascut: Expert Mode",
-      "distribution_type": "streak_adjusted",
-      "numerator": 1,
-      "denominator": 50,
-      "metadata": {
-        "pity_ramp": {
-          "start_denominator": 50,
-          "end_denominator": 16.666666666666668,
-          "ramp_kc": 75
-        },
-        "assumption": "1/50 per jewel, rising linearly to 3/50 at 75 completions. Ignores duplicate protection, which makes each missing jewel likelier once you own others."
-      },
-      "wiki": "Chest (Tombs of Amascut)"
-    },
-    {
-      "rolls_per_kill": 1,
-      "item_id": 30893,
-      "item_name": "Jewel of Amascut",
-      "source_name": "Tombs of Amascut: Expert Mode",
-      "distribution_type": "streak_adjusted",
-      "numerator": 1,
-      "denominator": 50,
-      "metadata": {
-        "pity_ramp": {
-          "start_denominator": 50,
-          "end_denominator": 16.666666666666668,
-          "ramp_kc": 75
-        },
-        "assumption": "1/50 per jewel, rising linearly to 3/50 at 75 completions. Ignores duplicate protection, which makes each missing jewel likelier once you own others."
+        "assumption": "Rated raid by raid (supabase/functions/_shared/toa.ts): pity counts completions in every mode, and jewels get duplicate protection.",
+        "raid_model": "toa"
       },
       "wiki": "Chest (Tombs of Amascut)"
     },
