@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
+import { LiveUpdates } from '@/components/outing/LiveUpdates';
 import { OutingHero } from '@/components/outing/OutingHero';
 import { OutingPlayerView } from '@/components/outing/OutingPlayerView';
 import { spotsText, teeSummary } from '@/components/outing/spots';
@@ -68,11 +69,13 @@ export default async function InvitePage({ params, searchParams }: Props) {
   const calendar = calendarLinks(view, `${services.appUrl}/t/${token}`, `/t/${token}/calendar`);
   const feed = await getFeed(services, view, viewer.viewerKey, viewer.playerId);
   const markSeen = markSeenAction.bind(null, token);
+  const live = <LiveUpdates url={`/t/${token}/live`} lastEventId={view.lastEventId} />;
 
   if (view.isOrganizer) {
     return (
       <main className="page page-tight">
         <OutingHero view={view} />
+        {live}
         <OrganizerView
           view={view}
           feed={feed}
@@ -103,6 +106,7 @@ export default async function InvitePage({ params, searchParams }: Props) {
   return (
     <main className="page page-tight">
       <OutingHero view={view} />
+      {live}
       <OutingPlayerView
         view={view}
         knownName={knownName}

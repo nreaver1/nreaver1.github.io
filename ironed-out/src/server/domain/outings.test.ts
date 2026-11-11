@@ -12,6 +12,7 @@ import {
   createOuting,
   deleteOuting,
   deleteTeeTime,
+  getLastEventId,
   getOutingView,
   listUpcomingOutings,
   removePlayer,
@@ -144,6 +145,22 @@ describe('create outing', () => {
     await seat(id, 1, 0);
     expect((await listUpcomingOutings(deps, mike.id)).map((o) => o.id)).toContain(id);
     expect((await listUpcomingOutings(deps, jen.id)).map((o) => o.id)).toContain(id);
+  });
+});
+
+describe('live updates', () => {
+  it('reports the newest event id, to members only when asked', async () => {
+    const id = await makeOuting(t, mike.id);
+    const before = (await getLastEventId(deps, id))!;
+    expect(before).toBe((await getOutingView(deps, id, mike.id))!.lastEventId);
+    expect(await getLastEventId(deps, id, mike.id)).toBe(before);
+    expect(await getLastEventId(deps, id, jen.id)).toBeNull();
+
+    await seat(id, 0, 1);
+    expect(await getLastEventId(deps, id, jen.id)).toBe(before);
+    await addTeeTime(deps, { playerId: mike.id }, id);
+    expect(await getLastEventId(deps, id, jen.id)).toBeGreaterThan(before);
+    expect(await getLastEventId(deps, 'not-a-uuid')).toBeNull();
   });
 });
 

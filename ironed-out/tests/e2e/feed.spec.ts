@@ -65,3 +65,38 @@ test('after claiming, a quiet sheet says "You\'re in"', async ({ page, browser }
   await jen.reload();
   await expect(jen.getByText('You’re in. No changes since you joined.')).toBeVisible();
 });
+
+test('open pages update live when a friend claims or something changes', async ({ page, browser }) => {
+  await signUp(page, 'Mike Golfer');
+  const { id, invitePath } = await createOuting(page);
+  await page.goto(`/outings/${id}`);
+  await expect(page.getByText('11 of 12 spots open')).toBeVisible();
+
+  // Pat keeps the invite open without claiming.
+  const pat = await (await browser.newContext({ viewport: { width: 360, height: 780 } })).newPage();
+  await pat.goto(invitePath);
+  await expect(pat.getByText('11 of 12 spots open')).toBeVisible();
+  await pat.waitForTimeout(500); // let the baseline save
+
+  const jen = await (await browser.newContext()).newPage();
+  await jen.goto(invitePath);
+  await claimWithPhone(jen, '7:50 AM', 'Jen Putts', uniquePhone());
+  await jen.getByRole('button', { name: 'Sweet' }).click();
+
+  // Nobody reloads: Mike's sheet and banner catch up on their own, and so does Pat's.
+  await expect(page.getByText('Jen Putts', { exact: true })).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByText('10 of 12 spots open')).toBeVisible();
+  await expect(page.getByText('Jen Putts grabbed 7:50 AM.')).toBeVisible();
+  await expect(pat.getByText('10 of 12 spots open')).toBeVisible({ timeout: 15_000 });
+  await expect(pat.getByText('Jen P. grabbed 7:50 AM.')).toBeVisible();
+
+  // After "Got it", the next change brings the banner back.
+  await page.getByRole('button', { name: 'Got it' }).click();
+  await expect(page.getByRole('heading', { name: 'Since you last looked' })).toHaveCount(0);
+  await jen.getByRole('button', { name: 'Drop out' }).click();
+  await jen.getByRole('button', { name: 'Yes, drop me' }).click();
+  await expect(page.getByText('Jen Putts dropped out. A spot opened at 7:50 AM.')).toBeVisible({
+    timeout: 15_000,
+  });
+  await expect(page.getByText('11 of 12 spots open')).toBeVisible();
+});

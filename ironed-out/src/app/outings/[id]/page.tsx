@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { BackLink } from '@/components/BackLink';
+import { LiveUpdates } from '@/components/outing/LiveUpdates';
 import { OutingHero } from '@/components/outing/OutingHero';
 import { OutingPlayerView } from '@/components/outing/OutingPlayerView';
 import { OrganizerView } from '@/components/outing/OrganizerView';
@@ -35,6 +36,7 @@ export default async function OutingPage({ params }: { params: Promise<{ id: str
   return (
     <main className="page page-tight">
       <BackLink href="/home" label="Back to home" />
+      <LiveUpdates url={`/outings/${id}/live`} lastEventId={view.lastEventId} />
       <OutingHero view={view} />
       {view.isOrganizer ? (
         <OrganizerView

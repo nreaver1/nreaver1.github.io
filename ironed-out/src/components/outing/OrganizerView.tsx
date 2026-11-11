@@ -23,7 +23,9 @@ export function OrganizerView({
   actions: OrganizerActions;
   shareHref: string;
 }) {
-  const [dismissed, setDismissed] = useState(false);
+  // "Got it" hides the banner up to that event; a later change (arriving live) shows it again.
+  const [dismissedAt, setDismissedAt] = useState<number | null>(null);
+  const dismissed = dismissedAt !== null && dismissedAt >= view.lastEventId;
   const baselined = useRef(false);
   useEffect(() => {
     if (!feed.hasRecord && !baselined.current) {
@@ -40,7 +42,7 @@ export function OrganizerView({
           inOuting={false}
           grab={null}
           onSeen={() => {
-            setDismissed(true);
+            setDismissedAt(view.lastEventId);
             void markSeen(view.lastEventId);
           }}
         />

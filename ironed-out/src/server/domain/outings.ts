@@ -226,6 +226,44 @@ export function getOutingView(deps: OutingsDeps, outingId: string, viewerPlayerI
   return withTenant(deps.db, deps.tenantId, (tx) => loadOutingView(tx, outingId, viewerPlayerId));
 }
 
+/**
+ * The newest event id on an outing, so an open page can tell cheaply that something changed.
+ * With `memberPlayerId`, returns null unless that player organizes the outing or holds a spot.
+ */
+export async function getLastEventId(
+  deps: OutingsDeps,
+  outingId: string,
+  memberPlayerId?: string,
+): Promise<number | null> {
+  if (!z.uuid().safeParse(outingId).success) return null;
+  return withTenant(deps.db, deps.tenantId, async (tx) => {
+    const [o] = await tx
+      .select({ organizerPlayerId: outings.organizerPlayerId })
+      .from(outings)
+      .where(eq(outings.id, outingId));
+    if (!o) return null;
+    if (memberPlayerId && o.organizerPlayerId !== memberPlayerId) {
+      const [held] = await tx
+        .select({ id: slots.id })
+        .from(slots)
+        .innerJoin(teeTimes, eq(teeTimes.id, slots.teeTimeId))
+        .where(
+          and(
+            eq(teeTimes.outingId, outingId),
+            or(eq(slots.playerId, memberPlayerId), eq(slots.guestOfPlayerId, memberPlayerId)),
+          ),
+        )
+        .limit(1);
+      if (!held) return null;
+    }
+    const [last] = await tx
+      .select({ id: max(outingEvents.id) })
+      .from(outingEvents)
+      .where(eq(outingEvents.outingId, outingId));
+    return Number(last?.id ?? 0);
+  });
+}
+
 /** Upcoming outings the player organizes or plays in, soonest first. */
 export async function listUpcomingOutings(deps: OutingsDeps, playerId: string): Promise<OutingView[]> {
   const now = deps.now?.() ?? new Date();

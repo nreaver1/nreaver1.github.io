@@ -43,7 +43,9 @@ export function OutingPlayerView({
   const [pending, start] = useTransition();
   const time = (iso: string) => formatTime(iso, view.timezone);
   const inOuting = !!view.viewerTeeTimeId;
-  const [dismissed, setDismissed] = useState(false);
+  // "Got it" hides the banner up to that event; a later change (arriving live) shows it again.
+  const [dismissedAt, setDismissedAt] = useState<number | null>(null);
+  const dismissed = dismissedAt !== null && dismissedAt >= view.lastEventId;
 
   // First visit: record a baseline so the next visit can say what changed.
   const baselined = useRef(false);
@@ -55,7 +57,7 @@ export function OutingPlayerView({
   }, [feed, markSeen, view.lastEventId]);
 
   const seen = () => {
-    setDismissed(true);
+    setDismissedAt(view.lastEventId);
     void markSeen?.(view.lastEventId);
   };
   const showFeed = feed && !dismissed;

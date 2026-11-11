@@ -63,6 +63,9 @@ partner API (§7) and course-provider adapters (§8).
      ("Just opened!"), new tee times get a "new" tag. Buttons: "Grab the [time] spot" (first newly
      opened slot) and "Got it" (marks seen). If nothing changed and they're in: "You're in. No
      changes since you joined."
+   - **Live updates** – an open outing or invite page checks the newest event id every 5 s while
+     the tab is visible (`/outings/:id/live`, `/t/:token/live`) and re-renders the tee sheet and
+     banner when it moves, so nobody has to refresh. A change after "Got it" brings the banner back.
    - Tee sheet: one card per tee time, "N of M filled", 2-column slot grid. Filled slot: initials
      avatar, name, tag (organizer / guest). Open slot: dashed "Open · grab it".
    - Friend actions: tap open slot → claim sheet; "Drop out" on own slot (also releases their guests);
