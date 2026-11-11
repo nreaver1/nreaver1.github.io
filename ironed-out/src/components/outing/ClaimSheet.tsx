@@ -5,6 +5,7 @@ import type { ClaimActionState } from '@/app/t/[token]/actions';
 import { FormError } from '@/components/forms/FormError';
 import { WindFlag } from '@/components/illustrations/WindFlag';
 import { Button, Card, Input, Sheet, Stepper } from '@/components/ui';
+import { formatPhoneInput } from '@/lib/format';
 import styles from './claim.module.css';
 
 export type ClaimTarget = { slotId: string; time: string };
@@ -199,7 +200,7 @@ export function ClaimSheet({
             placeholder="(410) 555-0199"
             autoComplete="tel"
             value={phone}
-            onChange={(e) => setPhone(e.target.value)}
+            onChange={(e) => setPhone(formatPhoneInput(e.target.value))}
             error={state.fields?.phone}
           />
           {guestStepper}

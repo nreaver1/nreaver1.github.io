@@ -4,6 +4,7 @@ import { useState, useTransition } from 'react';
 import type { ClaimActionState } from '@/app/t/[token]/actions';
 import { FormError } from '@/components/forms/FormError';
 import { Button, Card, Input, Sheet } from '@/components/ui';
+import { formatPhoneInput } from '@/lib/format';
 import styles from './claim.module.css';
 
 /**
@@ -70,7 +71,7 @@ export function OrganizerConfirm({
               placeholder="(410) 555-0199"
               autoComplete="tel"
               value={phone}
-              onChange={(e) => setPhone(e.target.value)}
+              onChange={(e) => setPhone(formatPhoneInput(e.target.value))}
               error={state.fields?.phone}
             />
             <Button type="submit" variant="primary" disabled={pending}>

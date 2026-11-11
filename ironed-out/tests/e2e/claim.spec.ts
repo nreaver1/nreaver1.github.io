@@ -74,6 +74,9 @@ test('if someone grabs the spot first, the sheet offers the next one', async ({ 
     .click();
   const sheet = b.getByRole('dialog');
   await sheet.getByLabel('Your name').fill('Slow Sam');
+  // The number field keeps digits only, at most 10, formatted as you type.
+  await sheet.getByLabel('Mobile number').pressSequentially('410abc-555.0199#77');
+  await expect(sheet.getByLabel('Mobile number')).toHaveValue('(410) 555-0199');
   await sheet.getByLabel('Mobile number').fill(uniquePhone());
   await sheet.getByRole('button', { name: 'Text me a code' }).click();
   await expect(sheet.getByRole('alert').filter({ hasText: 'Someone just grabbed that spot' })).toContainText(

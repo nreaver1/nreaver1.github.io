@@ -4,6 +4,7 @@ import { useState, useTransition } from 'react';
 import { CheckIcon } from '@/components/icons';
 import { FormError } from '@/components/forms/FormError';
 import { Button, Card, Input, Pill, Sheet, Switch } from '@/components/ui';
+import { formatPhoneInput } from '@/lib/format';
 import type { AlertSettings, AlertType } from '@/server/domain/notifications';
 import {
   confirmPhoneAction,
@@ -211,7 +212,7 @@ function PhoneSheet({ open, onClose, smsDemo }: { open: boolean; onClose: () => 
             autoComplete="tel"
             placeholder="(410) 555-0199"
             value={phone}
-            onChange={(e) => setPhone(e.target.value)}
+            onChange={(e) => setPhone(formatPhoneInput(e.target.value))}
             error={state.fields?.phone}
           />
           <Button type="submit" variant="primary" disabled={pending}>

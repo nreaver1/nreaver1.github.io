@@ -92,3 +92,14 @@ export function upcomingWeekendDates(today: string, count = 6, includeToday = tr
   }
   return out;
 }
+
+/**
+ * Live formatting for a US mobile number field: digits only, at most 10, shown as
+ * "(410) 555-0199". A leading country code 1 (autofill's "+1 410…") is dropped.
+ */
+export function formatPhoneInput(raw: string): string {
+  const d = raw.replace(/\D/g, '').replace(/^[01]+/, '').slice(0, 10);
+  if (d.length < 4) return d;
+  if (d.length < 7) return `(${d.slice(0, 3)}) ${d.slice(3)}`;
+  return `(${d.slice(0, 3)}) ${d.slice(3, 6)}-${d.slice(6)}`;
+}
