@@ -1,7 +1,7 @@
 import { assert, assertAlmostEquals, assertEquals } from "jsr:@std/assert@1";
 import { countsAtDrop, latestCounts, raidDropLuck, raidHunting, raidSummaries, type RaidHistory } from "./raid-luck.ts";
 import { parseRaidRecord, raidModeForKcName, raidRow, type RaidCompletion } from "./raids.ts";
-import { chanceByRaid, raidSequence, TOA, TOA_THREAD } from "./toa.ts";
+import { chanceByRaid, jewelChanceAnyOrder, raidSequence, TOA, TOA_THREAD } from "./toa.ts";
 import type { CollectionLogDrop, DropRate } from "./types.ts";
 
 const JEWEL_OF_AMASCUT = 30893;
@@ -135,4 +135,19 @@ Deno.test("parseRaidRecord validates and fills defaults", () => {
   assertEquals(bad({ purple: false, purple_mine: true }), true);
   assertEquals(bad({ details: { raid_level: 700 } }), true);
   assertEquals(bad({ completed_at: "2020-01-01T00:00:00Z" }), true);
+});
+
+Deno.test("raidHunting: jewels from the log import rate over every order", () => {
+  const EYE = 27285, SUN = 27289;
+  const rates = new Map([EYE].map((id) => [`${id}::${TOA}`, rate(id)]));
+  const history: RaidHistory = {
+    raids: [],
+    drops: [
+      drop({ id: "b", item_id: BREACH, kc_received: null, is_backfilled: true, roll_context: null }),
+      drop({ id: "s", item_id: SUN, kc_received: null, is_backfilled: true, roll_context: null }),
+      drop({ id: "a", item_id: JEWEL_OF_AMASCUT, kc_received: 26 }),
+    ],
+  };
+  const [eye] = raidHunting({ source_name: TOA, kc: 26, obtained: [BREACH, SUN, JEWEL_OF_AMASCUT] }, rates, history);
+  assertAlmostEquals(eye.probability, jewelChanceAnyOrder(26), 1e-12);
 });

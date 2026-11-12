@@ -30,17 +30,19 @@ export function countsAtDrop(drop: CollectionLogDrop, history: RaidHistory): Mod
   return { [ctx.mode ?? "normal"]: drop.kc_received ?? 0 };
 }
 
-/** Total completion counts the player's other jewels came on (0 = before tracking, or unknown). */
-function otherJewelKcs(itemId: number, history: RaidHistory, obtainedOnPage: number[] = []): number[] {
+/** Total completion counts the player's other jewels came on (null = before tracking, or unknown). */
+function otherJewelKcs(itemId: number, history: RaidHistory, obtainedOnPage: number[] = []): (number | null)[] {
   if (!TOA_JEWELS.includes(itemId)) return [];
-  const fromDrops = new Map<number, number>();
+  const fromDrops = new Map<number, number | null>();
   for (const d of history.drops) {
     if (d.source_name !== TOA || d.item_id === itemId || !TOA_JEWELS.includes(d.item_id)) continue;
-    const kc = d.is_backfilled ? 0 : d.kc_received ?? 0;
-    fromDrops.set(d.item_id, Math.min(fromDrops.get(d.item_id) ?? Infinity, kc));
+    const kc = d.is_backfilled || d.kc_received == null ? null : d.kc_received;
+    const prev = fromDrops.get(d.item_id);
+    // The earliest known count wins; unknown only when no row knows it.
+    fromDrops.set(d.item_id, prev == null ? kc : kc == null ? prev : Math.min(prev, kc));
   }
   for (const id of obtainedOnPage) {
-    if (id !== itemId && TOA_JEWELS.includes(id) && !fromDrops.has(id)) fromDrops.set(id, 0);
+    if (id !== itemId && TOA_JEWELS.includes(id) && !fromDrops.has(id)) fromDrops.set(id, null);
   }
   return [...fromDrops.values()];
 }

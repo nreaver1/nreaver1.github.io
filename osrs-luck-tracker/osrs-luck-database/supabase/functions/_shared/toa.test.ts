@@ -1,7 +1,8 @@
-import { assertAlmostEquals, assertEquals } from "jsr:@std/assert@1";
+import { assert, assertAlmostEquals, assertEquals } from "jsr:@std/assert@1";
 import {
   chanceByRaid,
   jewelChance,
+  jewelChanceAnyOrder,
   petChance,
   petLevel,
   purpleItemChance,
@@ -173,4 +174,48 @@ Deno.test("purpleSummary counts only raids with a known result", () => {
   assertEquals(s.raids, 2);
   assertEquals(s.purples, 1);
   assertAlmostEquals(s.expected, 2 / 22.5, 1e-9);
+});
+
+Deno.test("jewelChanceAnyOrder: exact for the first raids", () => {
+  assertEquals(jewelChanceAnyOrder(0), 0);
+  // One raid: 4/50 for some jewel, a quarter of that for this one.
+  assertAlmostEquals(jewelChanceAnyOrder(1), 1 / 50, 1e-12);
+  // Two raids: a jewel on raid 1 (then raid 2 at base rate), or on raid 2 after one dry raid.
+  const hit0 = 4 / 50, hit1 = (4 / 50) * (1 + 2 / 75);
+  const owned = hit0 * (1 + hit0) + (1 - hit0) * hit1;
+  assertAlmostEquals(jewelChanceAnyOrder(2), owned / 4, 1e-12);
+});
+
+Deno.test("jewelChanceAnyOrder matches a simulation of pity and duplicate protection", () => {
+  // mulberry32, seeded so the test is deterministic.
+  let seed = 12345;
+  const rand = () => {
+    seed = (seed + 0x6d2b79f5) | 0;
+    let t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+  const trials = 200_000;
+  for (const raids of [26, 120]) {
+    let hasEye = 0;
+    for (let t = 0; t < trials; t++) {
+      const missing = [0, 1, 2, 3];
+      let dry = 0;
+      for (let r = 0; r < raids && missing.length; r++) {
+        if (rand() < (4 / 50) * (1 + (2 * Math.min(dry, 75)) / 75)) {
+          missing.splice(Math.floor(rand() * missing.length), 1);
+          dry = 0;
+        } else dry++;
+      }
+      if (!missing.includes(1)) hasEye++;
+    }
+    assertAlmostEquals(jewelChanceAnyOrder(raids), hasEye / trials, 0.005);
+  }
+});
+
+Deno.test("chanceByRaid: an unknown jewel count rates over every order", () => {
+  const raids = Array.from({ length: 26 }, () => raid());
+  assertAlmostEquals(chanceByRaid(JEWEL_OF_AMASCUT, raids, [null, 26]), jewelChanceAnyOrder(26), 1e-12);
+  // All counts known: still raid by raid.
+  assert(chanceByRaid(JEWEL_OF_AMASCUT, raids, [5]) !== jewelChanceAnyOrder(26));
 });

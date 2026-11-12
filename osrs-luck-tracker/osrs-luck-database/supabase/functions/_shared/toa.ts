@@ -22,6 +22,10 @@
 //    without one. Pity counts raids in every mode (the wiki says only
 //    "each raid completed"). Duplicate protection: a jewel roll gives one
 //    the player doesn't own, so with k owned each missing one is (4/50)/(4-k).
+//    When another jewel's completion count is unknown (logged before
+//    tracking), the chance is a fair player's over every possible order
+//    instead (jewelChanceAnyOrder), since pity and protection depend on
+//    when the others came.
 //  - Thread of Elidinis (first one): 1/10 rising to 3/10 at 15 raids.
 
 import type { ModeCounts, RaidCompletion } from "./raids.ts";
@@ -132,6 +136,38 @@ export function jewelChance(dry: number, owned: number): number {
   return Math.min(1, anyJewel / Math.max(1, 4 - owned));
 }
 
+/**
+ * The chance a fair player owns one particular jewel after `raids`
+ * completions, with nothing known about when any jewel came. Tracks the
+ * spread of (jewels so far, raids since the last one) raid by raid: each
+ * jewel roll gives a new jewel and resets pity, and the four come in a
+ * random order, so the answer is E[jewels owned] / 4.
+ */
+export function jewelChanceAnyOrder(raids: number): number {
+  const MAX_DRY = 75;
+  // dist[j][d]: chance of j jewels with d raids since the last (d capped).
+  let dist = Array.from({ length: 4 }, () => new Array<number>(MAX_DRY + 1).fill(0));
+  dist[0][0] = 1;
+  let all = 0; // chance of owning all four
+  for (let r = 0; r < raids; r++) {
+    const next = Array.from({ length: 4 }, () => new Array<number>(MAX_DRY + 1).fill(0));
+    for (let j = 0; j < 4; j++) {
+      for (let d = 0; d <= MAX_DRY; d++) {
+        const p = dist[j][d];
+        if (p === 0) continue;
+        const hit = (4 / 50) * (1 + (2 * d) / MAX_DRY);
+        if (j === 3) all += p * hit;
+        else next[j + 1][0] += p * hit;
+        next[j][Math.min(d + 1, MAX_DRY)] += p * (1 - hit);
+      }
+    }
+    dist = next;
+  }
+  let owned = 4 * all;
+  for (let j = 1; j < 4; j++) owned += j * dist[j].reduce((a, b) => a + b, 0);
+  return owned / 4;
+}
+
 /** The first thread's chance on a raid after `before` raids. */
 export function threadChance(before: number): number {
   return 0.1 + 0.2 * Math.min(before, 15) / 15;
@@ -176,12 +212,15 @@ export function raidSequence(total: number, recorded: RaidCompletion[], countsAt
 /**
  * The chance a fair player would have had `itemId` by the end of `raids`
  * (raid 1 first). `jewelKcs` holds the total completion count each of the
- * player's other jewels came on, 0 for one obtained before tracking.
+ * player's other jewels came on, null for one whose count isn't known.
  */
-export function chanceByRaid(itemId: number, raids: ToaRaid[], jewelKcs: number[] = []): number {
+export function chanceByRaid(itemId: number, raids: ToaRaid[], jewelKcs: (number | null)[] = []): number {
   let survival = 1;
+  if (TOA_JEWELS.includes(itemId) && jewelKcs.some((kc) => kc === null)) {
+    return jewelChanceAnyOrder(raids.length);
+  }
   if (TOA_JEWELS.includes(itemId)) {
-    const others = [...jewelKcs].sort((a, b) => a - b);
+    const others = (jewelKcs as number[]).slice().sort((a, b) => a - b);
     raids.forEach((_, i) => {
       const raidNumber = i + 1;
       const before = others.filter((kc) => kc < raidNumber);
