@@ -172,4 +172,14 @@ insert into raid_completions (account_hash, raid, mode, mode_kc, total_kc, mode_
   ('demo-zezima', 'Chambers of Xeric', 'challenge', 149, 2049, '{"normal": 1900, "challenge": 149}', 3, 43800, null, null, '{"total_points": 131500}', now() - interval '2 days'),
   ('demo-zezima', 'Chambers of Xeric', 'challenge', 150, 2050, '{"normal": 1900, "challenge": 150}', 3, 45000, null, null, '{"total_points": 140000}', now() - interval '1 day');
 
+-- The purple from raid 413, a Masori body, tied to its raid the way
+-- ingest-drop ties it (roll_context.raid_id), so the raid card can name it.
+insert into collection_log_drops
+  (account_hash, item_id, source_name, kc_received, kc_at_previous_drop, roll_context, is_backfilled, date_received, date_submitted)
+select 'demo-zezima', 27229, 'Tombs of Amascut', 413, 413,
+       jsonb_build_object('mode', 'expert', 'mode_counts', r.mode_counts, 'raid_id', r.id),
+       false, r.completed_at, r.completed_at
+from raid_completions r
+where r.account_hash = 'demo-zezima' and r.raid = 'Tombs of Amascut' and r.total_kc = 413;
+
 commit;

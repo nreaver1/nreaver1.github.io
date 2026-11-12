@@ -1,4 +1,5 @@
 import type { RaidSummary } from "@/lib/types";
+import ItemIcon from "./ItemIcon";
 import LuckBar from "./LuckBar";
 import LuckBadge from "./LuckBadge";
 import SourceLink from "./SourceLink";
@@ -39,6 +40,7 @@ export default function RaidCard({ raid }: { raid: RaidSummary }) {
   const modes = MODE_ORDER.filter((m) => m in raid.mode_counts);
   const last = raid.last_raid;
   const result = last && lastRaidResult(last);
+  const purpleRaids = raid.purple_raids ?? [];
 
   return (
     <div className="border border-panel-border bg-panel p-5">
@@ -81,6 +83,23 @@ export default function RaidCard({ raid }: { raid: RaidSummary }) {
             />
             <LuckBadge probability={raid.probability} />
           </div>
+        )}
+        {purpleRaids.length > 0 && (
+          <ul className="mt-3 space-y-1.5">
+            {purpleRaids.map((p) => (
+              <li key={p.total_kc} className="flex items-center gap-2.5 text-sm">
+                {p.item_id !== null && (
+                  <ItemIcon itemId={p.item_id} name={p.item_name ?? `Item #${p.item_id}`} size="sm" />
+                )}
+                <span className={p.item_id !== null ? "text-brass" : "text-parchment-dim"}>
+                  {p.item_id !== null ? p.item_name ?? `Item #${p.item_id}` : "A duplicate (not a new log item)"}
+                </span>
+                <span className="font-mono text-xs tabular-nums text-parchment-dim">
+                  {MODE_LABELS[p.mode] ?? p.mode} KC {p.mode_kc.toLocaleString()}
+                </span>
+              </li>
+            ))}
+          </ul>
         )}
       </div>
 

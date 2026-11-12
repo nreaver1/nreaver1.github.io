@@ -1,4 +1,4 @@
-import type { LeaderboardResponse, LuckResult, PlayerLuckResponse, PoolResult } from "./types";
+import type { LeaderboardResponse, LuckResult, PlayerLuckResponse, PoolResult, RaidSummary } from "./types";
 import itemNames from "./item-names.json";
 import { mockLeaderboard, mockPlayerLuck } from "./mock-data";
 
@@ -25,6 +25,14 @@ const namedPool = (p: PoolResult): PoolResult => ({
   item_names: Object.fromEntries(p.item_ids.map((id) => [String(id), resolveItemName(id)])),
 });
 
+const namedRaid = (r: RaidSummary): RaidSummary => ({
+  ...r,
+  purple_raids: (r.purple_raids ?? []).map((p) => ({
+    ...p,
+    item_name: p.item_id === null ? undefined : resolveItemName(p.item_id),
+  })),
+});
+
 export async function getPlayerLuck(
   ign: string,
 ): Promise<PlayerLuckResponse | null> {
@@ -45,6 +53,7 @@ export async function getPlayerLuck(
             : null,
           hunting: (mock.hunting ?? []).map((h) => ({ ...h, item_name: resolveItemName(h.item_id) })),
           pools: (mock.pools ?? []).map(namedPool),
+          raids: (mock.raids ?? []).map(namedRaid),
         }
       : null;
   }
@@ -72,6 +81,7 @@ export async function getPlayerLuck(
       : null,
     hunting: (data.hunting ?? []).map((h) => ({ ...h, item_name: resolveItemName(h.item_id) })),
     pools: (data.pools ?? []).map(namedPool),
+    raids: (data.raids ?? []).map(namedRaid),
   };
 }
 

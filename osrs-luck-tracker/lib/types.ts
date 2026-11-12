@@ -115,6 +115,20 @@ export interface RaidSummary {
     purple_mine: boolean | null;
     completed_at: string;
   } | null;
+  /**
+   * Recorded raids where this player got the purple, newest first.
+   * item_id is null when no drop came in for it (a duplicate never shows
+   * as a new log item). Missing from APIs before this field was added.
+   */
+  purple_raids?: {
+    item_id: number | null;
+    /** Resolved client-side from lib/item-names.json. */
+    item_name?: string;
+    mode: string;
+    mode_kc: number;
+    total_kc: number;
+    completed_at: string;
+  }[];
 }
 
 export interface PlayerLuckResponse {

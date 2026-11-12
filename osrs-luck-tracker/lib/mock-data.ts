@@ -144,6 +144,18 @@ const ZEZIMA: PlayerLuckResponse = {
       supported: true,
       backfilled: false,
     },
+    {
+      // The purple from the third tracked ToA raid (ZEZIMA.raids below).
+      item_id: 27229,
+      source_name: "Tombs of Amascut",
+      kc_received: 413,
+      date_received: daysAgo(3),
+      probability: 0.7758,
+      label: "average",
+      estimated: true,
+      supported: true,
+      backfilled: false,
+    },
   ],
   mostSpooned: null,
   driest: null,
@@ -359,6 +371,9 @@ ZEZIMA.raids = [
       purple_mine: false,
       completed_at: daysAgo(1),
     },
+    purple_raids: [
+      { item_id: 27229, mode: "expert", mode_kc: 388, total_kc: 413, completed_at: daysAgo(3) },
+    ],
   },
   {
     raid: "Chambers of Xeric",
@@ -380,6 +395,7 @@ ZEZIMA.raids = [
       purple_mine: null,
       completed_at: daysAgo(1),
     },
+    purple_raids: [],
   },
 ];
 DRY_BONES.hunting = [

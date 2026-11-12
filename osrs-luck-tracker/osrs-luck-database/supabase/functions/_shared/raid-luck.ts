@@ -17,6 +17,8 @@ export interface RaidModel {
   page: string;
   key: string; // drop_rates.metadata.raid_model
   items: number[];
+  /** The items that count as a purple (no pet, kits, dust, thread or jewels). */
+  purples: number[];
   /** Raids 1..total, recorded or assumed. */
   sequence(total: number, recorded: RaidCompletion[], countsAtEnd: ModeCounts): unknown[];
   /** A fair player's chance of the item by the end of the raids; NaN if not rated. */
@@ -32,6 +34,7 @@ export const RAID_MODELS: RaidModel[] = [
     page: TOA,
     key: "toa",
     items: toa.TOA_ITEMS,
+    purples: toa.TOA_PURPLES,
     sequence: toa.raidSequence,
     chance: (itemId, raids, jewelKcs) => toa.chanceByRaid(itemId, raids as toa.ToaRaid[], jewelKcs),
     uniqueChance: (r) => toa.uniqueChance(toa.toaRaidOf(r)),
@@ -41,6 +44,7 @@ export const RAID_MODELS: RaidModel[] = [
     page: cox.COX,
     key: "cox",
     items: cox.COX_ITEMS,
+    purples: cox.COX_PURPLES,
     sequence: cox.raidSequence,
     chance: (itemId, raids) => cox.chanceByRaid(itemId, raids as cox.CoxRaid[]),
     uniqueChance: (r) => cox.uniqueChance(cox.coxRaidOf(r)),
@@ -50,6 +54,7 @@ export const RAID_MODELS: RaidModel[] = [
     page: tob.TOB,
     key: "tob",
     items: tob.TOB_ITEMS,
+    purples: tob.TOB_PURPLES,
     sequence: tob.raidSequence,
     chance: (itemId, raids) => tob.chanceByRaid(itemId, raids as tob.TobRaid[]),
     uniqueChance: (r) => tob.uniqueChance(tob.tobRaidOf(r)),
@@ -208,6 +213,29 @@ export interface RaidSummary {
     purple_mine: boolean | null;
     completed_at: string;
   } | null;
+  /**
+   * The recorded raids where this player got the purple, newest first.
+   * item_id comes from the drop row the raid sent (tied by
+   * roll_context.raid_id, else the same total count); null when none came
+   * in, as with a duplicate, which never shows up as a new log item.
+   */
+  purple_raids: {
+    item_id: number | null;
+    mode: string;
+    mode_kc: number;
+    total_kc: number;
+    completed_at: string;
+  }[];
+}
+
+/** The purple a recorded raid gave this player, from the drops it sent. */
+function purpleOf(r: RaidCompletion, model: RaidModel, history: RaidHistory): number | null {
+  const fromPage = history.drops.filter((d) =>
+    d.source_name === r.raid && !d.is_backfilled && model.purples.includes(d.item_id)
+  );
+  const byId = r.id ? fromPage.find((d) => rollContext(d).raid_id === r.id) : undefined;
+  const byKc = fromPage.find((d) => d.kc_received === r.total_kc);
+  return (byId ?? byKc)?.item_id ?? null;
 }
 
 /** One summary per raid the account has recorded completions or a page read for. */
@@ -243,6 +271,16 @@ export function raidSummaries(history: RaidHistory, pageKcs: Map<string, number>
         purple_mine: last.purple_mine,
         completed_at: last.completed_at,
       },
+      purple_raids: seen
+        .filter((r) => r.purple_mine)
+        .sort((a, b) => b.total_kc - a.total_kc)
+        .map((r) => ({
+          item_id: purpleOf(r, model, history),
+          mode: r.mode,
+          mode_kc: r.mode_kc,
+          total_kc: r.total_kc,
+          completed_at: r.completed_at,
+        })),
     }];
   });
 }

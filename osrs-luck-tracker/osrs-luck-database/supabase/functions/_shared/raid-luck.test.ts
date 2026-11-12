@@ -100,6 +100,25 @@ Deno.test("raidSummaries: nothing without recorded raids", () => {
   assert(s[0].probability! < 0.1);
 });
 
+Deno.test("raidSummaries: lists this player's purples with the item they sent", () => {
+  const raids = [
+    completion({ id: "r1", total_kc: 5, mode_kc: 5, purple: true, purple_mine: true }),
+    completion({ id: "r2", total_kc: 6, mode_kc: 6, purple: true, purple_mine: false }),
+    completion({ id: "r3", total_kc: 7, mode_kc: 7, purple: true, purple_mine: true }),
+    completion({ id: "r4", total_kc: 8, mode_kc: 8, purple: true, purple_mine: true }),
+  ];
+  const drops = [
+    // Tied by raid_id, even though the count differs.
+    drop({ item_id: FANG, kc_received: 4, roll_context: { mode: "expert", raid_id: "r1" } }),
+    // Tied by count; the jewel from the same raid isn't a purple.
+    drop({ item_id: BREACH, kc_received: 7, roll_context: { mode: "expert" } }),
+    drop({ item_id: 25975, kc_received: 7, roll_context: { mode: "expert" } }),
+  ];
+  const [s] = raidSummaries({ raids, drops }, new Map());
+  // r2's purple was a teammate's; r4 sent no drop (a duplicate).
+  assertEquals(s.purple_raids.map((p) => [p.total_kc, p.item_id]), [[8, null], [7, 25975], [5, FANG]]);
+});
+
 Deno.test("raid models: CoX and ToB drops, hunting and summaries", () => {
   const COX = "Chambers of Xeric";
   const TOB = "Theatre of Blood";
