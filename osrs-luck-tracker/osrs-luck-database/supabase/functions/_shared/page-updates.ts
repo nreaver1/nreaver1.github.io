@@ -13,12 +13,13 @@ import type { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { KC_ALIASES, normalizeSource } from "./kc-aliases.ts";
 import { siblingSources } from "./modes.ts";
 import { POOLS } from "./pools.ts";
-import { RAIDS } from "./raids.ts";
+import { type ModeCounts, RAIDS } from "./raids.ts";
 
 // Pages whose log counter isn't the kill count, so a kill-count message
-// can't raise them: Tempoross's page counts reward permits (the plugin's
-// LogPageSnapshot.ROLL_COUNTERS), and a raid page counts every mode
-// together, which /record-raid raises instead (_shared/raids.ts).
+// can't raise them as is: Tempoross's page counts reward permits (the
+// plugin's LogPageSnapshot.ROLL_COUNTERS), and a raid page counts every
+// mode together, which /record-raid raises, and /update-kc through
+// raidKcLowerBound.
 const PAGE_COUNTER_DIFFERS = new Set(["Tempoross", ...Object.keys(RAIDS)]);
 
 /**
@@ -37,6 +38,20 @@ export function pageSourceForKc(kcName: string, sources: string[]): string | und
     return sharers === 1 ? sources.find((s) => s === alias) : undefined;
   })();
   return source && !PAGE_COUNTER_DIFFERS.has(source) ? source : undefined;
+}
+
+/**
+ * A raid page's kill count is every mode's completions added up, but a
+ * completion-count message names one mode. So this takes the most each
+ * mode is known to be at, from the counts seen in chat and the latest
+ * recorded completion's mode_counts, and adds those up. Every term is a
+ * count the game showed, so the sum never overshoots the real total; a
+ * mode nothing has reported yet counts as 0, and raiseKc then leaves a
+ * higher stored kill count alone.
+ */
+export function raidKcLowerBound(raid: string, chat: ModeCounts, latestRecorded: ModeCounts | null): number {
+  return Object.keys(RAIDS[raid]?.modes ?? {})
+    .reduce((sum, mode) => sum + Math.max(chat[mode] ?? 0, latestRecorded?.[mode] ?? 0), 0);
 }
 
 /** Raises the page read's and hunting rows' kill count for one source. Returns an error, if any. */

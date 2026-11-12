@@ -9,6 +9,9 @@
 //   source_name is the boss as the kill-count message prints it
 //   ("Barrows chest", "Zulrah"); see _shared/page-updates.ts for which
 //   pages a name can raise. A count only ever raises a stored kill count.
+//   Raid completion counts ("Theatre of Blood: Hard Mode") are per mode
+//   while the raid page counts every mode, so they raise the page to the
+//   sum of what each mode is known to be at (raidKcLowerBound).
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { getSecretKey } from "../_shared/secret-key.ts";
@@ -22,7 +25,8 @@ import {
   serverError,
   tokensMatch,
 } from "../_shared/http.ts";
-import { pageSourceForKc, raiseKc } from "../_shared/page-updates.ts";
+import { pageSourceForKc, raidKcLowerBound, raiseKc } from "../_shared/page-updates.ts";
+import { type ModeCounts, raidModeForKcName } from "../_shared/raids.ts";
 
 const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
 const serviceRoleKey = getSecretKey();
@@ -86,10 +90,34 @@ Deno.serve(async (req) => {
   const sources = [...new Set([...(pages ?? []), ...(hunting ?? [])].map((r) => r.source_name as string))];
 
   // Highest count per page, in case two names or two batches map to one.
+  // Raid completion counts are per mode, collected per raid page first.
   const highest = new Map<string, number>();
+  const raidCounts = new Map<string, ModeCounts>();
   for (const c of counts as Count[]) {
+    const raidMode = raidModeForKcName(c.source_name);
+    if (raidMode) {
+      if (!sources.includes(raidMode.raid)) continue;
+      const modes = raidCounts.get(raidMode.raid) ?? {};
+      modes[raidMode.mode] = Math.max(modes[raidMode.mode] ?? 0, c.kc);
+      raidCounts.set(raidMode.raid, modes);
+      continue;
+    }
     const source = pageSourceForKc(c.source_name, sources);
     if (source) highest.set(source, Math.max(highest.get(source) ?? 0, c.kc));
+  }
+
+  for (const [raid, modes] of raidCounts) {
+    const { data: latest, error: raidError } = await supabase
+      .from("raid_completions")
+      .select("mode_counts")
+      .eq("account_hash", account_hash)
+      .eq("raid", raid)
+      .order("total_kc", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (raidError) return serverError("update-kc: raid lookup failed", raidError);
+    const kc = raidKcLowerBound(raid, modes, (latest?.mode_counts as ModeCounts | undefined) ?? null);
+    if (kc > 0) highest.set(raid, kc);
   }
 
   for (const [source, kc] of highest) {

@@ -1,7 +1,7 @@
 // Run from osrs-luck-database/:
 //   npx deno test --no-config --allow-read supabase/functions/_shared/
 
-import { pageSourceForKc } from "./page-updates.ts";
+import { pageSourceForKc, raidKcLowerBound } from "./page-updates.ts";
 
 function assertEquals(actual: unknown, expected: unknown) {
   if (actual !== expected) throw new Error(`expected ${expected}, got ${actual}`);
@@ -37,4 +37,23 @@ Deno.test("each mode's kill count raises its own rows on a multi-mode page", () 
   assertEquals(pageSourceForKc("Corrupted Gauntlet", sources), "Corrupted Gauntlet");
   assertEquals(pageSourceForKc("Callisto", sources), "Callisto and Artio");
   assertEquals(pageSourceForKc("Artio", sources), "Artio");
+});
+
+Deno.test("a raid's completion count never raises its page on its own", () => {
+  // The page counts every mode; raidKcLowerBound handles raid counts.
+  const sources = ["Chambers of Xeric", "Theatre of Blood", "Tombs of Amascut"];
+  assertEquals(pageSourceForKc("Theatre of Blood", sources), undefined);
+  assertEquals(pageSourceForKc("Chambers of Xeric Challenge Mode", sources), undefined);
+});
+
+Deno.test("a raid page's kill count adds up the most each mode is known at", () => {
+  // Chat alone: only the modes seen.
+  assertEquals(raidKcLowerBound("Theatre of Blood", { normal: 12 }, null), 12);
+  assertEquals(raidKcLowerBound("Theatre of Blood", { normal: 12, hard: 3 }, null), 15);
+  // The latest recorded raid fills in modes chat didn't mention.
+  assertEquals(raidKcLowerBound("Chambers of Xeric", { normal: 41 }, { normal: 40, challenge: 7 }), 48);
+  // A count lower than the recorded one doesn't lower it.
+  assertEquals(raidKcLowerBound("Chambers of Xeric", { challenge: 2 }, { normal: 40, challenge: 7 }), 47);
+  // Modes another raid has don't count.
+  assertEquals(raidKcLowerBound("Chambers of Xeric", { hard: 9 } as Record<string, number>, null), 0);
 });
