@@ -28,7 +28,7 @@
 //    when the others came.
 //  - Thread of Elidinis (first one): 1/10 rising to 3/10 at 15 raids.
 
-import type { ModeCounts, RaidCompletion } from "./raids.ts";
+import { raidSequenceOf, type ModeCounts, type RaidCompletion } from "./raids.ts";
 
 export const TOA = "Tombs of Amascut";
 
@@ -63,8 +63,6 @@ export const UNTRACKED_DEFAULTS: Record<string, Omit<ToaRaid, "mode" | "tracked"
   normal: { raid_level: 150, team_size: 1, personal_points: 20_000 },
   expert: { raid_level: 300, team_size: 1, personal_points: 20_000 },
 };
-
-const MODE_ORDER = ["entry", "normal", "expert"];
 
 const MAX_UNIQUE_CHANCE = 0.55;
 
@@ -173,40 +171,26 @@ export function threadChance(before: number): number {
   return 0.1 + 0.2 * Math.min(before, 15) / 15;
 }
 
-/**
- * Raids 1..total in order. Recorded raids sit at their total_kc; the rest
- * take their mode from the counts at the end that recorded raids don't
- * account for, assumed per UNTRACKED_DEFAULTS. Which untracked raid was
- * which mode doesn't matter: per-raid chances only depend on the mode, and
- * pity on the raid's position.
- */
+/** Raids 1..total in order, recorded or assumed per UNTRACKED_DEFAULTS (raids.ts raidSequenceOf). */
 export function raidSequence(total: number, recorded: RaidCompletion[], countsAtEnd: ModeCounts): ToaRaid[] {
-  const slots: (ToaRaid | null)[] = new Array(Math.max(0, total)).fill(null);
-  const trackedByMode: Record<string, number> = {};
-  for (const r of recorded) {
-    if (r.raid !== TOA || r.total_kc < 1 || r.total_kc > total || slots[r.total_kc - 1]) continue;
-    const defaults = UNTRACKED_DEFAULTS[r.mode] ?? UNTRACKED_DEFAULTS.normal;
-    const level = r.details?.raid_level;
-    slots[r.total_kc - 1] = {
-      mode: r.mode,
-      raid_level: typeof level === "number" ? level : defaults.raid_level,
-      team_size: r.team_size ?? defaults.team_size,
-      personal_points: r.personal_points ?? defaults.personal_points,
-      tracked: true,
-    };
-    trackedByMode[r.mode] = (trackedByMode[r.mode] ?? 0) + 1;
-  }
-  const untrackedModes: string[] = [];
-  for (const mode of MODE_ORDER) {
-    const n = Math.max(0, (countsAtEnd[mode] ?? 0) - (trackedByMode[mode] ?? 0));
-    for (let i = 0; i < n; i++) untrackedModes.push(mode);
-  }
-  let next = 0;
-  return slots.map((slot) => {
-    if (slot) return slot;
-    const mode = untrackedModes[next++] ?? "normal";
-    return { mode, ...UNTRACKED_DEFAULTS[mode], tracked: false };
-  });
+  return raidSequenceOf(TOA, total, recorded, countsAtEnd, toaRaidOf, (mode) => ({
+    mode,
+    ...(UNTRACKED_DEFAULTS[mode] ?? UNTRACKED_DEFAULTS.normal),
+    tracked: false,
+  }));
+}
+
+/** A recorded completion as the chance calculation sees it, defaults filling what the plugin couldn't read. */
+export function toaRaidOf(r: RaidCompletion): ToaRaid {
+  const defaults = UNTRACKED_DEFAULTS[r.mode] ?? UNTRACKED_DEFAULTS.normal;
+  const level = r.details?.raid_level;
+  return {
+    mode: r.mode,
+    raid_level: typeof level === "number" ? level : defaults.raid_level,
+    team_size: r.team_size ?? defaults.team_size,
+    personal_points: r.personal_points ?? defaults.personal_points,
+    tracked: true,
+  };
 }
 
 /**
@@ -263,15 +247,7 @@ export function purplesMidP(chances: number[], observed: number): number {
 /** Purples over the raids the plugin recorded (those whose result it saw). */
 export function purpleSummary(recorded: RaidCompletion[]) {
   const seen = recorded.filter((r) => r.raid === TOA && r.purple_mine !== null);
-  const chances = seen.map((r) => {
-    const defaults = UNTRACKED_DEFAULTS[r.mode] ?? UNTRACKED_DEFAULTS.normal;
-    const level = r.details?.raid_level;
-    return uniqueChance({
-      raid_level: typeof level === "number" ? level : defaults.raid_level,
-      team_size: r.team_size ?? defaults.team_size,
-      personal_points: r.personal_points ?? defaults.personal_points,
-    });
-  });
+  const chances = seen.map((r) => uniqueChance(toaRaidOf(r)));
   const purples = seen.filter((r) => r.purple_mine).length;
   return {
     raids: seen.length,

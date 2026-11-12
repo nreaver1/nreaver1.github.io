@@ -17,7 +17,8 @@
       "metadata": {
         "avg_points_per_activity": 30000,
         "points_per_roll": 8676,
-        "assumption": "~30,000 personal points per raid (wiki money making guide, solo deathless). Your share of a team's unique chance scales with your own points, so team size drops out."
+        "assumption": "Rated raid by raid from the team's and your recorded points (supabase/functions/_shared/cox.ts). Raids from before tracking assume a deathless solo: ~30,000 points normally, ~62,000 in Challenge Mode.",
+        "raid_model": "cox"
       },
       "wiki": "Ancient chest"
     },
@@ -32,7 +33,8 @@
       "metadata": {
         "avg_points_per_activity": 30000,
         "points_per_roll": 8676,
-        "assumption": "~30,000 personal points per raid (wiki money making guide, solo deathless). Your share of a team's unique chance scales with your own points, so team size drops out."
+        "assumption": "Rated raid by raid from the team's and your recorded points (supabase/functions/_shared/cox.ts). Raids from before tracking assume a deathless solo: ~30,000 points normally, ~62,000 in Challenge Mode.",
+        "raid_model": "cox"
       },
       "wiki": "Ancient chest"
     },
@@ -47,7 +49,8 @@
       "metadata": {
         "avg_points_per_activity": 30000,
         "points_per_roll": 8676,
-        "assumption": "~30,000 personal points per raid (wiki money making guide, solo deathless). Your share of a team's unique chance scales with your own points, so team size drops out."
+        "assumption": "Rated raid by raid from the team's and your recorded points (supabase/functions/_shared/cox.ts). Raids from before tracking assume a deathless solo: ~30,000 points normally, ~62,000 in Challenge Mode.",
+        "raid_model": "cox"
       },
       "wiki": "Ancient chest"
     },
@@ -62,7 +65,8 @@
       "metadata": {
         "avg_points_per_activity": 30000,
         "points_per_roll": 8676,
-        "assumption": "~30,000 personal points per raid (wiki money making guide, solo deathless). Your share of a team's unique chance scales with your own points, so team size drops out."
+        "assumption": "Rated raid by raid from the team's and your recorded points (supabase/functions/_shared/cox.ts). Raids from before tracking assume a deathless solo: ~30,000 points normally, ~62,000 in Challenge Mode.",
+        "raid_model": "cox"
       },
       "wiki": "Ancient chest"
     },
@@ -77,7 +81,8 @@
       "metadata": {
         "avg_points_per_activity": 30000,
         "points_per_roll": 8676,
-        "assumption": "~30,000 personal points per raid (wiki money making guide, solo deathless). Your share of a team's unique chance scales with your own points, so team size drops out."
+        "assumption": "Rated raid by raid from the team's and your recorded points (supabase/functions/_shared/cox.ts). Raids from before tracking assume a deathless solo: ~30,000 points normally, ~62,000 in Challenge Mode.",
+        "raid_model": "cox"
       },
       "wiki": "Ancient chest"
     },
@@ -92,7 +97,8 @@
       "metadata": {
         "avg_points_per_activity": 30000,
         "points_per_roll": 8676,
-        "assumption": "~30,000 personal points per raid (wiki money making guide, solo deathless). Your share of a team's unique chance scales with your own points, so team size drops out."
+        "assumption": "Rated raid by raid from the team's and your recorded points (supabase/functions/_shared/cox.ts). Raids from before tracking assume a deathless solo: ~30,000 points normally, ~62,000 in Challenge Mode.",
+        "raid_model": "cox"
       },
       "wiki": "Ancient chest"
     },
@@ -107,7 +113,8 @@
       "metadata": {
         "avg_points_per_activity": 30000,
         "points_per_roll": 8676,
-        "assumption": "~30,000 personal points per raid (wiki money making guide, solo deathless). Your share of a team's unique chance scales with your own points, so team size drops out."
+        "assumption": "Rated raid by raid from the team's and your recorded points (supabase/functions/_shared/cox.ts). Raids from before tracking assume a deathless solo: ~30,000 points normally, ~62,000 in Challenge Mode.",
+        "raid_model": "cox"
       },
       "wiki": "Ancient chest"
     },
@@ -122,7 +129,8 @@
       "metadata": {
         "avg_points_per_activity": 30000,
         "points_per_roll": 8676,
-        "assumption": "~30,000 personal points per raid (wiki money making guide, solo deathless). Your share of a team's unique chance scales with your own points, so team size drops out."
+        "assumption": "Rated raid by raid from the team's and your recorded points (supabase/functions/_shared/cox.ts). Raids from before tracking assume a deathless solo: ~30,000 points normally, ~62,000 in Challenge Mode.",
+        "raid_model": "cox"
       },
       "wiki": "Ancient chest"
     },
@@ -137,7 +145,8 @@
       "metadata": {
         "avg_points_per_activity": 30000,
         "points_per_roll": 8676,
-        "assumption": "~30,000 personal points per raid (wiki money making guide, solo deathless). Your share of a team's unique chance scales with your own points, so team size drops out."
+        "assumption": "Rated raid by raid from the team's and your recorded points (supabase/functions/_shared/cox.ts). Raids from before tracking assume a deathless solo: ~30,000 points normally, ~62,000 in Challenge Mode.",
+        "raid_model": "cox"
       },
       "wiki": "Ancient chest"
     },
@@ -152,7 +161,8 @@
       "metadata": {
         "avg_points_per_activity": 30000,
         "points_per_roll": 8676,
-        "assumption": "~30,000 personal points per raid (wiki money making guide, solo deathless). Your share of a team's unique chance scales with your own points, so team size drops out."
+        "assumption": "Rated raid by raid from the team's and your recorded points (supabase/functions/_shared/cox.ts). Raids from before tracking assume a deathless solo: ~30,000 points normally, ~62,000 in Challenge Mode.",
+        "raid_model": "cox"
       },
       "wiki": "Ancient chest"
     },
@@ -167,7 +177,8 @@
       "metadata": {
         "avg_points_per_activity": 30000,
         "points_per_roll": 8676,
-        "assumption": "~30,000 personal points per raid (wiki money making guide, solo deathless). Your share of a team's unique chance scales with your own points, so team size drops out."
+        "assumption": "Rated raid by raid from the team's and your recorded points (supabase/functions/_shared/cox.ts). Raids from before tracking assume a deathless solo: ~30,000 points normally, ~62,000 in Challenge Mode.",
+        "raid_model": "cox"
       },
       "wiki": "Ancient chest"
     },
@@ -182,7 +193,8 @@
       "metadata": {
         "avg_points_per_activity": 30000,
         "points_per_roll": 8676,
-        "assumption": "~30,000 personal points per raid (wiki money making guide, solo deathless). Your share of a team's unique chance scales with your own points, so team size drops out."
+        "assumption": "Rated raid by raid from the team's and your recorded points (supabase/functions/_shared/cox.ts). Raids from before tracking assume a deathless solo: ~30,000 points normally, ~62,000 in Challenge Mode.",
+        "raid_model": "cox"
       },
       "wiki": "Ancient chest"
     },
@@ -197,202 +209,8 @@
       "metadata": {
         "avg_points_per_activity": 30000,
         "points_per_roll": 8676,
-        "assumption": "~30,000 personal points per raid (wiki money making guide, solo deathless). Your share of a team's unique chance scales with your own points, so team size drops out."
-      },
-      "wiki": "Ancient chest"
-    },
-    {
-      "rolls_per_kill": 1,
-      "item_id": 21034,
-      "item_name": "Dexterous prayer scroll",
-      "source_name": "Chambers of Xeric Challenge Mode",
-      "distribution_type": "points_based",
-      "numerator": 12,
-      "denominator": 5600,
-      "metadata": {
-        "avg_points_per_activity": 62000,
-        "points_per_roll": 8676,
-        "assumption": "~62,000 personal points per raid (wiki money making guide: 57,000 + 5,000 for finishing in time, solo). Your share of a team's unique chance scales with your own points, so team size drops out."
-      },
-      "wiki": "Ancient chest"
-    },
-    {
-      "rolls_per_kill": 1,
-      "item_id": 21079,
-      "item_name": "Arcane prayer scroll",
-      "source_name": "Chambers of Xeric Challenge Mode",
-      "distribution_type": "points_based",
-      "numerator": 12,
-      "denominator": 5600,
-      "metadata": {
-        "avg_points_per_activity": 62000,
-        "points_per_roll": 8676,
-        "assumption": "~62,000 personal points per raid (wiki money making guide: 57,000 + 5,000 for finishing in time, solo). Your share of a team's unique chance scales with your own points, so team size drops out."
-      },
-      "wiki": "Ancient chest"
-    },
-    {
-      "rolls_per_kill": 1,
-      "item_id": 21000,
-      "item_name": "Twisted buckler",
-      "source_name": "Chambers of Xeric Challenge Mode",
-      "distribution_type": "points_based",
-      "numerator": 4,
-      "denominator": 5600,
-      "metadata": {
-        "avg_points_per_activity": 62000,
-        "points_per_roll": 8676,
-        "assumption": "~62,000 personal points per raid (wiki money making guide: 57,000 + 5,000 for finishing in time, solo). Your share of a team's unique chance scales with your own points, so team size drops out."
-      },
-      "wiki": "Ancient chest"
-    },
-    {
-      "rolls_per_kill": 1,
-      "item_id": 21012,
-      "item_name": "Dragon hunter crossbow",
-      "source_name": "Chambers of Xeric Challenge Mode",
-      "distribution_type": "points_based",
-      "numerator": 4,
-      "denominator": 5600,
-      "metadata": {
-        "avg_points_per_activity": 62000,
-        "points_per_roll": 8676,
-        "assumption": "~62,000 personal points per raid (wiki money making guide: 57,000 + 5,000 for finishing in time, solo). Your share of a team's unique chance scales with your own points, so team size drops out."
-      },
-      "wiki": "Ancient chest"
-    },
-    {
-      "rolls_per_kill": 1,
-      "item_id": 21015,
-      "item_name": "Dinh's bulwark",
-      "source_name": "Chambers of Xeric Challenge Mode",
-      "distribution_type": "points_based",
-      "numerator": 3,
-      "denominator": 5600,
-      "metadata": {
-        "avg_points_per_activity": 62000,
-        "points_per_roll": 8676,
-        "assumption": "~62,000 personal points per raid (wiki money making guide: 57,000 + 5,000 for finishing in time, solo). Your share of a team's unique chance scales with your own points, so team size drops out."
-      },
-      "wiki": "Ancient chest"
-    },
-    {
-      "rolls_per_kill": 1,
-      "item_id": 21018,
-      "item_name": "Ancestral hat",
-      "source_name": "Chambers of Xeric Challenge Mode",
-      "distribution_type": "points_based",
-      "numerator": 4,
-      "denominator": 5600,
-      "metadata": {
-        "avg_points_per_activity": 62000,
-        "points_per_roll": 8676,
-        "assumption": "~62,000 personal points per raid (wiki money making guide: 57,000 + 5,000 for finishing in time, solo). Your share of a team's unique chance scales with your own points, so team size drops out."
-      },
-      "wiki": "Ancient chest"
-    },
-    {
-      "rolls_per_kill": 1,
-      "item_id": 21021,
-      "item_name": "Ancestral robe top",
-      "source_name": "Chambers of Xeric Challenge Mode",
-      "distribution_type": "points_based",
-      "numerator": 4,
-      "denominator": 5600,
-      "metadata": {
-        "avg_points_per_activity": 62000,
-        "points_per_roll": 8676,
-        "assumption": "~62,000 personal points per raid (wiki money making guide: 57,000 + 5,000 for finishing in time, solo). Your share of a team's unique chance scales with your own points, so team size drops out."
-      },
-      "wiki": "Ancient chest"
-    },
-    {
-      "rolls_per_kill": 1,
-      "item_id": 21024,
-      "item_name": "Ancestral robe bottom",
-      "source_name": "Chambers of Xeric Challenge Mode",
-      "distribution_type": "points_based",
-      "numerator": 4,
-      "denominator": 5600,
-      "metadata": {
-        "avg_points_per_activity": 62000,
-        "points_per_roll": 8676,
-        "assumption": "~62,000 personal points per raid (wiki money making guide: 57,000 + 5,000 for finishing in time, solo). Your share of a team's unique chance scales with your own points, so team size drops out."
-      },
-      "wiki": "Ancient chest"
-    },
-    {
-      "rolls_per_kill": 1,
-      "item_id": 13652,
-      "item_name": "Dragon claws",
-      "source_name": "Chambers of Xeric Challenge Mode",
-      "distribution_type": "points_based",
-      "numerator": 3,
-      "denominator": 5600,
-      "metadata": {
-        "avg_points_per_activity": 62000,
-        "points_per_roll": 8676,
-        "assumption": "~62,000 personal points per raid (wiki money making guide: 57,000 + 5,000 for finishing in time, solo). Your share of a team's unique chance scales with your own points, so team size drops out."
-      },
-      "wiki": "Ancient chest"
-    },
-    {
-      "rolls_per_kill": 1,
-      "item_id": 21003,
-      "item_name": "Elder maul",
-      "source_name": "Chambers of Xeric Challenge Mode",
-      "distribution_type": "points_based",
-      "numerator": 2,
-      "denominator": 5600,
-      "metadata": {
-        "avg_points_per_activity": 62000,
-        "points_per_roll": 8676,
-        "assumption": "~62,000 personal points per raid (wiki money making guide: 57,000 + 5,000 for finishing in time, solo). Your share of a team's unique chance scales with your own points, so team size drops out."
-      },
-      "wiki": "Ancient chest"
-    },
-    {
-      "rolls_per_kill": 1,
-      "item_id": 21043,
-      "item_name": "Kodai insignia",
-      "source_name": "Chambers of Xeric Challenge Mode",
-      "distribution_type": "points_based",
-      "numerator": 2,
-      "denominator": 5600,
-      "metadata": {
-        "avg_points_per_activity": 62000,
-        "points_per_roll": 8676,
-        "assumption": "~62,000 personal points per raid (wiki money making guide: 57,000 + 5,000 for finishing in time, solo). Your share of a team's unique chance scales with your own points, so team size drops out."
-      },
-      "wiki": "Ancient chest"
-    },
-    {
-      "rolls_per_kill": 1,
-      "item_id": 20997,
-      "item_name": "Twisted bow",
-      "source_name": "Chambers of Xeric Challenge Mode",
-      "distribution_type": "points_based",
-      "numerator": 2,
-      "denominator": 5600,
-      "metadata": {
-        "avg_points_per_activity": 62000,
-        "points_per_roll": 8676,
-        "assumption": "~62,000 personal points per raid (wiki money making guide: 57,000 + 5,000 for finishing in time, solo). Your share of a team's unique chance scales with your own points, so team size drops out."
-      },
-      "wiki": "Ancient chest"
-    },
-    {
-      "rolls_per_kill": 1,
-      "item_id": 20851,
-      "item_name": "Olmlet",
-      "source_name": "Chambers of Xeric Challenge Mode",
-      "distribution_type": "points_based",
-      "numerator": 1,
-      "denominator": 5300,
-      "metadata": {
-        "avg_points_per_activity": 62000,
-        "points_per_roll": 8676,
-        "assumption": "~62,000 personal points per raid (wiki money making guide: 57,000 + 5,000 for finishing in time, solo). Your share of a team's unique chance scales with your own points, so team size drops out."
+        "assumption": "Rated raid by raid from the team's and your recorded points (supabase/functions/_shared/cox.ts). Raids from before tracking assume a deathless solo: ~30,000 points normally, ~62,000 in Challenge Mode.",
+        "raid_model": "cox"
       },
       "wiki": "Ancient chest"
     },
@@ -400,22 +218,32 @@
       "rolls_per_kill": 1,
       "item_id": 24670,
       "item_name": "Twisted ancestral colour kit",
-      "source_name": "Chambers of Xeric Challenge Mode",
-      "distribution_type": "flat_geometric",
+      "source_name": "Chambers of Xeric",
+      "distribution_type": "points_based",
       "numerator": 1,
       "denominator": 75,
-      "metadata": {},
+      "metadata": {
+        "avg_points_per_activity": 1,
+        "points_per_roll": 1,
+        "assumption": "1/75 each Challenge Mode raid inside the time limit, which is assumed. Rated raid by raid from the team's and your recorded points (supabase/functions/_shared/cox.ts). Raids from before tracking assume a deathless solo: ~30,000 points normally, ~62,000 in Challenge Mode.",
+        "raid_model": "cox"
+      },
       "wiki": "Ancient chest"
     },
     {
       "rolls_per_kill": 1,
       "item_id": 22386,
       "item_name": "Metamorphic dust",
-      "source_name": "Chambers of Xeric Challenge Mode",
-      "distribution_type": "flat_geometric",
+      "source_name": "Chambers of Xeric",
+      "distribution_type": "points_based",
       "numerator": 1,
       "denominator": 400,
-      "metadata": {},
+      "metadata": {
+        "avg_points_per_activity": 1,
+        "points_per_roll": 1,
+        "assumption": "1/400 each Challenge Mode raid inside the time limit, which is assumed. Rated raid by raid from the team's and your recorded points (supabase/functions/_shared/cox.ts). Raids from before tracking assume a deathless solo: ~30,000 points normally, ~62,000 in Challenge Mode.",
+        "raid_model": "cox"
+      },
       "wiki": "Ancient chest"
     },
     {
@@ -429,7 +257,8 @@
       "metadata": {
         "avg_points_per_activity": 1,
         "points_per_roll": 4,
-        "assumption": "Deathless 4-player team with an equal share of the loot: a 1/9.1 team unique chance (the same for any team size, per the wiki) split four ways."
+        "assumption": "Rated raid by raid from the recorded mode and team size (supabase/functions/_shared/tob.ts): a deathless team's unique chance split evenly. Raids from before tracking assume a deathless four-player team.",
+        "raid_model": "tob"
       },
       "wiki": "Monumental chest"
     },
@@ -444,7 +273,8 @@
       "metadata": {
         "avg_points_per_activity": 1,
         "points_per_roll": 4,
-        "assumption": "Deathless 4-player team with an equal share of the loot: a 1/9.1 team unique chance (the same for any team size, per the wiki) split four ways."
+        "assumption": "Rated raid by raid from the recorded mode and team size (supabase/functions/_shared/tob.ts): a deathless team's unique chance split evenly. Raids from before tracking assume a deathless four-player team.",
+        "raid_model": "tob"
       },
       "wiki": "Monumental chest"
     },
@@ -459,7 +289,8 @@
       "metadata": {
         "avg_points_per_activity": 1,
         "points_per_roll": 4,
-        "assumption": "Deathless 4-player team with an equal share of the loot: a 1/9.1 team unique chance (the same for any team size, per the wiki) split four ways."
+        "assumption": "Rated raid by raid from the recorded mode and team size (supabase/functions/_shared/tob.ts): a deathless team's unique chance split evenly. Raids from before tracking assume a deathless four-player team.",
+        "raid_model": "tob"
       },
       "wiki": "Monumental chest"
     },
@@ -474,7 +305,8 @@
       "metadata": {
         "avg_points_per_activity": 1,
         "points_per_roll": 4,
-        "assumption": "Deathless 4-player team with an equal share of the loot: a 1/9.1 team unique chance (the same for any team size, per the wiki) split four ways."
+        "assumption": "Rated raid by raid from the recorded mode and team size (supabase/functions/_shared/tob.ts): a deathless team's unique chance split evenly. Raids from before tracking assume a deathless four-player team.",
+        "raid_model": "tob"
       },
       "wiki": "Monumental chest"
     },
@@ -489,7 +321,8 @@
       "metadata": {
         "avg_points_per_activity": 1,
         "points_per_roll": 4,
-        "assumption": "Deathless 4-player team with an equal share of the loot: a 1/9.1 team unique chance (the same for any team size, per the wiki) split four ways."
+        "assumption": "Rated raid by raid from the recorded mode and team size (supabase/functions/_shared/tob.ts): a deathless team's unique chance split evenly. Raids from before tracking assume a deathless four-player team.",
+        "raid_model": "tob"
       },
       "wiki": "Monumental chest"
     },
@@ -504,7 +337,8 @@
       "metadata": {
         "avg_points_per_activity": 1,
         "points_per_roll": 4,
-        "assumption": "Deathless 4-player team with an equal share of the loot: a 1/9.1 team unique chance (the same for any team size, per the wiki) split four ways."
+        "assumption": "Rated raid by raid from the recorded mode and team size (supabase/functions/_shared/tob.ts): a deathless team's unique chance split evenly. Raids from before tracking assume a deathless four-player team.",
+        "raid_model": "tob"
       },
       "wiki": "Monumental chest"
     },
@@ -519,7 +353,8 @@
       "metadata": {
         "avg_points_per_activity": 1,
         "points_per_roll": 4,
-        "assumption": "Deathless 4-player team with an equal share of the loot: a 1/9.1 team unique chance (the same for any team size, per the wiki) split four ways."
+        "assumption": "Rated raid by raid from the recorded mode and team size (supabase/functions/_shared/tob.ts): a deathless team's unique chance split evenly. Raids from before tracking assume a deathless four-player team.",
+        "raid_model": "tob"
       },
       "wiki": "Monumental chest"
     },
@@ -528,159 +363,63 @@
       "item_id": 22473,
       "item_name": "Lil' zik",
       "source_name": "Theatre of Blood",
-      "distribution_type": "flat_geometric",
+      "distribution_type": "points_based",
       "numerator": 1,
       "denominator": 650,
-      "metadata": {},
-      "wiki": "Monumental chest"
-    },
-    {
-      "rolls_per_kill": 1,
-      "item_id": 22477,
-      "item_name": "Avernic defender hilt",
-      "source_name": "Theatre of Blood: Hard Mode",
-      "distribution_type": "points_based",
-      "numerator": 70,
-      "denominator": 1386,
       "metadata": {
         "avg_points_per_activity": 1,
-        "points_per_roll": 4,
-        "assumption": "Deathless 4-player team with an equal share of the loot: a 1/7.7 team unique chance (the same for any team size, per the wiki) split four ways."
+        "points_per_roll": 1,
+        "assumption": "1/650 Normal, 1/500 Hard Mode, none in Entry Mode, each player at the best performance rate. Rated raid by raid from the recorded mode and team size (supabase/functions/_shared/tob.ts): a deathless team's unique chance split evenly. Raids from before tracking assume a deathless four-player team.",
+        "raid_model": "tob"
       },
-      "wiki": "Monumental chest"
-    },
-    {
-      "rolls_per_kill": 1,
-      "item_id": 22324,
-      "item_name": "Ghrazi rapier",
-      "source_name": "Theatre of Blood: Hard Mode",
-      "distribution_type": "points_based",
-      "numerator": 20,
-      "denominator": 1386,
-      "metadata": {
-        "avg_points_per_activity": 1,
-        "points_per_roll": 4,
-        "assumption": "Deathless 4-player team with an equal share of the loot: a 1/7.7 team unique chance (the same for any team size, per the wiki) split four ways."
-      },
-      "wiki": "Monumental chest"
-    },
-    {
-      "rolls_per_kill": 1,
-      "item_id": 22481,
-      "item_name": "Sanguinesti staff (uncharged)",
-      "source_name": "Theatre of Blood: Hard Mode",
-      "distribution_type": "points_based",
-      "numerator": 20,
-      "denominator": 1386,
-      "metadata": {
-        "avg_points_per_activity": 1,
-        "points_per_roll": 4,
-        "assumption": "Deathless 4-player team with an equal share of the loot: a 1/7.7 team unique chance (the same for any team size, per the wiki) split four ways."
-      },
-      "wiki": "Monumental chest"
-    },
-    {
-      "rolls_per_kill": 1,
-      "item_id": 22326,
-      "item_name": "Justiciar faceguard",
-      "source_name": "Theatre of Blood: Hard Mode",
-      "distribution_type": "points_based",
-      "numerator": 20,
-      "denominator": 1386,
-      "metadata": {
-        "avg_points_per_activity": 1,
-        "points_per_roll": 4,
-        "assumption": "Deathless 4-player team with an equal share of the loot: a 1/7.7 team unique chance (the same for any team size, per the wiki) split four ways."
-      },
-      "wiki": "Monumental chest"
-    },
-    {
-      "rolls_per_kill": 1,
-      "item_id": 22327,
-      "item_name": "Justiciar chestguard",
-      "source_name": "Theatre of Blood: Hard Mode",
-      "distribution_type": "points_based",
-      "numerator": 20,
-      "denominator": 1386,
-      "metadata": {
-        "avg_points_per_activity": 1,
-        "points_per_roll": 4,
-        "assumption": "Deathless 4-player team with an equal share of the loot: a 1/7.7 team unique chance (the same for any team size, per the wiki) split four ways."
-      },
-      "wiki": "Monumental chest"
-    },
-    {
-      "rolls_per_kill": 1,
-      "item_id": 22328,
-      "item_name": "Justiciar legguards",
-      "source_name": "Theatre of Blood: Hard Mode",
-      "distribution_type": "points_based",
-      "numerator": 20,
-      "denominator": 1386,
-      "metadata": {
-        "avg_points_per_activity": 1,
-        "points_per_roll": 4,
-        "assumption": "Deathless 4-player team with an equal share of the loot: a 1/7.7 team unique chance (the same for any team size, per the wiki) split four ways."
-      },
-      "wiki": "Monumental chest"
-    },
-    {
-      "rolls_per_kill": 1,
-      "item_id": 22486,
-      "item_name": "Scythe of vitur (uncharged)",
-      "source_name": "Theatre of Blood: Hard Mode",
-      "distribution_type": "points_based",
-      "numerator": 10,
-      "denominator": 1386,
-      "metadata": {
-        "avg_points_per_activity": 1,
-        "points_per_roll": 4,
-        "assumption": "Deathless 4-player team with an equal share of the loot: a 1/7.7 team unique chance (the same for any team size, per the wiki) split four ways."
-      },
-      "wiki": "Monumental chest"
-    },
-    {
-      "rolls_per_kill": 1,
-      "item_id": 22473,
-      "item_name": "Lil' zik",
-      "source_name": "Theatre of Blood: Hard Mode",
-      "distribution_type": "flat_geometric",
-      "numerator": 1,
-      "denominator": 500,
-      "metadata": {},
       "wiki": "Monumental chest"
     },
     {
       "rolls_per_kill": 1,
       "item_id": 25742,
       "item_name": "Holy ornament kit",
-      "source_name": "Theatre of Blood: Hard Mode",
-      "distribution_type": "flat_geometric",
+      "source_name": "Theatre of Blood",
+      "distribution_type": "points_based",
       "numerator": 1,
       "denominator": 100,
-      "metadata": {},
+      "metadata": {
+        "avg_points_per_activity": 1,
+        "points_per_roll": 1,
+        "assumption": "1/100 each Hard Mode raid at the best performance rate. Rated raid by raid from the recorded mode and team size (supabase/functions/_shared/tob.ts): a deathless team's unique chance split evenly. Raids from before tracking assume a deathless four-player team.",
+        "raid_model": "tob"
+      },
       "wiki": "Monumental chest"
     },
     {
       "rolls_per_kill": 1,
       "item_id": 25744,
       "item_name": "Sanguine ornament kit",
-      "source_name": "Theatre of Blood: Hard Mode",
-      "distribution_type": "flat_geometric",
+      "source_name": "Theatre of Blood",
+      "distribution_type": "points_based",
       "numerator": 1,
       "denominator": 150,
-      "metadata": {},
+      "metadata": {
+        "avg_points_per_activity": 1,
+        "points_per_roll": 1,
+        "assumption": "1/150 each Hard Mode raid at the best performance rate. Rated raid by raid from the recorded mode and team size (supabase/functions/_shared/tob.ts): a deathless team's unique chance split evenly. Raids from before tracking assume a deathless four-player team.",
+        "raid_model": "tob"
+      },
       "wiki": "Monumental chest"
     },
     {
       "rolls_per_kill": 1,
       "item_id": 25746,
       "item_name": "Sanguine dust",
-      "source_name": "Theatre of Blood: Hard Mode",
-      "distribution_type": "flat_geometric",
+      "source_name": "Theatre of Blood",
+      "distribution_type": "points_based",
       "numerator": 1,
       "denominator": 275,
-      "metadata": {},
+      "metadata": {
+        "avg_points_per_activity": 1,
+        "points_per_roll": 1,
+        "assumption": "1/275 each Hard Mode raid at the best performance rate. Rated raid by raid from the recorded mode and team size (supabase/functions/_shared/tob.ts): a deathless team's unique chance split evenly. Raids from before tracking assume a deathless four-player team.",
+        "raid_model": "tob"
+      },
       "wiki": "Monumental chest"
     },
     {

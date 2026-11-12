@@ -151,9 +151,10 @@ export default async function PlayerPage({
           <div id="raids" className="nav-target mt-10">
             <h2 className="font-mono text-xs uppercase tracking-wide text-parchment-dim">Raids</h2>
             <p className="mb-4 mt-1 max-w-xl text-sm text-parchment-dim">
-              Every raid the plugin has recorded, with its raid level and {data.ign}&rsquo;s points. Purples are
-              compared with what a fair player would get from the same raids. Raids from before tracking started
-              only count toward each item&rsquo;s own luck, which assumes a typical raid for the mode.
+              Every raid the plugin has recorded, with its mode, team size and {data.ign}&rsquo;s points where the
+              game shows them. Purples are compared with what a fair player would get from the same raids. Raids
+              from before tracking started only count toward each item&rsquo;s own luck, which assumes a typical
+              raid for the mode.
             </p>
             <div className="grid gap-4 sm:grid-cols-2">
               {data.raids!.map((raid) => (

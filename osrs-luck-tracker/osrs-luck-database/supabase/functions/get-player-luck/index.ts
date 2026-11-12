@@ -40,9 +40,8 @@ import {
   tokensMatch,
 } from "../_shared/http.ts";
 import { isDemoAccount, pickPlayer } from "../_shared/players.ts";
-import { isRaidRate, raidDropLuck, raidHunting, raidSummaries, type RaidHistory } from "../_shared/raid-luck.ts";
+import { isRaidRate, raidDropLuck, raidHunting, raidPageItems, raidSummaries, type RaidHistory } from "../_shared/raid-luck.ts";
 import { isRaidPage, type RaidCompletion } from "../_shared/raids.ts";
-import { TOA, TOA_ITEMS } from "../_shared/toa.ts";
 import type { CollectionLogDrop, DropRate, HuntingResult, HuntingRow } from "../_shared/types.ts";
 
 const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
@@ -168,7 +167,7 @@ Deno.serve(async (req) => {
       ...(drops ?? []).map((d: CollectionLogDrop) => d.item_id),
       ...(huntingRows ?? []).map((h: HuntingRow) => h.item_id),
       // A raid page's missing items are rated from the page read alone.
-      ...(raidPages.some((p: LogPage) => p.source_name === TOA) ? TOA_ITEMS : []),
+      ...raidPages.flatMap((p: LogPage) => raidPageItems(p.source_name)),
     ]),
   ];
   const { data: rates, error: ratesError } = await supabase

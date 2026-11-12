@@ -14,15 +14,35 @@ export interface RaidConfig {
   // Mode keys in log header order, and how the game's completion message
   // names each ("Your completed Tombs of Amascut: Expert Mode count is: 3").
   modes: Record<string, string>;
+  // The most personal points the plugin can send for one raid.
+  maxPersonalPoints: number;
 }
 
 export const RAIDS: Record<string, RaidConfig> = {
+  "Chambers of Xeric": {
+    modes: {
+      normal: "Chambers of Xeric",
+      challenge: "Chambers of Xeric Challenge Mode",
+    },
+    // Points aren't capped in the raid; this only stops nonsense.
+    maxPersonalPoints: 5_000_000,
+  },
+  "Theatre of Blood": {
+    modes: {
+      entry: "Theatre of Blood: Entry Mode",
+      normal: "Theatre of Blood",
+      hard: "Theatre of Blood: Hard Mode",
+    },
+    // ToB's points never reach the client, so the plugin sends none.
+    maxPersonalPoints: 0,
+  },
   "Tombs of Amascut": {
     modes: {
       entry: "Tombs of Amascut: Entry Mode",
       normal: "Tombs of Amascut",
       expert: "Tombs of Amascut: Expert Mode",
     },
+    maxPersonalPoints: 64_000,
   },
 };
 
@@ -37,7 +57,7 @@ export interface RaidRecordInput {
   personal_points: number | null;
   purple: boolean | null; // a unique dropped for someone on the team
   purple_mine: boolean | null; // ...and it was this player's
-  details: Record<string, unknown>; // ToA: { raid_level }
+  details: Record<string, unknown>; // ToA: { raid_level }; CoX: { total_points, reward_indicator }; ToB: { chests }
   completed_at: string;
 }
 
@@ -112,8 +132,9 @@ export function parseRaidRecord(v: unknown): RaidRecordInput | string {
     return "team_size must be 1 to 8";
   }
   const points = r.personal_points ?? null;
-  if (points !== null && !(Number.isInteger(points) && (points as number) >= 0 && (points as number) <= 64_000)) {
-    return "personal_points must be 0 to 64,000";
+  const maxPoints = config.maxPersonalPoints;
+  if (points !== null && !(Number.isInteger(points) && (points as number) >= 0 && (points as number) <= maxPoints)) {
+    return `personal_points must be 0 to ${maxPoints.toLocaleString("en-US")}`;
   }
   const purple = r.purple ?? null;
   const purpleMine = r.purple_mine ?? null;
@@ -130,6 +151,32 @@ export function parseRaidRecord(v: unknown): RaidRecordInput | string {
       return "details.raid_level must be 0 to 600";
     }
     if (level !== null) details.raid_level = level;
+  } else if (raid === "Chambers of Xeric") {
+    // The team's points (RAIDS_CLIENT_PARTYSCORE), which set the unique
+    // rolls, and the raw reward indicator varbit, kept so purple detection
+    // can be worked out from real raids later.
+    const total = rawDetails.total_points ?? null;
+    if (total !== null && !(Number.isInteger(total) && (total as number) >= 0 && (total as number) <= 20_000_000)) {
+      return "details.total_points must be 0 to 20,000,000";
+    }
+    if (total !== null && points !== null && (total as number) < (points as number)) {
+      return "details.total_points can't be below personal_points";
+    }
+    if (total !== null) details.total_points = total;
+    const indicator = rawDetails.reward_indicator ?? null;
+    if (indicator !== null && !(Number.isInteger(indicator) && (indicator as number) >= 0 && (indicator as number) <= 1023)) {
+      return "details.reward_indicator must be 0 to 1,023";
+    }
+    if (indicator !== null) details.reward_indicator = indicator;
+  } else if (raid === "Theatre of Blood") {
+    // The raw treasure room chest varbits, kept like CoX's indicator.
+    const chests = rawDetails.chests ?? null;
+    if (chests !== null) {
+      if (!Array.isArray(chests) || chests.length > 5 || chests.some((v) => !(Number.isInteger(v) && v >= 0 && v <= 1023))) {
+        return "details.chests must be up to five integers 0 to 1,023";
+      }
+      details.chests = chests;
+    }
   }
 
   const completedAt = r.completed_at == null ? new Date() : new Date(String(r.completed_at));
@@ -148,6 +195,37 @@ export function parseRaidRecord(v: unknown): RaidRecordInput | string {
     details,
     completed_at: completedAt.toISOString(),
   };
+}
+
+/**
+ * Raids 1..total of one raid page in order, for a raid model to rate.
+ * Recorded raids sit at their total_kc; the rest take their mode from the
+ * counts at the end that recorded raids don't account for, in log order.
+ * Which untracked raid was which mode doesn't matter: per-raid chances
+ * only depend on the mode, and pity (ToA's jewels) on the position.
+ */
+export function raidSequenceOf<R>(
+  raid: string,
+  total: number,
+  recorded: RaidCompletion[],
+  countsAtEnd: ModeCounts,
+  fromRecord: (r: RaidCompletion) => R,
+  untracked: (mode: string) => R,
+): R[] {
+  const slots: (R | null)[] = new Array(Math.max(0, total)).fill(null);
+  const trackedByMode: Record<string, number> = {};
+  for (const r of recorded) {
+    if (r.raid !== raid || r.total_kc < 1 || r.total_kc > total || slots[r.total_kc - 1]) continue;
+    slots[r.total_kc - 1] = fromRecord(r);
+    trackedByMode[r.mode] = (trackedByMode[r.mode] ?? 0) + 1;
+  }
+  const untrackedModes: string[] = [];
+  for (const mode of Object.keys(RAIDS[raid]?.modes ?? {})) {
+    const n = Math.max(0, (countsAtEnd[mode] ?? 0) - (trackedByMode[mode] ?? 0));
+    for (let i = 0; i < n; i++) untrackedModes.push(mode);
+  }
+  let next = 0;
+  return slots.map((slot) => slot ?? untracked(untrackedModes[next++] ?? "normal"));
 }
 
 /** The row to insert for a completion. */

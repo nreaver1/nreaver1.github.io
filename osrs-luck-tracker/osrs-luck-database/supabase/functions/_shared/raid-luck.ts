@@ -1,19 +1,75 @@
 // Rates raid drops, raid still-hunting items and the per-raid summary
-// from an account's recorded completions (_shared/raids.ts, toa.ts).
-// get-player-luck and the leaderboard call these for rates whose
-// metadata has raid_model: "toa"; everything else stays on calculateLuck.
+// from an account's recorded completions (_shared/raids.ts, and each
+// raid's model: toa.ts, cox.ts, tob.ts). get-player-luck and the
+// leaderboard call these for rates whose metadata has its page's
+// raid_model; everything else stays on calculateLuck.
 
 import { labelFor } from "./calculations.ts";
+import * as cox from "./cox.ts";
 import { RAIDS, totalOf, type ModeCounts, type RaidCompletion, type RaidRollContext } from "./raids.ts";
-import { chanceByRaid, purpleSummary, raidSequence, TOA, TOA_ITEMS, TOA_JEWELS, uniqueChance, UNTRACKED_DEFAULTS } from "./toa.ts";
+import * as tob from "./tob.ts";
+import * as toa from "./toa.ts";
+import { purplesMidP, TOA, TOA_JEWELS } from "./toa.ts";
 import type { CollectionLogDrop, DropRate, HuntingResult, LuckResult } from "./types.ts";
+
+/** How one raid page's items are rated over its raids. */
+export interface RaidModel {
+  page: string;
+  key: string; // drop_rates.metadata.raid_model
+  items: number[];
+  /** Raids 1..total, recorded or assumed. */
+  sequence(total: number, recorded: RaidCompletion[], countsAtEnd: ModeCounts): unknown[];
+  /** A fair player's chance of the item by the end of the raids; NaN if not rated. */
+  chance(itemId: number, raids: unknown[], jewelKcs: (number | null)[]): number;
+  /** This player's chance of a unique from a recorded raid. */
+  uniqueChance(r: RaidCompletion): number;
+  /** The same for the last-raid line, or null when the points it needs weren't read. */
+  lastRaidChance(r: RaidCompletion): number | null;
+}
+
+export const RAID_MODELS: RaidModel[] = [
+  {
+    page: TOA,
+    key: "toa",
+    items: toa.TOA_ITEMS,
+    sequence: toa.raidSequence,
+    chance: (itemId, raids, jewelKcs) => toa.chanceByRaid(itemId, raids as toa.ToaRaid[], jewelKcs),
+    uniqueChance: (r) => toa.uniqueChance(toa.toaRaidOf(r)),
+    lastRaidChance: (r) => (r.personal_points === null ? null : toa.uniqueChance(toa.toaRaidOf(r))),
+  },
+  {
+    page: cox.COX,
+    key: "cox",
+    items: cox.COX_ITEMS,
+    sequence: cox.raidSequence,
+    chance: (itemId, raids) => cox.chanceByRaid(itemId, raids as cox.CoxRaid[]),
+    uniqueChance: (r) => cox.uniqueChance(cox.coxRaidOf(r)),
+    lastRaidChance: (r) => (r.personal_points === null ? null : cox.uniqueChance(cox.coxRaidOf(r))),
+  },
+  {
+    page: tob.TOB,
+    key: "tob",
+    items: tob.TOB_ITEMS,
+    sequence: tob.raidSequence,
+    chance: (itemId, raids) => tob.chanceByRaid(itemId, raids as tob.TobRaid[]),
+    uniqueChance: (r) => tob.uniqueChance(tob.tobRaidOf(r)),
+    lastRaidChance: (r) => tob.uniqueChance(tob.tobRaidOf(r)),
+  },
+];
+
+const modelForPage = (page: string): RaidModel | undefined => RAID_MODELS.find((m) => m.page === page);
 
 export interface RaidHistory {
   raids: RaidCompletion[];
   drops: CollectionLogDrop[]; // the account's drops, for jewel duplicate protection
 }
 
-export const isRaidRate = (rate: DropRate): boolean => rate.metadata?.["raid_model"] === "toa";
+/** A rate rated raid by raid: its raid_model is its page's model. */
+export const isRaidRate = (rate: DropRate): boolean =>
+  rate.metadata?.["raid_model"] !== undefined && modelForPage(rate.source_name)?.key === rate.metadata["raid_model"];
+
+/** Items the page's model rates, so a page read can show the missing ones. */
+export const raidPageItems = (page: string): number[] => modelForPage(page)?.items ?? [];
 
 const rollContext = (drop: CollectionLogDrop): RaidRollContext => (drop.roll_context ?? {}) as RaidRollContext;
 
@@ -58,8 +114,14 @@ export function raidDropLuck(drop: CollectionLogDrop, history: RaidHistory): Luc
     backfilled: false,
   };
   const total = drop.kc_received ?? 0;
-  const raids = raidSequence(total, history.raids, countsAtDrop(drop, history));
-  const probability = total > 0 ? chanceByRaid(drop.item_id, raids, otherJewelKcs(drop.item_id, history)) : NaN;
+  const model = modelForPage(drop.source_name);
+  const probability = model && total > 0
+    ? model.chance(
+      drop.item_id,
+      model.sequence(total, history.raids, countsAtDrop(drop, history)),
+      otherJewelKcs(drop.item_id, history),
+    )
+    : NaN;
   if (Number.isNaN(probability)) {
     return { ...base, probability: NaN, label: "average", supported: false };
   }
@@ -77,7 +139,13 @@ export function latestCounts(raid: string, history: RaidHistory, pageKc: number)
   return counts;
 }
 
-const MODE_LABELS: Record<string, string> = { entry: "Entry Mode", normal: "Normal", expert: "Expert Mode" };
+const MODE_LABELS: Record<string, string> = {
+  entry: "Entry Mode",
+  normal: "Normal",
+  expert: "Expert Mode",
+  challenge: "Challenge Mode",
+  hard: "Hard Mode",
+};
 
 /**
  * Still-hunting rows for a raid page: every rated item the page read shows
@@ -88,26 +156,29 @@ export function raidHunting(
   rates: Map<string, DropRate>,
   history: RaidHistory,
 ): HuntingResult[] {
-  if (page.source_name !== TOA) return [];
-  const counts = latestCounts(TOA, history, page.kc);
+  const model = modelForPage(page.source_name);
+  if (!model) return [];
+  const raid = model.page;
+  const counts = latestCounts(raid, history, page.kc);
   const total = totalOf(counts);
   if (total <= 0) return [];
-  const raids = raidSequence(total, history.raids, counts);
-  const recorded = new Set(history.drops.filter((d) => d.source_name === TOA).map((d) => d.item_id));
-  const newestRaid = history.raids.filter((r) => r.raid === TOA).map((r) => r.completed_at).sort().pop() ?? null;
+  const raids = model.sequence(total, history.raids, counts);
+  const recorded = new Set(history.drops.filter((d) => d.source_name === raid).map((d) => d.item_id));
+  const newestRaid = history.raids.filter((r) => r.raid === raid).map((r) => r.completed_at).sort().pop() ?? null;
   const updatedAt = [page.updated_at ?? null, newestRaid].filter((s): s is string => !!s).sort().pop() ?? null;
-  const modes = Object.keys(RAIDS[TOA].modes)
+  const modes = Object.keys(RAIDS[raid].modes)
     .filter((m) => (counts[m] ?? 0) > 0)
-    .map((m) => ({ source_name: TOA, name: MODE_LABELS[m] ?? m, kc: counts[m] }));
+    .map((m) => ({ source_name: raid, name: MODE_LABELS[m] ?? m, kc: counts[m] }));
 
-  return TOA_ITEMS.flatMap((itemId) => {
-    const rate = rates.get(`${itemId}::${TOA}`);
+  return model.items.flatMap((itemId) => {
+    const rate = rates.get(`${itemId}::${raid}`);
     if (!rate || !isRaidRate(rate) || page.obtained.includes(itemId) || recorded.has(itemId)) return [];
-    const probability = chanceByRaid(itemId, raids, otherJewelKcs(itemId, history, page.obtained));
-    if (Number.isNaN(probability)) return [];
+    const probability = model.chance(itemId, raids, otherJewelKcs(itemId, history, page.obtained));
+    // Zero: none of these raids could drop it (a Hard Mode kit after Normal raids only).
+    if (Number.isNaN(probability) || probability <= 0) return [];
     return [{
       item_id: itemId,
-      source_name: TOA,
+      source_name: raid,
       kc: total,
       probability,
       label: labelFor(probability),
@@ -121,7 +192,8 @@ export interface RaidSummary {
   raid: string;
   mode_counts: ModeCounts; // latest known completions per mode
   total: number;
-  tracked: number; // completions the plugin recorded with a known result
+  recorded: number; // completions the plugin recorded
+  tracked: number; // of those, the ones whose purple result it saw
   purples: number; // of those, raids where this player got the unique
   expected_purples: number; // a fair-luck player's expected purples over the same raids
   probability: number | null; // mid-p; low = more purples than expected. Null with no tracked raids.
@@ -140,22 +212,25 @@ export interface RaidSummary {
 
 /** One summary per raid the account has recorded completions or a page read for. */
 export function raidSummaries(history: RaidHistory, pageKcs: Map<string, number>): RaidSummary[] {
-  return Object.keys(RAIDS).flatMap((raid) => {
+  return RAID_MODELS.flatMap((model) => {
+    const raid = model.page;
     const recorded = history.raids.filter((r) => r.raid === raid);
     if (recorded.length === 0) return []; // nothing beyond what the log page says
     const counts = latestCounts(raid, history, pageKcs.get(raid) ?? 0);
-    const summary = purpleSummary(recorded);
+    const seen = recorded.filter((r) => r.purple_mine !== null);
+    const chances = seen.map((r) => model.uniqueChance(r));
+    const purples = seen.filter((r) => r.purple_mine).length;
     const last = recorded.reduce((a, b) => (b.total_kc > a.total_kc ? b : a));
     const level = typeof last.details?.raid_level === "number" ? (last.details.raid_level as number) : null;
-    const defaults = UNTRACKED_DEFAULTS[last.mode] ?? UNTRACKED_DEFAULTS.normal;
-    const probability = Number.isNaN(summary.probability) ? null : summary.probability;
+    const probability = seen.length > 0 ? purplesMidP(chances, purples) : null;
     return [{
       raid,
       mode_counts: counts,
       total: totalOf(counts),
-      tracked: summary.raids,
-      purples: summary.purples,
-      expected_purples: summary.expected,
+      recorded: recorded.length,
+      tracked: seen.length,
+      purples,
+      expected_purples: chances.reduce((a, b) => a + b, 0),
       probability,
       label: probability === null ? null : labelFor(probability),
       last_raid: {
@@ -163,11 +238,7 @@ export function raidSummaries(history: RaidHistory, pageKcs: Map<string, number>
         raid_level: level,
         team_size: last.team_size,
         personal_points: last.personal_points,
-        unique_chance: last.personal_points === null ? null : uniqueChance({
-          raid_level: level ?? defaults.raid_level,
-          team_size: last.team_size ?? 1,
-          personal_points: last.personal_points,
-        }),
+        unique_chance: model.lastRaidChance(last),
         purple: last.purple,
         purple_mine: last.purple_mine,
         completed_at: last.completed_at,

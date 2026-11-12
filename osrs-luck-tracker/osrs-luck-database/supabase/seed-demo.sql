@@ -167,6 +167,9 @@ insert into raid_completions (account_hash, raid, mode, mode_kc, total_kc, mode_
   ('demo-zezima', 'Tombs of Amascut', 'expert', 387, 412, '{"entry": 4, "normal": 21, "expert": 387}', 1, 23010, false, false, '{"raid_level": 410}', now() - interval '4 days'),
   ('demo-zezima', 'Tombs of Amascut', 'expert', 388, 413, '{"entry": 4, "normal": 21, "expert": 388}', 1, 22740, true,  true,  '{"raid_level": 410}', now() - interval '3 days'),
   ('demo-zezima', 'Tombs of Amascut', 'expert', 389, 414, '{"entry": 4, "normal": 21, "expert": 389}', 1, 21980, false, false, '{"raid_level": 420}', now() - interval '2 days'),
-  ('demo-zezima', 'Tombs of Amascut', 'expert', 390, 415, '{"entry": 4, "normal": 21, "expert": 390}', 1, 23460, false, false, '{"raid_level": 420}', now() - interval '1 day');
+  ('demo-zezima', 'Tombs of Amascut', 'expert', 390, 415, '{"entry": 4, "normal": 21, "expert": 390}', 1, 23460, false, false, '{"raid_level": 420}', now() - interval '1 day'),
+  -- CoX: the plugin can't tell a purple yet, so the result is unknown.
+  ('demo-zezima', 'Chambers of Xeric', 'challenge', 149, 2049, '{"normal": 1900, "challenge": 149}', 3, 43800, null, null, '{"total_points": 131500}', now() - interval '2 days'),
+  ('demo-zezima', 'Chambers of Xeric', 'challenge', 150, 2050, '{"normal": 1900, "challenge": 150}', 3, 45000, null, null, '{"total_points": 140000}', now() - interval '1 day');
 
 commit;

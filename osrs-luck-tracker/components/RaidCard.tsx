@@ -3,8 +3,14 @@ import LuckBar from "./LuckBar";
 import LuckBadge from "./LuckBadge";
 import SourceLink from "./SourceLink";
 
-const MODE_LABELS: Record<string, string> = { entry: "Entry", normal: "Normal", expert: "Expert" };
-const MODE_ORDER = ["entry", "normal", "expert"];
+const MODE_LABELS: Record<string, string> = {
+  entry: "Entry",
+  normal: "Normal",
+  expert: "Expert",
+  challenge: "Challenge Mode",
+  hard: "Hard Mode",
+};
+const MODE_ORDER = ["entry", "normal", "challenge", "hard", "expert"];
 
 const oneDecimal = (n: number) => n.toLocaleString(undefined, { maximumFractionDigits: 1 });
 const percent = (p: number) => `${(p * 100).toLocaleString(undefined, { maximumFractionDigits: p < 0.01 ? 2 : 1 })}%`;
@@ -55,10 +61,16 @@ export default function RaidCard({ raid }: { raid: RaidSummary }) {
       <div className="mt-4">
         <div className="flex flex-wrap items-baseline justify-between gap-x-3 font-mono text-xs">
           <span className="uppercase tracking-wide text-parchment-dim">Purples</span>
-          <span className="tabular-nums text-parchment">
-            {raid.purples} in {raid.tracked.toLocaleString()} tracked{" "}
-            <span className="text-parchment-dim">({oneDecimal(raid.expected_purples)} expected)</span>
-          </span>
+          {raid.tracked > 0 ? (
+            <span className="tabular-nums text-parchment">
+              {raid.purples} in {raid.tracked.toLocaleString()} tracked{" "}
+              <span className="text-parchment-dim">({oneDecimal(raid.expected_purples)} expected)</span>
+            </span>
+          ) : (
+            <span className="text-parchment-dim">
+              {(raid.recorded ?? 0).toLocaleString()} raids recorded &middot; purple results not read yet
+            </span>
+          )}
         </div>
         {raid.probability !== null && raid.label !== null && (
           <div className="mt-1.5 flex items-center gap-3">

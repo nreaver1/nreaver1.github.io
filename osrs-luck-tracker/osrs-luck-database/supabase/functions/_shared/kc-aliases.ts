@@ -21,6 +21,9 @@ export const KC_ALIASES: Record<string, string> = {
   "Branda the Fire Queen": "Royal Titans",
   "Eldric the Ice King": "Royal Titans",
   // Raid modes share their log page (_shared/raids.ts).
+  "Chambers of Xeric Challenge Mode": "Chambers of Xeric",
+  "Theatre of Blood: Entry Mode": "Theatre of Blood",
+  "Theatre of Blood: Hard Mode": "Theatre of Blood",
   "Tombs of Amascut: Entry Mode": "Tombs of Amascut",
   "Tombs of Amascut: Expert Mode": "Tombs of Amascut",
 };

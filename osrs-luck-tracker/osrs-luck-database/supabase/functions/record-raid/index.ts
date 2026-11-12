@@ -8,11 +8,12 @@
 // Body: {
 //   install_token, account_hash,
 //   raid: {
-//     raid: "Tombs of Amascut",
-//     mode: "entry" | "normal" | "expert",
-//     mode_counts: { entry, normal, expert },   // the game's counts right after this raid
+//     raid: "Tombs of Amascut" | "Chambers of Xeric" | "Theatre of Blood",
+//     mode: one of the raid's modes (_shared/raids.ts RAIDS): ToA entry/normal/expert,
+//           CoX normal/challenge, ToB entry/normal/hard,
+//     mode_counts: { <mode>: n, ... },   // the game's counts right after this raid
 //     team_size?, personal_points?, purple?, purple_mine?,
-//     details?: { raid_level },
+//     details?: ToA { raid_level }, CoX { total_points, reward_indicator }, ToB { chests },
 //     completed_at?: ISO timestamp
 //   }
 // }

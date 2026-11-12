@@ -92,9 +92,12 @@ export interface PoolResult {
  */
 export interface RaidSummary {
   raid: string;
-  /** Latest known completions per mode: entry, normal, expert. */
+  /** Latest known completions per mode: entry, normal, expert (ToA), challenge (CoX), hard (ToB). */
   mode_counts: Record<string, number>;
   total: number;
+  /** Completions the plugin recorded. Missing from APIs older than migration 0012. */
+  recorded?: number;
+  /** Of those, the ones whose purple result it saw (none yet for CoX and ToB). */
   tracked: number;
   purples: number;
   expected_purples: number;
