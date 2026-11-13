@@ -10,7 +10,8 @@
 //   multi_roll        - not supported in v1, returns `supported: false`
 //   unsupported       - not supported, returns `supported: false`
 
-import type { CollectionLogDrop, DropRate, HuntingResult, HuntingRow, LuckResult, SnapshotLuck } from "./types.ts";
+import type { CollectionLogDrop, DropRate, HuntingMode, HuntingResult, HuntingRow, LuckResult, SnapshotLuck } from "./types.ts";
+import { modeName, siblingSources } from "./modes.ts";
 
 export function labelFor(probability: number): LuckResult["label"] {
   if (probability > 0.99) return "desert";
@@ -282,14 +283,50 @@ export function isPityDrop(kc: number, rate: DropRate): boolean {
 }
 
 /**
+ * A tracked flat-rate drop on a page that counts several modes (The
+ * Gauntlet and Corrupted Gauntlet, _shared/modes.ts). kc_received is the
+ * drop's own mode's count, and ingest-drop stores the other modes' best
+ * known counts at the time in roll_context.mode_kc (lower bounds, so this
+ * never invents kills). Every kill of any mode was a chance at the slot,
+ * so P = 1 - Π (1 - P_mode), as in huntingLuckAcrossModes. Null (rate the
+ * drop on its own mode alone) when no other mode's count is known, or
+ * another mode with kills has no flat rate for the item.
+ */
+export function dropLuckAcrossModes(
+  drop: CollectionLogDrop,
+  rate: DropRate,
+  rateOf: (itemId: number, source: string) => DropRate | undefined,
+): { probability: number; modes: HuntingMode[] } | null {
+  const stored = drop.roll_context?.["mode_kc"];
+  if (drop.kc_received === null || !stored || typeof stored !== "object") return null;
+  const counts = stored as Record<string, unknown>;
+
+  const modes: HuntingMode[] = [];
+  let survival = 1;
+  for (const source of siblingSources(drop.source_name)) {
+    const own = source === drop.source_name;
+    const kc = own ? drop.kc_received : counts[source];
+    if (typeof kc !== "number" || !Number.isInteger(kc) || kc <= 0) continue;
+    const modeRate = own ? rate : rateOf(drop.item_id, source);
+    if (!modeRate || modeRate.distribution_type !== "flat_geometric") return null;
+    survival *= 1 - geometricCDF(kc, modeRate.numerator, modeRate.denominator, modeRate.rolls_per_kill);
+    modes.push({ source_name: source, name: modeName(source), kc });
+  }
+  if (modes.length < 2) return null;
+  return { probability: 1 - survival, modes };
+}
+
+/**
  * Dispatches to the correct calculation for a single drop, given its
  * matching drop_rates row. Returns supported:false rather than a number
  * for distribution types v1 doesn't model, so the caller can hide the
- * luck % in the UI instead of showing a misleading value.
+ * luck % in the UI instead of showing a misleading value. `rateOf` looks
+ * up another source's rate for the item, for drops rated across modes.
  */
 export function calculateLuck(
   drop: CollectionLogDrop,
   rate: DropRate,
+  rateOf?: (itemId: number, source: string) => DropRate | undefined,
 ): LuckResult {
   const base = {
     item_id: drop.item_id,
@@ -336,7 +373,8 @@ export function calculateLuck(
 
   switch (rate.distribution_type) {
     case "flat_geometric": {
-      const probability = geometricCDF(
+      const across = rateOf ? dropLuckAcrossModes(drop, rate, rateOf) : null;
+      const probability = across?.probability ?? geometricCDF(
         drop.kc_received,
         rate.numerator,
         rate.denominator,
@@ -349,6 +387,7 @@ export function calculateLuck(
         estimated: false,
         supported: true,
         backfilled: false,
+        ...(across ? { modes: across.modes } : {}),
       };
     }
     case "points_based": {

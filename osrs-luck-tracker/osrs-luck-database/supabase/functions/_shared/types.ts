@@ -97,6 +97,11 @@ export interface LuckResult {
   // Set when the drop came on the kill its pity timer guarantees it
   // (isPityDrop in calculations.ts). Absent otherwise.
   pity?: true;
+  // Tracked drops on pages that count several modes, when another mode's
+  // kills are known: each mode's kills at the drop, the page's own first.
+  // kc_received is still the drop's own mode's count; probability covers
+  // every mode (dropLuckAcrossModes in calculations.ts).
+  modes?: HuntingMode[];
   // POST (owner) responses only, on backfilled rows: whether the row has a
   // stored KC snapshot, shown or not. The plugin uses it to know which
   // imports still need one.

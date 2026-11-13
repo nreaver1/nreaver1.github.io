@@ -171,7 +171,7 @@ async function playerLeaderboard(supabase: SupabaseClient) {
     if (!rate) continue;
     const result = isRaidRate(rate)
       ? raidDropLuck(d, { raids: raidsByHash.get(d.account_hash) ?? [], drops: dropsByHash.get(d.account_hash) ?? [] })
-      : calculateLuck(d, rate);
+      : calculateLuck(d, rate, (id, source) => rateMap.get(`${id}::${source}`));
     resultsByHash.set(d.account_hash, [...(resultsByHash.get(d.account_hash) ?? []), result]);
   }
 

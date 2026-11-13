@@ -241,6 +241,39 @@ Deno.test("huntingLuckAcrossModes counts every mode's kills at its own rate", ()
   assert(huntingLuckAcrossModes("The Gauntlet", [normal, pity]) === null, "a non-flat mode fails closed");
 });
 
+Deno.test("a drop on a multi-mode page is rated over every mode's known kills", () => {
+  // Enhanced crystal weapon seed at 30 Corrupted, after 461 normal runs.
+  const rates = new Map([
+    ["The Gauntlet", rate({ item_id: 25859, source_name: "The Gauntlet", denominator: 2000 })],
+    ["Corrupted Gauntlet", rate({ item_id: 25859, source_name: "Corrupted Gauntlet", denominator: 400 })],
+  ]);
+  const rateOf = (_id: number, source: string) => rates.get(source);
+  const cg = rates.get("Corrupted Gauntlet")!;
+  const seed = drop({ item_id: 25859, source_name: "Corrupted Gauntlet", kc_received: 30, roll_context: { mode_kc: { "The Gauntlet": 461 } } });
+
+  const r = calculateLuck(seed, cg, rateOf);
+  assertClose(r.probability, 1 - Math.pow(399 / 400, 30) * Math.pow(1999 / 2000, 461));
+  assert(r.kc_received === 30, "kc_received stays the drop's own mode's count");
+  assert(r.modes?.map((m) => `${m.name}:${m.kc}`).join(",") === "Gauntlet:461,Corrupted Gauntlet:30", "modes in page order");
+
+  // No other mode known, no lookup, or a zero count: the mode's own rating.
+  const own = geometricCDF(30, 1, 400);
+  assertClose(calculateLuck({ ...seed, roll_context: null }, cg, rateOf).probability, own);
+  assertClose(calculateLuck(seed, cg).probability, own);
+  const zero = calculateLuck({ ...seed, roll_context: { mode_kc: { "The Gauntlet": 0 } } }, cg, rateOf);
+  assertClose(zero.probability, own);
+  assert(zero.modes === undefined, "no modes when only one has kills");
+
+  // Another mode with kills but no flat rate falls back to the own mode.
+  const pity = (_id: number, source: string) =>
+    source === "The Gauntlet" ? rate({ distribution_type: "streak_adjusted" }) : cg;
+  assertClose(calculateLuck(seed, cg, pity).probability, own);
+
+  // Pages with one mode ignore stray counts.
+  const zulrah = drop({ source_name: "Zulrah", kc_received: 30, roll_context: { mode_kc: { "The Gauntlet": 461 } } });
+  assertClose(calculateLuck(zulrah, rate({}), rateOf).probability, geometricCDF(30, 1, 100));
+});
+
 Deno.test("streak_adjusted uses kills since the previous drop", () => {
   const head = rate({
     distribution_type: "streak_adjusted",

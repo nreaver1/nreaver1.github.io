@@ -65,7 +65,17 @@ function KcCell({ r }: { r: LuckResult }) {
   if (r.kc_received === null) {
     return <span className="text-parchment-dim">&mdash;</span>;
   }
-  return <>{r.kc_received.toLocaleString()}</>;
+  // Rated over every mode's kills: name the other modes' too.
+  const others = (r.modes ?? []).filter((m) => m.source_name !== r.source_name);
+  if (others.length === 0) return <>{r.kc_received.toLocaleString()}</>;
+  return (
+    <span title={(r.modes ?? []).map((m) => `${m.kc.toLocaleString()} ${m.name}`).join(" + ")}>
+      {r.kc_received.toLocaleString()}
+      <span className="text-xs text-parchment-dim">
+        {others.map((m) => ` + ${m.kc.toLocaleString()} ${m.name}`).join("")}
+      </span>
+    </span>
+  );
 }
 
 // Formatted in UTC, the game's own clock, so the server render and the

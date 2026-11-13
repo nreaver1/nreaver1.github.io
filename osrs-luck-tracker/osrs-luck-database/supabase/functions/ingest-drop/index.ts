@@ -20,6 +20,12 @@
 // page's total completions across every mode and roll_context
 // { mode, mode_counts, raid_id }. Without `raid` (an older plugin) its
 // kc_received stays the mode's count, with roll_context { mode }.
+//
+// A drop on a page that counts several modes (The Gauntlet and Corrupted
+// Gauntlet, _shared/modes.ts) keeps its own mode's kc_received, plus
+// roll_context { mode_kc: { <other mode's source>: kc } } with the highest
+// count this account is known to have in each other mode (boss_kc, still
+// hunting rows), so the drop is rated over every mode's kills.
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { getSecretKey } from "../_shared/secret-key.ts";
@@ -27,6 +33,7 @@ import { matchSource } from "../_shared/kc-aliases.ts";
 import { pageSourceForKc, raiseKc, recordDropOnPage } from "../_shared/page-updates.ts";
 import { isRaidPage, parseRaidRecord, raidModeForKcName, type RaidRollContext } from "../_shared/raids.ts";
 import { storeRaid } from "../_shared/raid-store.ts";
+import { siblingSources } from "../_shared/modes.ts";
 import {
   isAccountHash,
   isInstallToken,
@@ -181,6 +188,30 @@ Deno.serve(async (req) => {
     .limit(1)
     .maybeSingle();
 
+  // --- Other modes' kills, for pages that count several modes ---
+  // Read before this drop's own boss_kc upsert. Counts only rise, and
+  // anything known now was seen before the drop, so each is a lower bound
+  // on that mode's kills at the drop.
+  let modeContext: { mode_kc: Record<string, number> } | null = null;
+  const otherModes = siblingSources(source_name).filter((s) => s !== source_name);
+  if (roll_context === null && otherModes.length > 0) {
+    const [{ data: bossRows, error: bossError }, { data: huntRows, error: huntError }] = await Promise.all([
+      supabase.from("boss_kc").select("boss_name, current_kc").eq("account_hash", account_hash).in("boss_name", otherModes),
+      supabase.from("hunting_items").select("source_name, kc").eq("account_hash", account_hash).in("source_name", otherModes),
+    ]);
+    if (bossError) return serverError("ingest-drop: mode kc lookup failed", bossError);
+    if (huntError) return serverError("ingest-drop: mode hunting lookup failed", huntError);
+    const mode_kc: Record<string, number> = {};
+    const known = [
+      ...(bossRows ?? []).map((r) => [r.boss_name as string, r.current_kc as number] as const),
+      ...(huntRows ?? []).map((r) => [r.source_name as string, r.kc as number] as const),
+    ];
+    for (const [source, kc] of known) {
+      if (kc > 0) mode_kc[source] = Math.max(mode_kc[source] ?? 0, kc);
+    }
+    if (Object.keys(mode_kc).length > 0) modeContext = { mode_kc };
+  }
+
   // --- Upsert current_kc into boss_kc ---
   await supabase.from("boss_kc").upsert(
     {
@@ -203,7 +234,7 @@ Deno.serve(async (req) => {
       kc_at_previous_drop: previousDrop
         ? kcReceived - previousDrop.kc_received
         : kcReceived,
-      roll_context,
+      roll_context: roll_context ?? modeContext,
       date_received: dateReceived.toISOString(),
     })
     .select()

@@ -12,6 +12,9 @@
 //   Raid completion counts ("Theatre of Blood: Hard Mode") are per mode
 //   while the raid page counts every mode, so they raise the page to the
 //   sum of what each mode is known to be at (raidKcLowerBound).
+//   Counts for the modes of a multi-mode page (Gauntlet, Corrupted
+//   Gauntlet) also raise that mode's boss_kc row, which ingest-drop reads
+//   to rate a drop over every mode's kills.
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { getSecretKey } from "../_shared/secret-key.ts";
@@ -27,6 +30,11 @@ import {
 } from "../_shared/http.ts";
 import { pageSourceForKc, raidKcLowerBound, raiseKc } from "../_shared/page-updates.ts";
 import { type ModeCounts, raidModeForKcName } from "../_shared/raids.ts";
+import { matchSource } from "../_shared/kc-aliases.ts";
+import { PAGE_MODES } from "../_shared/modes.ts";
+
+// Every source of a page that counts several modes, the page's own included.
+const MODE_SOURCES = Object.entries(PAGE_MODES).flatMap(([page, m]) => [page, ...m.variants]);
 
 const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
 const serviceRoleKey = getSecretKey();
@@ -123,6 +131,31 @@ Deno.serve(async (req) => {
   for (const [source, kc] of highest) {
     const error = await raiseKc(supabase, account_hash, source, kc);
     if (error) return serverError("update-kc: raise failed", error);
+  }
+
+  // Modes of a multi-mode page (The Gauntlet, Corrupted Gauntlet): keep
+  // each mode's count in boss_kc, so ingest-drop can rate a drop in one
+  // mode over the kills from the others too.
+  const modeKcs = new Map<string, number>();
+  for (const c of counts as Count[]) {
+    const source = matchSource(c.source_name, MODE_SOURCES);
+    if (source) modeKcs.set(source, Math.max(modeKcs.get(source) ?? 0, c.kc));
+  }
+  if (modeKcs.size > 0) {
+    const { data: stored, error: storedError } = await supabase
+      .from("boss_kc")
+      .select("boss_name, current_kc")
+      .eq("account_hash", account_hash)
+      .in("boss_name", [...modeKcs.keys()]);
+    if (storedError) return serverError("update-kc: boss kc lookup failed", storedError);
+    const now = new Date().toISOString();
+    const raised = [...modeKcs]
+      .filter(([source, kc]) => kc > ((stored ?? []).find((r) => r.boss_name === source)?.current_kc ?? 0))
+      .map(([boss_name, current_kc]) => ({ account_hash, boss_name, current_kc, updated_at: now }));
+    if (raised.length > 0) {
+      const { error } = await supabase.from("boss_kc").upsert(raised, { onConflict: "account_hash,boss_name" });
+      if (error) return serverError("update-kc: boss kc raise failed", error);
+    }
   }
 
   return json({ matched: highest.size }, 200);

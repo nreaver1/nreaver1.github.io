@@ -25,6 +25,13 @@ export interface LuckResult {
   backfilled: boolean; // true = "obtained before tracking started, luck unknown"
   snapshot?: SnapshotLuck; // backfilled flat-rate items with a KC snapshot only
   pity?: true; // came on the kill its pity timer guarantees it (Vorkath's head at 50)
+  /**
+   * Drops on pages that count several modes (The Gauntlet and its corrupted
+   * runs), when another mode's kills are known: each mode's kills at the
+   * drop, the page's own first. `kc_received` is still the drop's own
+   * mode's count; `probability` covers every mode.
+   */
+  modes?: HuntingMode[];
   item_name?: string; // resolved client-side or by the API for display
 }
 
