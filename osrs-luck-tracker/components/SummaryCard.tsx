@@ -2,6 +2,7 @@ import type { LuckResult } from "@/lib/types";
 import LuckBar from "./LuckBar";
 import ItemIcon from "./ItemIcon";
 import PityBadge from "./PityBadge";
+import FirstKillBadge from "./FirstKillBadge";
 import SourceLink from "./SourceLink";
 import { dropText } from "@/lib/luck-text";
 
@@ -66,6 +67,7 @@ export default function SummaryCard({
             {result.kc_received !== null ? " · " : ""}<SourceLink source={result.source_name} />
             {result.estimated ? " · estimated" : ""}
             {result.pity && <PityBadge className="ml-2" />}
+            <FirstKillBadge r={result} className="ml-2" />
           </p>
           <div className="mt-4">
             <LuckBar probability={result.probability} label={result.label} title={dropText(result)} />

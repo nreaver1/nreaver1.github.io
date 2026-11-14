@@ -3,6 +3,7 @@
 // two always say the same thing.
 import type { HuntingMode, HuntingResult, LuckResult, PoolResult, RaidSummary } from "./types";
 import { describePercentile } from "./overall";
+import { isFirstKill } from "./first-kill";
 
 /** Rounded like the percentage shown next to it. */
 const pct = (p: number) => Math.round(p * 100);
@@ -28,6 +29,7 @@ export function dropText(r: LuckResult): string {
     `Lower is luckier: ${p}% means ${100 - p} in 100 players would still be waiting.`;
   if (r.estimated) text += " Approximate: this rate depends on raid points or a pity timer.";
   if (r.pity) text += " Guaranteed by the pity timer on this kill.";
+  if (isFirstKill(r)) text += " Dropped on the first kill.";
   return text;
 }
 

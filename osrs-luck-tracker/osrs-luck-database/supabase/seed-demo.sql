@@ -45,6 +45,7 @@ values
   ('demo-zezima', 20997, 'Chambers of Xeric',   1900,  1900,  false, now() - interval '40 days',  now() - interval '40 days'),  -- points_based (estimated)
   ('demo-zezima', 27283, 'Tombs of Amascut',    25,    25,    false, now() - interval '30 days',  now() - interval '30 days'),  -- streak_adjusted (estimated)
   ('demo-zezima', 29889, 'Amoxliatl',           null,  null,  true,  null,                        now() - interval '199 days'), -- backfilled
+  ('demo-zezima', 12655, 'Kraken',              1,     1,     false, now() - interval '110 days', now() - interval '110 days'), -- first kill (pet, 1/3,000)
   -- Shared with Spoonfed and Dry Bones so the comparison page has rows to compare.
   ('demo-zezima', 12819, 'Corporeal Beast',     6000,  6000,  false, now() - interval '90 days',  now() - interval '90 days'),  -- average
   ('demo-zezima', 21907, 'Vorkath',             20,    20,    false, now() - interval '180 days', now() - interval '180 days'), -- streak_adjusted (estimated)
@@ -143,6 +144,7 @@ insert into boss_kc (account_hash, boss_name, current_kc) values
   ('demo-zezima',     'Chambers of Xeric', 2050),
   ('demo-zezima',     'Tombs of Amascut',  415),
   ('demo-zezima',     'Zulrah',            760),
+  ('demo-zezima',     'Kraken',            340),
   ('demo-newscape',   'General Graardor',  301),
   ('demo-newscape',   'The Gauntlet',      112),
   ('demo-emptylogs',  'General Graardor',  18),

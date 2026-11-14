@@ -7,6 +7,7 @@ import LuckBar from "./LuckBar";
 import LuckBadge from "./LuckBadge";
 import ItemIcon from "./ItemIcon";
 import PityBadge from "./PityBadge";
+import FirstKillBadge from "./FirstKillBadge";
 import SourceLink from "./SourceLink";
 import { dropText, snapshotLuckText } from "@/lib/luck-text";
 
@@ -43,8 +44,9 @@ function LuckCell({ r, showBadge = false }: { r: LuckResult; showBadge?: boolean
   }
   if (!r.supported) {
     return (
-      <span className="font-mono text-xs text-parchment-dim">
+      <span className="flex items-center gap-3 font-mono text-xs text-parchment-dim">
         not yet supported
+        <FirstKillBadge r={r} />
       </span>
     );
   }
@@ -56,6 +58,7 @@ function LuckCell({ r, showBadge = false }: { r: LuckResult; showBadge?: boolean
       )}
       {showBadge && <LuckBadge probability={r.probability} />}
       {r.pity && <PityBadge />}
+      <FirstKillBadge r={r} />
     </div>
   );
 }

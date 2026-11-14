@@ -6,6 +6,7 @@ import type { ComparisonRow } from "@/lib/compare";
 import BacklogToggle, { EstimatesToggle, withoutEstimate } from "./BacklogToggle";
 import LuckBadge from "./LuckBadge";
 import PityBadge from "./PityBadge";
+import FirstKillBadge from "./FirstKillBadge";
 import ItemIcon from "./ItemIcon";
 import { compareResults, snapshotText, type SortDir } from "./LuckTable";
 import { dropText, snapshotLuckText } from "@/lib/luck-text";
@@ -60,6 +61,7 @@ function Cell({ r }: { r: LuckResult | null }) {
     return (
       <span className="font-mono text-xs text-parchment-dim">
         {kc ? `${kc} · ` : ""}not yet supported
+        <FirstKillBadge r={r} className="ml-2" />
       </span>
     );
   }
@@ -84,6 +86,7 @@ function Cell({ r }: { r: LuckResult | null }) {
       <div className="mt-0.5 flex items-center gap-2">
         <LuckBadge probability={r.probability} />
         {r.pity && <PityBadge />}
+        <FirstKillBadge r={r} />
       </div>
     </div>
   );
@@ -122,6 +125,7 @@ function MobileRow({ name, r, luckiest }: { name: string; r: LuckResult | null; 
     detail = (
       <span className="text-parchment-dim">
         {r.kc_received !== null ? `${r.kc_received.toLocaleString()} KC · ` : ""}not supported
+        <FirstKillBadge r={r} className="ml-2" />
       </span>
     );
   } else {
@@ -135,6 +139,7 @@ function MobileRow({ name, r, luckiest }: { name: string; r: LuckResult | null; 
         <span className="tabular-nums text-parchment-dim" title={dropText(r)}>{pct}%</span>
         <LuckBadge probability={r.probability} />
         {r.pity && <PityBadge />}
+        <FirstKillBadge r={r} />
       </>
     );
     bar = (

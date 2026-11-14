@@ -156,11 +156,24 @@ const ZEZIMA: PlayerLuckResponse = {
       supported: true,
       backfilled: false,
     },
+    {
+      // On the very first kill: the first-kill badge. 1/3,000 at KC 1.
+      item_id: 12655,
+      source_name: "Kraken",
+      kc_received: 1,
+      date_received: daysAgo(110),
+      probability: 1 / 3000,
+      label: "spooned",
+      estimated: false,
+      supported: true,
+      backfilled: false,
+    },
   ],
   mostSpooned: null,
   driest: null,
 };
-ZEZIMA.mostSpooned = ZEZIMA.results[0];
+// The pet on the first kill is the lowest probability, as summarizePlayerLuck would pick.
+ZEZIMA.mostSpooned = ZEZIMA.results[ZEZIMA.results.length - 1];
 ZEZIMA.driest = ZEZIMA.results[4];
 
 // A newer account: only a couple of drops, mostly average luck.
