@@ -16,8 +16,9 @@ export default function LuckScale() {
       </summary>
       <div className="border-t border-panel-border px-4 pb-4 pt-3">
         <p className="text-sm leading-relaxed text-parchment-dim">
-          The percentage is the chance you&apos;d have had the drop by the kill count you got it.
-          Lower means luckier: 10% means 9 in 10 players would still be waiting.
+          The percentage is how many players would have had the drop by the kill count you got it.
+          Lower means luckier: 10% means 90 in 100 players would still be waiting. Hover any
+          percentage to see what it measures.
           <span className="font-mono text-xs"> est.</span> marks rates that depend on raid points
           or a pity timer, so they&apos;re approximate.
         </p>

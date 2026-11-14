@@ -2,6 +2,7 @@ import { MIN_RATED_DROPS, describePercentile, type OverallLuck } from "@/lib/ove
 import { luckTier } from "@/lib/luck-tier";
 import LuckBadge from "./LuckBadge";
 import { HOT_CARD_CLASS } from "./SummaryCard";
+import { averageDropText, overallText } from "@/lib/luck-text";
 
 const HEADLINE_CLASS = {
   jackpot: "text-flame3",
@@ -12,7 +13,7 @@ const HEADLINE_CLASS = {
 } as const;
 
 /** The account's luck across every rated drop, as a percentile. */
-export default function OverallCard({ overall }: { overall: OverallLuck | null }) {
+export default function OverallCard({ overall, ign }: { overall: OverallLuck | null; ign: string }) {
   const tier = overall ? luckTier(overall.percentile) : null;
   const headline = overall ? describePercentile(overall.percentile) : null;
   const hot = tier?.tone === "jackpot";
@@ -31,7 +32,10 @@ export default function OverallCard({ overall }: { overall: OverallLuck | null }
 
       {overall && tier && headline ? (
         <>
-          <p className={`mt-2 font-serif text-3xl font-medium sm:text-4xl ${HEADLINE_CLASS[tier.tone]}`}>
+          <p
+            className={`mt-2 font-serif text-3xl font-medium sm:text-4xl ${HEADLINE_CLASS[tier.tone]}`}
+            title={overallText(ign, overall.percentile, overall.ratedDrops)}
+          >
             {headline.side} than {headline.pct}
           </p>
           <p className="mt-1 text-sm text-parchment-dim">
@@ -39,7 +43,7 @@ export default function OverallCard({ overall }: { overall: OverallLuck | null }
           </p>
           <p className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 font-mono text-xs text-parchment-dim">
             <LuckBadge probability={overall.percentile} />
-            <span>Average drop {Math.round(overall.average * 100)}%</span>
+            <span title={averageDropText(ign, overall.ratedDrops)}>Average drop {Math.round(overall.average * 100)}%</span>
             {overall.unrated > 0 && (
               <span>
                 {overall.unrated} backlogged or unrated {overall.unrated === 1 ? "drop" : "drops"} not counted

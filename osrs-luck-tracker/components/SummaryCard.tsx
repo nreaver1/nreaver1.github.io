@@ -3,6 +3,7 @@ import LuckBar from "./LuckBar";
 import ItemIcon from "./ItemIcon";
 import PityBadge from "./PityBadge";
 import SourceLink from "./SourceLink";
+import { dropText } from "@/lib/luck-text";
 
 /** Flame-gradient border and glow, reserved for jackpot/spooned cards. */
 export const HOT_CARD_CLASS =
@@ -67,7 +68,7 @@ export default function SummaryCard({
             {result.pity && <PityBadge className="ml-2" />}
           </p>
           <div className="mt-4">
-            <LuckBar probability={result.probability} label={result.label} />
+            <LuckBar probability={result.probability} label={result.label} title={dropText(result)} />
           </div>
         </>
       ) : (

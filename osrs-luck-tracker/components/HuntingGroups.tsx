@@ -4,8 +4,7 @@ import LuckBar from "./LuckBar";
 import { TierText } from "./LuckBadge";
 import ItemIcon from "./ItemIcon";
 import SourceLink from "./SourceLink";
-
-const HUNTING_DESCRIPTION = "of players would have had it by this KC";
+import { huntingText } from "@/lib/luck-text";
 
 const itemName = (h: HuntingResult) => h.item_name ?? `Item #${h.item_id}`;
 const pct = (p: number) => `${Math.round(p * 100)}%`;
@@ -94,7 +93,7 @@ function HuntingCard({ group }: { group: Group }) {
           <span className="min-w-0 truncate">{itemName(lead)}</span>
         </div>
         <div className="mt-1.5 flex items-center gap-3">
-          <LuckBar probability={lead.probability} label={barLabel(lead)} description={HUNTING_DESCRIPTION} />
+          <LuckBar probability={lead.probability} label={barLabel(lead)} title={huntingText(lead)} />
           <HuntingBadge probability={lead.probability} />
         </div>
       </div>
@@ -112,7 +111,8 @@ function HuntingCard({ group }: { group: Group }) {
                 <span className="min-w-0 flex-1 truncate text-parchment-dim">{itemName(h)}</span>
                 <span
                   className="font-mono text-xs tabular-nums text-parchment-dim"
-                  aria-label={`${pct(h.probability)} ${HUNTING_DESCRIPTION}`}
+                  title={huntingText(h)}
+                  aria-label={huntingText(h)}
                 >
                   {pct(h.probability)}
                 </span>

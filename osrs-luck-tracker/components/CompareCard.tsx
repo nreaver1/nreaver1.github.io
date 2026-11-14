@@ -4,6 +4,7 @@ import ItemIcon from "./ItemIcon";
 import DemoBadge from "./DemoBadge";
 import LuckBadge from "./LuckBadge";
 import { describePercentile, overallLuck } from "@/lib/overall";
+import { dropText, overallText } from "@/lib/luck-text";
 
 function Highlight({ label, result, hot = false }: { label: string; result: LuckResult | null; hot?: boolean }) {
   return (
@@ -20,7 +21,7 @@ function Highlight({ label, result, hot = false }: { label: string; result: Luck
           <ItemIcon itemId={result.item_id} name={result.item_name ?? `Item #${result.item_id}`} size="sm" />
           <span>
             {result.item_name ?? `Item #${result.item_id}`}{" "}
-            <span className="font-mono text-xs text-parchment-dim">
+            <span className="font-mono text-xs text-parchment-dim" title={dropText(result)}>
               {Math.round(result.probability * 100)}%
             </span>
           </span>
@@ -73,7 +74,7 @@ export default function CompareCard({
         <p className="font-mono text-xs uppercase tracking-wide text-parchment-dim">Overall</p>
         {overall && headline ? (
           <p className="mt-1 flex flex-wrap items-baseline gap-x-2 text-sm text-parchment">
-            <span>
+            <span title={overallText(player.ign, overall.percentile, overall.ratedDrops)}>
               {headline.side} than {headline.pct}
             </span>
             <LuckBadge probability={overall.percentile} />

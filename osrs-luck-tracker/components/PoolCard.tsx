@@ -3,14 +3,15 @@ import LuckBar from "./LuckBar";
 import LuckBadge from "./LuckBadge";
 import ItemIcon from "./ItemIcon";
 import SourceLink from "./SourceLink";
+import { poolSlotsText, poolUniquesText } from "@/lib/luck-text";
 
 const oneDecimal = (n: number) => n.toLocaleString(undefined, { maximumFractionDigits: 1 });
 
-function ScoreRow({ label, value, score, description }: {
+function ScoreRow({ label, value, score, title }: {
   label: string;
   value: string;
   score: PoolScore;
-  description: string;
+  title: string;
 }) {
   return (
     <div>
@@ -21,7 +22,7 @@ function ScoreRow({ label, value, score, description }: {
         </span>
       </div>
       <div className="mt-1.5 flex items-center gap-3">
-        <LuckBar probability={score.probability} label={score.label} description={description} />
+        <LuckBar probability={score.probability} label={score.label} title={title} />
         <LuckBadge probability={score.probability} />
       </div>
     </div>
@@ -54,14 +55,14 @@ export default function PoolCard({ pool }: { pool: PoolResult }) {
             label="Uniques"
             value={pool.total.count.toLocaleString()}
             score={pool.total}
-            description="of players would have more uniques by this KC"
+            title={poolUniquesText(pool)}
           />
         )}
         <ScoreRow
           label="Log slots"
           value={`${pool.distinct.count} of ${pool.distinct.of}`}
           score={pool.distinct}
-          description="of players would have more of these slots filled by this KC"
+          title={poolSlotsText(pool)}
         />
       </div>
 

@@ -3,6 +3,7 @@ import ItemIcon from "./ItemIcon";
 import LuckBar from "./LuckBar";
 import LuckBadge from "./LuckBadge";
 import SourceLink from "./SourceLink";
+import { lastRaidChanceText, raidPurplesText } from "@/lib/luck-text";
 
 const MODE_LABELS: Record<string, string> = {
   entry: "Entry",
@@ -36,7 +37,7 @@ function lastRaidResult(last: NonNullable<RaidSummary["last_raid"]>): string | n
  * recorded against what a fair-luck player would expect from the same
  * raid levels and points.
  */
-export default function RaidCard({ raid }: { raid: RaidSummary }) {
+export default function RaidCard({ raid, ign }: { raid: RaidSummary; ign: string }) {
   const modes = MODE_ORDER.filter((m) => m in raid.mode_counts);
   const last = raid.last_raid;
   const result = last && lastRaidResult(last);
@@ -79,7 +80,7 @@ export default function RaidCard({ raid }: { raid: RaidSummary }) {
             <LuckBar
               probability={raid.probability}
               label={raid.label}
-              description="of players would have more purples from these raids"
+              title={raidPurplesText(raid)}
             />
             <LuckBadge probability={raid.probability} />
           </div>
@@ -106,7 +107,12 @@ export default function RaidCard({ raid }: { raid: RaidSummary }) {
       {last && (
         <p className="mt-4 text-sm text-parchment-dim">
           Last raid: {lastRaidLine(last)}
-          {last.unique_chance !== null && <> &middot; {percent(last.unique_chance)} purple chance</>}
+          {last.unique_chance !== null && (
+            <>
+              {" "}&middot;{" "}
+              <span title={lastRaidChanceText(ign, lastRaidLine(last))}>{percent(last.unique_chance)} purple chance</span>
+            </>
+          )}
           {result && (
             <>
               {" "}&middot;{" "}

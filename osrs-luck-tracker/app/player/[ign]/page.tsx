@@ -124,7 +124,7 @@ export default async function PlayerPage({
         {/* Overall luck leads; the compare search moves to its right on
             wider screens and drops below it on phones. */}
         <div className="mt-6 grid items-start gap-4 sm:grid-cols-[minmax(0,1fr)_17rem]">
-          <OverallCard overall={overallLuck(data.results)} />
+          <OverallCard overall={overallLuck(data.results)} ign={data.ign} />
           <div className="sm:pt-1">
             <SearchBar mode="compare" primary={ign} compared={compared} compact />
             <DemoQuickLinks mode="compare" primary={ign} compared={compared} />
@@ -158,7 +158,7 @@ export default async function PlayerPage({
             </p>
             <div className="grid gap-4 sm:grid-cols-2">
               {data.raids!.map((raid) => (
-                <RaidCard key={raid.raid} raid={raid} />
+                <RaidCard key={raid.raid} raid={raid} ign={data.ign} />
               ))}
             </div>
           </div>

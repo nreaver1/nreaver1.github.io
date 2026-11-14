@@ -6,6 +6,7 @@ import LuckBadge from "./LuckBadge";
 import DemoBadge from "./DemoBadge";
 import { DRY_CARD_CLASS, HOT_CARD_CLASS } from "./SummaryCard";
 import { describePercentile } from "@/lib/overall";
+import { averageDropText, overallText } from "@/lib/luck-text";
 
 /** One side of the leaderboard: players ranked by overall luck percentile. */
 export default function LeaderboardList({
@@ -69,11 +70,12 @@ export default function LeaderboardList({
                       {e.highlight.kc_received !== null && ` at ${e.highlight.kc_received.toLocaleString()} KC`}
                       {" · "}
                       {e.rated_drops} rated {e.rated_drops === 1 ? "drop" : "drops"}
-                      {" · "}avg {Math.round(e.average_probability * 100)}%
+                      {" · "}
+                      <span title={averageDropText(e.ign, e.rated_drops)}>avg {Math.round(e.average_probability * 100)}%</span>
                     </span>
                   </p>
                 </div>
-                <div className="shrink-0 text-right">
+                <div className="shrink-0 text-right" title={overallText(e.ign, e.percentile, e.rated_drops)}>
                   <p className="font-mono text-[10px] uppercase tracking-wide text-parchment-dim">
                     {headline.side} than
                   </p>

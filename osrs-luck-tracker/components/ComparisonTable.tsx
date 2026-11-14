@@ -7,7 +7,8 @@ import BacklogToggle, { EstimatesToggle, withoutEstimate } from "./BacklogToggle
 import LuckBadge from "./LuckBadge";
 import PityBadge from "./PityBadge";
 import ItemIcon from "./ItemIcon";
-import { compareResults, SNAPSHOT_DESCRIPTION, snapshotText, type SortDir } from "./LuckTable";
+import { compareResults, snapshotText, type SortDir } from "./LuckTable";
+import { dropText, snapshotLuckText } from "@/lib/luck-text";
 import SourceLink from "./SourceLink";
 
 const FILL_CLASS: Record<LuckResult["label"], string> = {
@@ -35,11 +36,11 @@ function Cell({ r }: { r: LuckResult | null }) {
           {snapshotText(r.snapshot)}
           <span className="text-xs text-parchment-dim"> est.</span>
         </p>
-        <div className="mt-1 flex items-center gap-2">
+        <div className="mt-1 flex items-center gap-2" title={snapshotLuckText(r)}>
           <div
             className="h-1 w-16 shrink-0 bg-panel-border"
             role="img"
-            aria-label={`${snapPct}% ${SNAPSHOT_DESCRIPTION}`}
+            aria-label={snapshotLuckText(r)}
           >
             <div className={`h-full ${FILL_CLASS[r.snapshot.label]}`} style={{ width: `${Math.min(snapPct, 100)}%` }} />
           </div>
@@ -70,11 +71,11 @@ function Cell({ r }: { r: LuckResult | null }) {
         {kc}
         {r.estimated && <span className="text-xs text-parchment-dim"> est.</span>}
       </p>
-      <div className="mt-1 flex items-center gap-2">
+      <div className="mt-1 flex items-center gap-2" title={dropText(r)}>
         <div
           className="h-1 w-16 shrink-0 bg-panel-border"
           role="img"
-          aria-label={`${pct}% likely to have taken this long or less`}
+          aria-label={dropText(r)}
         >
           <div className={`h-full ${FILL_CLASS[r.label]}`} style={{ width: `${Math.min(pct, 100)}%` }} />
         </div>
@@ -106,12 +107,12 @@ function MobileRow({ name, r, luckiest }: { name: string; r: LuckResult | null; 
           {snapshotText(r.snapshot)}
           <span className="text-parchment-dim"> est.</span>
         </span>
-        <span className="tabular-nums text-parchment-dim">{snapPct}%</span>
+        <span className="tabular-nums text-parchment-dim" title={snapshotLuckText(r)}>{snapPct}%</span>
         <LuckBadge probability={r.snapshot.probability} />
       </>
     );
     bar = (
-      <div className="mt-1.5 h-1 bg-panel-border" role="img" aria-label={`${snapPct}% ${SNAPSHOT_DESCRIPTION}`}>
+      <div className="mt-1.5 h-1 bg-panel-border" role="img" aria-label={snapshotLuckText(r)}>
         <div className={`h-full ${FILL_CLASS[r.snapshot.label]}`} style={{ width: `${Math.min(snapPct, 100)}%` }} />
       </div>
     );
@@ -131,7 +132,7 @@ function MobileRow({ name, r, luckiest }: { name: string; r: LuckResult | null; 
           {r.kc_received !== null ? `${r.kc_received.toLocaleString()} KC` : ""}
           {r.estimated && <span className="text-parchment-dim"> est.</span>}
         </span>
-        <span className="tabular-nums text-parchment-dim">{pct}%</span>
+        <span className="tabular-nums text-parchment-dim" title={dropText(r)}>{pct}%</span>
         <LuckBadge probability={r.probability} />
         {r.pity && <PityBadge />}
       </>
@@ -140,7 +141,7 @@ function MobileRow({ name, r, luckiest }: { name: string; r: LuckResult | null; 
       <div
         className="mt-1.5 h-1 bg-panel-border"
         role="img"
-        aria-label={`${pct}% likely to have taken this long or less`}
+        aria-label={dropText(r)}
       >
         <div className={`h-full ${FILL_CLASS[r.label]}`} style={{ width: `${Math.min(pct, 100)}%` }} />
       </div>

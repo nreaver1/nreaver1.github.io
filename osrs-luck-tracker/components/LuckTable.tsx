@@ -8,8 +8,7 @@ import LuckBadge from "./LuckBadge";
 import ItemIcon from "./ItemIcon";
 import PityBadge from "./PityBadge";
 import SourceLink from "./SourceLink";
-
-export const SNAPSHOT_DESCRIPTION = "chance a fair player has more by this KC, counting ties as half";
+import { dropText, snapshotLuckText } from "@/lib/luck-text";
 
 /** "2 by 200 KC": the log page's count when it was imported. */
 export function snapshotText(s: SnapshotLuck) {
@@ -25,7 +24,7 @@ function LuckCell({ r, showBadge = false }: { r: LuckResult; showBadge?: boolean
     return (
       <div>
         <div className="flex items-center gap-3">
-          <LuckBar probability={r.snapshot.probability} label={r.snapshot.label} description={SNAPSHOT_DESCRIPTION} />
+          <LuckBar probability={r.snapshot.probability} label={r.snapshot.label} title={snapshotLuckText(r)} />
           <span className="font-mono text-xs text-parchment-dim">est.</span>
           {showBadge && <LuckBadge probability={r.snapshot.probability} />}
         </div>
@@ -51,7 +50,7 @@ function LuckCell({ r, showBadge = false }: { r: LuckResult; showBadge?: boolean
   }
   return (
     <div className="flex items-center gap-3">
-      <LuckBar probability={r.probability} label={r.label} />
+      <LuckBar probability={r.probability} label={r.label} title={dropText(r)} />
       {r.estimated && (
         <span className="font-mono text-xs text-parchment-dim">est.</span>
       )}
