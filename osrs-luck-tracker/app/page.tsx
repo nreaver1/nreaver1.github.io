@@ -68,8 +68,8 @@ export default function HomePage() {
         <Image
           src="/side-panel.png"
           alt="The Clog Casino side panel in RuneLite, showing overall luck, the luckiest and driest drops, and the items still being hunted at each boss"
-          width={235}
-          height={706}
+          width={233}
+          height={739}
           unoptimized
           className="mx-auto shrink-0 border border-panel-border sm:mx-0"
         />
